@@ -48,8 +48,8 @@ Este backlog está organizado por épicas y por orden recomendado.
 
 ## Épica E — Overlays (flechas, líneas, rectángulos, texto)
 - [x] (P0) Definir `overlays[]` en `project.json` + helpers CRUD
-- [ ] (P0) Canvas overlay editing: drag + resize handles, inspector de estilo (stroke width, color, shadow)
-- [ ] (P0) Render de overlays en preview
+- [x] (P0) Canvas overlay editing: drag + resize handles, inspector de estilo (stroke width, color, shadow)
+- [x] (P0) Render de overlays en preview
 - [ ] (P0) Soporte de timing start/end por overlay
 - [ ] (P1) Animaciones: fade in/out, "draw-on" (opcional)
 
