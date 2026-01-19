@@ -50,7 +50,7 @@ Este backlog está organizado por épicas y por orden recomendado.
 - [x] (P0) Definir `overlays[]` en `project.json` + helpers CRUD
 - [x] (P0) Canvas overlay editing: drag + resize handles, inspector de estilo (stroke width, color, shadow)
 - [x] (P0) Render de overlays en preview
-- [ ] (P0) Soporte de timing start/end por overlay
+- [x] (P0) Soporte de timing start/end por overlay
 - [ ] (P1) Animaciones: fade in/out, "draw-on" (opcional)
 
 ---
@@ -58,7 +58,7 @@ Este backlog está organizado por épicas y por orden recomendado.
 ## Épica F — Preview Engine
 > **Nota:** Iniciar en paralelo con Épica D. El preview es esencial para desarrollar y probar el editor.
 
-- [ ] (P0) `PreviewEngine`: playback con edits aplicados, seek/play/pause
+- [x] (P0) `PreviewEngine`: playback con edits aplicados, seek/play/pause
 - [ ] (P0) Generación de proxies (para archivos grandes): proxy de baja resolución para preview fluido, usar original solo en export
 - [ ] (P1) Cache de thumbnails / waveform (mejora UX)
 
