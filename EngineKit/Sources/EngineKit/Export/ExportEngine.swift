@@ -7,6 +7,7 @@
 
 import Foundation
 import AVFoundation
+import AppKit
 import os.log
 
 /// ExportEngine handles video export with trims, cuts, layouts, and overlays applied
@@ -350,7 +351,27 @@ public actor ExportEngine {
 
             exportSession.outputURL = outputURL
             exportSession.outputFileType = .mp4
-            exportSession.videoComposition = videoComposition
+
+            // Apply burn-in captions if enabled
+            if options.burnCaptions || preset.options.burnCaptions {
+                logger.debug("Burn-in captions enabled, applying caption layer")
+                do {
+                    let animationTool = try await createCaptionLayer(
+                        for: project,
+                        projectId: projectId,
+                        renderSize: videoComposition.renderSize,
+                        compositionDuration: composition.duration
+                    )
+                    videoComposition.animationTool = animationTool
+                    exportSession.videoComposition = videoComposition
+                    logger.debug("Caption layer applied successfully")
+                } catch {
+                    logger.error("Failed to apply caption layer: \(error.localizedDescription)")
+                    // Continue export without captions if caption layer fails
+                }
+            } else {
+                exportSession.videoComposition = videoComposition
+            }
 
             logger.debug("Export session configured successfully")
 
@@ -436,7 +457,201 @@ public actor ExportEngine {
         }
     }
 
-    /// Validate that all source files exist
+    /// Create caption layer for burn-in captions
+    /// - Parameters:
+    ///   - project: Project with captions
+    ///   - projectId: Project ID for file path resolution
+    ///   - renderSize: Size of the output video
+    ///   - compositionDuration: Duration of the composition
+    /// - Returns: AVVideoCompositionCoreAnimationTool with caption layer
+    private func createCaptionLayer(
+        for project: Project,
+        projectId: ProjectId,
+        renderSize: CoreFoundation.CGSize,
+        compositionDuration: CMTime
+    ) async throws -> AVVideoCompositionCoreAnimationTool {
+        logger.debug("Creating caption layer for burn-in")
+
+        // Load captions from project
+        guard let captionsConfig = project.captions else {
+            logger.warning("No captions configured in project")
+            throw ExportError.exportFailed("No captions available for burn-in")
+        }
+
+        // Load caption file
+        let projectDirectory = getProjectDirectory(for: projectId)
+        let captionPath = projectDirectory.appendingPathComponent(captionsConfig.srtPath)
+
+        guard fileManager.fileExists(atPath: captionPath.path) else {
+            logger.error("Caption file not found: \(captionPath)")
+            throw ExportError.sourceFileNotFound(captionsConfig.srtPath)
+        }
+
+        // Parse captions
+        let captionsManager = CaptionsManager()
+        try captionsManager.loadCaptions(from: captionPath.path)
+        let captions = captionsManager.getAllCaptions()
+
+        logger.debug("Loaded \(captions.count) captions for burn-in")
+
+        // Create parent layer for video composition
+        let parentLayer = CALayer()
+        parentLayer.frame = CGRect(origin: .zero, size: renderSize)
+
+        // Create video layer
+        let videoLayer = CALayer()
+        videoLayer.frame = CGRect(origin: .zero, size: renderSize)
+        parentLayer.addSublayer(videoLayer)
+
+        // Create caption layer
+        let captionLayer = CALayer()
+        captionLayer.frame = CGRect(origin: .zero, size: renderSize)
+        parentLayer.addSublayer(captionLayer)
+
+        // Get caption style
+        let style = captionsManager.getStyle()
+
+        // Create text attributes
+        let fontSize = style.fontSize * CGFloat(renderSize.height)
+        let font = NSFont(name: style.fontFamily, size: fontSize) ?? NSFont.systemFont(ofSize: fontSize)
+
+        // Calculate text position
+        let yPos = (1.0 - style.verticalPosition) * CGFloat(renderSize.height) - fontSize
+        let maxLineWidth = style.maxLineWidth * CGFloat(renderSize.width)
+
+        // Process each caption and create animation
+        for caption in captions {
+            let startTime = CMTime(seconds: caption.start, preferredTimescale: 600)
+            let endTime = CMTime(seconds: caption.end, preferredTimescale: 600)
+
+            // Create text layer for this caption
+            let textLayer = CATextLayer()
+            textLayer.string = caption.text
+            textLayer.font = font
+            textLayer.fontSize = fontSize
+            textLayer.foregroundColor = NSColor(hex: style.textColor).cgColor
+
+            // Background
+            if style.backgroundOpacity > 0 {
+                let bgColor = NSColor(hex: style.backgroundColor).withAlphaComponent(style.backgroundOpacity)
+                textLayer.backgroundColor = bgColor.cgColor
+                textLayer.cornerRadius = fontSize * 0.2
+            }
+
+            // Shadow
+            if style.shadow {
+                textLayer.shadowColor = NSColor.black.cgColor
+                textLayer.shadowOffset = CGSize(width: 0, height: -1)
+                textLayer.shadowRadius = 2
+                textLayer.shadowOpacity = 0.5
+            }
+
+            // Alignment
+            let xPos: CGFloat
+            switch style.horizontalAlignment {
+            case 0.0: // Left
+                textLayer.alignmentMode = .left
+                xPos = CGFloat(renderSize.width) * (1.0 - style.maxLineWidth) / 2.0
+            case 1.0: // Right
+                textLayer.alignmentMode = .right
+                xPos = CGFloat(renderSize.width) * (1.0 + style.maxLineWidth) / 2.0
+            default: // Center (0.5)
+                textLayer.alignmentMode = .center
+                xPos = CGFloat(renderSize.width) * 0.5
+            }
+
+            // Wrap text if needed
+            let wrappedText = wrapText(caption.text, font: font, maxWidth: maxLineWidth)
+            textLayer.string = wrappedText
+
+            // Calculate text size
+            let textSize = (wrappedText as NSString).size(withAttributes: [.font: font])
+
+            // Position text
+            let textX = xPos - textSize.width / 2.0
+            let textY = yPos - textSize.height
+            textLayer.frame = CGRect(x: textX, y: textY, width: textSize.width, height: textSize.height)
+
+            // Create fade-in and fade-out animations
+            textLayer.opacity = 0.0
+
+            // Fade in animation
+            let fadeIn = CABasicAnimation(keyPath: "opacity")
+            fadeIn.fromValue = 0.0
+            fadeIn.toValue = 1.0
+            fadeIn.duration = 0.2 // 200ms fade-in
+            fadeIn.beginTime = startTime.seconds
+            fadeIn.fillMode = .forwards
+
+            // Fade out animation
+            let fadeOut = CABasicAnimation(keyPath: "opacity")
+            fadeOut.fromValue = 1.0
+            fadeOut.toValue = 0.0
+            fadeOut.duration = 0.2 // 200ms fade-out
+            fadeOut.beginTime = endTime.seconds - 0.2
+            fadeOut.fillMode = .forwards
+
+            // Add animations
+            textLayer.add(fadeIn, forKey: "fadeIn_\(caption.id)")
+            textLayer.add(fadeOut, forKey: "fadeOut_\(caption.id)")
+
+            // Set final opacity for after animations
+            DispatchQueue.main.asyncAfter(deadline: .now() + endTime.seconds) {
+                textLayer.opacity = 0.0
+            }
+
+            captionLayer.addSublayer(textLayer)
+        }
+
+        // Create animation tool
+        let animationTool = AVVideoCompositionCoreAnimationTool(
+            postProcessingAsVideoLayer: videoLayer,
+            in: parentLayer
+        )
+
+        logger.debug("Caption layer created with \(captions.count) captions")
+
+        return animationTool
+    }
+
+    /// Wrap text to fit within max width
+    private func wrapText(_ text: String, font: NSFont, maxWidth: CGFloat) -> NSString {
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.lineBreakMode = .byWordWrapping
+
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .paragraphStyle: paragraphStyle
+        ]
+
+        let attributedString = NSAttributedString(string: text, attributes: attributes)
+        let framesetter = CTFramesetterCreateWithAttributedString(attributedString)
+
+        var currentRange = CFRange(location: 0, length: attributedString.length)
+        var lines: [String] = []
+
+        while currentRange.length > 0 {
+            let suggestedSize = CTFramesetterSuggestFrameSizeWithConstraints(
+                framesetter,
+                currentRange,
+                nil,
+                CGSize(width: maxWidth, height: CGFloat.greatestFiniteMagnitude),
+                nil
+            )
+
+            let path = CGPath(rect: CGRect(origin: .zero, size: suggestedSize), transform: nil)
+            let frame = CTFramesetterCreateFrame(framesetter, currentRange, path, nil)
+
+            let lineRange = CTFrameGetVisibleStringRange(frame)
+            let lineText = attributedString.attributedSubstring(from: NSRange(lineRange)).string
+            lines.append(lineText)
+
+            currentRange.location += lineRange.length
+            currentRange.length -= lineRange.length
+        }
+
+        return lines.joined(separator: "\n") as NSString
+    }
 
     /// Validate that all source files exist
     private func validateSourceFiles(for project: Project, projectId: ProjectId) async throws {
@@ -705,4 +920,32 @@ public struct ExportResult: Sendable {
     public let duration: TimeInterval
     /// Preset used for export
     public let preset: ExportPreset
+}
+
+// MARK: - NSColor Extension
+
+/// Extension for creating NSColor from hex strings
+extension NSColor {
+    /// Create NSColor from hex string (e.g., "#FFFFFF" or "FFFFFF")
+    /// - Parameter hex: Hex color string
+    /// - Returns: NSColor instance
+    convenience init(hex: String) {
+        var hexSanitized = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        hexSanitized = hexSanitized.replacingOccurrences(of: "#", with: "")
+
+        var rgb: UInt64 = 0
+
+        Scanner(string: hexSanitized).scanHexInt64(&rgb)
+
+        let red = CGFloat((rgb & 0xFF0000) >> 16) / 255.0
+        let green = CGFloat((rgb & 0x00FF00) >> 8) / 255.0
+        let blue = CGFloat(rgb & 0x0000FF) / 255.0
+
+        self.init(red: red, green: green, blue: blue, alpha: 1.0)
+    }
+
+    /// Convert NSColor to CGColor
+    var cgColor: CGColor {
+        return self.cgColor
+    }
 }

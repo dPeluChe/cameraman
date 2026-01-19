@@ -67,7 +67,7 @@ Este backlog está organizado por épicas y por orden recomendado.
 ## Épica G — Transcripción & Captions (offline)
 - [x] (P0) `TranscriptionEngine` job: extraer audio a formato STT, ejecutar STT offline (Whisper.cpp), generar `transcript.json` + `.srt` + `.vtt`
 - [x] (P1) Captions overlay en preview
-- [ ] (P1) Burn‑in captions en export
+- [x] (P1) Burn‑in captions en export
 
 ---
 
