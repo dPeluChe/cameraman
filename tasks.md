@@ -106,7 +106,7 @@ Este backlog está organizado por épicas y por orden recomendado.
 ## Épica L — Testing & QA
 > **Nota:** Estas tasks deben ejecutarse en paralelo con el desarrollo de cada épica correspondiente.
 
-- [ ] (P0) Tests de integración para `CaptureEngine`: verificar captura de pantalla + audio, verificar sync entre pistas
+- [x] (P0) Tests de integración para `CaptureEngine`: verificar captura de pantalla + audio, verificar sync entre pistas
 - [ ] (P0) Tests de `ProjectStore`: crear/leer/actualizar proyectos, migración de schema
 - [ ] (P0) Tests de export: verificar audio sync en output, verificar aplicación de trims/cuts, verificar overlays renderizados
 - [ ] (P1) Tests de `PreviewEngine`: seek accuracy, playback con edits aplicados

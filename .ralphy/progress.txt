@@ -2908,3 +2908,51 @@ Hello, in this video we're going to explore...
 - Burn-in captions en export (Épica G, Task 3 - P1)
 - Export GIF support (Épica H, Task 4 - P1)
 
+
+
+---
+
+## 2026-01-19
+
+### Completed: CaptureEngine Integration Tests (Épica L, Task 1)
+
+**Task:** (P0) Tests de integración para `CaptureEngine`: verificar captura de pantalla + audio, verificar sync entre pistas
+
+**Implementation:**
+- Created `CaptureEngineIntegrationTests.swift` with comprehensive integration test suite covering:
+  - Screen capture session lifecycle (start/stop) with display, window, and application sources
+  - Audio capture integration with system audio enabled
+  - Audio-video synchronization verification (within 100ms tolerance)
+  - Timestamp consistency between video and audio tracks
+  - Multi-track coordination and sequential recordings
+  - File output validation (format, metadata, codec settings)
+  - Error handling (permissions, concurrent recordings, duration tracking)
+
+**Test Coverage (15 integration tests):**
+- Display/window/application source capture with session lifecycle
+- System audio capture with video synchronization
+- Duration matching between audio and video files
+- Timestamp and time difference validation
+- Sequential recording sessions with separate file outputs
+- AVAsset file format and codec validation
+- Permission denied and concurrent recording error handling
+- Duration tracking accuracy verification
+
+**Files Modified/Created:**
+- `EngineKit/Tests/EngineKitTests/CaptureEngineIntegrationTests.swift` (new, 570 lines)
+- `tasks.md` (marked task as complete)
+- `.ralphy/progress.txt` (this entry)
+
+**Notes:**
+- Uses real ScreenCaptureKit APIs (not mocks) for authentic integration testing
+- Tests skip gracefully when hardware (displays/windows) is unavailable
+- AVFoundation used for file output validation and asset inspection
+- Proper async/await patterns for actor-isolated CaptureEngine
+- Temporary directories created per test run for isolation and cleanup
+- Duration tolerances set to 100ms for audio sync verification
+- Extension methods provide access to CaptureEngine internals for testing
+
+**Next Steps:**
+- Tests of `ProjectStore`: crear/leer/actualizar proyectos, migración de schema (Épica L, Task 2 - P0)
+- Tests of export: verificar audio sync en output, verificar aplicación de trims/cuts, verificar overlays renderizados (Épica L, Task 3 - P0)
+
