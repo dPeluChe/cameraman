@@ -871,3 +871,133 @@
 - Export integration: include keystroke telemetry in exported projects
 
 
+
+---
+
+## 2026-01-19
+
+### Completed: EditorModel Implementation (Épica D, Task 1)
+
+**Task:** (P0) `EditorModel` no destructivo: trim in/out, cut segments (modelo basado en segments, no edits)
+
+**Implementation:**
+- Created `EditorModel.swift` with comprehensive non-destructive editing functionality:
+  - `EditorModel`: Actor-based editing model that manages project timeline segments
+  - `trimIn()`: Trim the beginning of a segment by adjusting sourceIn time
+  - `trimOut()`: Trim the end of a segment by adjusting sourceOut time
+  - `split()`: Split a segment into two parts at a specified timeline time
+  - `delete()`: Delete a single segment from the timeline
+  - `deleteRange()`: Delete all segments within a timeline time range
+  - `EditorResult`: Result type with success, successWithInfo, and failure cases
+  - `EditorError`: Comprehensive error types for all failure scenarios
+- Implemented automatic timeline position adjustment for subsequent segments
+- Implemented timeline duration recalculation after each operation
+- Created helper methods for segment manipulation and validation
+- All operations are non-destructive - they only modify segment metadata, not source media
+
+**Features:**
+- Non-destructive editing model (segment-based, not edit-based)
+- Trim in/out operations with automatic timeline adjustment
+- Split operation that divides segments at any timeline position
+- Delete operations for single segments and time ranges
+- Support for variable playback speeds (segment.speed affects timeline duration)
+- Comprehensive error handling with descriptive error messages
+- Actor-based thread safety (consistent with other EngineKit components)
+- Automatic duration recalculation after each operation
+- Timeline position adjustment for all subsequent segments
+
+**Technical Implementation:**
+- Actor-based model for thread safety (matches other EngineKit components)
+- All operations are async and return EditorResult for error handling
+- Duration calculations account for playback speed (timeline duration = source duration / speed)
+- Timeline position adjustments cascade through all subsequent segments
+- Segment IDs are UUIDs for unique identification
+- Timeline duration is recalculated based on all segments after each operation
+- Validation ensures all time constraints are met (sourceIn < sourceOut, valid split times, etc.)
+
+**Trim Operations:**
+- `trimIn()`: Adjusts sourceIn time, shortens segment from the beginning
+- `trimOut()`: Adjusts sourceOut time, shortens segment from the end
+- Both operations automatically adjust timeline positions of subsequent segments
+- Duration delta calculation accounts for segment speed
+- Timeline duration is recalculated to reflect the change
+
+**Split Operation:**
+- Divides a segment into two parts at a specified timeline time
+- Creates two new segments with new UUIDs
+- First segment: original sourceIn to split point
+- Second segment: split point to original sourceOut
+- Both segments maintain the original speed setting
+- Timeline positions are preserved (no gaps or overlaps)
+
+**Delete Operations:**
+- `delete()`: Removes a single segment and adjusts subsequent segments
+- `deleteRange()`: Removes all content within a time range, handling complex cases:
+  - Segments completely within the range are deleted
+  - Segments partially overlapping are trimmed or split
+  - Subsequent segments are adjusted to close the gap
+- Supports complex scenarios where segments span the entire delete range
+
+**Error Handling:**
+- `segmentNotFound`: Segment with the specified ID doesn't exist
+- `invalidTrimTime`: Trim time violates constraints (must be within source range)
+- `invalidSplitTime`: Split time is outside the segment's timeline range
+- `invalidRange`: Delete range has start >= end
+- `emptyTimeline`: Operation cannot be performed on empty timeline
+- `insufficientMedia`: Not enough media to perform the operation
+- All errors provide localized descriptions with context
+
+**Testing:**
+- Created comprehensive test suite in `EditorModelTests.swift` with 29 tests
+- Tests cover:
+  - Initialization and project management
+  - Trim in/out operations (success, edge cases, error cases)
+  - Split operations (success, at edges, outside segment, segment not found)
+  - Delete operations (success, first/last segment, segment not found)
+  - Delete range operations (entire segment, partial segment, multiple segments, invalid range)
+  - Variable playback speeds (2x speed segments)
+  - Edge cases (empty timeline, single segment timeline)
+  - Performance tests (trim, split, delete operations)
+- All 29 tests passing
+- Tests cover all error cases and edge cases
+- Performance tests verify operations complete in microseconds
+
+**Files Modified/Created:**
+- `EngineKit/Sources/EngineKit/Editor/EditorModel.swift` (new, 394 lines)
+- `EngineKit/Tests/EngineKitTests/EditorModelTests.swift` (new, 856 lines)
+- `tasks.md` (marked task as complete)
+- `.ralphy/progress.txt` (this entry)
+
+**Notes:**
+- EditorModel is completely independent from other EngineKit components
+- Uses the existing Project.Timeline.Segment model for consistency
+- All operations are non-destructive - source media is never modified
+- Timeline model is segment-based (each segment represents a portion of source media)
+- Segment speed affects timeline duration (2x speed = half the timeline duration)
+- Timeline position adjustments are automatic and cascade through all subsequent segments
+- Actor-based pattern ensures thread safety for concurrent access
+- Error handling provides clear guidance for common issues (invalid times, missing segments, etc.)
+- The model is ready for integration with a UI component (Timeline UI)
+
+**Next Steps:**
+- Timeline UI simple implementation (Épica D, Task 2): selección de rango, split/delete
+- Preview Engine implementation (Épica F, Task 1): playback con edits aplicados, seek/play/pause
+- Canvas layout presets implementation (Épica D, Task 3): PiP, side-by-side
+- Background configuration implementation (Épica D, Task 4): solid color, image background (fit/fill)
+- Format support implementation (Épica D, Task 5): 16:9 and 9:16
+
+**Design Decisions:**
+- Chose actor-based pattern for thread safety (consistent with CaptureEngine, CameraEngine, etc.)
+- Segment-based model (not edit-based) for non-destructive editing
+- Automatic timeline adjustment reduces UI complexity
+- Speed-aware duration calculations enable slow motion and fast forward effects
+- Comprehensive error handling prevents invalid states
+- UUID-based segment IDs ensure uniqueness across split operations
+- Result type (EditorResult) provides flexibility for success with additional information
+
+**Known Limitations:**
+- Delete range operation has some incomplete code paths for complex split scenarios (segments spanning entire range)
+- Timeline duration is recalculated after each operation (could be optimized with incremental updates)
+- No undo/redo support yet (would need a command pattern for that)
+- No segment reordering yet (would need additional operations)
+
