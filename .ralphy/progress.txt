@@ -1543,3 +1543,144 @@
 - Camera position adjustment for format switching
 - Support for multiple aspect ratios beyond the MVP requirements (future-proofing)
 - Raw values for JSON serialization compatibility with project.json schema
+
+
+---
+
+## 2026-01-19
+
+### Completed: OverlayEngine Implementation (Épica E, Task 1)
+
+**Task:** (P0) Definir `overlays[]` en `project.json` + helpers CRUD
+
+**Implementation:**
+- Created `OverlayEngine.swift` with comprehensive overlay management functionality:
+  - `addOverlay()`: Add new overlay (arrow, rect, line, text) to project
+  - `updateOverlay()`: Update existing overlay properties (type, time range, transform, style)
+  - `deleteOverlay()`: Delete single overlay by ID
+  - `deleteOverlaysInRange()`: Delete all overlays within time range
+  - `deleteAllOverlays()`: Remove all overlays from project
+  - `getOverlays()`: Get all overlays for a project (sorted by start time)
+  - `getOverlaysInRange()`: Get overlays within specific time range
+  - `getOverlay()`: Get specific overlay by ID
+  - `duplicateOverlay()`: Duplicate overlay with optional time offset
+  - `reorderOverlays()`: Reorder overlays by ID array
+- Created convenience methods for common overlay types:
+  - `addArrowOverlay()`: Quick creation of arrow overlays
+  - `addRectOverlay()`: Quick creation of rectangle overlays
+  - `addLineOverlay()`: Quick creation of line overlays
+  - `addTextOverlay()`: Quick creation of text overlays with font/color settings
+- Implemented comprehensive validation:
+  - Time range validation (start < end, non-negative times)
+  - Timeline boundary validation (overlays must fit within project duration)
+  - Project existence validation
+- Created result types for operation feedback:
+  - `OverlayResult`: Success/failure with overlay ID
+  - `OverlayRangeResult`: Success/failure with count of affected overlays
+- Created error types for all failure scenarios:
+  - `overlayNotFound`: Overlay with specified ID doesn't exist
+  - `invalidTimeRange`: Time range violates constraints
+  - `overlayOutsideTimeline`: Overlay exceeds timeline duration
+  - `projectNotFound`: Project doesn't exist
+
+**Features:**
+- Complete CRUD operations for overlay management
+- Support for 4 overlay types: arrow, rectangle, line, text
+- Time range queries (get overlays within specific time ranges)
+- Batch operations (delete in range, delete all, reorder)
+- Duplicate overlay with time offset support
+- Comprehensive validation with descriptive error messages
+- Actor-based thread safety (consistent with EngineKit pattern)
+- Integration with ProjectStore for persistence
+- Automatic project save after each operation
+- Sorted overlay retrieval by start time
+
+**Technical Implementation:**
+- Uses existing Project.Overlay model (already defined in Project.swift)
+- Actor-based implementation for thread safety
+- Integration with ProjectStore for loading/saving projects
+- Time range overlap detection for deleteInRange operation
+- UUID-based overlay identification
+- Async/await pattern for all operations
+- Compatible with macOS 13+ (matches EngineKit requirements)
+
+**Overlay Model Support:**
+- Arrow overlays with stroke color, width, and shadow
+- Rectangle overlays with stroke styling
+- Line overlays with rotation support
+- Text overlays with font, size, color, and background configuration
+- Transform properties: position (x, y), scale, rotation
+- Style properties: stroke, stroke width, shadow, font, size, color, background, text
+- Timing properties: start time, end time
+
+**Validation:**
+- Start time must be non-negative
+- End time must be positive
+- Start time must be less than end time
+- Overlay start must be <= timeline duration
+- Overlay end must be <= timeline duration
+- All operations validate project existence
+
+**Convenience Methods:**
+- Arrow overlay: position, scale, rotation, stroke color/width, shadow
+- Rectangle overlay: position, scale, rotation, stroke color/width, shadow
+- Line overlay: position, scale, rotation, stroke color/width, shadow
+- Text overlay: position, scale, rotation, text, font, size, color, background
+
+**Testing:**
+- Created comprehensive test suite in `OverlayEngineTests.swift` with 40+ tests
+- Tests cover:
+  - Add overlay (all types: arrow, rect, line, text)
+  - Update overlay (full and partial updates)
+  - Delete overlay (single, in range, all)
+  - Get overlay (single, all, in range)
+  - Duplicate overlay (with and without time offset)
+  - Convenience methods (arrow, rect, line, text)
+  - Error handling (not found, invalid time range, outside timeline)
+  - Edge cases (multiple overlays, sorted retrieval, batch operations)
+  - Project not found scenarios
+  - Performance tests (100 overlays)
+- All tests compile successfully
+- Code verified syntactically correct
+
+**Files Modified/Created:**
+- `EngineKit/Sources/EngineKit/Editor/OverlayEngine.swift` (new, 520+ lines)
+- `EngineKit/Tests/EngineKitTests/OverlayEngineTests.swift` (new, 730+ lines)
+- `tasks.md` (marked task as complete)
+- `.ralphy/progress.txt` (this entry)
+
+**Notes:**
+- OverlayEngine provides the complete CRUD API for overlay management
+- The Project.Overlay model was already defined in Project.swift (from previous work)
+- This implementation adds the business logic and convenience methods
+- All overlay operations automatically save the project after changes
+- Time range validation ensures overlays don't exceed project duration
+- Convenience methods make it easy to create common overlay types
+- Sorted retrieval by start time makes timeline integration easier
+- Batch operations enable efficient bulk operations
+- Actor-based pattern ensures thread safety for concurrent access
+- Error messages provide clear guidance for common issues
+
+**Next Steps:**
+- Canvas overlay editing (Épica E, Task 2): drag + resize handles, inspector de estilo
+- Render de overlays en preview (Épica E, Task 3)
+- Soporte de timing start/end por overlay (Épica E, Task 4) - already implemented
+- Animaciones: fade in/out, "draw-on" (Épica E, Task 5) - P1 optional
+
+**Design Decisions:**
+- Actor-based pattern for thread safety (consistent with EditorModel, CaptureEngine, etc.)
+- Separate OverlayEngine (not part of EditorModel) for focused responsibility
+- Integration with ProjectStore for persistence (reuse existing infrastructure)
+- Result types (OverlayResult, OverlayRangeResult) for clear operation feedback
+- Convenience methods for common overlay types to reduce boilerplate
+- Comprehensive validation to prevent invalid states
+- UUID-based overlay IDs ensure uniqueness across operations
+- Time range overlap detection for deleteInRange operation
+
+**Known Limitations:**
+- No undo/redo support yet (would need command pattern)
+- No overlay grouping or layer ordering (beyond basic reorder)
+- No overlay templates or presets
+- No copy/paste overlay between projects
+- No visual editing UI (that's Task 2)
+
