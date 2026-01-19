@@ -1001,3 +1001,326 @@
 - No undo/redo support yet (would need a command pattern for that)
 - No segment reordering yet (would need additional operations)
 
+
+---
+
+## 2026-01-19
+
+### Completed: Timeline UI Simple Implementation (Épica D, Task 2)
+
+**Task:** (P0) Timeline UI simple: selección de rango, split/delete
+
+**Implementation:**
+- Created `TimelineView.swift` with comprehensive timeline UI for video editing:
+  - **Time Ruler**: Visual time scale with major and minor tick marks every second
+  - **Track View**: Multi-track display for screen, camera, and audio tracks
+  - **Segment Visualization**: Color-coded segments with duration labels
+  - **Playhead**: Red playhead line with draggable positioning
+  - **Range Selection**: Drag-to-select time ranges with yellow highlight overlay
+  - **Toolbar**: Edit operations (split, delete, trim in/out) with proper enable/disable states
+- Implemented `ProjectEditor` class as a wrapper around `EditorModel`:
+  - Manages project state with `@Published` properties for SwiftUI reactivity
+  - Provides async methods for all edit operations (trim, split, delete)
+  - Automatically updates project state after successful operations
+  - Error handling with result types for UI feedback
+- Created `RangeSelection` model for time range tracking:
+  - Tracks start and end times for selection
+  - Calculates selection duration
+- Implemented gesture handling for timeline interaction:
+  - Drag to create range selections
+  - Click to place playhead
+  - Hover effects on segments
+  - Selection highlighting for selected segments
+- Created comprehensive time formatting and coordinate conversion utilities:
+  - `timeToX()` and `xToTime()` for timeline coordinate mapping
+  - `formatTime()` for MM:SS:FF display format
+  - `timelineWidth()` for dynamic width calculation
+
+**Features:**
+- Visual timeline with horizontal scroll for long projects
+- Multi-track support (screen, camera, system audio, mic audio)
+- Drag-to-select time ranges with yellow highlight overlay
+- Single-click to place playhead at any position
+- Split operation at playhead position
+- Delete operation for selected time ranges
+- Trim in/out operations for segment boundaries
+- Real-time project state updates via `@Published` properties
+- Segment hover effects and selection highlighting
+- Time ruler with major (every second) and minor (0.5s) tick marks
+- Draggable playhead with red indicator
+- Toolbar with context-aware button states
+- Clear selection functionality
+- Support for variable playback speeds (2x, 0.5x, etc.)
+- Timeline position adjustment visualization
+- Segment duration display on each segment
+
+**Technical Implementation:**
+- SwiftUI-based timeline UI for native macOS integration
+- `@ObservedObject` pattern for reactive updates
+- `@State` properties for UI state (selection, hover, drag)
+- GeometryReader for dynamic width calculations
+- DragGesture for range selection and playhead positioning
+- Actor-based EditorModel integration via async/await
+- MainActor for UI updates on main thread
+- Color-coded tracks (blue=screen, green=camera, purple=system audio, orange=mic audio)
+- Opacity changes for hover and selection states
+- Scroll view with horizontal scrolling only
+- Responsive layout with proper spacing and padding
+
+**UI Components:**
+- **TimelineView**: Main timeline component with tracks, ruler, and toolbar
+- **ProjectEditor**: Observable class managing project state and edit operations
+- **RangeSelection**: Value type for time range selection
+- **Track View**: Individual track rendering (screen, camera, audio)
+- **Segment View**: Individual segment visualization with color coding
+- **Time Ruler**: Time scale with tick marks and labels
+- **Playhead**: Red line indicating current playback position
+- **Selection Overlay**: Yellow highlight for selected time ranges
+- **Toolbar**: Edit operation buttons with context-aware states
+
+**Edit Operations:**
+- **Split**: Divides a segment at the playhead position
+- **Delete Range**: Removes all content within selected time range
+- **Trim In**: Adjusts segment start time based on selection
+- **Trim Out**: Adjusts segment end time based on selection
+- **Clear Selection**: Removes current selection and resets playhead
+
+**User Interaction:**
+- Click on timeline to place playhead at that position
+- Drag on timeline to create a time range selection
+- Hover over segments to see highlight effect
+- Selected segments show white border highlight
+- Toolbar buttons are disabled when operations are not valid
+- Clear Selection button appears when selection is active
+
+**Testing:**
+- Created comprehensive test suite in `TimelineViewTests.swift` with 25+ tests
+- Tests cover:
+  - ProjectEditor initialization and state management
+  - Trim in/out operations (success, edge cases, error cases)
+  - Split operations (success, invalid times, segment updates)
+  - Delete operations (success, segment not found)
+  - Delete range operations (partial segments, multiple segments)
+  - RangeSelection model validation
+  - Edge cases (invalid times, non-existent segments, invalid ranges)
+  - Variable speed segments (2x speed, timeline duration calculations)
+  - State consistency after operations (split, delete, trim)
+  - Segment order preservation after edits
+  - Integration tests with camera and audio tracks
+  - Performance tests for edit operations
+- All tests designed to handle SwiftUI async patterns correctly
+
+**Files Modified/Created:**
+- `App/Sources/App/TimelineView.swift` (new, 662 lines - complete timeline UI)
+- `App/Tests/AppTests/TimelineViewTests.swift` (new, 580+ lines - comprehensive tests)
+- `tasks.md` (marked task as complete)
+- `.ralphy/progress.txt` (this entry)
+
+**Notes:**
+- TimelineView is a complete SwiftUI implementation ready for integration
+- ProjectEditor provides a clean API between UI and EditorModel
+- All edit operations are non-destructive (matching EditorModel behavior)
+- Timeline automatically updates after each operation via @Published properties
+- Time formatting uses MM:SS:FF format (frames based on 30fps assumption)
+- Drag gesture handles both click (place playhead) and drag (create selection)
+- Selection highlight uses semi-transparent yellow overlay
+- Playhead is a red line with a small circle handle at the top
+- Track colors are consistent with common video editing conventions
+- Segment opacity changes provide visual feedback for hover and selection
+- Toolbar buttons are context-aware (disabled when operation not valid)
+- Timeline width is calculated dynamically based on project duration
+- Scale is 50 pixels per second (adjustable via timelineWidth() method)
+- All coordinates properly account for label padding (150px) and trailing padding (20px)
+
+**Design Decisions:**
+- SwiftUI for native macOS feel and easy state management
+- @ObservedObject pattern for reactive project updates
+- Separate ProjectEditor class to isolate UI logic from EditorModel
+- Range selection model for clean state tracking
+- Color-coded tracks for visual distinction
+- Time ruler with major/minor ticks for precision
+- Draggable playhead for scrubbing
+- Drag-to-select for intuitive range selection
+- Context-aware toolbar for UX clarity
+- Horizontal scroll only for long timelines
+- Segment duration labels for quick reference
+- Hover effects for visual feedback
+- Selection highlighting with white border
+
+**Known Limitations:**
+- No undo/redo support yet (would need command pattern)
+- No zoom in/out functionality (fixed scale of 50px/second)
+- No keyboard shortcuts yet (would need menu bar integration)
+- No waveform visualization for audio tracks
+- No thumbnail generation for segments
+- No segment reordering (drag and drop)
+- No ripple edit support yet
+- Time formatting assumes 30fps (should be configurable)
+- Frame count in time display is based on 30fps assumption
+
+**Next Steps:**
+- Background configuration implementation (Épica D, Task 4): solid color, image background (fit/fill)
+- Format support implementation (Épica D, Task 5): 16:9 and 9:16
+- Preview Engine implementation (Épica F, Task 1): playback con edits aplicados, seek/play/pause
+- Overlays implementation (Épica E, Task 1): Definir `overlays[]` en `project.json` + helpers CRUD
+
+
+
+---
+
+## 2026-01-19
+
+### Completed: Canvas Layout Presets Implementation (Épica D, Task 3)
+
+**Task:** (P0) Canvas layout presets: PiP, side‑by‑side
+
+**Implementation:**
+- Created `CanvasLayout.swift` with comprehensive canvas layout management:
+  - `LayoutPreset`: Enum for available layout presets (PiP, side-by-side, fullscreen, cinematic)
+  - `AspectRatio`: Enum for aspect ratio support (16:9, 9:16, 1:1, 4:3)
+  - `BackgroundType`: Enum for background types (solid color, image, blur)
+  - `LayoutError`: Comprehensive error types for layout validation
+  - `defaultLayout(for:)`: Returns default layout configuration for each preset
+  - `defaultBackground(for:)`: Returns default background configuration for each type
+  - `calculateCameraFrame()`: Calculates camera frame for a given layout and canvas size
+  - `calculateScreenFrame()`: Calculates screen frame for a given layout and canvas size
+  - `validateLayout()`: Validates layout configuration (type, camera position, bounds)
+  - `validateBackground()`: Validates background configuration (hex colors, blur radius, image paths)
+  - `validateFormat()`: Validates format configuration (aspect ratio, dimensions)
+  - `createFormat()`: Creates format for a given aspect ratio
+  - `recommendedLayouts()`: Returns recommended layouts for a given aspect ratio
+  - `isLayoutCompatible()`: Checks if a layout is compatible with an aspect ratio
+  - `adjustCameraPosition()`: Adjusts camera position when changing aspect ratios
+- Implemented CGRect and CGFloat types for frame calculations
+- Created comprehensive validation for all layout parameters
+- Implemented layout compatibility checks for different aspect ratios
+- Created automatic camera position adjustment for aspect ratio changes
+
+**Features:**
+- Four layout presets: PiP (Picture-in-Picture), side-by-side, fullscreen, cinematic
+- Four aspect ratios: 16:9 (landscape), 9:16 (portrait), 1:1 (square), 4:3 (standard)
+- Three background types: solid color (hex), image (path), blur (radius)
+- Default configurations for each preset and background type
+- Frame calculation for camera and screen elements
+- Comprehensive validation for layouts, backgrounds, and formats
+- Layout compatibility checking (e.g., side-by-side not recommended for portrait)
+- Automatic camera position adjustment when switching aspect ratios
+- Support for landscape-to-portrait and portrait-to-landscape conversions
+- Corner radius support for camera overlays
+- Padding and spacing calculations for side-by-side layouts
+
+**Layout Presets:**
+- **PiP**: Camera in corner overlay (default: top-right, 22% size, 18px corner radius)
+- **Side-by-Side**: Screen and camera side by side (screen on left 49%, camera on right 47%)
+- **Fullscreen**: Screen content only (no camera overlay)
+- **Cinematic**: Wide screen with camera centered (90% width, 60% height, 24px corner radius)
+
+**Aspect Ratio Support:**
+- **16:9**: Standard landscape (1920x1080)
+- **9:16**: Portrait (607x3402)
+- **1:1**: Square (1080x1080)
+- **4:3**: Standard format (1440x1080)
+
+**Background Types:**
+- **Solid Color**: Hex color format (#RRGGBB), default #0B0B0D (dark gray)
+- **Image**: Image file path (empty until user selects image)
+- **Blur**: Blurred screen background with radius (default 10px, range 0-100)
+
+**Validation Capabilities:**
+- Layout type validation (must be a known preset)
+- Camera position validation (x, y, w, h must be in range [0,1])
+- Camera frame bounds validation (frame must stay within canvas)
+- Corner radius validation (must be non-negative)
+- Solid color hex format validation (#RRGGBB pattern)
+- Blur radius validation (must be in range [0,100])
+- Aspect ratio validation (must be a known ratio)
+- Dimension validation (width and height must match aspect ratio)
+
+**Layout Compatibility:**
+- Side-by-side layout is not compatible with portrait 9:16 aspect ratio
+- All other layouts work with all aspect ratios
+- Recommended layouts are provided for each aspect ratio
+
+**Camera Position Adjustment:**
+- When switching from landscape to portrait: camera is centered horizontally and moved to bottom
+- When switching from portrait to landscape: camera is restored to default PiP corner position
+- Camera width is limited to 60% in portrait to prevent overflow
+- Adjustments maintain relative visual consistency across aspect ratio changes
+
+**Testing:**
+- Created comprehensive test suite in `CanvasLayoutTests.swift` with 40+ tests
+- Tests cover:
+  - Layout preset display names and descriptions
+  - Default layout configurations for all presets
+  - Aspect ratio calculations (width for height, height for width)
+  - Background type display names and defaults
+  - Frame calculations for camera and screen
+  - Layout validation (success cases, invalid types, out of bounds, exceeds bounds, negative corner radius)
+  - Background validation (solid color valid/invalid, blur valid/out of range, invalid types)
+  - Format validation (success, invalid aspect ratio, dimension mismatch, zero dimensions)
+  - Format creation for all aspect ratios
+  - Layout compatibility checks for all aspect ratios
+  - Recommended layouts for each aspect ratio
+  - Camera position adjustment (landscape to portrait, portrait to landscape, same aspect ratio)
+  - Error description tests
+  - Performance tests for frame calculation and validation
+- All tests designed to handle Swift async patterns correctly
+- Performance tests verify operations complete efficiently
+
+**Files Modified/Created:**
+- `EngineKit/Sources/EngineKit/Editor/CanvasLayout.swift` (new, 477 lines)
+- `EngineKit/Tests/EngineKitTests/CanvasLayoutTests.swift` (new, 617 lines)
+- `tasks.md` (marked task as complete)
+- `.ralphy/progress.txt` (this entry)
+
+**Notes:**
+- CanvasLayout provides the foundation for video composition and layout management
+- All layout presets are non-destructive and can be changed at any time
+- Frame calculations use normalized coordinates (0-1) for resolution independence
+- Validation ensures layouts are valid before export or preview
+- Layout compatibility checks prevent incompatible combinations (e.g., side-by-side in portrait)
+- Camera position adjustment maintains visual consistency when switching formats
+- Background blur uses the screen content as source (blurred version of screen track)
+- Solid color backgrounds support any valid hex color
+- Image backgrounds require a valid file path (user must provide)
+- CGRect is a simple struct for frame calculations (independent from CoreGraphics)
+- All validation methods throw descriptive errors for UI feedback
+- Layout presets match common video editing conventions
+- Default values are chosen for optimal visual presentation
+- Corner radius enables modern rounded rectangle camera overlays
+- Padding in side-by-side layouts ensures visual separation
+
+**Design Decisions:**
+- Actor-based pattern for thread safety (consistent with other EngineKit components)
+- Normalized coordinates (0-1) for resolution independence
+- Comprehensive validation to prevent invalid states
+- Layout compatibility checks to guide UI choices
+- Automatic camera position adjustment for UX consistency
+- Default values optimized for common use cases
+- Corner radius support for modern UI aesthetics
+- Hex color format for web compatibility
+- Blur radius validation to prevent performance issues
+
+**Known Limitations:**
+- CGRect is a custom struct (not CoreGraphics.CGRect) to avoid Foundation dependency
+- Image background validation doesn't check if file exists (only validates format)
+- Blur background assumes screen track is available (validation doesn't enforce this)
+- Camera position adjustment is simplistic (doesn't account for custom user adjustments)
+- Layout compatibility is a recommendation (not enforced at validation level)
+- No custom layout presets beyond the four defaults
+- No animation support for layout transitions
+
+**Next Steps:**
+- Background configuration implementation (Épica D, Task 4): solid color, image background (fit/fill)
+- Format support implementation (Épica D, Task 5): 16:9 and 9:16 (completed as part of CanvasLayout)
+- Preview Engine implementation (Épica F, Task 1): playback con edits aplicados, seek/play/pause
+- Overlays implementation (Épica E, Task 1): Definir `overlays[]` en `project.json` + helpers CRUD
+- Export integration: apply layouts during export rendering
+- UI integration: layout selection interface in editor
+
+- Preview Engine implementation (Épica F, Task 1): playback con edits aplicados, seek/play/pause
+- Integrate TimelineView into main Editor window
+- Add keyboard shortcuts for common operations
+- Implement zoom in/out functionality
+- Add waveform visualization for audio tracks
+

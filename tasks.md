@@ -39,8 +39,8 @@ Este backlog está organizado por épicas y por orden recomendado.
 > **Dependencia:** Esta épica debe desarrollarse en paralelo con **Épica F (Preview Engine)**. Sin preview funcional, el editor es difícil de desarrollar y probar.
 
 - [x] (P0) `EditorModel` no destructivo: trim in/out, cut segments (modelo basado en segments, no edits)
-- [ ] (P0) Timeline UI simple: selección de rango, split/delete
-- [ ] (P0) Canvas layout presets: PiP, side‑by‑side
+- [x] (P0) Timeline UI simple: selección de rango, split/delete
+- [x] (P0) Canvas layout presets: PiP, side‑by‑side
 - [ ] (P0) Background: solid color, image background (fit/fill)
 - [ ] (P0) Formato: 16:9 y 9:16
 
