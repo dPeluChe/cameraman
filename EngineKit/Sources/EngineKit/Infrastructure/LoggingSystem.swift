@@ -1,0 +1,498 @@
+//
+//  LoggingSystem.swift
+//  EngineKit
+//
+//  Created by Ralphy on 2026/dPeluChe
+//
+
+import Foundation
+import os.log
+import os.signpost
+
+/// LoggingSystem provides centralized, structured logging across the entire EngineKit framework
+/// Provides unified log levels, categories, and output formatting
+public actor LoggingSystem {
+    // MARK: - Types
+    
+    /// Log levels following OSLog conventions
+    public enum Level: Int, Sendable {
+        case debug = 0
+        case info = 1
+        case notice = 2
+        case warning = 3
+        case error = 4
+        case fault = 5
+        
+        var osLogType: OSLogType {
+            switch self {
+            case .debug: return .debug
+            case .info: return .info
+            case .notice: return .default
+            case .warning: return .default
+            case .error: return .error
+            case .fault: return .fault
+            }
+        }
+    }
+    
+    /// Log categories for different components
+    public enum Category: String, Sendable {
+        case general = "General"
+        case capture = "Capture"
+        case export = "Export"
+        case preview = "Preview"
+        case projectStore = "ProjectStore"
+        case projectLibrary = "ProjectLibrary"
+        case transcription = "Transcription"
+        case telemetry = "Telemetry"
+        case overlay = "Overlay"
+        case editor = "Editor"
+        case jobQueue = "JobQueue"
+        case crashReporter = "CrashReporter"
+        case ui = "UI"
+        case performance = "Performance"
+    }
+    
+    /// Log entry structure for programmatic access
+    public struct LogEntry: Codable, Sendable {
+        public let timestamp: Date
+        public let level: Level
+        public let category: Category
+        public let message: String
+        public let metadata: [String: String]?
+        
+        enum CodingKeys: String, CodingKey {
+            case timestamp
+            case level
+            case category
+            case message
+            case metadata
+        }
+        
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            timestamp = try container.decode(Date.self, forKey: .timestamp)
+            let levelRaw = try container.decode(Int.self, forKey: .level)
+            level = Level(rawValue: levelRaw) ?? .info
+            let categoryRaw = try container.decode(String.self, forKey: .category)
+            category = Category(rawValue: categoryRaw) ?? .general
+            message = try container.decode(String.self, forKey: .message)
+            metadata = try container.decodeIfPresent([String: String].self, forKey: .metadata)
+        }
+        
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(timestamp, forKey: .timestamp)
+            try container.encode(level.rawValue, forKey: .level)
+            try container.encode(category.rawValue, forKey: .category)
+            try container.encode(message, forKey: .message)
+            try container.encodeIfPresent(metadata, forKey: .metadata)
+        }
+    }
+    
+    // MARK: - Properties
+    
+    /// Shared singleton instance
+    public static let shared = LoggingSystem()
+    
+    /// Subsystem identifier for all logs
+    private let subsystem = "com.projectstudio.enginekit"
+    
+    /// Minimum log level (logs below this level are not emitted)
+    private(set) var minimumLevel: Level = .info
+    
+    /// Whether to include file and line number in logs
+    private(set) var includeSourceInfo: Bool = false
+    
+    /// Whether to log to console (in addition to OSLog)
+    private(set) var logToConsole: Bool = false
+    
+    /// Log buffer for programmatic access
+    private var logBuffer: [LogEntry] = []
+    
+    /// Maximum buffer size
+    private let maxBufferSize = 1000
+    
+    /// Logger instances for each category
+    private var loggers: [Category: Logger] = [:]
+    
+    /// Signpost logger for performance tracing
+    private let signpostLog = OSLog(
+        subsystem: "com.projectstudio.enginekit",
+        category: "PerformanceInstrumentation"
+    )
+    
+    // MARK: - Initialization
+    
+    private init() {
+        // Pre-initialize loggers for all categories
+        for category in Category.allCases {
+            loggers[category] = Logger(
+                subsystem: subsystem,
+                category: category.rawValue
+            )
+        }
+    }
+    
+    // MARK: - Configuration
+    
+    /// Set the minimum log level
+    public func setMinimumLevel(_ level: Level) {
+        minimumLevel = level
+        log(level: .notice, category: .general, "Minimum log level set to \(level)")
+    }
+    
+    /// Enable or disable console logging
+    public func setConsoleLogging(_ enabled: Bool) {
+        logToConsole = enabled
+        log(level: .notice, category: .general, "Console logging \(enabled ? "enabled" : "disabled")")
+    }
+    
+    /// Enable or disable source info (file, line, function) in logs
+    public func setSourceInfo(_ enabled: Bool) {
+        includeSourceInfo = enabled
+        log(level: .notice, category: .general, "Source info \(enabled ? "enabled" : "disabled")")
+    }
+    
+    /// Clear the log buffer
+    public func clearBuffer() {
+        logBuffer.removeAll()
+        log(level: .debug, category: .general, "Log buffer cleared")
+    }
+    
+    // MARK: - Logging API
+    
+    /// Log a message at the specified level and category
+    /// - Parameters:
+    ///   - level: Log level
+    ///   - category: Log category
+    ///   - message: Message to log
+    ///   - file: Source file (automatic)
+    ///   - function: Source function (automatic)
+    ///   - line: Source line (automatic)
+    public func log(
+        level: Level,
+        category: Category,
+        _ message: String,
+        file: String = #file,
+        function: String = #function,
+        line: Int = #line
+    ) {
+        // Check minimum level
+        guard level.rawValue >= minimumLevel.rawValue else { return }
+        
+        // Get logger for category
+        guard let logger = loggers[category] else {
+            return
+        }
+        
+        // Format message with source info if enabled
+        var formattedMessage = message
+        if includeSourceInfo {
+            let filename = URL(fileURLWithPath: file).lastPathComponent
+            formattedMessage = "[\(filename):\(line) \(function())] \(message)"
+        }
+        
+        // Log to OSLog
+        logger.log(level.osLogType, "\(formattedMessage)")
+        
+        // Log to console if enabled
+        if logToConsole {
+            let timestamp = ISO8601DateFormatter().string(from: Date())
+            let levelStr = "\(level)".uppercased()
+            print("[\(timestamp)] [\(levelStr)] [\(category.rawValue)] \(formattedMessage)")
+        }
+        
+        // Add to buffer
+        let entry = LogEntry(
+            timestamp: Date(),
+            level: level,
+            category: category,
+            message: message,
+            metadata: includeSourceInfo ? [
+                "file": URL(fileURLWithPath: file).lastPathComponent,
+                "function": function,
+                "line": String(line)
+            ] : nil
+        )
+        
+        logBuffer.append(entry)
+        
+        // Trim buffer if needed
+        if logBuffer.count > maxBufferSize {
+            logBuffer.removeFirst(logBuffer.count - maxBufferSize)
+        }
+    }
+    
+    /// Log a debug message
+    public func debug(
+        category: Category,
+        _ message: String,
+        file: String = #file,
+        function: String = #function,
+        line: Int = #line
+    ) {
+        log(level: .debug, category: category, message, file: file, function: function, line: line)
+    }
+    
+    /// Log an info message
+    public func info(
+        category: Category,
+        _ message: String,
+        file: String = #file,
+        function: String = #function,
+        line: Int = #line
+    ) {
+        log(level: .info, category: category, message, file: file, function: function, line: line)
+    }
+    
+    /// Log a notice message
+    public func notice(
+        category: Category,
+        _ message: String,
+        file: String = #file,
+        function: String = #function,
+        line: Int = #line
+    ) {
+        log(level: .notice, category: category, message, file: file, function: function, line: line)
+    }
+    
+    /// Log a warning message
+    public func warning(
+        category: Category,
+        _ message: String,
+        file: String = #file,
+        function: String = #function,
+        line: Int = #line
+    ) {
+        log(level: .warning, category: category, message, file: file, function: function, line: line)
+    }
+    
+    /// Log an error message
+    public func error(
+        category: Category,
+        _ message: String,
+        file: String = #file,
+        function: String = #function,
+        line: Int = #line
+    ) {
+        log(level: .error, category: category, message, file: file, function: function, line: line)
+    }
+    
+    /// Log a fault message
+    public func fault(
+        category: Category,
+        _ message: String,
+        file: String = #file,
+        function: String = #function,
+        line: Int = #line
+    ) {
+        log(level: .fault, category: category, message, file: file, function: function, line: line)
+    }
+    
+    // MARK: - Programmatic Access
+    
+    /// Get all log entries from the buffer
+    public func getLogs() -> [LogEntry] {
+        return logBuffer
+    }
+    
+    /// Get log entries filtered by category
+    public func getLogs(category: Category) -> [LogEntry] {
+        return logBuffer.filter { $0.category == category }
+    }
+    
+    /// Get log entries filtered by level
+    public func getLogs(level: Level) -> [LogEntry] {
+        return logBuffer.filter { $0.level == level }
+    }
+    
+    /// Get recent log entries
+    /// - Parameter limit: Maximum number of entries to return
+    public func getRecentLogs(limit: Int = 100) -> [LogEntry] {
+        return Array(logBuffer.suffix(limit))
+    }
+    
+    /// Export logs to a file
+    /// - Parameter fileURL: Destination URL for the log file
+    public func exportLogs(to fileURL: URL) throws {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        
+        let data = try encoder.encode(logBuffer)
+        try data.write(to: fileURL)
+        
+        info(category: .general, "Exported \(logBuffer.count) log entries to \(fileURL.path)")
+    }
+    
+    // MARK: - Signpost API
+    
+    /// Begin a signpost interval for performance measurement
+    /// - Parameters:
+    ///   - name: Signpost name
+    ///   - id: Unique identifier
+    ///   - message: Optional message
+    public func beginSignpost(name: String, id: String, message: String? = nil) {
+        let signpostID = OSSignpostID(log: signpostLog)
+        if let message = message {
+            os_signpost(.begin, log: signpostLog, name: name, signpostID: signpostID, "%{public}@[%{public}@]", message, id)
+        } else {
+            os_signpost(.begin, log: signpostLog, name: name, signpostID: signpostID, "%{public}@", id)
+        }
+    }
+    
+    /// End a signpost interval
+    /// - Parameters:
+    ///   - name: Signpost name
+    ///   - id: Unique identifier
+    ///   - message: Optional message
+    public func endSignpost(name: String, id: String, message: String? = nil) {
+        let signpostID = OSSignpostID(log: signpostLog)
+        if let message = message {
+            os_signpost(.end, log: signpostLog, name: name, signpostID: signpostID, "%{public}@[%{public}@]", message, id)
+        } else {
+            os_signpost(.end, log: signpostLog, name: name, signpostID: signpostID, "%{public}@", id)
+        }
+    }
+    
+    /// Emit a signpost event (instantaneous)
+    /// - Parameters:
+    ///   - name: Signpost name
+    ///   - id: Unique identifier
+    ///   - message: Optional message
+    public func emitSignpost(name: String, id: String, message: String? = nil) {
+        let signpostID = OSSignpostID(log: signpostLog)
+        if let message = message {
+            os_signpost(.event, log: signpostLog, name: name, signpostID: signpostID, "%{public}@[%{public}@]", message, id)
+        } else {
+            os_signpost(.event, log: signpostLog, name: name, signpostID: signpostID, "%{public}@", id)
+        }
+    }
+}
+
+// MARK: - Category Conformance
+
+extension LoggingSystem.Category: CaseIterable {
+    public static var allCases: [LoggingSystem.Category] = [
+        .general, .capture, .export, .preview, .projectStore,
+        .projectLibrary, .transcription, .telemetry, .overlay,
+        .editor, .jobQueue, .crashReporter, .ui, .performance
+    ]
+}
+
+// MARK: - Global Convenience Functions
+
+/// Log a debug message
+public func LogDebug(
+    _ category: LoggingSystem.Category,
+    _ message: String,
+    file: String = #file,
+    function: String = #function,
+    line: Int = #line
+) {
+    Task {
+        await LoggingSystem.shared.debug(
+            category: category,
+            message,
+            file: file,
+            function: function,
+            line: line
+        )
+    }
+}
+
+/// Log an info message
+public func LogInfo(
+    _ category: LoggingSystem.Category,
+    _ message: String,
+    file: String = #file,
+    function: String = #function,
+    line: Int = #line
+) {
+    Task {
+        await LoggingSystem.shared.info(
+            category: category,
+            message,
+            file: file,
+            function: function,
+            line: line
+        )
+    }
+}
+
+/// Log a notice message
+public func LogNotice(
+    _ category: LoggingSystem.Category,
+    _ message: String,
+    file: String = #file,
+    function: String = #function,
+    line: Int = #line
+) {
+    Task {
+        await LoggingSystem.shared.notice(
+            category: category,
+            message,
+            file: file,
+            function: function,
+            line: line
+        )
+    }
+}
+
+/// Log a warning message
+public func LogWarning(
+    _ category: LoggingSystem.Category,
+    _ message: String,
+    file: String = #file,
+    function: String = #function,
+    line: Int = #line
+) {
+    Task {
+        await LoggingSystem.shared.warning(
+            category: category,
+            message,
+            file: file,
+            function: function,
+            line: line
+        )
+    }
+}
+
+/// Log an error message
+public func LogError(
+    _ category: LoggingSystem.Category,
+    _ message: String,
+    file: String = #file,
+    function: String = #function,
+    line: Int = #line
+) {
+    Task {
+        await LoggingSystem.shared.error(
+            category: category,
+            message,
+            file: file,
+            function: function,
+            line: line
+        )
+    }
+}
+
+/// Log a fault message
+public func LogFault(
+    _ category: LoggingSystem.Category,
+    _ message: String,
+    file: String = #file,
+    function: String = #function,
+    line: Int = #line
+) {
+    Task {
+        await LoggingSystem.shared.fault(
+            category: category,
+            message,
+            file: file,
+            function: function,
+            line: line
+        )
+    }
+}

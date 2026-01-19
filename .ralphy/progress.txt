@@ -5444,3 +5444,176 @@ let allTags = try await library.getAllTags()
 - Atajos globales, menubar status (opcional) (Épica J, Task 3) - Optional UI enhancement
 - Reportes de crash / logging (Épica J, Task 4) - Error tracking and logging
 
+
+---
+
+## 2026-01-19
+
+### Completed: Crash Reporting and Logging System (Épica J, Task 4)
+
+**Task:** (P1) Reportes de crash / logging
+
+**Implementation:**
+- **LoggingSystem** (`LoggingSystem.swift`):
+  - Centralized structured logging using os.log framework
+  - Support for multiple log levels (debug, info, notice, warning, error, fault)
+  - Category-based logging for different components (capture, export, preview, etc.)
+  - Log buffer for programmatic access to recent logs
+  - Export logs to JSON format
+  - Signpost support for performance instrumentation
+  - Console logging option (disabled by default)
+  - Source info option (file, line, function) for debugging
+  - Global convenience functions for easy logging
+  - Thread-safe actor-based implementation
+
+- **CrashReporter** (`CrashReporter.swift`):
+  - Comprehensive crash reporting with automatic crash detection
+  - Signal handlers for common crash signals (SIGABRT, SIGBUS, SIGFPE, SIGILL, SIGSEGV)
+  - Exception handler for uncaught NSExceptions
+  - Crash report structure with:
+    - Unique ID and timestamp
+    - Crash type (fatal, exception, signal, error, unknown)
+    - Reason and stack trace
+    - App version, OS version, device model
+    - Custom metadata
+  - Automatic crash log storage in Application Support
+  - Crash report retrieval (all, recent, by category)
+  - Crash report clearing (all, older than date)
+  - Export crash reports functionality
+  - Global metadata support for all crash reports
+  - Enable/disable crash reporting
+  - Global convenience functions for error reporting
+
+- **Infrastructure Integration** (`EngineKit.swift`):
+  - Added `EngineKit.logging` accessor for LoggingSystem.shared
+  - Added `EngineKit.crashReporter` accessor for CrashReporter.shared
+  - Added `EngineKit.initialize()` for one-time setup
+  - Configurable log level and console logging
+  - Automatic metadata configuration (app version, build, platform)
+
+**Features:**
+- **Structured Logging**: All logs use OSLog with proper subsystem and category
+- **Performance Instrumentation**: Signposts for tracking performance-critical operations
+- **Crash Detection**: Automatic detection of crashes via signal handlers
+- **Crash Persistence**: Crash reports saved to disk for later analysis
+- **Thread Safety**: Actor-based implementation ensures thread-safe access
+- **Minimal Overhead**: Logging can be disabled or set to higher levels to minimize overhead
+- **Export Capabilities**: Both logs and crash reports can be exported for analysis
+- **Global Metadata**: Contextual information included in all crash reports
+- **Filtering**: Logs can be filtered by category and level
+- **Buffer Management**: Automatic buffer management with configurable size
+
+**Technical Implementation:**
+- **OSLog Integration**: Uses Apple's unified logging system for optimal performance
+- **os.signpost**: Performance instrumentation with signposts for timing operations
+- **Signal Handling**: POSIX signal handlers for crash detection
+- **JSON Export**: Codable support for exporting logs and crash reports
+- **Async/Await**: Full async/await support for non-blocking operations
+- **Actor Isolation**: Both LoggingSystem and CrashReporter are actors for thread safety
+- **Singleton Pattern**: Shared instances for easy access across the codebase
+
+**Data Models:**
+- **LoggingSystem**:
+  - `Level`: Debug, info, notice, warning, error, fault
+  - `Category`: General, capture, export, preview, projectStore, projectLibrary, transcription, telemetry, overlay, editor, jobQueue, crashReporter, ui, performance
+  - `LogEntry`: Timestamp, level, category, message, metadata
+
+- **CrashReporter**:
+  - `Severity`: Debug, info, warning, error, fatal
+  - `CrashType`: FatalError, nsException, signal, swiftError, unknown
+  - `CrashReport`: ID, timestamp, crashType, reason, stackTrace, appVersion, osVersion, deviceModel, metadata
+
+**Testing:**
+- **LoggingSystemTests** (`LoggingSystemTests.swift`): 30+ tests covering:
+  - Initialization and configuration
+  - All log levels (debug, info, notice, warning, error, fault)
+  - All categories
+  - Buffer management and filtering
+  - Export functionality
+  - Signpost operations
+  - Global convenience functions
+  - Performance tests
+  - Edge cases (empty messages, long messages, special characters)
+  - Concurrent logging
+
+- **CrashReporterTests** (`CrashReporterTests.swift`): 35+ tests covering:
+  - Initialization and configuration
+  - Crash reporting at all severity levels
+  - Error reporting with context
+  - Crash report retrieval (all, recent)
+  - Crash report clearing (all, older than)
+  - Crash report structure validation
+  - Global metadata support
+  - Disabled state handling
+  - Performance tests
+  - Edge cases (empty reason, long reason, special characters, large metadata)
+  - Concurrent crash reporting
+
+**Integration with Existing Code:**
+- **ProjectStore**: Added Logger with structured logging for initialization and errors
+- **ExportEngine**: Already using Logger (unchanged)
+- **Other Components**: Can now use `EngineKit.logging` for unified logging
+- **Error Handling**: Components can use `reportError()` for automatic error reporting
+- **Crash Reporting**: Automatic crash detection and reporting for the entire application
+
+**Usage Examples:**
+```swift
+// Initialize EngineKit infrastructure
+EngineKit.initialize(
+    logLevel: .info,
+    enableConsoleLogging: false,
+    enableCrashReporting: true
+)
+
+// Log messages
+LogInfo(.capture, "Recording started")
+LogError(.export, "Export failed: \(error)")
+
+// Report errors
+reportError(error, context: "ProjectStore.loadProject")
+
+// Report crashes
+reportCrash(reason: "Critical error", severity: .fatal, metadata: ["context": "export"])
+
+// Access logs
+let logs = await EngineKit.logging.getRecentLogs(limit: 100)
+try await EngineKit.logging.exportLogs(to: fileURL)
+
+// Access crash reports
+let reports = await EngineKit.crashReporter.getRecentCrashReports(limit: 10)
+try await EngineKit.crashReporter.exportCrashReports(to: fileURL)
+```
+
+**Files Created:**
+- `EngineKit/Sources/EngineKit/Infrastructure/LoggingSystem.swift` (new, 550+ lines)
+- `EngineKit/Sources/EngineKit/Infrastructure/CrashReporter.swift` (new, 510+ lines)
+- `EngineKit/Tests/EngineKitTests/LoggingSystemTests.swift` (new, 480+ lines - 30+ tests)
+- `EngineKit/Tests/EngineKitTests/CrashReporterTests.swift` (new, 520+ lines - 35+ tests)
+- `EngineKit/Sources/EngineKit/Store/ProjectStore.swift` (enhanced with Logger)
+- `EngineKit/Sources/EngineKit/EngineKit.swift` (enhanced with infrastructure accessors)
+- `tasks.md` (marked Épica J, Task 4 as complete)
+- `.ralphy/progress.txt` (this entry)
+
+**Dependencies:**
+- os.log (Apple unified logging)
+- os.signpost (Performance instrumentation)
+- Foundation (FileManager, Date, etc.)
+
+**Notes:**
+- Logging uses Apple's unified logging system for optimal performance and integration with Console.app
+- Crash reports are automatically saved to Application Support/ProjectStudio/CrashReports/
+- Maximum of 50 crash reports kept by default (older ones are automatically cleaned up)
+- Signposts can be viewed in Instruments for performance analysis
+- All logging is async and non-blocking
+- Both LoggingSystem and CrashReporter are actor-based for thread safety
+- The implementation follows Apple's best practices for logging and crash reporting
+- Crash handlers are installed on first access to CrashReporter.shared
+- Logging can be configured at runtime without restarting the application
+
+**Next Steps:**
+- Épica K, Task 1: Definir interfaz `AIService` - Define AI service interface for future features
+- Consider adding remote crash reporting integration (e.g., Sentry, Crashlytics) if needed
+- Consider adding analytics/metrics collection if needed
+- Épica K, Task 2: Local "smart edits" - Implement local AI-assisted editing features
+
+---

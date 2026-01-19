@@ -20,6 +20,8 @@ import Foundation
 /// - TranscriptionEngine: Offline STT via Whisper.cpp
 /// - OverlayEngine: Vector overlay rendering
 /// - JobQueue: Job management with progress/cancellation
+/// - LoggingSystem: Centralized structured logging
+/// - CrashReporter: Crash reporting and crash log capture
 ///
 @_exported import struct Foundation.UUID
 
@@ -29,6 +31,44 @@ public enum EngineKit {
     public static let version = "0.1.0"
     /// Build information
     public static let build = "1"
+    
+    // MARK: - Infrastructure
+    
+    /// Shared logging system instance
+    /// Use this for all structured logging across EngineKit
+    public static var logging: LoggingSystem {
+        return LoggingSystem.shared
+    }
+    
+    /// Shared crash reporter instance
+    /// Use this to report crashes and critical errors
+    public static var crashReporter: CrashReporter {
+        return CrashReporter.shared
+    }
+    
+    /// Initialize EngineKit infrastructure (logging, crash reporting)
+    /// Call this at app startup
+    public static func initialize(
+        logLevel: LoggingSystem.Level = .info,
+        enableConsoleLogging: Bool = false,
+        enableCrashReporting: Bool = true
+    ) {
+        // Configure logging
+        logging.setMinimumLevel(logLevel)
+        logging.setConsoleLogging(enableConsoleLogging)
+        
+        // Configure crash reporting
+        crashReporter.setEnabled(enableCrashReporting)
+        
+        // Set global metadata
+        crashReporter.setGlobalMetadata([
+            "appVersion": version,
+            "build": build,
+            "platform": "macOS"
+        ])
+        
+        logging.notice(category: .general, "EngineKit v\(version) (build \(build)) initialized")
+    }
 }
 
 // MARK: - Common Types

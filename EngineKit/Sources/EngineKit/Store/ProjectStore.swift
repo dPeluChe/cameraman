@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import os.log
 
 /// ProjectStore manages project persistence on disk
 public actor ProjectStore {
@@ -13,6 +14,8 @@ public actor ProjectStore {
     private let baseDirectory: URL
     /// File manager for disk operations
     private let fileManager: FileManager
+    /// Structured logging
+    private let logger = Logger(subsystem: "com.projectstudio.enginekit", category: "ProjectStore")
 
     /// Current schema version
     private let currentSchemaVersion = 1
@@ -31,7 +34,13 @@ public actor ProjectStore {
         }
 
         // Create base directory if it doesn't exist
-        try? fileManager.createDirectory(at: self.baseDirectory, withIntermediateDirectories: true)
+        do {
+            try fileManager.createDirectory(at: self.baseDirectory, withIntermediateDirectories: true)
+            logger.info("ProjectStore initialized with base directory: \(self.baseDirectory.path)")
+        } catch {
+            logger.error("Failed to create base directory: \(error.localizedDescription)")
+            reportError(error, context: "ProjectStore.init")
+        }
     }
 
     // MARK: - Project CRUD

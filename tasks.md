@@ -91,7 +91,7 @@ Este backlog está organizado por épicas y por orden recomendado.
 - [x] (P1) Biblioteca de proyectos: búsqueda por nombre/tags, ordenamiento
 - [x] (P1) Autosave consistente (actualiza `updated_at`)
 - [x] (P1) Atajos globales, menubar status (opcional)
-- [ ] (P1) Reportes de crash / logging
+- [x] (P1) Reportes de crash / logging
 
 ---
 
