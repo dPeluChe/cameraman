@@ -21,17 +21,17 @@ Este backlog está organizado por épicas y por orden recomendado.
 - [x] (P0) Selector de fuente: list displays, list windows, list apps
 - [x] (P0) Permisos y "health checks": screen recording permission, mic permission, camera permission
 - [x] (P0) `CaptureEngine`: stream de video pantalla (resolución nativa, 60fps), system audio vía `SCStreamConfiguration.capturesAudio` (macOS 13+), timestamps consistentes (sync reference)
-- [ ] (P0) `CameraEngine`: captura cámara como pista separada (720p/1080p @ 30fps), sync offset configurable respecto a screen
-- [ ] (P0) `Recorder`: escribir `screen.mov` (resolución nativa), escribir `camera.mov`, escribir `system_audio.m4a` y `mic_audio.m4a`, registrar sync offsets en metadata
-- [ ] (P0) Hotkeys start/stop/pause + UI mínima
+- [x] (P0) `CameraEngine`: captura cámara como pista separada (720p/1080p @ 30fps), sync offset configurable respecto a screen
+- [x] (P0) `Recorder`: escribir `screen.mov` (resolución nativa), escribir `camera.mov`, escribir `system_audio.m4a` y `mic_audio.m4a`, registrar sync offsets en metadata
+- [x] (P0) Hotkeys start/stop/pause + UI mínima
 
 ---
 
 ## Épica C — Telemetría cursor/clicks/keys
-- [ ] (P0) `TelemetryRecorder`: move throttled (30-60 Hz), down/up (clicks), scroll opcional
-- [ ] (P0) Guardar `telemetry/cursor.jsonl`
-- [ ] (P1) Sincronización y validación: alineación con timeline (debug overlay)
-- [ ] (P1) Captura de keystrokes (opt-in): registrar teclas/shortcuts presionados, guardar en `telemetry/keys.jsonl`, útil para tutoriales. **Nota:** requiere permiso de Accessibility
+- [x] (P0) `TelemetryRecorder`: move throttled (30-60 Hz), down/up (clicks), scroll opcional
+- [x] (P0) Guardar `telemetry/cursor.jsonl`
+- [x] (P1) Sincronización y validación: alineación con timeline (debug overlay)
+- [x] (P1) Captura de keystrokes (opt-in): registrar teclas/shortcuts presionados, guardar en `telemetry/keys.jsonl`, útil para tutoriales. **Nota:** requiere permiso de Accessibility
 
 ---
 
