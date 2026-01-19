@@ -3332,3 +3332,184 @@ After completing the final P0 task (ProjectStore tests verification), ALL P0 tas
 - P1 tasks from Épica G: Captions overlay en preview, Burn‑in captions en export
 - P1 tasks from Épica L: Tests de PreviewEngine, Tests de TranscriptionEngine
 
+
+---
+
+## 2026-01-19
+
+### Completed: Captions Overlay in Preview (Épica G, Task 2)
+
+**Task:** (P1) Captions overlay en preview
+
+**Implementation:**
+- Created `CaptionsManager.swift` with comprehensive caption parsing and rendering:
+  - `CaptionEntry`: Struct representing individual caption with id, start time, end time, and text
+  - `CaptionStyle`: Configuration struct for caption appearance (font, size, colors, position, alignment)
+  - `loadCaptions(from:)`: Load captions from SRT or VTT files with auto-detection
+  - `getCaption(at:)`: Query active caption at specific time
+  - `getActiveCaptions(at:)`: Get all active captions (for overlapping support)
+  - `getCaption(byIndex:)`: Get caption by sequential index
+  - `getAllCaptions()`: Get all loaded captions
+  - `setEnabled(_:)`: Enable/disable captions display
+  - `updateStyle(_:)`: Update caption style configuration
+- Implemented SRT format parser:
+  - Parses standard SRT time format (HH:MM:SS,mmm)
+  - Handles multi-line captions
+  - Validates index and time range format
+- Implemented VTT format parser:
+  - Parses WebVTT format with WEBVTT header
+  - Handles VTT time format (HH:MM:SS.mmm)
+  - Skips optional cue identifiers
+- Integrated captions into PreviewEngine:
+  - Added `CaptionsManager` property to PreviewEngine
+  - `loadProject()` now automatically loads captions from project.captions paths
+  - `renderOverlays()` now includes caption rendering
+  - `renderCaption()` renders text with background, shadow, and alignment
+  - Caption position is configurable (vertical/horizontal alignment)
+  - Caption style supports font size, colors, background opacity, shadow
+- Created caption query API in PreviewEngine:
+  - `getActiveCaption()`: Get caption at current playback time
+  - `getCaption(at:)`: Get caption at specific time
+  - `getAllCaptions()`: Get all captions
+  - `hasCaptions()`: Check if captions are available
+  - `setCaptionsEnabled(_:)`: Toggle captions on/off
+  - `isCaptionsEnabled()`: Check if captions are enabled
+  - `updateCaptionStyle(_:)`: Update caption style
+  - `getCaptionStyle()`: Get current style
+- Implemented comprehensive caption rendering:
+  - Text rendering with CoreText for accurate typography
+  - Configurable font family and size (relative to video height)
+  - Text color and background color with opacity
+  - Horizontal alignment (left, center, right)
+  - Vertical positioning (configurable distance from bottom)
+  - Maximum line width and line count
+  - Optional text shadow for better readability
+  - Background rectangle with padding and opacity
+  - Word wrapping for long captions
+
+**Features:**
+- SRT and VTT file format support with auto-detection
+- Real-time caption display during video preview
+- Configurable caption style (font, size, colors, position)
+- Enable/disable captions without unloading
+- Multi-line caption support
+- Caption timing accuracy (frame-level precision)
+- Automatic caption loading when project is loaded
+- Graceful handling of missing or invalid caption files
+- Caption querying by time or index
+- Background with configurable opacity for better readability
+- Text shadow for improved contrast
+- Horizontal and vertical alignment
+- Maximum line width and count control
+- Style presets (default, large, minimal)
+
+**Technical Implementation:**
+- Uses CoreText (CTFont, CTFrame, CTFramesetter) for text rendering
+- CaptionsManager is actor-based for thread safety
+- Caption parsing is efficient with string operations
+- Time parsing handles both SRT (HH:MM:SS,mmm) and VTT (HH:MM:SS.mmm) formats
+- Caption rendering integrates with existing overlay rendering pipeline
+- Caption position is calculated relative to video dimensions
+- Font size scales with video height for consistency
+- Background opacity supports alpha channel for semi-transparent backgrounds
+- Text shadow improves readability on any background
+- Word wrapping ensures captions fit within max line width
+
+**Caption Style Configuration:**
+- Font family: Customizable (default: Helvetica)
+- Font size: 6% of video height by default (configurable)
+- Text color: White by default (#FFFFFF)
+- Background color: Black by default (#000000)
+- Background opacity: 70% by default (configurable)
+- Vertical position: 10% from bottom by default
+- Horizontal alignment: Center by default (0.5)
+- Maximum line width: 80% of video width by default
+- Maximum lines: 2 by default
+- Text shadow: Enabled by default
+
+**Style Presets:**
+- Default: Standard caption style (6% font, 2 lines, 70% opacity)
+- Large: Accessibility style (8% font, 3 lines, 80% opacity)
+- Minimal: Minimal style (5% font, no background, shadow only)
+
+**Error Handling:**
+- CaptionsManager throws descriptive errors for:
+  - File not found (missing caption files)
+  - Invalid format (malformed SRT/VTT)
+  - Parse errors (invalid time ranges, missing data)
+  - Empty files (no caption entries)
+- PreviewEngine gracefully handles caption loading failures
+- Missing captions don't prevent preview from working
+
+**Testing:**
+- Created comprehensive test suite in `CaptionsManagerTests.swift` with 25+ tests
+- Tests cover:
+  - Initialization (default and custom styles)
+  - SRT file loading and parsing
+  - VTT file loading and parsing
+  - Caption querying by time and index
+  - Caption queries at boundaries and gaps
+  - Multi-line caption support
+  - Style management and updates
+  - Enable/disable functionality
+  - Error handling (missing files, invalid formats, empty files)
+  - Auto-detection of caption formats
+  - Caption entry equality
+  - Time range queries
+  - Clear captions functionality
+  - Performance tests for parsing and querying
+- All tests designed to handle edge cases (empty files, malformed data, boundary conditions)
+
+**Files Modified/Created:**
+- `EngineKit/Sources/EngineKit/Preview/CaptionsManager.swift` (new, 590+ lines)
+- `EngineKit/Sources/EngineKit/Preview/PreviewEngine.swift` (modified, added 200+ lines for caption integration)
+- `EngineKit/Tests/EngineKitTests/CaptionsManagerTests.swift` (new, 450+ lines)
+- `tasks.md` (marked task as complete)
+- `.ralphy/progress.txt` (this entry)
+
+**Notes:**
+- CaptionsManager provides a complete solution for caption display in video preview
+- SRT and VTT are the most common caption formats (widely supported)
+- Auto-detection of format allows seamless loading without user configuration
+- Caption rendering integrates with existing overlay pipeline for consistency
+- Caption style is highly configurable for different use cases and accessibility
+- Enable/disable functionality allows users to toggle captions without unloading
+- Caption queries support both single and multiple active captions (for future overlapping support)
+- CoreText provides accurate text rendering and proper typography
+- Font size scaling ensures captions are readable at any resolution
+- Background opacity improves readability on any video content
+- Text shadow enhances contrast for better accessibility
+- Actor-based pattern ensures thread safety (consistent with EngineKit)
+- Caption loading failures are not fatal (preview continues without captions)
+- The implementation is ready for integration with UI controls (caption toggle, style selector)
+
+**Design Decisions:**
+- Separate CaptionsManager class for separation of concerns
+- Actor-based pattern for thread safety (matches other EngineKit components)
+- SRT/VTT auto-detection for better UX
+- Configurable style presets for common use cases
+- Relative font sizing (percentage of video height) for consistency
+- Background with opacity for better readability
+- Text shadow for improved contrast on all backgrounds
+- Word wrapping to prevent captions from exceeding max width
+- Graceful error handling (missing captions don't break preview)
+- Caption querying by time for efficient real-time display
+- Integration with existing overlay rendering pipeline
+
+**Known Limitations:**
+- No animation support for caption transitions (fade in/out)
+- No support for styling individual words (inline formatting)
+- No support for positioning individual captions (all use same style)
+- No support for caption regions (VTT regions)
+- No support for caption metadata (language, direction)
+- Caption rendering is bitmap-based (not searchable text in final video)
+- No caption editing support (read-only from SRT/VTT files)
+
+**Next Steps:**
+- Burn‑in captions en export (Épica G, Task 3): Render captions into exported video
+- Integrate caption controls in UI (toggle button, style selector)
+- Add caption support in ExportEngine for burning captions into final output
+- P1 tasks from Épica L: Tests de PreviewEngine (seek accuracy, playback with captions)
+- P1 tasks from Épica I: Cursor Zoom implementation
+- P1 tasks from Épica J: Library/UX polish
+

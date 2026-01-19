@@ -39,6 +39,9 @@ public actor PreviewEngine {
     /// Proxy generator for creating low-resolution previews
     private var proxyGenerator: ProxyGenerator
 
+    /// Captions manager for displaying captions overlay
+    private var captionsManager: CaptionsManager
+
     /// Configuration for preview
     public struct Configuration: Sendable {
         /// Whether to use low-quality proxy for smoother preview
@@ -141,6 +144,7 @@ public actor PreviewEngine {
     public init(configuration: Configuration = .default) {
         self.configuration = configuration
         self.proxyGenerator = ProxyGenerator()
+        self.captionsManager = CaptionsManager()
     }
 
     /// Load a project for preview
@@ -163,6 +167,14 @@ public actor PreviewEngine {
         self.currentTime = 0
         self.playbackState = .stopped
 
+        // Load captions if available
+        if let captions = project.captions, let projectDir = projectDirectory {
+            await loadCaptions(srtPath: captions.srtPath, vttPath: captions.vttPath, projectDirectory: projectDir)
+        } else {
+            // Clear captions if none available
+            await captionsManager.clear()
+        }
+
         // Create AVPlayer with composition that applies edits
         try await createPlayerWithEdits()
     }
@@ -175,6 +187,11 @@ public actor PreviewEngine {
         self.player = nil
         self.currentTime = 0
         self.playbackState = .stopped
+
+        // Clear captions
+        Task {
+            await captionsManager.clear()
+        }
     }
 
     // MARK: - Playback Control
@@ -506,8 +523,11 @@ public actor PreviewEngine {
             time >= overlay.start && time <= overlay.end
         }
 
-        // If no active overlays, return original image
-        if activeOverlays.isEmpty {
+        // Get active caption at current time
+        let activeCaption = await captionsManager.getCaption(at: time)
+
+        // If no active overlays or captions, return original image
+        if activeOverlays.isEmpty && activeCaption == nil {
             return image
         }
 
@@ -531,6 +551,11 @@ public actor PreviewEngine {
         // Render each overlay
         for overlay in activeOverlays {
             try renderOverlay(overlay, in: context, imageSize: CoreFoundation.CGSize(width: CGFloat(image.width), height: CGFloat(image.height)), canvasSize: CoreFoundation.CGSize(width: CGFloat(canvasWidth), height: CGFloat(canvasHeight)))
+        }
+
+        // Render caption if active
+        if let caption = activeCaption {
+            try renderCaption(caption, in: context, imageSize: CoreFoundation.CGSize(width: CGFloat(image.width), height: CGFloat(image.height)), canvasSize: CoreFoundation.CGSize(width: CGFloat(canvasWidth), height: CGFloat(canvasHeight)))
         }
 
         // Extract final image
@@ -796,6 +821,195 @@ public actor PreviewEngine {
         return project.overlays.filter { overlay in
             time >= overlay.start && time <= overlay.end
         }
+    }
+
+    // MARK: - Captions Rendering
+
+    /// Render a caption on the graphics context
+    /// - Parameters:
+    ///   - caption: Caption entry to render
+    ///   - context: Graphics context
+    ///   - imageSize: Size of the image being rendered
+    ///   - canvasSize: Canvas format size
+    /// - Throws: PreviewError if rendering fails
+    private func renderCaption(
+        _ caption: CaptionsManager.CaptionEntry,
+        in context: CGContext,
+        imageSize: CoreFoundation.CGSize,
+        canvasSize: CoreFoundation.CGSize
+    ) throws {
+        let style = await captionsManager.getStyle()
+
+        // Calculate font size based on image height
+        let fontSize = style.fontSize * CGFloat(imageSize.height)
+
+        // Create font
+        let font = CTFontCreateWithName(style.fontFamily as CFString, fontSize, nil)
+
+        // Create paragraph style for alignment
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.alignment = style.horizontalAlignment < 0.33 ? .left :
+                                   style.horizontalAlignment > 0.66 ? .right : .center
+        paragraphStyle.lineBreakMode = .byWordWrapping
+
+        // Create text attributes
+        let textColor = parseColor(style.textColor)
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: textColor,
+            .paragraphStyle: paragraphStyle
+        ]
+
+        // Create attributed string
+        let attributedString = NSAttributedString(string: caption.text, attributes: attributes)
+
+        // Measure text
+        let framesetter = CTFramesetterCreateWithAttributedString(attributedString)
+        let maxWidth = style.maxLineWidth * CGFloat(imageSize.width)
+        let textBounds = CTFramesetterSuggestFrameSizeWithConstraints(
+            framesetter,
+            CFRange(location: 0, length: attributedString.length),
+            nil,
+            CoreFoundation.CGSize(width: maxWidth, height: CGFloat.greatestFiniteMagnitude),
+            nil
+        )
+
+        // Calculate caption position (bottom of screen by default)
+        let padding: CGFloat = 20
+        let x = style.horizontalAlignment * CGFloat(imageSize.width)
+        let y = (1.0 - style.verticalPosition) * CGFloat(imageSize.height) - textBounds.height - padding
+
+        // Draw background if opacity > 0
+        if style.backgroundOpacity > 0 {
+            let bgColor = parseColor(style.backgroundColor)
+            let bgPadding: CGFloat = 12
+
+            // Calculate background rect based on alignment
+            var bgX: CGFloat
+            switch paragraphStyle.alignment {
+            case .left:
+                bgX = x - bgPadding
+            case .right:
+                bgX = x - textBounds.width - bgPadding
+            default:
+                bgX = x - textBounds.width / 2 - bgPadding
+            }
+
+            let bgRect = CoreFoundation.CGRect(
+                x: bgX,
+                y: y - bgPadding,
+                width: textBounds.width + bgPadding * 2,
+                height: textBounds.height + bgPadding * 2
+            )
+
+            // Create background color with opacity
+            let bgComponents = bgColor.components ?? [0, 0, 0, 1]
+            let bgColorWithAlpha = CGColor(
+                colorSpace: CGColorSpaceCreateDeviceRGB(),
+                components: bgComponents
+            )?.copy(alpha: style.backgroundOpacity) ?? bgColor
+
+            context.setFillColor(bgColorWithAlpha)
+            context.fill([bgRect])
+        }
+
+        // Draw shadow if enabled
+        if style.shadow {
+            context.setShadow(offset: CoreFoundation.CGSize(width: 2, height: 2), blur: 4, color: CGColor(red: 0, green: 0, blue: 0, alpha: 0.8))
+        } else {
+            context.setShadow(offset: .zero, blur: 0, color: nil)
+        }
+
+        // Draw text
+        let textRect = CoreFoundation.CGRect(x: x, y: y, width: textBounds.width, height: textBounds.height)
+
+        // Adjust x position based on alignment
+        let adjustedRect: CoreFoundation.CGRect
+        switch paragraphStyle.alignment {
+        case .left:
+            adjustedRect = CoreFoundation.CGRect(x: x, y: y, width: min(textBounds.width, maxWidth), height: textBounds.height)
+        case .right:
+            adjustedRect = CoreFoundation.CGRect(x: x - textBounds.width, y: y, width: min(textBounds.width, maxWidth), height: textBounds.height)
+        default:
+            adjustedRect = CoreFoundation.CGRect(x: x - textBounds.width / 2, y: y, width: min(textBounds.width, maxWidth), height: textBounds.height)
+        }
+
+        let textPath = CGPath(rect: adjustedRect, transform: nil)
+        let textFrame = CTFramesetterCreateFrame(framesetter, CFRange(location: 0, length: 0), textPath, nil)
+
+        CTFrameDraw(textFrame, context)
+    }
+
+    /// Load captions from file paths
+    /// - Parameters:
+    ///   - srtPath: Relative path to SRT file
+    ///   - vttPath: Relative path to VTT file
+    ///   - projectDirectory: Project directory path
+    private func loadCaptions(srtPath: String, vttPath: String, projectDirectory: String) async {
+        // Prefer VTT if available, otherwise use SRT
+        let vttFullPath = (projectDirectory as NSString).appendingPathComponent(vttPath)
+        let srtFullPath = (projectDirectory as NSString).appendingPathComponent(srtPath)
+
+        let captionPath = FileManager.default.fileExists(atPath: vttFullPath) ? vttFullPath : srtFullPath
+
+        do {
+            try await captionsManager.loadCaptions(from: captionPath)
+        } catch {
+            // If captions fail to load, just continue without them
+            // This is not a fatal error for preview
+            print("Warning: Failed to load captions: \(error.localizedDescription)")
+        }
+    }
+
+    // MARK: - Captions Query API
+
+    /// Get active caption at current time
+    /// - Returns: Caption entry if active, nil otherwise
+    public func getActiveCaption() async -> CaptionsManager.CaptionEntry? {
+        return await captionsManager.getCaption(at: currentTime)
+    }
+
+    /// Get active caption at a specific time
+    /// - Parameter time: Time in seconds
+    /// - Returns: Caption entry if active, nil otherwise
+    public func getCaption(at time: TimeInterval) async -> CaptionsManager.CaptionEntry? {
+        return await captionsManager.getCaption(at: time)
+    }
+
+    /// Get all captions
+    /// - Returns: Array of all caption entries
+    public func getAllCaptions() async -> [CaptionsManager.CaptionEntry] {
+        return await captionsManager.getAllCaptions()
+    }
+
+    /// Check if captions are available
+    /// - Returns: True if captions are loaded and available
+    public func hasCaptions() async -> Bool {
+        return await captionsManager.hasCaptions()
+    }
+
+    /// Enable or disable captions overlay
+    /// - Parameter enabled: Whether to show captions
+    public func setCaptionsEnabled(_ enabled: Bool) async {
+        await captionsManager.setEnabled(enabled)
+    }
+
+    /// Check if captions are enabled
+    /// - Returns: True if captions are enabled
+    public func isCaptionsEnabled() async -> Bool {
+        return await captionsManager.isEnabled()
+    }
+
+    /// Update caption style
+    /// - Parameter style: New caption style
+    public func updateCaptionStyle(_ style: CaptionsManager.CaptionStyle) async {
+        await captionsManager.updateStyle(style)
+    }
+
+    /// Get current caption style
+    /// - Returns: Current caption style
+    public func getCaptionStyle() async -> CaptionsManager.CaptionStyle {
+        return await captionsManager.getStyle()
     }
 
     // MARK: - Proxy Generation
