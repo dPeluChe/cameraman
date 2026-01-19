@@ -33,3 +33,63 @@
 - Displays enumeration works without screen recording permission
 - Windows and applications require screen recording permission (gracefully handled)
 
+
+---
+
+## 2026-01-18 (Continued)
+
+### Completed: PermissionManager with Health Checks (Épica B, Task 2)
+
+**Task:** (P0) Permisos y "health checks": screen recording permission, mic permission, camera permission
+
+**Implementation:**
+- Created `PermissionManager.swift` with comprehensive permission management:
+  - `checkScreenRecordingPermission()`: Checks screen recording permission status using ScreenCaptureKit
+  - `checkMicrophonePermission()`: Checks microphone permission using AVFoundation
+  - `checkCameraPermission()`: Checks camera permission using AVFoundation
+  - `requestScreenRecordingPermission()`: Opens System Settings for screen recording permission
+  - `requestMicrophonePermission()`: Requests microphone permission via system dialog
+  - `requestCameraPermission()`: Requests camera permission via system dialog
+  - `performHealthCheck()`: Comprehensive health check returning status of all permissions
+  - `hasRequiredPermissions()`: Convenience method to check if required permissions are granted
+  - `getFirstMissingPermissionError()`: Returns error for first missing permission
+  - `isMicrophoneAvailable()` / `isCameraAvailable()`: Hardware availability checks
+- Implemented proper error handling with descriptive error messages
+- Created data models: `PermissionStatus`, `HealthCheckResult`, `PermissionError`
+
+**Features:**
+- HealthCheckResult provides:
+  - Individual permission statuses
+  - `canRecord()` method to check if recording is possible with specific configuration
+  - `missingPermissions()` method to list missing permissions
+- Permission errors include helpful messages directing users to System Settings
+- Graceful handling of permission denied scenarios for CI environments
+- Hardware availability checks (camera/mic may not be available on all Macs)
+
+**Testing:**
+- Created comprehensive test suite in `PermissionManagerTests.swift` with 20+ tests
+- Tests cover:
+  - Individual permission checks (screen recording, microphone, camera)
+  - Hardware availability checks
+  - Permission requests
+  - Health check functionality
+  - Convenience methods
+  - Error descriptions
+  - Performance testing
+- All tests compile successfully
+- Tests handle permission-denied scenarios gracefully for CI environments
+
+**Files Modified/Created:**
+- `EngineKit/Sources/EngineKit/Capture/PermissionManager.swift` (new)
+- `EngineKit/Tests/EngineKitTests/PermissionManagerTests.swift` (new)
+- `tasks.md` (marked task as complete)
+- `.ralphy/progress.txt` (this entry)
+
+**Notes:**
+- Uses AVFoundation for camera and microphone permission management
+- Uses ScreenCaptureKit for screen recording permission checks
+- Screen recording permission cannot be requested programmatically - must be granted via System Settings
+- PermissionManager automatically opens System Settings to the correct pane when requesting screen recording permission
+- All permission checks are async and thread-safe (actor-based)
+- Compatible with macOS 13+ (ScreenCaptureKit requirement)
+
