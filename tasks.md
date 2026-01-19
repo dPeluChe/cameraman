@@ -110,7 +110,7 @@ Este backlog está organizado por épicas y por orden recomendado.
 - [x] (P0) Tests de `ProjectStore`: crear/leer/actualizar proyectos, migración de schema
 - [x] (P0) Tests de export: verificar audio sync en output, verificar aplicación de trims/cuts, verificar overlays renderizados
 - [x] (P1) Tests de `PreviewEngine`: seek accuracy, playback con edits aplicados
-- [ ] (P1) Tests de `TranscriptionEngine`: accuracy básica de transcripción, formato correcto de SRT/VTT
+- [x] (P1) Tests de `TranscriptionEngine`: accuracy básica de transcripción, formato correcto de SRT/VTT
 - [ ] (P1) Test de regresión de audio drift: grabación de 10+ minutos sin drift
 
 ---
