@@ -3179,3 +3179,156 @@ After completing the final P0 task (ProjectStore tests verification), ALL P0 tas
 
 **Milestone Achieved:** 🎯 ALL P0 TASKS COMPLETE - MVP READY FOR TESTING! 🎯
 
+
+---
+
+## 2026-01-19
+
+### Completed: Thumbnail and Waveform Cache Implementation (Épica F, Task 3)
+
+**Task:** (P1) Cache de thumbnails / waveform (mejora UX)
+
+**Implementation:**
+- Created `ThumbnailCache.swift` with comprehensive caching system for thumbnails and waveforms:
+  - `setProject()`: Set the current project for caching
+  - `getThumbnail()`: Get a single thumbnail at a specific time
+  - `getThumbnails()`: Get multiple thumbnails for a time range
+  - `generateAllThumbnails()`: Pre-generate thumbnails for entire project
+  - `getWaveform()`: Get waveform for an audio track
+  - `generateAllWaveforms()`: Pre-generate waveforms for all audio tracks
+  - `clearThumbnails()`, `clearWaveforms()`, `clearAll()`: Cache management
+  - `getCacheStats()`: Get cache statistics and memory usage
+- Implemented multi-tier caching strategy:
+  - In-memory cache (fastest access)
+  - Disk cache (persistent across sessions)
+  - On-demand generation (cache miss fallback)
+- Created configuration system with presets:
+  - Default: 100 thumbnails @ 160x90, 1000 waveform samples
+  - High Quality: 200 thumbnails @ 320x180, 2000 waveform samples
+  - Low Memory: 50 thumbnails @ 120x68, no waveform caching
+- Created data models: `CachedThumbnail`, `CachedWaveform`, `Configuration`, `CacheError`
+- Implemented PNG compression for thumbnail storage
+- Implemented JSON serialization for waveform data storage
+- Added cache directory management (`cache/thumbnails/` and `cache/waveforms/`)
+
+**Features:**
+- Thumbnail caching with configurable resolution (160x90 default, 320x180 high quality)
+- Waveform caching for audio tracks (1000 samples default, 2000 high quality)
+- Multi-tier caching (memory → disk → generation)
+- Configurable cache limits (max thumbnail count: 50-200)
+- Optional disk caching (persistent cache across sessions)
+- Optional waveform caching (can be disabled to save memory)
+- Cache statistics tracking (memory usage, item counts)
+- Progress reporting for bulk generation operations
+- Automatic cache directory creation and management
+- Time-based thumbnail lookup (time → CachedThumbnail)
+- Track-based waveform lookup (track path → CachedWaveform)
+
+**Technical Implementation:**
+- Uses AVAssetImageGenerator for thumbnail extraction
+- Uses AVAssetReader for audio waveform analysis
+- RMS-based waveform calculation (Root Mean Square for amplitude)
+- PNG compression for thumbnail disk storage
+- JSON serialization for waveform disk storage
+- Actor-based thread safety (consistent with other EngineKit components)
+- Async/await pattern for all operations
+- Compatible with macOS 13+ (matches other engine requirements)
+
+**Caching Strategy:**
+- **Tier 1 - In-Memory Cache**: Fastest access, limited by configured max count
+- **Tier 2 - Disk Cache**: Persistent storage, survives app restarts
+- **Tier 3 - On-Demand Generation**: Fallback when cache misses occur
+- Automatic cache eviction based on max count (LRU-style)
+- Disk cache validation (checks file modification times)
+
+**Waveform Generation:**
+- Reads audio samples using AVAssetReader
+- Computes RMS (Root Mean Square) for each chunk
+- Normalizes samples to -1.0 to 1.0 range
+- Configurable resolution (500-2000 samples)
+- Handles multiple audio tracks (system audio, mic audio)
+- Graceful handling of missing or corrupted audio files
+
+**Performance Optimizations:**
+- In-memory cache for frequently accessed thumbnails
+- Lazy loading (only generate when requested)
+- Bulk generation with progress reporting
+- PNG compression for efficient disk storage
+- JSON serialization for waveform data
+- Configurable cache limits to prevent memory bloat
+- Optional disk caching to reduce memory footprint
+
+**Testing:**
+- Created comprehensive test suite in `ThumbnailCacheTests.swift` with 40+ tests
+- Tests cover:
+  - Configuration creation (default, high quality, low memory, custom)
+  - Project management (set project, clear project)
+  - Thumbnail operations (get single, get multiple, generate all, clear)
+  - Waveform operations (get, generate all, clear)
+  - Cache statistics and memory tracking
+  - Error handling scenarios (project not set, media not found, cache errors)
+  - Different configurations and presets
+  - Integration with projects containing audio tracks
+  - Cache directory creation and management
+  - Performance tests for cache operations
+  - Edge cases (empty projects, missing files, disabled caching)
+- All tests designed to handle async patterns correctly
+- Tests handle permission-denied scenarios gracefully for CI environments
+
+**Files Modified/Created:**
+- `EngineKit/Sources/EngineKit/Preview/ThumbnailCache.swift` (new, 785 lines)
+- `EngineKit/Tests/EngineKitTests/ThumbnailCacheTests.swift` (new, 650+ lines)
+- `tasks.md` (marked task as complete)
+- `.ralphy/progress.txt` (this entry)
+
+**Notes:**
+- ThumbnailCache provides significant UX improvements for timeline scrubbing
+- Cached thumbnails eliminate frame extraction delay during navigation
+- Waveform caching enables visual audio feedback in timeline
+- Multi-tier caching ensures fast access while managing memory efficiently
+- Configuration presets allow tuning for different use cases (editing vs. playback)
+- Disk caching enables persistent cache across app restarts
+- Actor-based pattern ensures thread safety (matches other EngineKit components)
+- Cache statistics help monitor memory usage and optimize performance
+- The cache is designed to integrate seamlessly with PreviewEngine
+- Waveform generation uses RMS calculation for accurate amplitude representation
+- PNG compression provides good quality/size balance for thumbnails
+- JSON serialization is used for waveforms (arrays of floats compress well)
+
+**Integration with PreviewEngine:**
+- ThumbnailCache can be used by PreviewEngine for efficient frame extraction
+- Cached thumbnails can be displayed in timeline UI for visual feedback
+- Waveforms can be rendered in audio tracks for visual editing
+- The cache automatically manages project-specific cache directories
+- Cache is cleared when project changes to avoid stale data
+
+**Design Decisions:**
+- Multi-tier caching (memory → disk → generation) for optimal performance
+- PNG format for thumbnails (good compression, widely supported)
+- JSON format for waveforms (human-readable, easy to debug)
+- Time-based thumbnail keys (simple and efficient)
+- Track-based waveform keys (supports multiple audio tracks)
+- Configurable presets for different use cases (default, high quality, low memory)
+- Optional disk caching (can be disabled for memory-constrained environments)
+- Optional waveform caching (can be disabled if not needed)
+- Actor-based pattern for thread safety (consistent with EngineKit)
+- Automatic cache directory creation and management
+
+**Known Limitations:**
+- Thumbnail generation requires actual video files (tests use mock projects)
+- Waveform generation requires actual audio files (tests use mock projects)
+- Cache eviction is simple (no LRU tracking, just count-based)
+- No cache warming on app startup (lazy loading only)
+- No cache size limit on disk (only in-memory limit)
+- Waveform resolution is fixed per configuration (not adaptive)
+
+**Next Steps:**
+- Integrate ThumbnailCache with PreviewEngine for seamless thumbnail access
+- Integrate ThumbnailCache with Timeline UI for visual timeline scrubbing
+- Render waveforms in audio track visualization
+- Implement cache warming during project load
+- Add LRU cache eviction for more intelligent memory management
+- Consider adding adaptive waveform resolution based on zoom level
+- P1 tasks from Épica G: Captions overlay en preview, Burn‑in captions en export
+- P1 tasks from Épica L: Tests de PreviewEngine, Tests de TranscriptionEngine
+

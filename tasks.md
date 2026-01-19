@@ -60,7 +60,7 @@ Este backlog está organizado por épicas y por orden recomendado.
 
 - [x] (P0) `PreviewEngine`: playback con edits aplicados, seek/play/pause
 - [x] (P0) Generación de proxies (para archivos grandes): proxy de baja resolución para preview fluido, usar original solo en export
-- [ ] (P1) Cache de thumbnails / waveform (mejora UX)
+- [x] (P1) Cache de thumbnails / waveform (mejora UX)
 
 ---
 
