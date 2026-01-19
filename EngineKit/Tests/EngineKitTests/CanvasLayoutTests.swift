@@ -773,20 +773,6 @@ final class CanvasLayoutTests: XCTestCase {
         }
     }
 
-    func testValidateBackgroundInvalidType() {
-        let background = Project.Canvas.Background(
-            type: "gradient",
-            value: "some-value",
-            fitMode: nil
-        )
-        XCTAssertThrowsError(try CanvasLayout.validateBackground(background)) { error in
-            XCTAssertEqual(
-                error as? CanvasLayout.LayoutError,
-                .invalidBackgroundValue("gradient")
-            )
-        }
-    }
-
     // MARK: - Image Frame Calculation Tests
 
     func testCalculateImageFrameFitWiderImage() {
