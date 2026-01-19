@@ -142,7 +142,7 @@ final class PreviewEngineTests: XCTestCase {
         do {
             try await previewEngine.loadProject(emptyProject)
             XCTFail("Should have thrown PreviewError.noSegments")
-        } catch let error as PreviewEngine.PreviewErrornoSegments {
+        } catch PreviewEngine.PreviewError.noSegments {
             // Expected
         } catch {
             XCTFail("Wrong error type: \(error)")
@@ -167,14 +167,15 @@ final class PreviewEngineTests: XCTestCase {
 
         let session = await previewEngine.getSession()
         XCTAssertEqual(session.state, .playing)
-        XCTAssertTrue(await previewEngine.isPlaying())
+        let isPlaying = await previewEngine.isPlaying()
+        XCTAssertTrue(isPlaying)
     }
 
     func testPlayWithoutProject() async {
         do {
             try await previewEngine.play()
             XCTFail("Should have thrown PreviewError.noProjectLoaded")
-        } catch let error as PreviewEngine.PreviewErrornoProjectLoaded {
+        } catch PreviewEngine.PreviewError.noProjectLoaded {
             // Expected
         } catch {
             XCTFail("Wrong error type: \(error)")
@@ -188,14 +189,15 @@ final class PreviewEngineTests: XCTestCase {
 
         let session = await previewEngine.getSession()
         XCTAssertEqual(session.state, .paused)
-        XCTAssertTrue(await previewEngine.isPaused())
+        let isPaused = await previewEngine.isPaused()
+        XCTAssertTrue(isPaused)
     }
 
     func testPauseWithoutProject() async {
         do {
             try await previewEngine.pause()
             XCTFail("Should have thrown PreviewError.noProjectLoaded")
-        } catch let error as PreviewEngine.PreviewErrornoProjectLoaded {
+        } catch PreviewEngine.PreviewError.noProjectLoaded {
             // Expected
         } catch {
             XCTFail("Wrong error type: \(error)")
@@ -217,7 +219,7 @@ final class PreviewEngineTests: XCTestCase {
         do {
             try await previewEngine.stop()
             XCTFail("Should have thrown PreviewError.noProjectLoaded")
-        } catch let error as PreviewEngine.PreviewErrornoProjectLoaded {
+        } catch PreviewEngine.PreviewError.noProjectLoaded {
             // Expected
         } catch {
             XCTFail("Wrong error type: \(error)")
@@ -236,7 +238,7 @@ final class PreviewEngineTests: XCTestCase {
         do {
             try await previewEngine.seek(to: 5.0)
             XCTFail("Should have thrown PreviewError.noProjectLoaded")
-        } catch let error as PreviewEngine.PreviewErrornoProjectLoaded {
+        } catch PreviewEngine.PreviewError.noProjectLoaded {
             // Expected
         } catch {
             XCTFail("Wrong error type: \(error)")
@@ -314,7 +316,7 @@ final class PreviewEngineTests: XCTestCase {
         do {
             try await previewEngine.setPlaybackRate(2.0)
             XCTFail("Should have thrown PreviewError.noProjectLoaded")
-        } catch let error as PreviewEngine.PreviewErrornoProjectLoaded {
+        } catch PreviewEngine.PreviewError.noProjectLoaded {
             // Expected
         } catch {
             XCTFail("Wrong error type: \(error)")
@@ -327,7 +329,7 @@ final class PreviewEngineTests: XCTestCase {
         do {
             try await previewEngine.setPlaybackRate(0)
             XCTFail("Should have thrown PreviewError.playbackFailed")
-        } catch let error as PreviewEngine.PreviewErrorplaybackFailed {
+        } catch PreviewEngine.PreviewError.playbackFailed {
             // Expected
         } catch {
             XCTFail("Wrong error type: \(error)")
@@ -340,7 +342,7 @@ final class PreviewEngineTests: XCTestCase {
         do {
             try await previewEngine.setPlaybackRate(5.0)
             XCTFail("Should have thrown PreviewError.playbackFailed")
-        } catch let error as PreviewEngine.PreviewErrorplaybackFailed {
+        } catch PreviewEngine.PreviewError.playbackFailed {
             // Expected
         } catch {
             XCTFail("Wrong error type: \(error)")

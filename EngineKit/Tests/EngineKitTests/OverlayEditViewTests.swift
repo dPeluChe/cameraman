@@ -86,7 +86,7 @@ final class OverlayEditViewTests: XCTestCase {
                 background: Project.Canvas.Background(type: "solid", value: "#0B0B0D", fitMode: nil),
                 layout: Project.Canvas.Layout(
                     type: "pip",
-                    camera: Project.Canvas.CameraPosition(x: 0.74, y: 0.72, w: 0.22, h: 0.22, cornerRadius: 18)
+                    camera: Project.Canvas.Layout.CameraPosition(x: 0.74, y: 0.72, w: 0.22, h: 0.22, cornerRadius: 18)
                 )
             ),
             overlays: [],
@@ -109,19 +109,19 @@ final class OverlayEditViewTests: XCTestCase {
             style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 6.0, shadow: true)
         )
 
-        var updatedProject = project
-        updatedProject = Project(
-            schemaVersion: updatedProject.schemaVersion,
-            projectId: updatedProject.projectId,
-            name: updatedProject.name,
-            tags: updatedProject.tags,
-            createdAt: updatedProject.createdAt,
-            updatedAt: updatedProject.updatedAt,
-            sources: updatedProject.sources,
-            timeline: updatedProject.timeline,
-            canvas: updatedProject.canvas,
+        // Create a new project with the overlay
+        let updatedProject = Project(
+            schemaVersion: project.schemaVersion,
+            projectId: project.projectId,
+            name: project.name,
+            tags: project.tags,
+            createdAt: project.createdAt,
+            updatedAt: project.updatedAt,
+            sources: project.sources,
+            timeline: project.timeline,
+            canvas: project.canvas,
             overlays: [overlay],
-            captions: updatedProject.captions
+            captions: project.captions
         )
         await editorModel.setProject(updatedProject)
 
@@ -151,8 +151,20 @@ final class OverlayEditViewTests: XCTestCase {
             style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 4.0, shadow: true)
         )
 
-        var updatedProject = project
-        updatedProject.overlays.append(overlay)
+        // Create a new project with the overlay
+        let updatedProject = Project(
+            schemaVersion: project.schemaVersion,
+            projectId: project.projectId,
+            name: project.name,
+            tags: project.tags,
+            createdAt: project.createdAt,
+            updatedAt: project.updatedAt,
+            sources: project.sources,
+            timeline: project.timeline,
+            canvas: project.canvas,
+            overlays: [overlay],
+            captions: project.captions
+        )
         await editorModel.setProject(updatedProject)
 
         // Update scale
@@ -181,8 +193,20 @@ final class OverlayEditViewTests: XCTestCase {
             style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 6.0, shadow: true)
         )
 
-        var updatedProject = project
-        updatedProject.overlays.append(overlay)
+        // Create a new project with the overlay
+        let updatedProject = Project(
+            schemaVersion: project.schemaVersion,
+            projectId: project.projectId,
+            name: project.name,
+            tags: project.tags,
+            createdAt: project.createdAt,
+            updatedAt: project.updatedAt,
+            sources: project.sources,
+            timeline: project.timeline,
+            canvas: project.canvas,
+            overlays: [overlay],
+            captions: project.captions
+        )
         await editorModel.setProject(updatedProject)
 
         // Update stroke color
