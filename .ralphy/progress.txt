@@ -1,0 +1,35 @@
+# Ralphy Progress Log
+
+## 2026-01-18
+
+### Completed: Source Selector Implementation (Épica B, Task 1)
+
+**Task:** (P0) Selector de fuente: list displays, list windows, list apps
+
+**Implementation:**
+- Created `SourceSelector.swift` with support for:
+  - `listDisplays()`: Enumerates available displays using NSScreen
+  - `listWindows()`: Enumerates available windows using ScreenCaptureKit
+  - `listApplications()`: Enumerates available applications using ScreenCaptureKit
+  - `checkScreenRecordingPermission()`: Checks if screen recording permission is granted
+- Implemented proper error handling for TCC permission denied errors
+- Created data models: `DisplaySource`, `WindowSource`, `ApplicationSource`
+
+**Testing:**
+- Created comprehensive test suite in `SourceSelectorTests.swift`
+- All 36 tests passing (including existing tests)
+- Tests handle permission-denied scenarios gracefully for CI environments
+
+**Files Modified/Created:**
+- `EngineKit/Sources/EngineKit/Capture/SourceSelector.swift` (new)
+- `EngineKit/Tests/EngineKitTests/SourceSelectorTests.swift` (new)
+- `tasks.md` (marked task as complete)
+- `.ralphy/progress.txt` (this entry)
+
+**Notes:**
+- Uses ScreenCaptureKit (macOS 13+) for window/application enumeration
+- Filters out small windows (< 50px) to exclude menus and tooltips
+- Sorts windows by application name and window title
+- Displays enumeration works without screen recording permission
+- Windows and applications require screen recording permission (gracefully handled)
+
