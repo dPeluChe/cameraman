@@ -41,7 +41,7 @@ public actor ZoomSectionController {
         /// Number of segments with custom configuration
         public let customConfiguredSegments: Int
         /// Segments grouped by intensity
-        public let segmentsByIntensity: [Project.Timeline.Segment.ZoomConfiguration.ZoomIntensity: Int]
+        public let segmentsByIntensity: [Project.Timeline.ZoomConfiguration.ZoomIntensity: Int]
         /// Percentage of timeline with zoom enabled
         public let zoomEnabledPercentage: Double
 
@@ -50,7 +50,7 @@ public actor ZoomSectionController {
             zoomEnabledSegments: Int,
             zoomDisabledSegments: Int,
             customConfiguredSegments: Int,
-            segmentsByIntensity: [Project.Timeline.Segment.ZoomConfiguration.ZoomIntensity: Int],
+            segmentsByIntensity: [Project.Timeline.ZoomConfiguration.ZoomIntensity: Int],
             zoomEnabledPercentage: Double
         ) {
             self.totalSegments = totalSegments
@@ -99,7 +99,7 @@ public actor ZoomSectionController {
     /// - Throws: ZoomSectionError if segment not found or configuration is invalid
     public func setZoomConfiguration(
         forSegmentId segmentId: String,
-        configuration: Project.Timeline.Segment.ZoomConfiguration
+        configuration: Project.Timeline.ZoomConfiguration
     ) throws -> Project {
         guard var project = project else {
             throw ZoomSectionError.projectNotLoaded
@@ -125,9 +125,9 @@ public actor ZoomSectionController {
     /// - Throws: ZoomSectionError if segment not found
     public func setZoomIntensity(
         forSegmentId segmentId: String,
-        intensity: Project.Timeline.Segment.ZoomConfiguration.ZoomIntensity
+        intensity: Project.Timeline.ZoomConfiguration.ZoomIntensity
     ) throws -> Project {
-        let configuration = Project.Timeline.Segment.ZoomConfiguration(intensity: intensity)
+        let configuration = Project.Timeline.ZoomConfiguration(intensity: intensity)
         return try setZoomConfiguration(forSegmentId: segmentId, configuration: configuration)
     }
 
@@ -146,7 +146,7 @@ public actor ZoomSectionController {
 
         // Get existing configuration or create default
         let existingConfig = project.timeline.segments[index].zoom
-        let newConfig = Project.Timeline.Segment.ZoomConfiguration(
+        let newConfig = Project.Timeline.ZoomConfiguration(
             enabled: true,
             minZoomLevel: existingConfig?.minZoomLevel ?? 1.0,
             maxZoomLevel: existingConfig?.maxZoomLevel ?? 2.5,
@@ -206,7 +206,7 @@ public actor ZoomSectionController {
     /// - Parameter segmentId: ID of the segment to query
     /// - Returns: Zoom configuration if set, nil otherwise (uses defaults)
     /// - Throws: ZoomSectionError if segment not found
-    public func getZoomConfiguration(forSegmentId segmentId: String) throws -> Project.Timeline.Segment.ZoomConfiguration? {
+    public func getZoomConfiguration(forSegmentId segmentId: String) throws -> Project.Timeline.ZoomConfiguration? {
         guard let project = project else {
             throw ZoomSectionError.projectNotLoaded
         }
@@ -252,12 +252,12 @@ public actor ZoomSectionController {
     /// Get zoom configuration for all segments
     /// - Returns: Dictionary mapping segment IDs to their zoom configurations
     /// - Throws: ZoomSectionError if project not loaded
-    public func getAllZoomConfigurations() throws -> [String: Project.Timeline.Segment.ZoomConfiguration] {
+    public func getAllZoomConfigurations() throws -> [String: Project.Timeline.ZoomConfiguration] {
         guard let project = project else {
             throw ZoomSectionError.projectNotLoaded
         }
 
-        var configurations: [String: Project.Timeline.Segment.ZoomConfiguration] = [:]
+        var configurations: [String: Project.Timeline.ZoomConfiguration] = [:]
 
         for segment in project.timeline.segments {
             if let zoom = segment.zoom {
@@ -280,7 +280,7 @@ public actor ZoomSectionController {
         var zoomEnabledSegments = 0
         var zoomDisabledSegments = 0
         var customConfiguredSegments = 0
-        var segmentsByIntensity: [Project.Timeline.Segment.ZoomConfiguration.ZoomIntensity: Int] = [:]
+        var segmentsByIntensity: [Project.Timeline.ZoomConfiguration.ZoomIntensity: Int] = [:]
         var totalDurationWithZoom: TimeInterval = 0
 
         for segment in project.timeline.segments {
@@ -324,7 +324,7 @@ public actor ZoomSectionController {
     /// - Returns: Updated project
     /// - Throws: ZoomSectionError if any segment not found
     public func setZoomConfigurationForMultipleSegments(
-        _ configurations: [String: Project.Timeline.Segment.ZoomConfiguration]
+        _ configurations: [String: Project.Timeline.ZoomConfiguration]
     ) throws -> Project {
         guard var project = project else {
             throw ZoomSectionError.projectNotLoaded

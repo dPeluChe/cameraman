@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import EngineKit
 
 /// Main app entry point
 @main
@@ -24,8 +25,12 @@ struct CameramanApp: App {
 class AppDelegate: NSObject, NSApplicationDelegate {
     var floatingPanel: FloatingPanel?
     var statusBarMenu: StatusBarMenu?
+    var hotkeyManager: HotkeyManager?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Setup hotkeys
+        setupHotkeys()
+
         // Create status bar menu
         statusBarMenu = StatusBarMenu()
 
@@ -40,7 +45,68 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         // Cleanup
+        hotkeyManager?.unregisterAllHotkeys()
         floatingPanel?.close()
+    }
+
+    private func setupHotkeys() {
+        hotkeyManager = HotkeyManager.shared
+
+        // Set up event handler for hotkey actions
+        hotkeyManager?.setEventHandler { [weak self] action in
+            self?.handleHotkeyAction(action)
+        }
+
+        // Register default hotkeys
+        do {
+            try hotkeyManager?.registerDefaultHotkeys()
+            print("✅ Default hotkeys registered successfully")
+        } catch {
+            print("❌ Failed to register hotkeys: \(error.localizedDescription)")
+        }
+    }
+
+    private func handleHotkeyAction(_ action: HotkeyManager.Action) {
+        Task { @MainActor in
+            guard let viewModel = RecordingStateManager.shared.viewModel else {
+                print("⚠️ Recording view model not available")
+                return
+            }
+
+            switch action {
+            case .startRecording:
+                if !viewModel.isRecording {
+                    await viewModel.startRecording()
+                    print("▶️ Started recording via hotkey")
+                } else {
+                    print("⚠️ Recording already in progress")
+                }
+
+            case .stopRecording:
+                if viewModel.isRecording {
+                    await viewModel.stopRecording()
+                    print("⏹️ Stopped recording via hotkey")
+                } else {
+                    print("⚠️ No recording in progress")
+                }
+
+            case .pauseResumeRecording:
+                if viewModel.isRecording {
+                    await viewModel.pauseResumeRecording()
+                    print(viewModel.isPaused ? "⏸️ Paused recording via hotkey" : "▶️ Resumed recording via hotkey")
+                } else {
+                    print("⚠️ No recording in progress")
+                }
+
+            case .toggleCamera:
+                viewModel.includeCamera.toggle()
+                print("📷 Camera toggled: \(viewModel.includeCamera ? "enabled" : "disabled")")
+
+            case .toggleMicrophone:
+                viewModel.includeMicrophone.toggle()
+                print("🎤 Microphone toggled: \(viewModel.includeMicrophone ? "enabled" : "disabled")")
+            }
+        }
     }
 }
 
@@ -269,12 +335,18 @@ class RecordingStateManager: ObservableObject {
     private init() {}
 }
 
-/// Status bar menu
+/// Status bar menu with enhanced status display and keyboard shortcuts
 class StatusBarMenu {
     private var statusItem: NSStatusItem?
+    private var updateTimer: Timer?
 
     init() {
         setupStatusBar()
+        setupStatusUpdateTimer()
+    }
+
+    deinit {
+        updateTimer?.invalidate()
     }
 
     private func setupStatusBar() {
@@ -285,6 +357,35 @@ class StatusBarMenu {
             button.action = #selector(statusBarButtonClicked)
             button.target = self
         }
+
+        updateStatus()
+    }
+
+    private func setupStatusUpdateTimer() {
+        // Update status bar every second to reflect recording state
+        updateTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            self?.updateStatus()
+        }
+    }
+
+    private func updateStatus() {
+        guard let button = statusItem?.button else { return }
+
+        if let viewModel = RecordingStateManager.shared.viewModel {
+            if viewModel.isRecording {
+                // Show recording indicator with time
+                button.image = NSImage(systemSymbolName: "record.circle.fill", accessibilityDescription: "Recording")
+                button.title = " \(viewModel.elapsedTime)"
+            } else if viewModel.isPaused {
+                // Show paused indicator
+                button.image = NSImage(systemSymbolName: "pause.circle.fill", accessibilityDescription: "Paused")
+                button.title = " Paused"
+            } else {
+                // Show ready state
+                button.image = NSImage(systemSymbolName: "circle", accessibilityDescription: "Ready")
+                button.title = ""
+            }
+        }
     }
 
     @objc private func statusBarButtonClicked() {
@@ -292,11 +393,72 @@ class StatusBarMenu {
 
         let menu = NSMenu()
 
+        // Recording status section
+        if let viewModel = RecordingStateManager.shared.viewModel {
+            let statusItem = NSMenuItem(title: viewModel.statusText, action: nil, keyEquivalent: "")
+            statusItem.isEnabled = false
+            menu.addItem(statusItem)
+
+            if viewModel.isRecording {
+                let timeItem = NSMenuItem(title: "Elapsed: \(viewModel.elapsedTime)", action: nil, keyEquivalent: "")
+                timeItem.isEnabled = false
+                menu.addItem(timeItem)
+            }
+        }
+
+        menu.addItem(NSMenuItem.separator())
+
+        // Recording controls with keyboard shortcuts
+        let startItem = NSMenuItem(
+            title: "Start Recording",
+            action: #selector(startRecording),
+            keyEquivalent: "r"
+        )
+        startItem.keyEquivalentModifierMask = [.command, .shift]
+        menu.addItem(startItem)
+
+        let stopItem = NSMenuItem(
+            title: "Stop Recording",
+            action: #selector(stopRecording),
+            keyEquivalent: "\u{1B}" // Escape key
+        )
+        menu.addItem(stopItem)
+
+        let pauseItem = NSMenuItem(
+            title: "Pause/Resume",
+            action: #selector(pauseResumeRecording),
+            keyEquivalent: " "
+        )
+        pauseItem.keyEquivalentModifierMask = [.command, .shift]
+        menu.addItem(pauseItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        // Toggle options with keyboard shortcuts
+        let cameraItem = NSMenuItem(
+            title: "Toggle Camera",
+            action: #selector(toggleCamera),
+            keyEquivalent: "c"
+        )
+        cameraItem.keyEquivalentModifierMask = [.command, .shift]
+        menu.addItem(cameraItem)
+
+        let micItem = NSMenuItem(
+            title: "Toggle Microphone",
+            action: #selector(toggleMicrophone),
+            keyEquivalent: "m"
+        )
+        micItem.keyEquivalentModifierMask = [.command, .shift]
+        menu.addItem(micItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        // Show/hide controls
         menu.addItem(NSMenuItem(title: "Show Recording Controls", action: #selector(showRecordingControls), keyEquivalent: ""))
+
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(title: "Start Recording", action: #selector(startRecording), keyEquivalent: "r"))
-        menu.addItem(NSMenuItem(title: "Stop Recording", action: #selector(stopRecording), keyEquivalent: "."))
-        menu.addItem(NSMenuItem.separator())
+
+        // App menu
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q"))
 
         statusItem?.menu = menu
@@ -314,12 +476,37 @@ class StatusBarMenu {
     @objc private func startRecording() {
         Task { @MainActor in
             await RecordingStateManager.shared.viewModel?.startRecording()
+            updateStatus()
         }
     }
 
     @objc private func stopRecording() {
         Task { @MainActor in
             await RecordingStateManager.shared.viewModel?.stopRecording()
+            updateStatus()
+        }
+    }
+
+    @objc private func pauseResumeRecording() {
+        Task { @MainActor in
+            await RecordingStateManager.shared.viewModel?.pauseResumeRecording()
+            updateStatus()
+        }
+    }
+
+    @objc private func toggleCamera() {
+        Task { @MainActor in
+            if let viewModel = RecordingStateManager.shared.viewModel {
+                viewModel.includeCamera.toggle()
+            }
+        }
+    }
+
+    @objc private func toggleMicrophone() {
+        Task { @MainActor in
+            if let viewModel = RecordingStateManager.shared.viewModel {
+                viewModel.includeMicrophone.toggle()
+            }
         }
     }
 

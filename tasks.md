@@ -88,9 +88,9 @@ Este backlog está organizado por épicas y por orden recomendado.
 ---
 
 ## Épica J — Library/UX polish
-- [ ] (P1) Biblioteca de proyectos: búsqueda por nombre/tags, ordenamiento
-- [ ] (P1) Autosave consistente (actualiza `updated_at`)
-- [ ] (P1) Atajos globales, menubar status (opcional)
+- [x] (P1) Biblioteca de proyectos: búsqueda por nombre/tags, ordenamiento
+- [x] (P1) Autosave consistente (actualiza `updated_at`)
+- [x] (P1) Atajos globales, menubar status (opcional)
 - [ ] (P1) Reportes de crash / logging
 
 ---

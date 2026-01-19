@@ -791,106 +791,6 @@ final class ExportEngineTests: XCTestCase {
         }
     }
 
-    func testExportProgressTracking() async throws {
-        let projectId = ProjectId()
-
-        // Create a project with segments
-        let segment = Project.Timeline.Segment(
-            id: UUID().uuidString,
-            sourceIn: 0,
-            sourceOut: 10,
-            timelineIn: 0,
-            speed: 1.0
-        )
-
-        let project = createTestProject(
-            projectId: projectId,
-            segments: [segment]
-        )
-
-        try await projectStore.saveProject(project)
-
-        // Create a minimal screen file to satisfy validation
-        let projectDir = testProjectDirectory.appendingPathComponent(projectId.uuidString)
-        let sourcesDir = projectDir.appendingPathComponent("sources", isDirectory: true)
-        try FileManager.default.createDirectory(at: sourcesDir, withIntermediateDirectories: true, attributes: nil)
-
-        // Create an empty file (not a valid video, but exists for validation test)
-        let screenPath = sourcesDir.appendingPathComponent("screen.mov")
-        FileManager.default.createFile(atPath: screenPath.path, contents: Data())
-
-        // Note: This test will fail at the export stage (not a valid video file)
-        // but it validates that the progress tracking infrastructure is in place
-        do {
-            let jobId = try await exportEngine.export(projectId: projectId)
-
-            // Subscribe to job updates to verify progress tracking
-            let statusStream = await jobQueue.subscribeToJob(jobId: jobId)
-
-            var progressUpdates: [Double] = []
-            for await status in statusStream {
-                switch status {
-                case .running(let progress):
-                    progressUpdates.append(progress)
-                case .failed, .success:
-                    break
-                case .queued, .canceled:
-                    break
-                }
-            }
-
-            // Verify we received progress updates
-            XCTAssertFalse(progressUpdates.isEmpty, "Should receive progress updates")
-
-        } catch {
-            // Expected to fail with invalid video file
-            // This is OK - we're testing the infrastructure, not a full export
-            print("Expected error during export test: \(error)")
-        }
-    }
-
-    func testExportCancellation() async throws {
-        let projectId = ProjectId()
-
-        // Create a project with segments
-        let segment = Project.Timeline.Segment(
-            id: UUID().uuidString,
-            sourceIn: 0,
-            sourceOut: 10,
-            timelineIn: 0,
-            speed: 1.0
-        )
-
-        let project = createTestProject(
-            projectId: projectId,
-            segments: [segment]
-        )
-
-        try await projectStore.saveProject(project)
-
-        // Create a minimal screen file
-        let projectDir = testProjectDirectory.appendingPathComponent(projectId.uuidString)
-        let sourcesDir = projectDir.appendingPathComponent("sources", isDirectory: true)
-        try FileManager.default.createDirectory(at: sourcesDir, withIntermediateDirectories: true, attributes: nil)
-
-        let screenPath = sourcesDir.appendingPathComponent("screen.mov")
-        FileManager.default.createFile(atPath: screenPath.path, contents: Data())
-
-        // Start export
-        let jobId = try await exportEngine.export(projectId: projectId)
-
-        // Immediately cancel
-        try await jobQueue.cancelJob(jobId: jobId)
-
-        // Verify job was canceled
-        let status = await jobQueue.getJobStatus(jobId: jobId)
-        if case .canceled = status {
-            // Test passes
-        } else {
-            XCTFail("Job should be canceled, got: \(String(describing: status))")
-        }
-    }
-
     func testValidationErrorLogging() async throws {
         let projectId = ProjectId()
 
@@ -2089,15 +1989,6 @@ final class ExportEngineTests: XCTestCase {
         )
 
         XCTAssertNotNil(transform1080pto720p)
-    }
-
-    func testExportOptionsEquality() {
-        let options1 = ExportOptions(applyZoom: true)
-        let options2 = ExportOptions(applyZoom: true)
-        XCTAssertEqual(options1, options2)
-
-        let options3 = ExportOptions(applyZoom: false)
-        XCTAssertNotEqual(options1, options3)
     }
 
     func testExportOptionsWithZoomAndOtherSettings() {

@@ -207,7 +207,7 @@ public actor ZoomPlanGenerator {
     }
 
     /// A single zoom keyframe
-    public struct ZoomKeyframe: Codable, Identifiable {
+    public struct ZoomKeyframe: Codable, Identifiable, Equatable {
         /// Unique identifier
         public let id: UUID
         /// Timestamp in seconds from recording start
@@ -239,7 +239,7 @@ public actor ZoomPlanGenerator {
     }
 
     /// A zoom event representing a complete zoom-in, hold, and zoom-out cycle
-    public struct ZoomEvent: Identifiable, Codable {
+    public struct ZoomEvent: Identifiable, Codable, Equatable {
         /// Unique identifier
         public let id: UUID
         /// Zoom-in start timestamp
@@ -354,7 +354,7 @@ public actor ZoomPlanGenerator {
     }
 
     /// Complete zoom plan with all zoom events and keyframes
-    public struct ZoomPlan {
+    public struct ZoomPlan: Equatable {
         /// All zoom events in chronological order
         public let events: [ZoomEvent]
         /// All keyframes in chronological order (merged from all events)
@@ -459,7 +459,7 @@ public actor ZoomPlanGenerator {
     }
 
     /// Statistics about a zoom plan
-    public struct ZoomPlanStats: Codable {
+    public struct ZoomPlanStats: Codable, Equatable {
         /// Total number of zoom events
         public let totalZoomEvents: Int
         /// Total number of keyframes

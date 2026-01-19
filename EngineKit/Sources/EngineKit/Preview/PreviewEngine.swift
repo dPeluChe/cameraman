@@ -1275,7 +1275,13 @@ public actor PreviewEngine {
 
         // Draw cropped and scaled image
         let destRect = CoreFoundation.CGRect(x: 0, y: 0, width: CGFloat(newWidth), height: CGFloat(newHeight))
-        context.draw(image, in: destRect, from: cropRect)
+
+        // Clip to crop rect
+        context.clip(to: [cropRect])
+
+        // Draw the image
+        let imageRect = CoreFoundation.CGRect(x: cropRect.origin.x, y: cropRect.origin.y, width: CGFloat(image.width), height: CGFloat(image.height))
+        context.draw(image, in: imageRect)
 
         // Extract zoomed image
         guard let zoomedImage = context.makeImage() else {

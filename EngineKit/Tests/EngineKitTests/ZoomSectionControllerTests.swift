@@ -117,7 +117,7 @@ final class ZoomSectionControllerTests: XCTestCase {
     func testSetZoomConfiguration() async throws {
         // Arrange
         await controller.loadProject(mockProject)
-        let config = Project.Timeline.Segment.ZoomConfiguration(
+        let config = Project.Timeline.ZoomConfiguration(
             enabled: true,
             minZoomLevel: 1.0,
             maxZoomLevel: 3.0,
@@ -142,7 +142,7 @@ final class ZoomSectionControllerTests: XCTestCase {
     func testSetZoomConfigurationForNonExistentSegment() async throws {
         // Arrange
         await controller.loadProject(mockProject)
-        let config = Project.Timeline.Segment.ZoomConfiguration(enabled: true)
+        let config = Project.Timeline.ZoomConfiguration(enabled: true)
 
         // Act & Assert
         do {
@@ -158,7 +158,7 @@ final class ZoomSectionControllerTests: XCTestCase {
 
     func testSetZoomConfigurationWithoutProjectLoaded() async throws {
         // Arrange
-        let config = Project.Timeline.Segment.ZoomConfiguration(enabled: true)
+        let config = Project.Timeline.ZoomConfiguration(enabled: true)
 
         // Act & Assert
         do {
@@ -314,7 +314,7 @@ final class ZoomSectionControllerTests: XCTestCase {
     func testRemoveZoomConfiguration() async throws {
         // Arrange
         await controller.loadProject(mockProject)
-        let config = Project.Timeline.Segment.ZoomConfiguration(enabled: true)
+        let config = Project.Timeline.ZoomConfiguration(enabled: true)
         _ = try await controller.setZoomConfiguration(forSegmentId: "segment-1", configuration: config)
 
         // Act
@@ -422,8 +422,8 @@ final class ZoomSectionControllerTests: XCTestCase {
         // Arrange
         await controller.loadProject(mockProject)
         let configs = [
-            "segment-1": Project.Timeline.Segment.ZoomConfiguration(intensity: .subtle),
-            "segment-2": Project.Timeline.Segment.ZoomConfiguration(intensity: .aggressive)
+            "segment-1": Project.Timeline.ZoomConfiguration(intensity: .subtle),
+            "segment-2": Project.Timeline.ZoomConfiguration(intensity: .aggressive)
         ]
 
         // Act
@@ -441,8 +441,8 @@ final class ZoomSectionControllerTests: XCTestCase {
         // Arrange
         await controller.loadProject(mockProject)
         let configs = [
-            "segment-1": Project.Timeline.Segment.ZoomConfiguration(intensity: .subtle),
-            "invalid-id": Project.Timeline.Segment.ZoomConfiguration(intensity: .aggressive)
+            "segment-1": Project.Timeline.ZoomConfiguration(intensity: .subtle),
+            "invalid-id": Project.Timeline.ZoomConfiguration(intensity: .aggressive)
         ]
 
         // Act & Assert
@@ -526,25 +526,25 @@ final class ZoomSectionControllerTests: XCTestCase {
 
     func testZoomConfigurationPresets() async throws {
         // Test all preset configurations
-        XCTAssertEqual(Project.Timeline.Segment.ZoomConfiguration.disabled.enabled, false)
-        XCTAssertEqual(Project.Timeline.Segment.ZoomConfiguration.subtle.intensity, .subtle)
-        XCTAssertEqual(Project.Timeline.Segment.ZoomConfiguration.normal.intensity, .normal)
-        XCTAssertEqual(Project.Timeline.Segment.ZoomConfiguration.aggressive.intensity, .aggressive)
+        XCTAssertEqual(Project.Timeline.ZoomConfiguration.disabled.enabled, false)
+        XCTAssertEqual(Project.Timeline.ZoomConfiguration.subtle.intensity, .subtle)
+        XCTAssertEqual(Project.Timeline.ZoomConfiguration.normal.intensity, .normal)
+        XCTAssertEqual(Project.Timeline.ZoomConfiguration.aggressive.intensity, .aggressive)
     }
 
     func testZoomIntensityToConfiguration() async throws {
         // Test intensity preset conversion to ZoomPlanGenerator.Configuration
         let baseConfig = ZoomPlanGenerator.Configuration.default()
 
-        let subtleConfig = Project.Timeline.Segment.ZoomConfiguration.ZoomIntensity.subtle.toConfiguration(base: baseConfig)
+        let subtleConfig = Project.Timeline.ZoomConfiguration.ZoomIntensity.subtle.toConfiguration(base: baseConfig)
         XCTAssertTrue(subtleConfig.zoomEnabled)
         XCTAssertLessThan(subtleConfig.maxZoomLevel, 2.0)
 
-        let aggressiveConfig = Project.Timeline.Segment.ZoomConfiguration.ZoomIntensity.aggressive.toConfiguration(base: baseConfig)
+        let aggressiveConfig = Project.Timeline.ZoomConfiguration.ZoomIntensity.aggressive.toConfiguration(base: baseConfig)
         XCTAssertTrue(aggressiveConfig.zoomEnabled)
         XCTAssertGreaterThan(aggressiveConfig.maxZoomLevel, 3.0)
 
-        let disabledConfig = Project.Timeline.Segment.ZoomConfiguration.ZoomIntensity.disabled.toConfiguration(base: baseConfig)
+        let disabledConfig = Project.Timeline.ZoomConfiguration.ZoomIntensity.disabled.toConfiguration(base: baseConfig)
         XCTAssertFalse(disabledConfig.zoomEnabled)
     }
 
