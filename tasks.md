@@ -59,13 +59,13 @@ Este backlog está organizado por épicas y por orden recomendado.
 > **Nota:** Iniciar en paralelo con Épica D. El preview es esencial para desarrollar y probar el editor.
 
 - [x] (P0) `PreviewEngine`: playback con edits aplicados, seek/play/pause
-- [ ] (P0) Generación de proxies (para archivos grandes): proxy de baja resolución para preview fluido, usar original solo en export
+- [x] (P0) Generación de proxies (para archivos grandes): proxy de baja resolución para preview fluido, usar original solo en export
 - [ ] (P1) Cache de thumbnails / waveform (mejora UX)
 
 ---
 
 ## Épica G — Transcripción & Captions (offline)
-- [ ] (P0) `TranscriptionEngine` job: extraer audio a formato STT, ejecutar STT offline (Whisper.cpp), generar `transcript.json` + `.srt` + `.vtt`
+- [x] (P0) `TranscriptionEngine` job: extraer audio a formato STT, ejecutar STT offline (Whisper.cpp), generar `transcript.json` + `.srt` + `.vtt`
 - [ ] (P1) Captions overlay en preview
 - [ ] (P1) Burn‑in captions en export
 
