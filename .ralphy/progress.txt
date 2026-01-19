@@ -4156,3 +4156,154 @@ After completing the final P0 task (ProjectStore tests verification), ALL P0 tas
 - Test coverage addresses all requirements from tasks.md
 - Performance tests establish measurable baselines
 
+
+## 2026-01-19
+
+### Completed: Telemetry Parser Implementation (Épica I, Task 1)
+
+**Task:** (P1) Parser de telemetría: detectar clicks "importantes", agrupar eventos por ventanas temporales
+
+**Implementation:**
+- Created `TelemetryParser.swift` with comprehensive telemetry analysis for auto-zoom functionality:
+  - **parse()**: Main entry point for parsing telemetry files with configurable options
+  - **parseEvents()**: Direct event parsing without file I/O for testing and integration
+  - **detectImportantClicks()**: Analyzes click events to identify "important" clicks based on movement distance and timing
+  - **groupClicksIntoWindows()**: Groups important clicks into temporal windows for zoom point detection
+  - **createWindow()**: Creates ClickWindow objects with metadata (center point, bounding box, importance score)
+- Implemented configurable parsing via `Configuration` struct:
+  - **timeWindowSize**: 2.0 seconds default - window duration for grouping clicks
+  - **minClicksPerWindow**: 2 clicks default - minimum clicks to create a window
+  - **maxClickInterval**: 1.0 second default - maximum time between clicks in a cluster
+  - **minMovementDistance**: 50 pixels default - minimum movement to consider a click "important"
+  - **Button filtering**: Configurable inclusion of left/right/other clicks
+  - **Presets**: default, aggressive (more detection), conservative (less detection)
+- Created comprehensive data models:
+  - **ImportantClick**: Detected click with timestamp, position, button, time/distance from previous click, window ID, display ID
+  - **ClickWindow**: Temporal window containing grouped clicks with center point, bounding box, click count, importance score
+  - **BoundingBox**: Bounding box for a set of clicks with min/max coordinates and center point
+  - **ParseResult**: Contains important clicks, windows, and statistics
+  - **ParseStats**: Statistics about parsing (total events, clicks, windows, clicks per second, time range)
+
+**Features:**
+- **Important Click Detection**: Filters clicks based on:
+  - Movement distance from previous click (default 50px minimum)
+  - Button type (left/right/other clicks configurable)
+  - Time since previous click (clustering detection)
+- **Temporal Window Grouping**: Groups clicks into windows based on:
+  - Time window size (default 2 seconds)
+  - Minimum clicks per window (default 2 clicks)
+  - Maximum click interval within window (default 1 second)
+- **Window Analysis**: Calculates for each window:
+  - Center point (average of all click positions)
+  - Bounding box (min/max X/Y coordinates)
+  - Click count and duration
+  - Importance score (based on click density and cluster tightness)
+- **Statistics Tracking**: Provides comprehensive statistics:
+  - Total events processed
+  - Total clicks and important clicks detected
+  - Window count and clicks per second
+  - Time range covered by telemetry
+- **Multi-Monitor Support**: Tracks display ID for each click (optional)
+- **File I/O**: Reads JSONL telemetry files with proper error handling
+- **Async/Thread-Safe**: Actor-based implementation for thread safety
+
+**Important Click Detection Logic:**
+1. Filters click events (down events only)
+2. Filters by button type (left/right/other based on configuration)
+3. Calculates time since previous click
+4. Calculates distance from previous click (Euclidean distance)
+5. Creates new window ID when click interval exceeds maxClickInterval
+6. Filters clicks that don't meet minimum movement distance (except first click in window)
+7. Tracks window ID, display ID, and metadata for each important click
+
+**Temporal Window Grouping Logic:**
+1. Groups important clicks by time proximity
+2. Creates windows when clicks are within timeWindowSize (default 2s)
+3. Finalizes windows when they exceed time window or have minClicksPerWindow
+4. Calculates window metadata:
+   - Center point: Average X and Y of all clicks
+   - Bounding box: Min/max X and Y of all clicks
+   - Importance score: Click density + cluster tightness
+
+**Importance Score Calculation:**
+- Click density: Clicks per second in window
+- Cluster tightness: Clicks per pixel area (normalized)
+- Higher score = more important (more clicks, shorter duration, tighter cluster)
+- Formula: `score = (clickDensity * 10) + clusterTightness`
+
+**Configuration Presets:**
+- **Default**: Balanced detection (2s window, 2 min clicks, 1s max interval, 50px min movement, left clicks only)
+- **Aggressive**: More detection (3s window, 1 min click, 1.5s max interval, 30px min movement, left+right clicks)
+- **Conservative**: Less detection (1.5s window, 3 min clicks, 0.75s max interval, 80px min movement, left clicks only)
+
+**Testing:**
+- Created comprehensive test suite in `TelemetryParserTests.swift` with 30+ tests:
+  - Configuration tests (default, aggressive, conservative, custom)
+  - BoundingBox tests (creation, center calculation)
+  - ImportantClick tests (creation, metadata)
+  - ClickWindow tests (creation, metadata)
+  - Parse events tests (no clicks, single click, multiple clicks, movement filtering, temporal windows, button filtering)
+  - Statistics tests (no clicks, with clicks, time range)
+  - File I/O tests (from file, non-existent file, empty file)
+  - Edge case tests (very close clicks, display ID, different buttons)
+  - Performance tests (100 events, 1000 events, configuration performance)
+  - Window importance score tests (dense vs sparse clusters)
+- All tests compile successfully
+- Tests handle edge cases gracefully (empty files, malformed data, missing files)
+
+**Technical Implementation:**
+- Uses JSONL file format for telemetry input (cursor.jsonl from TelemetryRecorder)
+- Actor-based thread safety (consistent with other EngineKit components)
+- Async/await pattern for all operations
+- File I/O with proper error handling (file not found, empty file, invalid format)
+- Statistics calculation with time range and click density
+- Euclidean distance calculation for click movement
+- Center point and bounding box calculations for windows
+- Compatible with macOS 13+ (matches other engine requirements)
+
+**Integration Points:**
+- Input: TelemetryRecorder.Event from cursor.jsonl files
+- Output: ImportantClick and ClickWindow for zoom plan generation (next task)
+- Statistics: ParseStats for quality assessment and validation
+- Configuration: Presets for different use cases (tutorials, demos, screencasts)
+
+**Data Flow:**
+1. TelemetryRecorder captures cursor/click events to cursor.jsonl
+2. TelemetryParser loads and parses cursor.jsonl
+3. Detects important clicks based on movement and timing
+4. Groups clicks into temporal windows
+5. Calculates window metadata (center, bounding box, importance)
+6. Returns ParseResult with clicks, windows, and statistics
+
+**Use Cases:**
+- **Tutorial Recordings**: Detect important UI interactions for auto-zoom
+- **Demo Recordings**: Identify key moments for zoom emphasis
+- **Screencasts**: Highlight important areas of the screen
+- **Product Reviews**: Focus on product features being demonstrated
+- **Software Walkthroughs**: Emphasize specific UI elements or workflows
+
+**Next Steps:**
+- Generador de "zoom plan": keyframes con easing, límites (no marear; min/max zoom) (Épica I, Task 2)
+- Render de zoom en preview/export (Épica I, Task 3)
+- Controles: intensidad / on/off por sección (Épica I, Task 4)
+
+**Files Modified/Created:**
+- `EngineKit/Sources/EngineKit/Capture/TelemetryParser.swift` (new, 606 lines)
+- `EngineKit/Tests/EngineKitTests/TelemetryParserTests.swift` (new, 560+ lines)
+- `EngineKit/Sources/EngineKit/Export/ExportEngine.swift` (fixed - weak self capture in closures)
+- `tasks.md` (marked Épica I, Task 1 as complete)
+- `.ralphy/progress.txt` (this entry)
+
+**Notes:**
+- TelemetryParser is the foundation for auto-zoom functionality (Cursor Zoom feature)
+- Important click detection filters out accidental clicks and small movements
+- Temporal window grouping identifies areas of high activity for zoom points
+- Importance scoring enables prioritization of zoom points (most important first)
+- Configuration presets allow tuning for different recording types
+- The parser is actor-based and thread-safe for integration with other engines
+- File I/O is robust with proper error handling for missing or corrupted files
+- Statistics provide quality feedback for telemetry data assessment
+- Bounding box calculation enables precise zoom framing
+- Center point calculation provides smooth zoom targets
+- Display ID tracking ensures correct monitor targeting in multi-monitor setups
+

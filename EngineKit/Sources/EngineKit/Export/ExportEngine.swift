@@ -301,8 +301,8 @@ public actor ExportEngine {
                 frameRate: frameRate,
                 maxSize: gifOptions.maxSize ?? preset.output.width,
                 progress: { progress in
-                    Task {
-                        await updateExportStage(jobId: jobId, stage: .compositionBuilding, progress: 0.2 + progress * 0.4)
+                    Task { [weak self] in
+                        await self?.updateExportStage(jobId: jobId, stage: .compositionBuilding, progress: 0.2 + progress * 0.4)
                     }
                 }
             )
@@ -320,8 +320,8 @@ public actor ExportEngine {
                 frameRate: frameRate,
                 gifOptions: gifOptions,
                 progress: { progress in
-                    Task {
-                        await updateExportStage(jobId: jobId, stage: .exporting(progress: progress), progress: 0.6 + progress * 0.35)
+                    Task { [weak self] in
+                        await self?.updateExportStage(jobId: jobId, stage: .exporting(progress: progress), progress: 0.6 + progress * 0.35)
                     }
                 }
             )
@@ -472,9 +472,9 @@ public actor ExportEngine {
                             frameCount += 1
 
                             // Update progress
-                            let progress = Double(frameCount) / Double(max(totalEstimatedFrames, 1))
+                            let frameProgress = Double(frameCount) / Double(max(totalEstimatedFrames, 1))
                             Task {
-                                await progress(min(progress, 0.99))
+                                await progress(min(frameProgress, 0.99))
                             }
                         }
 
