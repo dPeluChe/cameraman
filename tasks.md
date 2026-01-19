@@ -83,7 +83,7 @@ Este backlog está organizado por épicas y por orden recomendado.
 - [x] (P1) Parser de telemetría: detectar clicks "importantes", agrupar eventos por ventanas temporales
 - [x] (P1) Generador de "zoom plan": keyframes con easing, límites (no marear; min/max zoom)
 - [x] (P1) Render de zoom en preview/export
-- [ ] (P1) Controles: intensidad / on/off por sección
+- [x] (P1) Controles: intensidad / on/off por sección
 
 ---
 

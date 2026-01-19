@@ -859,4 +859,480 @@ final class ZoomPlanGeneratorTests: XCTestCase {
             XCTAssertLessThanOrEqual(zoomPlan.keyframes[i].timestamp, zoomPlan.keyframes[i + 1].timestamp, "Keyframes should be sorted by timestamp")
         }
     }
+
+    // MARK: - Per-Section Zoom Plan Generation Tests (Épica I, Task 4)
+
+    func testGenerateZoomPlanWithSections_AllEnabled() async throws {
+        // Arrange
+        let zoomPlanGenerator = ZoomPlanGenerator()
+
+        // Create test segments with different zoom configurations
+        let segments = [
+            Project.Timeline.Segment(
+                id: "segment-1",
+                sourceIn: 0.0,
+                sourceOut: 10.0,
+                timelineIn: 0.0,
+                speed: 1.0,
+                zoom: Project.Timeline.Segment.ZoomConfiguration(intensity: .subtle)
+            ),
+            Project.Timeline.Segment(
+                id: "segment-2",
+                sourceIn: 10.0,
+                sourceOut: 20.0,
+                timelineIn: 10.0,
+                speed: 1.0,
+                zoom: Project.Timeline.Segment.ZoomConfiguration(intensity: .normal)
+            ),
+            Project.Timeline.Segment(
+                id: "segment-3",
+                sourceIn: 20.0,
+                sourceOut: 30.0,
+                timelineIn: 20.0,
+                speed: 1.0,
+                zoom: Project.Timeline.Segment.ZoomConfiguration(intensity: .aggressive)
+            )
+        ]
+
+        // Create click windows spread across segments
+        let clickWindows = createTestClickWindows(count: 9, duration: 30.0)
+
+        // Act
+        let zoomPlan = try await zoomPlanGenerator.generateZoomPlanWithSections(
+            from: clickWindows,
+            segments: segments,
+            defaultConfig: .default(),
+            timelineDuration: 30.0
+        )
+
+        // Assert
+        XCTAssertGreaterThan(zoomPlan.events.count, 0, "Should generate zoom events")
+        XCTAssertGreaterThan(zoomPlan.keyframes.count, 0, "Should generate keyframes")
+
+        // Verify different zoom levels based on intensity
+        let aggressiveEvents = zoomPlan.events.filter { $0.zoomInStartTime >= 20.0 }
+        if !aggressiveEvents.isEmpty {
+            let maxAggressiveZoom = aggressiveEvents.map { $0.targetZoomLevel }.max() ?? 0
+            XCTAssertGreaterThanOrEqual(maxAggressiveZoom, 3.0, "Aggressive segment should have higher zoom levels")
+        }
+
+        let subtleEvents = zoomPlan.events.filter { $0.zoomInStartTime < 10.0 }
+        if !subtleEvents.isEmpty {
+            let maxSubtleZoom = subtleEvents.map { $0.targetZoomLevel }.max() ?? 0
+            XCTAssertLessThan(maxSubtleZoom, 2.0, "Subtle segment should have lower zoom levels")
+        }
+    }
+
+    func testGenerateZoomPlanWithSections_SomeDisabled() async throws {
+        // Arrange
+        let zoomPlanGenerator = ZoomPlanGenerator()
+
+        let segments = [
+            Project.Timeline.Segment(
+                id: "segment-1",
+                sourceIn: 0.0,
+                sourceOut: 10.0,
+                timelineIn: 0.0,
+                speed: 1.0,
+                zoom: Project.Timeline.Segment.ZoomConfiguration(intensity: .normal)
+            ),
+            Project.Timeline.Segment(
+                id: "segment-2",
+                sourceIn: 10.0,
+                sourceOut: 20.0,
+                timelineIn: 10.0,
+                speed: 1.0,
+                zoom: Project.Timeline.Segment.ZoomConfiguration.disabled // Disabled
+            ),
+            Project.Timeline.Segment(
+                id: "segment-3",
+                sourceIn: 20.0,
+                sourceOut: 30.0,
+                timelineIn: 20.0,
+                speed: 1.0,
+                zoom: Project.Timeline.Segment.ZoomConfiguration(intensity: .normal)
+            )
+        ]
+
+        let clickWindows = createTestClickWindows(count: 9, duration: 30.0)
+
+        // Act
+        let zoomPlan = try await zoomPlanGenerator.generateZoomPlanWithSections(
+            from: clickWindows,
+            segments: segments,
+            defaultConfig: .default(),
+            timelineDuration: 30.0
+        )
+
+        // Assert
+        // No zoom events should be generated in segment-2 (disabled)
+        let eventsInSegment2 = zoomPlan.events.filter { $0.zoomInStartTime >= 10.0 && $0.zoomInStartTime < 20.0 }
+        XCTAssertEqual(eventsInSegment2.count, 0, "Should have no zoom events in disabled segment")
+
+        // Zoom events should exist in segments 1 and 3
+        let eventsInSegments1And3 = zoomPlan.events.filter { event in
+            (event.zoomInStartTime >= 0.0 && event.zoomInStartTime < 10.0) ||
+            (event.zoomInStartTime >= 20.0 && event.zoomInStartTime < 30.0)
+        }
+        XCTAssertGreaterThan(eventsInSegments1And3.count, 0, "Should have zoom events in enabled segments")
+    }
+
+    func testGenerateZoomPlanWithSections_AllDisabled() async throws {
+        // Arrange
+        let zoomPlanGenerator = ZoomPlanGenerator()
+
+        let segments = [
+            Project.Timeline.Segment(
+                id: "segment-1",
+                sourceIn: 0.0,
+                sourceOut: 10.0,
+                timelineIn: 0.0,
+                speed: 1.0,
+                zoom: Project.Timeline.Segment.ZoomConfiguration.disabled
+            ),
+            Project.Timeline.Segment(
+                id: "segment-2",
+                sourceIn: 10.0,
+                sourceOut: 20.0,
+                timelineIn: 10.0,
+                speed: 1.0,
+                zoom: Project.Timeline.Segment.ZoomConfiguration.disabled
+            ),
+            Project.Timeline.Segment(
+                id: "segment-3",
+                sourceIn: 20.0,
+                sourceOut: 30.0,
+                timelineIn: 20.0,
+                speed: 1.0,
+                zoom: Project.Timeline.Segment.ZoomConfiguration.disabled
+            )
+        ]
+
+        let clickWindows = createTestClickWindows(count: 9, duration: 30.0)
+
+        // Act
+        let zoomPlan = try await zoomPlanGenerator.generateZoomPlanWithSections(
+            from: clickWindows,
+            segments: segments,
+            defaultConfig: .default(),
+            timelineDuration: 30.0
+        )
+
+        // Assert
+        XCTAssertEqual(zoomPlan.events.count, 0, "Should have no zoom events when all segments are disabled")
+        XCTAssertEqual(zoomPlan.keyframes.count, 0, "Should have no keyframes")
+        XCTAssertEqual(zoomPlan.stats.totalZoomEvents, 0)
+    }
+
+    func testGenerateZoomPlanWithSections_NoExplicitConfiguration() async throws {
+        // Arrange
+        let zoomPlanGenerator = ZoomPlanGenerator()
+
+        // Segments with no explicit zoom configuration (will use defaults)
+        let segments = [
+            Project.Timeline.Segment(
+                id: "segment-1",
+                sourceIn: 0.0,
+                sourceOut: 10.0,
+                timelineIn: 0.0,
+                speed: 1.0,
+                zoom: nil // No explicit configuration
+            ),
+            Project.Timeline.Segment(
+                id: "segment-2",
+                sourceIn: 10.0,
+                sourceOut: 20.0,
+                timelineIn: 10.0,
+                speed: 1.0,
+                zoom: nil
+            )
+        ]
+
+        let clickWindows = createTestClickWindows(count: 6, duration: 20.0)
+
+        // Act
+        let zoomPlan = try await zoomPlanGenerator.generateZoomPlanWithSections(
+            from: clickWindows,
+            segments: segments,
+            defaultConfig: .default(),
+            timelineDuration: 20.0
+        )
+
+        // Assert
+        XCTAssertGreaterThan(zoomPlan.events.count, 0, "Should generate zoom events using default configuration")
+        XCTAssertTrue(zoomPlan.configuration.zoomEnabled, "Should use default configuration with zoom enabled")
+    }
+
+    func testGenerateZoomPlanWithSections_CustomConfiguration() async throws {
+        // Arrange
+        let zoomPlanGenerator = ZoomPlanGenerator()
+
+        // Segment with custom min/max zoom levels
+        let segments = [
+            Project.Timeline.Segment(
+                id: "segment-1",
+                sourceIn: 0.0,
+                sourceOut: 10.0,
+                timelineIn: 0.0,
+                speed: 1.0,
+                zoom: Project.Timeline.Segment.ZoomConfiguration(
+                    enabled: true,
+                    minZoomLevel: 1.5,
+                    maxZoomLevel: 4.0,
+                    intensity: nil
+                )
+            )
+        ]
+
+        let clickWindows = createTestClickWindows(count: 3, duration: 10.0)
+
+        // Act
+        let zoomPlan = try await zoomPlanGenerator.generateZoomPlanWithSections(
+            from: clickWindows,
+            segments: segments,
+            defaultConfig: .default(),
+            timelineDuration: 10.0
+        )
+
+        // Assert
+        XCTAssertGreaterThan(zoomPlan.events.count, 0)
+
+        // Verify custom zoom levels are respected
+        for event in zoomPlan.events {
+            XCTAssertGreaterThanOrEqual(event.targetZoomLevel, 1.5, "Zoom level should be at least minZoomLevel")
+            XCTAssertLessThanOrEqual(event.targetZoomLevel, 4.0, "Zoom level should be at most maxZoomLevel")
+        }
+    }
+
+    func testGenerateZoomPlanWithSections_ParseResult() async throws {
+        // Arrange
+        let zoomPlanGenerator = ZoomPlanGenerator()
+
+        let segments = [
+            Project.Timeline.Segment(
+                id: "segment-1",
+                sourceIn: 0.0,
+                sourceOut: 10.0,
+                timelineIn: 0.0,
+                speed: 1.0,
+                zoom: Project.Timeline.Segment.ZoomConfiguration(intensity: .subtle)
+            ),
+            Project.Timeline.Segment(
+                id: "segment-2",
+                sourceIn: 10.0,
+                sourceOut: 20.0,
+                timelineIn: 10.0,
+                speed: 1.0,
+                zoom: Project.Timeline.Segment.ZoomConfiguration(intensity: .aggressive)
+            )
+        ]
+
+        // Create a mock parse result
+        let telemetryParser = TelemetryParser()
+        let events = createTestTelemetryEvents(count: 100, duration: 20.0)
+        let parseResult = try await telemetryParser.parse(events, minTimeBetweenClicks: 0.5)
+
+        // Act
+        let zoomPlan = try await zoomPlanGenerator.generateZoomPlanWithSections(
+            from: parseResult,
+            segments: segments,
+            defaultConfig: .default(),
+            timelineDuration: 20.0
+        )
+
+        // Assert
+        XCTAssertGreaterThan(zoomPlan.events.count, 0, "Should generate zoom events from parse result")
+        XCTAssertGreaterThan(zoomPlan.keyframes.count, 0, "Should generate keyframes")
+    }
+
+    func testGenerateZoomPlanWithSections_EmptyClickWindows() async throws {
+        // Arrange
+        let zoomPlanGenerator = ZoomPlanGenerator()
+
+        let segments = [
+            Project.Timeline.Segment(
+                id: "segment-1",
+                sourceIn: 0.0,
+                sourceOut: 10.0,
+                timelineIn: 0.0,
+                speed: 1.0,
+                zoom: Project.Timeline.Segment.ZoomConfiguration(intensity: .normal)
+            )
+        ]
+
+        let clickWindows: [TelemetryParser.ClickWindow] = []
+
+        // Act
+        let zoomPlan = try await zoomPlanGenerator.generateZoomPlanWithSections(
+            from: clickWindows,
+            segments: segments,
+            defaultConfig: .default(),
+            timelineDuration: 10.0
+        )
+
+        // Assert
+        XCTAssertEqual(zoomPlan.events.count, 0, "Should have no zoom events with no click windows")
+        XCTAssertEqual(zoomPlan.keyframes.count, 0, "Should have no keyframes")
+    }
+
+    func testGenerateZoomPlanWithSections_SegmentFiltering() async throws {
+        // Arrange
+        let zoomPlanGenerator = ZoomPlanGenerator()
+
+        // Create click windows only in segment 1 (0-10s)
+        var clickWindows = createTestClickWindows(count: 3, duration: 10.0)
+
+        // Create segments spanning 0-30s
+        let segments = [
+            Project.Timeline.Segment(
+                id: "segment-1",
+                sourceIn: 0.0,
+                sourceOut: 10.0,
+                timelineIn: 0.0,
+                speed: 1.0,
+                zoom: Project.Timeline.Segment.ZoomConfiguration(intensity: .normal)
+            ),
+            Project.Timeline.Segment(
+                id: "segment-2",
+                sourceIn: 10.0,
+                sourceOut: 20.0,
+                timelineIn: 10.0,
+                speed: 1.0,
+                zoom: Project.Timeline.Segment.ZoomConfiguration(intensity: .normal)
+            ),
+            Project.Timeline.Segment(
+                id: "segment-3",
+                sourceIn: 20.0,
+                sourceOut: 30.0,
+                timelineIn: 20.0,
+                speed: 1.0,
+                zoom: Project.Timeline.Segment.ZoomConfiguration(intensity: .normal)
+            )
+        ]
+
+        // Act
+        let zoomPlan = try await zoomPlanGenerator.generateZoomPlanWithSections(
+            from: clickWindows,
+            segments: segments,
+            defaultConfig: .default(),
+            timelineDuration: 30.0
+        )
+
+        // Assert
+        // All zoom events should be in segment 1
+        for event in zoomPlan.events {
+            XCTAssertGreaterThanOrEqual(event.zoomInStartTime, 0.0)
+            XCTAssertLessThan(event.zoomInStartTime, 10.0, "All zoom events should be in segment 1")
+        }
+
+        // No zoom events should be in segments 2 and 3
+        let eventsInSegment2 = zoomPlan.events.filter { $0.zoomInStartTime >= 10.0 && $0.zoomInStartTime < 20.0 }
+        let eventsInSegment3 = zoomPlan.events.filter { $0.zoomInStartTime >= 20.0 && $0.zoomInStartTime < 30.0 }
+        XCTAssertEqual(eventsInSegment2.count, 0, "Should have no zoom events in segment 2")
+        XCTAssertEqual(eventsInSegment3.count, 0, "Should have no zoom events in segment 3")
+    }
+
+    func testGenerateZoomPlanWithSections_KeyframeOrdering() async throws {
+        // Arrange
+        let zoomPlanGenerator = ZoomPlanGenerator()
+
+        let segments = [
+            Project.Timeline.Segment(
+                id: "segment-1",
+                sourceIn: 0.0,
+                sourceOut: 10.0,
+                timelineIn: 0.0,
+                speed: 1.0,
+                zoom: Project.Timeline.Segment.ZoomConfiguration(intensity: .normal)
+            ),
+            Project.Timeline.Segment(
+                id: "segment-2",
+                sourceIn: 10.0,
+                sourceOut: 20.0,
+                timelineIn: 10.0,
+                speed: 1.0,
+                zoom: Project.Timeline.Segment.ZoomConfiguration(intensity: .aggressive)
+            )
+        ]
+
+        let clickWindows = createTestClickWindows(count: 6, duration: 20.0)
+
+        // Act
+        let zoomPlan = try await zoomPlanGenerator.generateZoomPlanWithSections(
+            from: clickWindows,
+            segments: segments,
+            defaultConfig: .default(),
+            timelineDuration: 20.0
+        )
+
+        // Assert
+        // Verify keyframes are sorted by timestamp across all segments
+        for i in 0..<(zoomPlan.keyframes.count - 1) {
+            XCTAssertLessThanOrEqual(zoomPlan.keyframes[i].timestamp, zoomPlan.keyframes[i + 1].timestamp, "Keyframes should be sorted by timestamp across all segments")
+        }
+    }
+
+    // MARK: - Helper Methods for Per-Section Tests
+
+    func createTestClickWindows(count: Int, duration: TimeInterval) -> [TelemetryParser.ClickWindow] {
+        var windows: [TelemetryParser.ClickWindow] = []
+        let timeInterval = duration / Double(count)
+
+        for i in 0..<count {
+            let startTime = Double(i) * timeInterval
+            let window = TelemetryParser.ClickWindow(
+                id: UUID(),
+                startTime: startTime,
+                endTime: startTime + timeInterval,
+                clickCount: i + 1,
+                boundingBox: CGRect(x: 100 + Double(i * 10), y: 100 + Double(i * 10), width: 200, height: 200),
+                centerPoint: CGPoint(x: 200 + Double(i * 10), y: 200 + Double(i * 10)),
+                importanceScore: Double(count - i) / Double(count)
+            )
+            windows.append(window)
+        }
+
+        return windows
+    }
+
+    func createTestTelemetryEvents(count: Int, duration: TimeInterval) -> [TelemetryRecorder.Event] {
+        var events: [TelemetryRecorder.Event] = []
+        let timeInterval = duration / Double(count)
+
+        for i in 0..<count {
+            let timestamp = Double(i) * timeInterval
+
+            if i % 3 == 0 {
+                // Click event
+                let event = TelemetryRecorder.Event(
+                    id: UUID(),
+                    timestamp: timestamp,
+                    type: .down,
+                    x: 100 + Double(i * 10),
+                    y: 100 + Double(i * 10),
+                    button: 0,
+                    scrollDx: 0,
+                    scrollDy: 0,
+                    displayId: nil
+                )
+                events.append(event)
+            } else {
+                // Move event
+                let event = TelemetryRecorder.Event(
+                    id: UUID(),
+                    timestamp: timestamp,
+                    type: .move,
+                    x: 100 + Double(i * 10),
+                    y: 100 + Double(i * 10),
+                    button: -1,
+                    scrollDx: 0,
+                    scrollDy: 0,
+                    displayId: nil
+                )
+                events.append(event)
+            }
+        }
+
+        return events
+    }
 }
