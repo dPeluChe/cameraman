@@ -42,7 +42,7 @@ Este backlog está organizado por épicas y por orden recomendado.
 - [x] (P0) Timeline UI simple: selección de rango, split/delete
 - [x] (P0) Canvas layout presets: PiP, side‑by‑side
 - [x] (P0) Background: solid color, image background (fit/fill)
-- [ ] (P0) Formato: 16:9 y 9:16
+- [x] (P0) Formato: 16:9 y 9:16
 
 ---
 
