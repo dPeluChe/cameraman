@@ -317,10 +317,11 @@ public actor ThumbnailCache {
                 continue
             }
 
-            if configuration.enableDiskCache,
-               try? loadThumbnailFromDisk(at: time) != nil {
-                generatedCount += 1
-                continue
+            if configuration.enableDiskCache {
+                if (try? loadThumbnailFromDisk(at: time)) != nil {
+                    generatedCount += 1
+                    continue
+                }
             }
 
             // Generate thumbnail
@@ -424,10 +425,11 @@ public actor ThumbnailCache {
                 continue
             }
 
-            if configuration.enableDiskCache,
-               try? loadWaveformFromDisk(for: trackPath) != nil {
-                generatedCount += 1
-                continue
+            if configuration.enableDiskCache {
+                if (try? loadWaveformFromDisk(for: trackPath)) != nil {
+                    generatedCount += 1
+                    continue
+                }
             }
 
             // Generate waveform
@@ -585,7 +587,9 @@ public actor ThumbnailCache {
 
                 var length = 0
                 var dataPointer: UnsafeMutablePointer<Int8>?
-                let result = CMBlockBufferGetDataPointer(dataBuffer, 0, nil, &length, &dataPointer)
+                var totalLength = 0
+                let result = CMBlockBufferGetDataPointer(dataBuffer, atOffset: 0, lengthAtOffsetOut: nil, totalLengthOut: &totalLength, dataPointerOut: &dataPointer)
+                length = totalLength
 
                 guard result == noErr,
                       let pointer = dataPointer else {
@@ -601,7 +605,7 @@ public actor ThumbnailCache {
                         // Compute RMS for this chunk
                         let sumOfSquares = chunkSamples.reduce(0.0) { $0 + Double($1) * Double($1) }
                         let rms = sqrt(sumOfSquares / Double(chunkSamples.count))
-                        let normalized = Float(rms / Float(Int16.max))
+                        let normalized = Float(rms / Double(Int16.max))
                         samples.append(normalized)
                         chunkSamples.removeAll()
                         chunkIndex += 1
@@ -621,7 +625,7 @@ public actor ThumbnailCache {
             if !chunkSamples.isEmpty && samples.count < targetSampleCount {
                 let sumOfSquares = chunkSamples.reduce(0.0) { $0 + Double($1) * Double($1) }
                 let rms = sqrt(sumOfSquares / Double(chunkSamples.count))
-                let normalized = Float(rms / Float(Int16.max))
+                let normalized = Float(rms / Double(Int16.max))
                 samples.append(normalized)
             }
 
@@ -644,7 +648,7 @@ public actor ThumbnailCache {
 
     /// Create cache directories
     private func createCacheDirectories() {
-        guard let projectDir = projectDirectory else {
+        guard projectDirectory != nil else {
             return
         }
 

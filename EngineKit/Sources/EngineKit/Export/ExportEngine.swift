@@ -7,6 +7,8 @@
 
 import Foundation
 import AVFoundation
+import CoreFoundation
+import QuartzCore
 import AppKit
 import os.log
 
@@ -489,27 +491,27 @@ public actor ExportEngine {
 
         // Parse captions
         let captionsManager = CaptionsManager()
-        try captionsManager.loadCaptions(from: captionPath.path)
-        let captions = captionsManager.getAllCaptions()
+        try await captionsManager.loadCaptions(from: captionPath.path)
+        let captions = await captionsManager.getAllCaptions()
 
         logger.debug("Loaded \(captions.count) captions for burn-in")
 
         // Create parent layer for video composition
         let parentLayer = CALayer()
-        parentLayer.frame = CGRect(origin: .zero, size: renderSize)
+        parentLayer.frame = CoreFoundation.CGRect(origin: .zero, size: renderSize)
 
         // Create video layer
         let videoLayer = CALayer()
-        videoLayer.frame = CGRect(origin: .zero, size: renderSize)
+        videoLayer.frame = CoreFoundation.CGRect(origin: .zero, size: renderSize)
         parentLayer.addSublayer(videoLayer)
 
         // Create caption layer
         let captionLayer = CALayer()
-        captionLayer.frame = CGRect(origin: .zero, size: renderSize)
+        captionLayer.frame = CoreFoundation.CGRect(origin: .zero, size: renderSize)
         parentLayer.addSublayer(captionLayer)
 
         // Get caption style
-        let style = captionsManager.getStyle()
+        let style = await captionsManager.getStyle()
 
         // Create text attributes
         let fontSize = style.fontSize * CGFloat(renderSize.height)
@@ -541,7 +543,7 @@ public actor ExportEngine {
             // Shadow
             if style.shadow {
                 textLayer.shadowColor = NSColor.black.cgColor
-                textLayer.shadowOffset = CGSize(width: 0, height: -1)
+                textLayer.shadowOffset = CoreFoundation.CGSize(width: 0, height: -1)
                 textLayer.shadowRadius = 2
                 textLayer.shadowOpacity = 0.5
             }
@@ -570,7 +572,7 @@ public actor ExportEngine {
             // Position text
             let textX = xPos - textSize.width / 2.0
             let textY = yPos - textSize.height
-            textLayer.frame = CGRect(x: textX, y: textY, width: textSize.width, height: textSize.height)
+            textLayer.frame = CoreFoundation.CGRect(x: textX, y: textY, width: textSize.width, height: textSize.height)
 
             // Create fade-in and fade-out animations
             textLayer.opacity = 0.0
@@ -635,15 +637,16 @@ public actor ExportEngine {
                 framesetter,
                 currentRange,
                 nil,
-                CGSize(width: maxWidth, height: CGFloat.greatestFiniteMagnitude),
+                CoreFoundation.CGSize(width: maxWidth, height: CGFloat.greatestFiniteMagnitude),
                 nil
             )
 
-            let path = CGPath(rect: CGRect(origin: .zero, size: suggestedSize), transform: nil)
+            let path = CGPath(rect: CoreFoundation.CGRect(origin: .zero, size: suggestedSize), transform: nil)
             let frame = CTFramesetterCreateFrame(framesetter, currentRange, path, nil)
 
             let lineRange = CTFrameGetVisibleStringRange(frame)
-            let lineText = attributedString.attributedSubstring(from: NSRange(lineRange)).string
+            let nsRange = NSRange(location: lineRange.location, length: lineRange.length)
+            let lineText = attributedString.attributedSubstring(from: nsRange).string
             lines.append(lineText)
 
             currentRange.location += lineRange.length

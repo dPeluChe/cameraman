@@ -7,6 +7,9 @@
 
 import Foundation
 import AVFoundation
+import CoreGraphics
+import CoreText
+import AppKit
 
 /// Preview engine for playing back video with edits applied
 /// Supports seek, play, pause, and applies trims/cuts/layouts from project
@@ -555,7 +558,7 @@ public actor PreviewEngine {
 
         // Render caption if active
         if let caption = activeCaption {
-            try renderCaption(caption, in: context, imageSize: CoreFoundation.CGSize(width: CGFloat(image.width), height: CGFloat(image.height)), canvasSize: CoreFoundation.CGSize(width: CGFloat(canvasWidth), height: CGFloat(canvasHeight)))
+            try await renderCaption(caption, in: context, imageSize: CoreFoundation.CGSize(width: CGFloat(image.width), height: CGFloat(image.height)), canvasSize: CoreFoundation.CGSize(width: CGFloat(canvasWidth), height: CGFloat(canvasHeight)))
         }
 
         // Extract final image
@@ -837,7 +840,7 @@ public actor PreviewEngine {
         in context: CGContext,
         imageSize: CoreFoundation.CGSize,
         canvasSize: CoreFoundation.CGSize
-    ) throws {
+    ) async throws {
         let style = await captionsManager.getStyle()
 
         // Calculate font size based on image height

@@ -17,7 +17,7 @@ public actor CaptionsManager {
     private var style: CaptionStyle
 
     /// Whether captions are enabled
-    private var isEnabled: Bool = true
+    private var captionsEnabled: Bool = true
 
     /// Caption entry with timing and text
     public struct CaptionEntry: Codable, Equatable, Identifiable {
@@ -372,7 +372,7 @@ public actor CaptionsManager {
     /// - Parameter time: Time in seconds
     /// - Returns: Caption entry if active, nil otherwise
     public func getCaption(at time: TimeInterval) -> CaptionEntry? {
-        guard isEnabled else { return nil }
+        guard isEnabled() else { return nil }
 
         return captions.first { caption in
             time >= caption.start && time <= caption.end
@@ -383,7 +383,7 @@ public actor CaptionsManager {
     /// - Parameter time: Time in seconds
     /// - Returns: Array of active caption entries
     public func getActiveCaptions(at time: TimeInterval) -> [CaptionEntry] {
-        guard isEnabled else { return [] }
+        guard isEnabled() else { return [] }
 
         return captions.filter { caption in
             time >= caption.start && time <= caption.end
@@ -428,13 +428,13 @@ public actor CaptionsManager {
     /// Enable or disable captions
     /// - Parameter enabled: Whether to enable captions
     public func setEnabled(_ enabled: Bool) {
-        self.isEnabled = enabled
+        self.captionsEnabled = enabled
     }
 
     /// Check if captions are enabled
     /// - Returns: True if captions are enabled
     public func isEnabled() -> Bool {
-        return isEnabled
+        return captionsEnabled
     }
 
     // MARK: - Utility Methods

@@ -949,4 +949,632 @@ final class PreviewEngineTests: XCTestCase {
         // Clean up
         try? FileManager.default.removeItem(atPath: projectDir)
     }
+
+    // MARK: - Seek Accuracy Tests (Épica L, Task 4)
+
+    func testSeekAccuracyAtMultiplePositions() async throws {
+        try await previewEngine.loadProject(mockProject)
+
+        // Test seeks at various positions throughout the timeline
+        let testPositions: [TimeInterval] = [0, 1.0, 2.5, 5.0, 7.5, 9.0, 10.0]
+        let tolerance: TimeInterval = 0.01 // 10ms tolerance for seek accuracy
+
+        for targetTime in testPositions {
+            try await previewEngine.seek(to: targetTime)
+            let actualTime = await previewEngine.getCurrentTime()
+
+            // Verify seek accuracy within tolerance
+            XCTAssertEqual(
+                actualTime,
+                targetTime,
+                accuracy: tolerance,
+                "Seek to \(targetTime)s resulted in \(actualTime)s, which is outside tolerance of \(tolerance)s"
+            )
+        }
+    }
+
+    func testSeekAccuracyAtBoundaries() async throws {
+        try await previewEngine.loadProject(mockProject)
+
+        // Test seek to exact start
+        try await previewEngine.seek(to: 0)
+        XCTAssertEqual(await previewEngine.getCurrentTime(), 0, accuracy: 0.001)
+
+        // Test seek to exact end
+        try await previewEngine.seek(to: 10.0)
+        XCTAssertEqual(await previewEngine.getCurrentTime(), 10.0, accuracy: 0.001)
+
+        // Test seek to middle
+        try await previewEngine.seek(to: 5.0)
+        XCTAssertEqual(await previewEngine.getCurrentTime(), 5.0, accuracy: 0.001)
+    }
+
+    func testSeekAccuracyWithFractionalSeconds() async throws {
+        try await previewEngine.loadProject(mockProject)
+
+        // Test seeks with fractional seconds
+        let fractionalTimes: [TimeInterval] = [0.123, 1.456, 2.789, 5.234, 8.901]
+        let tolerance: TimeInterval = 0.001 // 1ms tolerance for fractional seeks
+
+        for targetTime in fractionalTimes {
+            try await previewEngine.seek(to: targetTime)
+            let actualTime = await previewEngine.getCurrentTime()
+
+            XCTAssertEqual(
+                actualTime,
+                targetTime,
+                accuracy: tolerance,
+                "Seek to \(targetTime)s resulted in \(actualTime)s, which is outside tolerance of \(tolerance)s"
+            )
+        }
+    }
+
+    func testSeekAccuracyAfterPlayback() async throws {
+        try await previewEngine.loadProject(mockProject)
+
+        // Start playback
+        try await previewEngine.play()
+        try await Task.sleep(nanoseconds: 100_000_000) // Sleep 100ms
+        try await previewEngine.pause()
+
+        // Seek to a specific time and verify accuracy
+        try await previewEngine.seek(to: 3.5)
+        XCTAssertEqual(await previewEngine.getCurrentTime(), 3.5, accuracy: 0.01)
+
+        // Resume playback and seek again
+        try await previewEngine.play()
+        try await Task.sleep(nanoseconds: 100_000_000) // Sleep 100ms
+        try await previewEngine.pause()
+        try await previewEngine.seek(to: 7.8)
+        XCTAssertEqual(await previewEngine.getCurrentTime(), 7.8, accuracy: 0.01)
+    }
+
+    func testSeekAccuracyMultipleSequentials() async throws {
+        try await previewEngine.loadProject(mockProject)
+
+        // Perform multiple sequential seeks and verify each one
+        let seekSequence: [TimeInterval] = [1.0, 3.0, 2.0, 5.0, 4.0, 7.0, 6.0, 9.0]
+        let tolerance: TimeInterval = 0.01
+
+        for targetTime in seekSequence {
+            try await previewEngine.seek(to: targetTime)
+            let actualTime = await previewEngine.getCurrentTime()
+
+            XCTAssertEqual(
+                actualTime,
+                targetTime,
+                accuracy: tolerance,
+                "Sequential seek to \(targetTime)s resulted in \(actualTime)s"
+            )
+        }
+    }
+
+    func testSeekAccuracyAtSegmentBoundaries() async throws {
+        // Create project with clear segment boundaries
+        let segments = [
+            Project.Timeline.Segment(id: "seg1", sourceIn: 0, sourceOut: 3, timelineIn: 0, speed: 1.0),
+            Project.Timeline.Segment(id: "seg2", sourceIn: 3, sourceOut: 6, timelineIn: 3, speed: 1.0),
+            Project.Timeline.Segment(id: "seg3", sourceIn: 6, sourceOut: 10, timelineIn: 6, speed: 1.0)
+        ]
+
+        var project = createMockProject()
+        project.timeline = Project.Timeline(duration: 10, segments: segments)
+
+        try await previewEngine.loadProject(project)
+
+        // Test seeks at segment boundaries
+        let boundaryTimes: [TimeInterval] = [0, 3.0, 6.0, 10.0]
+        let tolerance: TimeInterval = 0.001
+
+        for targetTime in boundaryTimes {
+            try await previewEngine.seek(to: targetTime)
+            let actualTime = await previewEngine.getCurrentTime()
+
+            XCTAssertEqual(
+                actualTime,
+                targetTime,
+                accuracy: tolerance,
+                "Seek to segment boundary at \(targetTime)s resulted in \(actualTime)s"
+            )
+        }
+    }
+
+    // MARK: - Playback with Edits Applied Tests (Épica L, Task 4)
+
+    func testPlaybackWithTrimInApplied() async throws {
+        // Create project with trimmed segment (first 2 seconds removed)
+        let segments = [
+            Project.Timeline.Segment(
+                id: "seg1",
+                sourceIn: 2.0,  // Trimmed in: starts at 2s in source
+                sourceOut: 8.0,
+                timelineIn: 0,
+                speed: 1.0
+            )
+        ]
+
+        var project = createMockProject()
+        project.timeline = Project.Timeline(duration: 6, segments: segments)
+
+        try await previewEngine.loadProject(project)
+
+        // Verify timeline duration reflects the trim (8 - 2 = 6 seconds)
+        XCTAssertEqual(await previewEngine.getDuration(), 6.0)
+
+        // Seek to timeline position 0 should correspond to source position 2.0
+        try await previewEngine.seek(to: 0)
+        XCTAssertEqual(await previewEngine.getCurrentTime(), 0)
+
+        // Seek to timeline position 3 should correspond to source position 5.0 (2 + 3)
+        try await previewEngine.seek(to: 3.0)
+        XCTAssertEqual(await previewEngine.getCurrentTime(), 3.0)
+    }
+
+    func testPlaybackWithTrimOutApplied() async throws {
+        // Create project with trimmed segment (last 2 seconds removed)
+        let segments = [
+            Project.Timeline.Segment(
+                id: "seg1",
+                sourceIn: 0,
+                sourceOut: 8.0,  // Trimmed out: ends at 8s in source (instead of 10s)
+                timelineIn: 0,
+                speed: 1.0
+            )
+        ]
+
+        var project = createMockProject()
+        project.timeline = Project.Timeline(duration: 8, segments: segments)
+
+        try await previewEngine.loadProject(project)
+
+        // Verify timeline duration reflects the trim
+        XCTAssertEqual(await previewEngine.getDuration(), 8.0)
+
+        // Verify we can seek to the end of the trimmed segment
+        try await previewEngine.seek(to: 8.0)
+        XCTAssertEqual(await previewEngine.getCurrentTime(), 8.0)
+    }
+
+    func testPlaybackWithTrimsInAndOutApplied() async throws {
+        // Create project with both trims (first 1s and last 2s removed)
+        let segments = [
+            Project.Timeline.Segment(
+                id: "seg1",
+                sourceIn: 1.0,  // Trim in
+                sourceOut: 8.0,  // Trim out
+                timelineIn: 0,
+                speed: 1.0
+            )
+        ]
+
+        var project = createMockProject()
+        project.timeline = Project.Timeline(duration: 7, segments: segments)
+
+        try await previewEngine.loadProject(project)
+
+        // Verify timeline duration reflects both trims (8 - 1 = 7 seconds)
+        XCTAssertEqual(await previewEngine.getDuration(), 7.0)
+
+        // Test seek accuracy with trimmed segment
+        try await previewEngine.seek(to: 3.5)
+        XCTAssertEqual(await previewEngine.getCurrentTime(), 3.5, accuracy: 0.01)
+    }
+
+    func testPlaybackWithMultipleSegmentsAfterCut() async throws {
+        // Create project with cut (two segments)
+        let segments = [
+            Project.Timeline.Segment(
+                id: "seg1",
+                sourceIn: 0,
+                sourceOut: 4.0,
+                timelineIn: 0,
+                speed: 1.0
+            ),
+            Project.Timeline.Segment(
+                id: "seg2",
+                sourceIn: 6.0,  // Gap: 4-6 seconds removed
+                sourceOut: 10.0,
+                timelineIn: 4.0,
+                speed: 1.0
+            )
+        ]
+
+        var project = createMockProject()
+        project.timeline = Project.Timeline(duration: 8, segments: segments)
+
+        try await previewEngine.loadProject(project)
+
+        // Verify timeline duration reflects the cut (4 + 4 = 8 seconds, gap removed)
+        XCTAssertEqual(await previewEngine.getDuration(), 8.0)
+
+        // Verify we can seek within first segment
+        try await previewEngine.seek(to: 2.0)
+        XCTAssertEqual(await previewEngine.getCurrentTime(), 2.0)
+
+        // Verify we can seek within second segment
+        try await previewEngine.seek(to: 6.0)
+        XCTAssertEqual(await previewEngine.getCurrentTime(), 6.0)
+
+        // Verify we can seek to the boundary between segments
+        try await previewEngine.seek(to: 4.0)
+        XCTAssertEqual(await previewEngine.getCurrentTime(), 4.0)
+    }
+
+    func testPlaybackWithSpeedChangeSlowMotion() async throws {
+        // Create project with slow motion segment (0.5x speed)
+        let segments = [
+            Project.Timeline.Segment(
+                id: "seg1",
+                sourceIn: 0,
+                sourceOut: 5.0,
+                timelineIn: 0,
+                speed: 0.5  // Slow motion: 5s source = 10s timeline
+            )
+        ]
+
+        var project = createMockProject()
+        project.timeline = Project.Timeline(duration: 10, segments: segments)
+
+        try await previewEngine.loadProject(project)
+
+        // Verify timeline duration reflects speed change (5 / 0.5 = 10 seconds)
+        XCTAssertEqual(await previewEngine.getDuration(), 10.0)
+
+        // Verify seek accuracy with speed change
+        try await previewEngine.seek(to: 5.0)
+        XCTAssertEqual(await previewEngine.getCurrentTime(), 5.0, accuracy: 0.01)
+    }
+
+    func testPlaybackWithSpeedChangeFastForward() async throws {
+        // Create project with fast forward segment (2x speed)
+        let segments = [
+            Project.Timeline.Segment(
+                id: "seg1",
+                sourceIn: 0,
+                sourceOut: 10.0,
+                timelineIn: 0,
+                speed: 2.0  // Fast forward: 10s source = 5s timeline
+            )
+        ]
+
+        var project = createMockProject()
+        project.timeline = Project.Timeline(duration: 5, segments: segments)
+
+        try await previewEngine.loadProject(project)
+
+        // Verify timeline duration reflects speed change (10 / 2 = 5 seconds)
+        XCTAssertEqual(await previewEngine.getDuration(), 5.0)
+
+        // Verify seek accuracy with speed change
+        try await previewEngine.seek(to: 2.5)
+        XCTAssertEqual(await previewEngine.getCurrentTime(), 2.5, accuracy: 0.01)
+    }
+
+    func testPlaybackWithMixedEdits() async throws {
+        // Create project with trims, cuts, and speed changes
+        let segments = [
+            Project.Timeline.Segment(
+                id: "seg1",
+                sourceIn: 1.0,  // Trim in
+                sourceOut: 4.0,  // Trim out (3s duration)
+                timelineIn: 0,
+                speed: 1.0
+            ),
+            Project.Timeline.Segment(
+                id: "seg2",
+                sourceIn: 4.0,
+                sourceOut: 7.0,  // 3s source
+                timelineIn: 3.0,
+                speed: 2.0  // Fast forward: 3s source = 1.5s timeline
+            ),
+            Project.Timeline.Segment(
+                id: "seg3",
+                sourceIn: 8.0,  // Gap: 7-8 seconds removed
+                sourceOut: 10.0,  // 2s duration
+                timelineIn: 4.5,
+                speed: 0.5  // Slow motion: 2s source = 4s timeline
+            )
+        ]
+
+        var project = createMockProject()
+        project.timeline = Project.Timeline(duration: 8.5, segments: segments)
+
+        try await previewEngine.loadProject(project)
+
+        // Verify timeline duration: 3 + 1.5 + 4 = 8.5 seconds
+        XCTAssertEqual(await previewEngine.getDuration(), 8.5, accuracy: 0.01)
+
+        // Verify seek accuracy in first segment
+        try await previewEngine.seek(to: 1.5)
+        XCTAssertEqual(await previewEngine.getCurrentTime(), 1.5, accuracy: 0.01)
+
+        // Verify seek accuracy in second segment (fast forward)
+        try await previewEngine.seek(to: 3.75)
+        XCTAssertEqual(await previewEngine.getCurrentTime(), 3.75, accuracy: 0.01)
+
+        // Verify seek accuracy in third segment (slow motion)
+        try await previewEngine.seek(to: 6.5)
+        XCTAssertEqual(await previewEngine.getCurrentTime(), 6.5, accuracy: 0.01)
+
+        // Verify seek to end
+        try await previewEngine.seek(to: 8.5)
+        XCTAssertEqual(await previewEngine.getCurrentTime(), 8.5, accuracy: 0.01)
+    }
+
+    func testPlaybackWithComplexSegmentStructure() async throws {
+        // Create project with 5 segments and various edits
+        let segments = [
+            Project.Timeline.Segment(id: "s1", sourceIn: 0, sourceOut: 2, timelineIn: 0, speed: 1.0),
+            Project.Timeline.Segment(id: "s2", sourceIn: 2, sourceOut: 4, timelineIn: 2, speed: 0.5),  // Slow
+            Project.Timeline.Segment(id: "s3", sourceIn: 4, sourceOut: 6, timelineIn: 6, speed: 2.0),  // Fast
+            Project.Timeline.Segment(id: "s4", sourceIn: 6, sourceOut: 8, timelineIn: 7, speed: 1.0),
+            Project.Timeline.Segment(id: "s5", sourceIn: 8, sourceOut: 10, timelineIn: 9, speed: 1.0)
+        ]
+
+        var project = createMockProject()
+        project.timeline = Project.Timeline(duration: 11, segments: segments)
+
+        try await previewEngine.loadProject(project)
+
+        // Verify duration: 2 + 4 + 1 + 2 + 2 = 11 seconds
+        XCTAssertEqual(await previewEngine.getDuration(), 11, accuracy: 0.01)
+
+        // Test seeks across all segments
+        let testPositions: [TimeInterval] = [0, 1, 3, 6.5, 8, 10, 11]
+        for pos in testPositions {
+            try await previewEngine.seek(to: pos)
+            XCTAssertEqual(await previewEngine.getCurrentTime(), pos, accuracy: 0.01)
+        }
+    }
+
+    func testPlaybackStateWithEditsApplied() async throws {
+        // Create project with cuts
+        let segments = [
+            Project.Timeline.Segment(id: "s1", sourceIn: 0, sourceOut: 3, timelineIn: 0, speed: 1.0),
+            Project.Timeline.Segment(id: "s2", sourceIn: 5, sourceOut: 8, timelineIn: 3, speed: 1.5)
+        ]
+
+        var project = createMockProject()
+        project.timeline = Project.Timeline(duration: 5, segments: segments)
+
+        try await previewEngine.loadProject(project)
+
+        // Verify initial state
+        XCTAssertEqual(await previewEngine.getPlaybackState(), .stopped)
+        XCTAssertEqual(await previewEngine.getCurrentTime(), 0)
+
+        // Play and verify state
+        try await previewEngine.play()
+        XCTAssertEqual(await previewEngine.getPlaybackState(), .playing)
+
+        // Pause and verify state
+        try await previewEngine.pause()
+        XCTAssertEqual(await previewEngine.getPlaybackState(), .paused)
+
+        // Seek and verify state remains paused
+        try await previewEngine.seek(to: 2.5)
+        XCTAssertEqual(await previewEngine.getPlaybackState(), .paused)
+        XCTAssertEqual(await previewEngine.getCurrentTime(), 2.5, accuracy: 0.01)
+
+        // Stop and verify state
+        try await previewEngine.stop()
+        XCTAssertEqual(await previewEngine.getPlaybackState(), .stopped)
+        XCTAssertEqual(await previewEngine.getCurrentTime(), 0)
+    }
+
+    func testPlaybackWithEditsAndOverlays() async throws {
+        // Create project with edits and overlays
+        let segments = [
+            Project.Timeline.Segment(id: "s1", sourceIn: 0, sourceOut: 5, timelineIn: 0, speed: 1.0),
+            Project.Timeline.Segment(id: "s2", sourceIn: 7, sourceOut: 10, timelineIn: 5, speed: 2.0)
+        ]
+
+        var project = createMockProject()
+        project.timeline = Project.Timeline(duration: 6.5, segments: segments)
+        project.overlays = [
+            createMockOverlay(type: .arrow, start: 0, end: 3),
+            createMockOverlay(type: .rect, start: 4, end: 6)
+        ]
+
+        try await previewEngine.loadProject(project)
+
+        // Verify overlays at different timeline positions
+        let overlaysAt1 = await previewEngine.getActiveOverlays(at: 1.0)
+        XCTAssertEqual(overlaysAt1.count, 1) // Only arrow
+        XCTAssertEqual(overlaysAt1.first?.type, .arrow)
+
+        let overlaysAt5 = await previewEngine.getActiveOverlays(at: 5.0)
+        XCTAssertEqual(overlaysAt5.count, 1) // Only rect
+        XCTAssertEqual(overlaysAt5.first?.type, .rect)
+    }
+
+    func testSeekAccuracyWithSpeedChanges() async throws {
+        // Test seek accuracy across segments with different speeds
+        let segments = [
+            Project.Timeline.Segment(id: "s1", sourceIn: 0, sourceOut: 5, timelineIn: 0, speed: 0.5),  // 10s timeline
+            Project.Timeline.Segment(id: "s2", sourceIn: 5, sourceOut: 10, timelineIn: 10, speed: 2.0)  // 2.5s timeline
+        ]
+
+        var project = createMockProject()
+        project.timeline = Project.Timeline(duration: 12.5, segments: segments)
+
+        try await previewEngine.loadProject(project)
+
+        // Test seeks at various positions
+        let testPositions: [TimeInterval] = [0, 2.5, 5.0, 7.5, 10.0, 11.25, 12.5]
+        let tolerance: TimeInterval = 0.01
+
+        for targetTime in testPositions {
+            try await previewEngine.seek(to: targetTime)
+            let actualTime = await previewEngine.getCurrentTime()
+
+            XCTAssertEqual(
+                actualTime,
+                targetTime,
+                accuracy: tolerance,
+                "Seek to \(targetTime)s with speed changes resulted in \(actualTime)s"
+            )
+        }
+    }
+
+    // MARK: - Integration Tests for Edits (Épica L, Task 4)
+
+    func testIntegrationTrimAndSeek() async throws {
+        // Test that trimmed segments can be sought accurately
+        let segments = [
+            Project.Timeline.Segment(
+                id: "seg1",
+                sourceIn: 2.5,  // Trim in at 2.5s
+                sourceOut: 7.5,  // Trim out at 7.5s
+                timelineIn: 0,
+                speed: 1.0
+            )
+        ]
+
+        var project = createMockProject()
+        project.timeline = Project.Timeline(duration: 5, segments: segments)
+
+        try await previewEngine.loadProject(project)
+
+        // Verify we can seek anywhere within the trimmed segment
+        for targetTime in stride(from: 0, through: 5, by: 0.5) {
+            try await previewEngine.seek(to: targetTime)
+            XCTAssertEqual(await previewEngine.getCurrentTime(), targetTime, accuracy: 0.01)
+        }
+    }
+
+    func testIntegrationCutAndSeek() async throws {
+        // Test that cut segments can be sought accurately
+        let segments = [
+            Project.Timeline.Segment(id: "s1", sourceIn: 0, sourceOut: 3, timelineIn: 0, speed: 1.0),
+            Project.Timeline.Segment(id: "s2", sourceIn: 5, sourceOut: 8, timelineIn: 3, speed: 1.0),  // Gap at 3-5s
+            Project.Timeline.Segment(id: "s3", sourceIn: 8, sourceOut: 10, timelineIn: 6, speed: 1.0)
+        ]
+
+        var project = createMockProject()
+        project.timeline = Project.Timeline(duration: 8, segments: segments)
+
+        try await previewEngine.loadProject(project)
+
+        // Verify we can seek across all segments
+        for targetTime in [0, 1.5, 3, 4.5, 6, 7, 8] {
+            try await previewEngine.seek(to: targetTime)
+            XCTAssertEqual(await previewEngine.getCurrentTime(), targetTime, accuracy: 0.01)
+        }
+    }
+
+    func testIntegrationSpeedChangeAndSeek() async throws {
+        // Test that speed changes don't affect seek accuracy
+        let segments = [
+            Project.Timeline.Segment(id: "s1", sourceIn: 0, sourceOut: 10, timelineIn: 0, speed: 0.5),  // 20s timeline
+            Project.Timeline.Segment(id: "s2", sourceIn: 10, sourceOut: 15, timelineIn: 20, speed: 2.0),  // 2.5s timeline
+            Project.Timeline.Segment(id: "s3", sourceIn: 15, sourceOut: 20, timelineIn: 22.5, speed: 1.0)  // 5s timeline
+        ]
+
+        var project = createMockProject()
+        project.timeline = Project.Timeline(duration: 27.5, segments: segments)
+
+        try await previewEngine.loadProject(project)
+
+        // Verify seeks work across all speed changes
+        let testPositions: [TimeInterval] = [0, 5, 10, 15, 20, 21.25, 22.5, 25, 27.5]
+        for targetTime in testPositions {
+            try await previewEngine.seek(to: targetTime)
+            XCTAssertEqual(await previewEngine.getCurrentTime(), targetTime, accuracy: 0.01)
+        }
+    }
+
+    func testIntegrationAllEditsCombined() async throws {
+        // Test all edit types combined: trims, cuts, speed changes
+        let segments = [
+            Project.Timeline.Segment(id: "s1", sourceIn: 1, sourceOut: 4, timelineIn: 0, speed: 1.0),  // Trimmed
+            Project.Timeline.Segment(id: "s2", sourceIn: 4, sourceOut: 6, timelineIn: 3, speed: 0.5),  // Slow
+            Project.Timeline.Segment(id: "s3", sourceIn: 8, sourceOut: 12, timelineIn: 7, speed: 2.0),  // Cut + fast
+            Project.Timeline.Segment(id: "s4", sourceIn: 12, sourceOut: 15, timelineIn: 9, speed: 1.0)
+        ]
+
+        var project = createMockProject()
+        project.timeline = Project.Timeline(duration: 12, segments: segments)
+
+        try await previewEngine.loadProject(project)
+
+        // Verify duration calculation: 3 + 4 + 2 + 3 = 12 seconds
+        XCTAssertEqual(await previewEngine.getDuration(), 12, accuracy: 0.01)
+
+        // Verify seek accuracy across all edits
+        let testPositions: [TimeInterval] = [0, 1.5, 3, 5, 7, 8, 9, 10.5, 12]
+        for targetTime in testPositions {
+            try await previewEngine.seek(to: targetTime)
+            let actualTime = await previewEngine.getCurrentTime()
+
+            XCTAssertEqual(
+                actualTime,
+                targetTime,
+                accuracy: 0.01,
+                "Seek to \(targetTime)s with combined edits resulted in \(actualTime)s"
+            )
+        }
+    }
+
+    // MARK: - Performance Tests for Edits (Épica L, Task 4)
+
+    func testPerformanceSeekWithEdits() async throws {
+        // Create project with complex edits
+        let segments = [
+            Project.Timeline.Segment(id: "s1", sourceIn: 0, sourceOut: 3, timelineIn: 0, speed: 1.0),
+            Project.Timeline.Segment(id: "s2", sourceIn: 3, sourceOut: 5, timelineIn: 3, speed: 0.5),
+            Project.Timeline.Segment(id: "s3", sourceIn: 7, sourceOut: 10, timelineIn: 7, speed: 2.0),
+            Project.Timeline.Segment(id: "s4", sourceIn: 10, sourceOut: 12, timelineIn: 8.5, speed: 1.0)
+        ]
+
+        var project = createMockProject()
+        project.timeline = Project.Timeline(duration: 10.5, segments: segments)
+
+        try await previewEngine.loadProject(project)
+
+        // Measure seek performance with edits applied
+        measure {
+            Task {
+                for i in 0..<100 {
+                    let time = Double(i) / 10.0  // 0, 0.1, 0.2, ..., 9.9
+                    try? await previewEngine.seek(to: time)
+                }
+            }
+        }
+    }
+
+    func testPerformanceLoadProjectWithComplexEdits() {
+        // Create project with many segments and edits
+        var segments: [Project.Timeline.Segment] = []
+        var currentTime: TimeInterval = 0
+        var sourceTime: TimeInterval = 0
+
+        for i in 0..<20 {
+            let duration = Double.random(in: 1...3)
+            let speed = Double.random(in: 0.5...2.0)
+
+            segments.append(Project.Timeline.Segment(
+                id: "s\(i)",
+                sourceIn: sourceTime,
+                sourceOut: sourceTime + duration,
+                timelineIn: currentTime,
+                speed: speed
+            ))
+
+            let timelineDuration = duration / speed
+            currentTime += timelineDuration
+            sourceTime += duration + Double.random(in: 0...1)  // Random gaps
+        }
+
+        var project = createMockProject()
+        project.timeline = Project.Timeline(duration: currentTime, segments: segments)
+
+        // Measure project loading performance
+        measure {
+            Task {
+                let engine = PreviewEngine()
+                try? await engine.loadProject(project)
+            }
+        }
+    }
 }
