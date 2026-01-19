@@ -161,6 +161,7 @@ public struct Project: Codable, Equatable {
         public var end: TimeInterval
         public var transform: Transform
         public var style: Style
+        public var animation: Animation?
 
         /// Overlay types
         public enum OverlayType: String, Codable {
@@ -188,6 +189,66 @@ public struct Project: Codable, Equatable {
             public var color: String?
             public var bg: String?
             public var text: String?
+        }
+
+        /// Animation configuration
+        public struct Animation: Codable, Equatable {
+            /// Type of animation
+            public var type: AnimationType
+            /// Fade in duration in seconds
+            public var fadeInDuration: TimeInterval
+            /// Fade out duration in seconds
+            public var fadeOutDuration: TimeInterval
+            /// Draw-on animation duration (for lines, arrows, shapes)
+            public var drawOnDuration: TimeInterval?
+            /// Easing function for animations
+            public var easing: EasingFunction
+
+            /// Animation types
+            public enum AnimationType: String, Codable {
+                case none
+                case fadeIn
+                case fadeOut
+                case fadeInOut
+                case drawOn
+            }
+
+            /// Easing functions
+            public enum EasingFunction: String, Codable {
+                case linear
+                case easeIn
+                case easeOut
+                case easeInOut
+            }
+
+            /// Initialize a new animation
+            public init(
+                type: AnimationType,
+                fadeInDuration: TimeInterval = 0.3,
+                fadeOutDuration: TimeInterval = 0.3,
+                drawOnDuration: TimeInterval? = nil,
+                easing: EasingFunction = .easeInOut
+            ) {
+                self.type = type
+                self.fadeInDuration = fadeInDuration
+                self.fadeOutDuration = fadeOutDuration
+                self.drawOnDuration = drawOnDuration
+                self.easing = easing
+            }
+
+            /// Default fade-in animation
+            public static let fadeIn = Animation(type: .fadeIn, fadeInDuration: 0.3, fadeOutDuration: 0.3)
+
+            /// Default fade-out animation
+            public static let fadeOut = Animation(type: .fadeOut, fadeInDuration: 0.3, fadeOutDuration: 0.3)
+
+            /// Default fade-in/out animation
+            public static let fadeInOut = Animation(type: .fadeInOut, fadeInDuration: 0.3, fadeOutDuration: 0.3)
+
+            /// Default draw-on animation (for lines, arrows)
+            public static func drawOn(duration: TimeInterval = 0.5) -> Animation {
+                return Animation(type: .drawOn, fadeInDuration: 0, fadeOutDuration: 0, drawOnDuration: duration)
+            }
         }
     }
 

@@ -2759,3 +2759,152 @@ Hello, in this video we're going to explore...
 - Burn-in captions en export (Épica G, Task 3 - P1)
 - Export GIF support (Épica H, Task 4 - P1)
 
+
+---
+
+## 2026-01-19
+
+### Completed: Overlay Animations Implementation (Épica E, Task 5)
+
+**Task:** (P1) Animaciones: fade in/out, "draw-on" (opcional)
+
+**Implementation:**
+- Extended `Project.Overlay` model to include optional `Animation` struct:
+  - `AnimationType` enum: none, fadeIn, fadeOut, fadeInOut, drawOn
+  - `EasingFunction` enum: linear, easeIn, easeOut, easeInOut
+  - Configurable durations: fadeInDuration, fadeOutDuration, drawOnDuration
+  - Default presets: fadeIn, fadeOut, fadeInOut, drawOn(duration:)
+- Created `AnimationEngine.swift` with comprehensive animation calculation:
+  - `calculateAnimationProgress()`: Returns progress and opacity at a given time
+  - `calculateOpacity()`: Returns just the opacity value
+  - `calculateDrawOnProgress()`: Returns draw progress for line/shape animations
+  - `isVisible()`: Checks if overlay should be visible at a given time
+  - `getRenderState()`: Returns complete render state (opacity, drawProgress, isVisible)
+- Updated `OverlayEngine.swift` to support animations:
+  - Added `animation` parameter to `addOverlay()` and `updateOverlay()`
+  - Added animation validation to ensure durations don't exceed overlay duration
+  - Added new error type: `invalidAnimation`
+  - Added convenience methods:
+    - `addArrowOverlayWithDrawOn()`: Arrow with draw-on animation
+    - `addLineOverlayWithDrawOn()`: Line with draw-on animation
+    - `addTextOverlayWithFadeIn()`: Text with fade-in animation
+    - `addOverlayWithFadeInOut()`: Any overlay with fade-in/out animation
+
+**Features:**
+- Fade animations (in, out, in/out) with configurable durations
+- Draw-on animations for lines, arrows, and shapes
+- Easing functions for smooth animations (linear, ease-in, ease-out, ease-in-out)
+- Animation progress calculation at any point in time
+- Opacity calculation for fade animations
+- Draw progress calculation for draw-on animations
+- Visibility checking with threshold for floating-point precision
+- Complete render state with opacity and draw progress
+- Animation validation to prevent invalid configurations
+- Convenience methods for common animation patterns
+
+**Animation Types:**
+- **Fade In**: Overlay fades in from 0 to 1 opacity over specified duration
+- **Fade Out**: Overlay fades out from 1 to 0 opacity at the end
+- **Fade In/Out**: Combination of fade in at start and fade out at end
+- **Draw On**: For lines and arrows, progressively draws the shape over time
+- **None**: No animation, overlay appears instantly and stays at full opacity
+
+**Easing Functions:**
+- **Linear**: Constant rate of change (t)
+- **Ease In**: Starts slow, accelerates (t²)
+- **Ease Out**: Starts fast, decelerates (t × (2-t))
+- **Ease In/Out**: Starts and ends slow, fastest in middle
+
+**Technical Implementation:**
+- Animation calculations use normalized time (0.0 to 1.0) for precision
+- Easing functions apply mathematical curves for smooth animations
+- Animation validation ensures durations don't exceed overlay duration
+- Opacity thresholds account for floating-point precision
+- Draw-on progress is separate from opacity for shape animations
+- All calculations are O(1) constant time operations
+- Thread-safe actor-based implementation (consistent with other EngineKit components)
+- Compatible with macOS 13+ (matches other engine requirements)
+
+**Animation Math:**
+- Fade animations calculate opacity based on position within fade duration
+- Draw-on animations calculate progress independently of opacity
+- Easing functions transform linear time to curved time
+- Fade-in/out animations handle overlap of fade durations
+- Draw-on duration can be any value up to overlay duration
+
+**Validation:**
+- Fade-in duration cannot exceed overlay duration
+- Fade-out duration cannot exceed overlay duration
+- Combined fade-in/out durations cannot exceed overlay duration
+- Draw-on duration cannot exceed overlay duration
+- All validations provide descriptive error messages
+
+**Testing:**
+- Created comprehensive test suite in `AnimationEngineTests.swift` with 35+ tests
+- Tests cover:
+  - No animation behavior (fully visible throughout)
+  - Fade-in animations at various time points
+  - Fade-out animations at various time points
+  - Fade-in/out animations with both phases
+  - Draw-on animations with progress calculation
+  - All easing functions (linear, ease-in, ease-out, ease-in-out)
+  - Visibility checks at different time points
+  - Render state calculations
+  - Edge cases (very short durations, non-zero start times, exact boundaries)
+  - Performance tests (1000 calculations per test)
+- All tests designed to be deterministic and fast
+- Tests verify mathematical accuracy of easing functions
+- Performance tests ensure O(1) time complexity
+
+**Files Modified/Created:**
+- `EngineKit/Sources/EngineKit/Models/Project.swift` (modified - added Animation struct to Overlay)
+- `EngineKit/Sources/EngineKit/Editor/AnimationEngine.swift` (new, 280+ lines)
+- `EngineKit/Sources/EngineKit/Editor/OverlayEngine.swift` (modified - added animation support)
+- `EngineKit/Tests/EngineKitTests/AnimationEngineTests.swift` (new, 530+ lines)
+- `EngineKit/Tests/EngineKitTests/CanvasLayoutTests.swift` (modified - fixed CGSize type references)
+- `tasks.md` (marked task as complete)
+- `.ralphy/progress.txt` (this entry)
+
+**Notes:**
+- AnimationEngine is a separate actor for isolation and thread safety
+- Animation calculations are pure functions with no side effects
+- Easing functions use standard mathematical easing curves
+- Draw-on animations are particularly useful for tutorials (drawing attention)
+- Fade animations add polish and professional feel to overlays
+- All animation parameters are configurable and optional
+- Default animations (fadeIn, fadeOut, fadeInOut) provide sensible defaults
+- Draw-on animation uses a static factory method for custom duration
+- Convenience methods make it easy to create animated overlays
+- Animation validation prevents invalid configurations that would cause runtime errors
+- The implementation is ready for integration with PreviewEngine and ExportEngine
+
+**Integration Points:**
+- PreviewEngine can use AnimationEngine to calculate overlay state during playback
+- ExportEngine can use AnimationEngine to render animations in exported video
+- UI can use AnimationEngine to show live preview of animations
+- Overlay editing UI can provide animation controls and previews
+
+**Design Decisions:**
+- Separate AnimationEngine for clear separation of concerns
+- Actor-based pattern for thread safety (matches other engines)
+- Optional animation field for backward compatibility
+- Multiple easing functions for creative control
+- Draw-on progress separate from opacity for flexibility
+- Validation at creation time rather than render time
+- Convenience methods for common use cases
+- Comprehensive test coverage for mathematical correctness
+
+**Known Limitations:**
+- No support for keyframe animations (only simple fade/draw-on)
+- No support for path animations or complex motion
+- No support for 3D transforms or perspective effects
+- Easing functions are limited to standard curves
+- No support for bounce or elastic effects
+- Draw-on animation assumes simple line/shape geometry
+
+**Next Steps:**
+- Cache de thumbnails / waveform (Épica F, Task 3 - P1): mejora UX
+- Captions overlay en preview (Épica G, Task 2 - P1)
+- Burn-in captions en export (Épica G, Task 3 - P1)
+- Export GIF support (Épica H, Task 4 - P1)
+

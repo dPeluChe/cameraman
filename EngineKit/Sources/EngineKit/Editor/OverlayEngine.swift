@@ -28,6 +28,7 @@ public actor OverlayEngine {
     ///   - end: End time in seconds
     ///   - transform: Transform (position, scale, rotation)
     ///   - style: Style configuration
+    ///   - animation: Animation configuration (optional)
     /// - Returns: Result containing the created overlay's ID
     public func addOverlay(
         projectId: ProjectId,
@@ -35,7 +36,8 @@ public actor OverlayEngine {
         start: TimeInterval,
         end: TimeInterval,
         transform: Project.Overlay.Transform,
-        style: Project.Overlay.Style
+        style: Project.Overlay.Style,
+        animation: Project.Overlay.Animation? = nil
     ) async throws -> OverlayResult {
         // Validate time range
         try validateTimeRange(start: start, end: end)
@@ -46,6 +48,11 @@ public actor OverlayEngine {
         // Validate overlay fits within timeline
         try validateOverlayWithinTimeline(start: start, end: end, timelineDuration: project.timeline.duration)
 
+        // Validate animation if provided
+        if let animation = animation {
+            try validateAnimation(animation, overlayDuration: end - start)
+        }
+
         // Create overlay
         let overlay = Project.Overlay(
             id: UUID(),
@@ -53,7 +60,8 @@ public actor OverlayEngine {
             start: start,
             end: end,
             transform: transform,
-            style: style
+            style: style,
+            animation: animation
         )
 
         // Add to project
@@ -74,6 +82,7 @@ public actor OverlayEngine {
     ///   - end: New end time (optional)
     ///   - transform: New transform (optional)
     ///   - style: New style (optional)
+    ///   - animation: New animation (optional)
     /// - Returns: Result indicating success or failure
     public func updateOverlay(
         projectId: ProjectId,
@@ -82,7 +91,8 @@ public actor OverlayEngine {
         start: TimeInterval? = nil,
         end: TimeInterval? = nil,
         transform: Project.Overlay.Transform? = nil,
-        style: Project.Overlay.Style? = nil
+        style: Project.Overlay.Style? = nil,
+        animation: Project.Overlay.Animation? = nil
     ) async throws -> OverlayResult {
         // Load project
         var project = try await projectStore.loadProject(projectId: projectId)
@@ -94,31 +104,37 @@ public actor OverlayEngine {
 
         var overlay = project.overlays[index]
 
+        // Calculate new times for validation
+        let newStart = start ?? overlay.start
+        let newEnd = end ?? overlay.end
+
         // Validate time range if provided
-        if let newStart = start, let newEnd = end {
-            try validateTimeRange(start: newStart, end: newEnd)
-            try validateOverlayWithinTimeline(start: newStart, end: newEnd, timelineDuration: project.timeline.duration)
-        } else if let newStart = start {
-            try validateOverlayWithinTimeline(start: newStart, end: overlay.end, timelineDuration: project.timeline.duration)
-        } else if let newEnd = end {
-            try validateOverlayWithinTimeline(start: overlay.start, end: newEnd, timelineDuration: project.timeline.duration)
+        try validateTimeRange(start: newStart, end: newEnd)
+        try validateOverlayWithinTimeline(start: newStart, end: newEnd, timelineDuration: project.timeline.duration)
+
+        // Validate animation if provided
+        if let newAnimation = animation {
+            try validateAnimation(newAnimation, overlayDuration: newEnd - newStart)
         }
 
         // Update fields if provided
         if let newType = type {
             overlay.type = newType
         }
-        if let newStart = start {
-            overlay.start = newStart
+        if let newStartTime = start {
+            overlay.start = newStartTime
         }
-        if let newEnd = end {
-            overlay.end = newEnd
+        if let newEndTime = end {
+            overlay.end = newEndTime
         }
         if let newTransform = transform {
             overlay.transform = newTransform
         }
         if let newStyle = style {
             overlay.style = newStyle
+        }
+        if let newAnimation = animation {
+            overlay.animation = newAnimation
         }
 
         // Update in project
@@ -358,6 +374,50 @@ public actor OverlayEngine {
             )
         }
     }
+
+    /// Validate animation configuration
+    private func validateAnimation(
+        _ animation: Project.Overlay.Animation,
+        overlayDuration: TimeInterval
+    ) throws {
+        // Validate fade durations don't exceed overlay duration
+        let totalAnimationDuration = animation.fadeInDuration + animation.fadeOutDuration
+
+        switch animation.type {
+        case .fadeIn:
+            guard animation.fadeInDuration <= overlayDuration else {
+                throw OverlayError.invalidAnimation(
+                    "Fade-in duration (\(animation.fadeInDuration)s) exceeds overlay duration (\(overlayDuration)s)"
+                )
+            }
+
+        case .fadeOut:
+            guard animation.fadeOutDuration <= overlayDuration else {
+                throw OverlayError.invalidAnimation(
+                    "Fade-out duration (\(animation.fadeOutDuration)s) exceeds overlay duration (\(overlayDuration)s)"
+                )
+            }
+
+        case .fadeInOut:
+            guard totalAnimationDuration <= overlayDuration else {
+                throw OverlayError.invalidAnimation(
+                    "Total animation duration (\(totalAnimationDuration)s) exceeds overlay duration (\(overlayDuration)s)"
+                )
+            }
+
+        case .drawOn:
+            if let drawOnDuration = animation.drawOnDuration {
+                guard drawOnDuration <= overlayDuration else {
+                    throw OverlayError.invalidAnimation(
+                        "Draw-on duration (\(drawOnDuration)s) exceeds overlay duration (\(overlayDuration)s)"
+                    )
+                }
+            }
+
+        case .none:
+            break
+        }
+    }
 }
 
 // MARK: - Result Types
@@ -382,6 +442,7 @@ public enum OverlayError: Error, Equatable {
     case invalidTimeRange(String)
     case overlayOutsideTimeline(String)
     case projectNotFound(ProjectId)
+    case invalidAnimation(String)
 
     public var errorDescription: String? {
         switch self {
@@ -393,6 +454,8 @@ public enum OverlayError: Error, Equatable {
             return "Overlay outside timeline: \(message)"
         case .projectNotFound(let id):
             return "Project not found: \(id.uuidString)"
+        case .invalidAnimation(let message):
+            return "Invalid animation: \(message)"
         }
     }
 }
@@ -411,7 +474,8 @@ extension OverlayEngine {
         rotation: Double = 0.0,
         stroke: String = "#FFFFFF",
         strokeWidth: Double = 6.0,
-        shadow: Bool = true
+        shadow: Bool = true,
+        animation: Project.Overlay.Animation? = nil
     ) async throws -> OverlayResult {
         let transform = Project.Overlay.Transform(x: x, y: y, scale: scale, rotation: rotation)
         let style = Project.Overlay.Style(stroke: stroke, strokeWidth: strokeWidth, shadow: shadow)
@@ -422,7 +486,8 @@ extension OverlayEngine {
             start: start,
             end: end,
             transform: transform,
-            style: style
+            style: style,
+            animation: animation
         )
     }
 
@@ -437,7 +502,8 @@ extension OverlayEngine {
         rotation: Double = 0.0,
         stroke: String = "#FFFFFF",
         strokeWidth: Double = 4.0,
-        shadow: Bool = true
+        shadow: Bool = true,
+        animation: Project.Overlay.Animation? = nil
     ) async throws -> OverlayResult {
         let transform = Project.Overlay.Transform(x: x, y: y, scale: scale, rotation: rotation)
         let style = Project.Overlay.Style(stroke: stroke, strokeWidth: strokeWidth, shadow: shadow)
@@ -448,7 +514,8 @@ extension OverlayEngine {
             start: start,
             end: end,
             transform: transform,
-            style: style
+            style: style,
+            animation: animation
         )
     }
 
@@ -463,7 +530,8 @@ extension OverlayEngine {
         rotation: Double = 0.0,
         stroke: String = "#FFFFFF",
         strokeWidth: Double = 4.0,
-        shadow: Bool = true
+        shadow: Bool = true,
+        animation: Project.Overlay.Animation? = nil
     ) async throws -> OverlayResult {
         let transform = Project.Overlay.Transform(x: x, y: y, scale: scale, rotation: rotation)
         let style = Project.Overlay.Style(stroke: stroke, strokeWidth: strokeWidth, shadow: shadow)
@@ -474,7 +542,8 @@ extension OverlayEngine {
             start: start,
             end: end,
             transform: transform,
-            style: style
+            style: style,
+            animation: animation
         )
     }
 
@@ -491,7 +560,8 @@ extension OverlayEngine {
         font: String = "SF Pro",
         size: Double = 36.0,
         color: String = "#FFFFFF",
-        bg: String? = "rgba(0,0,0,0.4)"
+        bg: String? = "rgba(0,0,0,0.4)",
+        animation: Project.Overlay.Animation? = nil
     ) async throws -> OverlayResult {
         let transform = Project.Overlay.Transform(x: x, y: y, scale: scale, rotation: rotation)
         let style = Project.Overlay.Style(
@@ -511,7 +581,152 @@ extension OverlayEngine {
             start: start,
             end: end,
             transform: transform,
-            style: style
+            style: style,
+            animation: animation
+        )
+    }
+
+    /// Create an arrow overlay with draw-on animation
+    public func addArrowOverlayWithDrawOn(
+        projectId: ProjectId,
+        start: TimeInterval,
+        end: TimeInterval,
+        x: Double,
+        y: Double,
+        scale: Double = 1.0,
+        rotation: Double = 0.0,
+        stroke: String = "#FFFFFF",
+        strokeWidth: Double = 6.0,
+        shadow: Bool = true,
+        drawOnDuration: TimeInterval = 0.5,
+        easing: Project.Overlay.Animation.EasingFunction = .easeOut
+    ) async throws -> OverlayResult {
+        let animation = Project.Overlay.Animation.drawOn(duration: drawOnDuration)
+        var mutableAnimation = animation
+        mutableAnimation.easing = easing
+
+        return try await addArrowOverlay(
+            projectId: projectId,
+            start: start,
+            end: end,
+            x: x,
+            y: y,
+            scale: scale,
+            rotation: rotation,
+            stroke: stroke,
+            strokeWidth: strokeWidth,
+            shadow: shadow,
+            animation: mutableAnimation
+        )
+    }
+
+    /// Create a line overlay with draw-on animation
+    public func addLineOverlayWithDrawOn(
+        projectId: ProjectId,
+        start: TimeInterval,
+        end: TimeInterval,
+        x: Double,
+        y: Double,
+        scale: Double = 1.0,
+        rotation: Double = 0.0,
+        stroke: String = "#FFFFFF",
+        strokeWidth: Double = 4.0,
+        shadow: Bool = true,
+        drawOnDuration: TimeInterval = 0.5,
+        easing: Project.Overlay.Animation.EasingFunction = .easeOut
+    ) async throws -> OverlayResult {
+        let animation = Project.Overlay.Animation.drawOn(duration: drawOnDuration)
+        var mutableAnimation = animation
+        mutableAnimation.easing = easing
+
+        return try await addLineOverlay(
+            projectId: projectId,
+            start: start,
+            end: end,
+            x: x,
+            y: y,
+            scale: scale,
+            rotation: rotation,
+            stroke: stroke,
+            strokeWidth: strokeWidth,
+            shadow: shadow,
+            animation: mutableAnimation
+        )
+    }
+
+    /// Create a text overlay with fade-in animation
+    public func addTextOverlayWithFadeIn(
+        projectId: ProjectId,
+        start: TimeInterval,
+        end: TimeInterval,
+        x: Double,
+        y: Double,
+        text: String,
+        scale: Double = 1.0,
+        rotation: Double = 0.0,
+        font: String = "SF Pro",
+        size: Double = 36.0,
+        color: String = "#FFFFFF",
+        bg: String? = "rgba(0,0,0,0.4)",
+        fadeInDuration: TimeInterval = 0.3,
+        easing: Project.Overlay.Animation.EasingFunction = .easeOut
+    ) async throws -> OverlayResult {
+        let animation = Project.Overlay.Animation(
+            type: .fadeIn,
+            fadeInDuration: fadeInDuration,
+            fadeOutDuration: 0,
+            easing: easing
+        )
+
+        return try await addTextOverlay(
+            projectId: projectId,
+            start: start,
+            end: end,
+            x: x,
+            y: y,
+            text: text,
+            scale: scale,
+            rotation: rotation,
+            font: font,
+            size: size,
+            color: color,
+            bg: bg,
+            animation: animation
+        )
+    }
+
+    /// Create any overlay with fade-in/out animation
+    public func addOverlayWithFadeInOut(
+        projectId: ProjectId,
+        type: Project.Overlay.OverlayType,
+        start: TimeInterval,
+        end: TimeInterval,
+        x: Double,
+        y: Double,
+        scale: Double = 1.0,
+        rotation: Double = 0.0,
+        style: Project.Overlay.Style,
+        fadeInDuration: TimeInterval = 0.3,
+        fadeOutDuration: TimeInterval = 0.3,
+        easing: Project.Overlay.Animation.EasingFunction = .easeInOut
+    ) async throws -> OverlayResult {
+        let animation = Project.Overlay.Animation(
+            type: .fadeInOut,
+            fadeInDuration: fadeInDuration,
+            fadeOutDuration: fadeOutDuration,
+            easing: easing
+        )
+
+        let transform = Project.Overlay.Transform(x: x, y: y, scale: scale, rotation: rotation)
+
+        return try await addOverlay(
+            projectId: projectId,
+            type: type,
+            start: start,
+            end: end,
+            transform: transform,
+            style: style,
+            animation: animation
         )
     }
 }
