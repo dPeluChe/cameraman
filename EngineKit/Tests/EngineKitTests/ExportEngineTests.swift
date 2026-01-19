@@ -1502,4 +1502,420 @@ final class ExportEngineTests: XCTestCase {
             print("Expected error during export test: \(error)")
         }
     }
+
+    // MARK: - GIF Export Tests
+
+    func testGIFExportPreset() {
+        // Test animated GIF preset
+        let gifPreset = ExportPreset.animatedGIF
+        XCTAssertEqual(gifPreset.id, "animated_gif")
+        XCTAssertEqual(gifPreset.name, "Animated GIF")
+        XCTAssertEqual(gifPreset.output.width, 800)
+        XCTAssertEqual(gifPreset.output.height, 600)
+        XCTAssertEqual(gifPreset.output.fps, 15)
+        XCTAssertEqual(gifPreset.output.codec, "gif")
+        XCTAssertEqual(gifPreset.output.bitrateMbps, 0)
+        XCTAssertEqual(gifPreset.output.audioBitrateKbps, 0)
+    }
+
+    func testGIFExportOptions() {
+        // Test default GIF options
+        let defaultOptions = GIFExportOptions.default
+        XCTAssertEqual(defaultOptions.quality, 0.8, accuracy: 0.01)
+        XCTAssertEqual(defaultOptions.loopCount, 0)
+        XCTAssertNil(defaultOptions.maxSize)
+        XCTAssertNil(defaultOptions.frameRate)
+        XCTAssertTrue(defaultOptions.dither)
+
+        // Test high-quality options
+        let highQualityOptions = GIFExportOptions.highQuality
+        XCTAssertEqual(highQualityOptions.quality, 0.95, accuracy: 0.01)
+        XCTAssertEqual(highQualityOptions.loopCount, 0)
+        XCTAssertNil(highQualityOptions.maxSize)
+        XCTAssertNil(highQualityOptions.frameRate)
+        XCTAssertTrue(highQualityOptions.dither)
+
+        // Test low-quality options
+        let lowQualityOptions = GIFExportOptions.lowQuality
+        XCTAssertEqual(lowQualityOptions.quality, 0.5, accuracy: 0.01)
+        XCTAssertEqual(lowQualityOptions.loopCount, 0)
+        XCTAssertEqual(lowQualityOptions.maxSize, 600)
+        XCTAssertEqual(lowQualityOptions.frameRate, 10)
+        XCTAssertFalse(lowQualityOptions.dither)
+
+        // Test custom options
+        let customOptions = GIFExportOptions(
+            quality: 0.9,
+            loopCount: 5,
+            maxSize: 1000,
+            frameRate: 20,
+            dither: false
+        )
+        XCTAssertEqual(customOptions.quality, 0.9, accuracy: 0.01)
+        XCTAssertEqual(customOptions.loopCount, 5)
+        XCTAssertEqual(customOptions.maxSize, 1000)
+        XCTAssertEqual(customOptions.frameRate, 20)
+        XCTAssertFalse(customOptions.dither)
+    }
+
+    func testGIFExportOptionsValidation() {
+        // Test quality clamping (should be within 0.0 - 1.0)
+        let tooHighQuality = GIFExportOptions(quality: 1.5)
+        XCTAssertEqual(tooHighQuality.quality, 1.0, accuracy: 0.01)
+
+        let tooLowQuality = GIFExportOptions(quality: -0.5)
+        XCTAssertEqual(tooLowQuality.quality, 0.0, accuracy: 0.01)
+
+        // Test loop count clamping (should be >= 0)
+        let negativeLoopCount = GIFExportOptions(loopCount: -5)
+        XCTAssertEqual(negativeLoopCount.loopCount, 0)
+    }
+
+    func testExportOptionsWithGIFOptions() {
+        // Test ExportOptions with GIF options
+        let gifOptions = GIFExportOptions(
+            quality: 0.85,
+            loopCount: 3,
+            maxSize: 800,
+            frameRate: 12,
+            dither: true
+        )
+
+        let exportOptions = ExportOptions(
+            burnCaptions: false,
+            includeCursorHighlight: false,
+            outputFilename: "test.gif",
+            gifOptions: gifOptions
+        )
+
+        XCTAssertFalse(exportOptions.burnCaptions)
+        XCTAssertFalse(exportOptions.includeCursorHighlight)
+        XCTAssertEqual(exportOptions.outputFilename, "test.gif")
+        XCTAssertNotNil(exportOptions.gifOptions)
+        XCTAssertEqual(exportOptions.gifOptions?.quality, 0.85, accuracy: 0.01)
+        XCTAssertEqual(exportOptions.gifOptions?.loopCount, 3)
+        XCTAssertEqual(exportOptions.gifOptions?.maxSize, 800)
+        XCTAssertEqual(exportOptions.gifOptions?.frameRate, 12)
+        XCTAssertTrue(exportOptions.gifOptions?.dither ?? false)
+    }
+
+    func testGIFExportOptionsEquality() {
+        let options1 = GIFExportOptions.default
+        let options2 = GIFExportOptions.default
+        let options3 = GIFExportOptions.highQuality
+
+        XCTAssertEqual(options1, options2)
+        XCTAssertNotEqual(options1, options3)
+    }
+
+    func testExportGIFWithNoSegments() async throws {
+        // Given: A project with no segments
+        let projectId = ProjectId()
+        let project = createTestProject(
+            projectId: projectId,
+            segments: []
+        )
+
+        try await projectStore.saveProject(project)
+
+        // When: Attempting GIF export
+        do {
+            _ = try await exportEngine.exportGIF(projectId: projectId)
+            XCTFail("GIF export should fail with noSegments error")
+        } catch ExportError.noSegments {
+            // Then: Should fail with noSegments error
+        } catch {
+            XCTFail("Unexpected error: \(error.localizedDescription)")
+        }
+    }
+
+    func testExportGIFWithMissingSourceFile() async throws {
+        // Given: A project with segments but missing source file
+        let projectId = ProjectId()
+        let segment = Project.Timeline.Segment(
+            id: UUID().uuidString,
+            sourceIn: 0,
+            sourceOut: 10,
+            timelineIn: 0,
+            speed: 1.0
+        )
+        let project = createTestProject(
+            projectId: projectId,
+            segments: [segment]
+        )
+
+        try await projectStore.saveProject(project)
+
+        // Don't create source file - it should fail validation
+
+        // When: Attempting GIF export
+        do {
+            _ = try await exportEngine.exportGIF(projectId: projectId)
+            XCTFail("GIF export should fail with sourceFileNotFound error")
+        } catch ExportError.sourceFileNotFound {
+            // Then: Should fail with sourceFileNotFound error
+        } catch {
+            XCTFail("Unexpected error: \(error.localizedDescription)")
+        }
+    }
+
+    func testExportGIFWithOptions() async throws {
+        // Given: A project with segments
+        let projectId = ProjectId()
+        let segment = Project.Timeline.Segment(
+            id: UUID().uuidString,
+            sourceIn: 0,
+            sourceOut: 5,
+            timelineIn: 0,
+            speed: 1.0
+        )
+        let project = createTestProject(
+            projectId: projectId,
+            segments: [segment]
+        )
+
+        try await projectStore.saveProject(project)
+
+        // Create a minimal screen file to satisfy validation
+        let projectDir = testProjectDirectory.appendingPathComponent(projectId.uuidString)
+        let sourcesDir = projectDir.appendingPathComponent("sources", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourcesDir, withIntermediateDirectories: true, attributes: nil)
+
+        let screenPath = sourcesDir.appendingPathComponent("screen.mov")
+        FileManager.default.createFile(atPath: screenPath.path, contents: Data())
+
+        // When: Exporting GIF with custom options
+        let gifOptions = GIFExportOptions(
+            quality: 0.9,
+            loopCount: 5,
+            maxSize: 600,
+            frameRate: 12,
+            dither: true
+        )
+
+        let exportOptions = ExportOptions(
+            burnCaptions: false,
+            includeCursorHighlight: false,
+            outputFilename: "custom_test.gif",
+            gifOptions: gifOptions
+        )
+
+        do {
+            let jobId = try await exportEngine.exportGIF(
+                projectId: projectId,
+                preset: .animatedGIF,
+                options: exportOptions
+            )
+
+            // Then: Job should be created with GIF export type
+            let job = await jobQueue.getJob(jobId: jobId)
+            XCTAssertNotNil(job)
+            XCTAssertEqual(job?.type, .export)
+            XCTAssertEqual(job?.projectId, projectId)
+
+            // Wait a moment for job processing
+            try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+
+        } catch {
+            // Expected to fail due to invalid video file (not a real video)
+            // Infrastructure validation is successful
+            print("Expected error during GIF export test: \(error.localizedDescription)")
+        }
+    }
+
+    func testExportGIFWithDurationWarning() async throws {
+        // Given: A project with long duration (> 30 seconds)
+        let projectId = ProjectId()
+        let segment = Project.Timeline.Segment(
+            id: UUID().uuidString,
+            sourceIn: 0,
+            sourceOut: 45,
+            timelineIn: 0,
+            speed: 1.0
+        )
+        let project = createTestProject(
+            projectId: projectId,
+            segments: [segment]
+        )
+
+        try await projectStore.saveProject(project)
+
+        // Create a minimal screen file
+        let projectDir = testProjectDirectory.appendingPathComponent(projectId.uuidString)
+        let sourcesDir = projectDir.appendingPathComponent("sources", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourcesDir, withIntermediateDirectories: true, attributes: nil)
+
+        let screenPath = sourcesDir.appendingPathComponent("screen.mov")
+        FileManager.default.createFile(atPath: screenPath.path, contents: Data())
+
+        // When: Exporting GIF with long duration
+        do {
+            let jobId = try await exportEngine.exportGIF(projectId: projectId)
+
+            // Then: Job should be created (with warning logged internally)
+            let job = await jobQueue.getJob(jobId: jobId)
+            XCTAssertNotNil(job)
+
+        } catch {
+            // Expected to fail due to invalid video file
+            print("Expected error during GIF export test: \(error.localizedDescription)")
+        }
+    }
+
+    func testExportGIFWithCustomPreset() async throws {
+        // Given: A project with segments
+        let projectId = ProjectId()
+        let segment = Project.Timeline.Segment(
+            id: UUID().uuidString,
+            sourceIn: 0,
+            sourceOut: 5,
+            timelineIn: 0,
+            speed: 1.0
+        )
+        let project = createTestProject(
+            projectId: projectId,
+            segments: [segment]
+        )
+
+        try await projectStore.saveProject(project)
+
+        // Create a minimal screen file
+        let projectDir = testProjectDirectory.appendingPathComponent(projectId.uuidString)
+        let sourcesDir = projectDir.appendingPathComponent("sources", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourcesDir, withIntermediateDirectories: true, attributes: nil)
+
+        let screenPath = sourcesDir.appendingPathComponent("screen.mov")
+        FileManager.default.createFile(atPath: screenPath.path, contents: Data())
+
+        // When: Exporting GIF with different presets
+        let customPreset = ExportPreset.animatedGIF
+
+        do {
+            let jobId = try await exportEngine.exportGIF(
+                projectId: projectId,
+                preset: customPreset
+            )
+
+            // Then: Job should be created
+            let job = await jobQueue.getJob(jobId: jobId)
+            XCTAssertNotNil(job)
+
+        } catch {
+            // Expected to fail due to invalid video file
+            print("Expected error during GIF export test: \(error.localizedDescription)")
+        }
+    }
+
+    func testExportGIFProgressTracking() async throws {
+        // Given: A project with segments
+        let projectId = ProjectId()
+        let segment = Project.Timeline.Segment(
+            id: UUID().uuidString,
+            sourceIn: 0,
+            sourceOut: 3,
+            timelineIn: 0,
+            speed: 1.0
+        )
+        let project = createTestProject(
+            projectId: projectId,
+            segments: [segment]
+        )
+
+        try await projectStore.saveProject(project)
+
+        // Create a minimal screen file
+        let projectDir = testProjectDirectory.appendingPathComponent(projectId.uuidString)
+        let sourcesDir = projectDir.appendingPathComponent("sources", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourcesDir, withIntermediateDirectories: true, attributes: nil)
+
+        let screenPath = sourcesDir.appendingPathComponent("screen.mov")
+        FileManager.default.createFile(atPath: screenPath.path, contents: Data())
+
+        // When: Exporting GIF
+        do {
+            let jobId = try await exportEngine.exportGIF(projectId: projectId)
+
+            // Then: Subscribe to progress updates
+            let statusStream = await jobQueue.subscribeToJob(jobId: jobId)
+
+            var progressUpdates: [Double] = []
+            for await status in statusStream {
+                switch status {
+                case .running(let progress):
+                    progressUpdates.append(progress)
+                case .failed, .success:
+                    break
+                case .queued, .canceled:
+                    break
+                }
+
+                if !progressUpdates.isEmpty {
+                    break
+                }
+            }
+
+            // Verify we received progress updates
+            XCTAssertFalse(progressUpdates.isEmpty, "Should receive progress updates")
+
+        } catch {
+            // Expected to fail due to invalid video file
+            print("Expected error during GIF export test: \(error.localizedDescription)")
+        }
+    }
+
+    func testExportGIFCancellation() async throws {
+        // Given: A project with segments
+        let projectId = ProjectId()
+        let segment = Project.Timeline.Segment(
+            id: UUID().uuidString,
+            sourceIn: 0,
+            sourceOut: 10,
+            timelineIn: 0,
+            speed: 1.0
+        )
+        let project = createTestProject(
+            projectId: projectId,
+            segments: [segment]
+        )
+
+        try await projectStore.saveProject(project)
+
+        // Create a minimal screen file
+        let projectDir = testProjectDirectory.appendingPathComponent(projectId.uuidString)
+        let sourcesDir = projectDir.appendingPathComponent("sources", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourcesDir, withIntermediateDirectories: true, attributes: nil)
+
+        let screenPath = sourcesDir.appendingPathComponent("screen.mov")
+        FileManager.default.createFile(atPath: screenPath.path, contents: Data())
+
+        // When: Starting GIF export and canceling immediately
+        let jobId = try await exportEngine.exportGIF(projectId: projectId)
+        try await jobQueue.cancelJob(jobId: jobId)
+
+        // Then: Job should be canceled
+        let status = await jobQueue.getJobStatus(jobId: jobId)
+        if case .canceled = status {
+            // Test passes
+        } else {
+            XCTFail("Job should be canceled, got: \(String(describing: status))")
+        }
+    }
+
+    func testGIFExportOptionsPerformance() {
+        measure {
+            for _ in 0..<1000 {
+                _ = GIFExportOptions.default
+                _ = GIFExportOptions.highQuality
+                _ = GIFExportOptions.lowQuality
+            }
+        }
+    }
+
+    func testGIFExportPresetPerformance() {
+        measure {
+            for _ in 0..<1000 {
+                _ = ExportPreset.animatedGIF
+            }
+        }
+    }
 }

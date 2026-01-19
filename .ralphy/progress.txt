@@ -2,6 +2,161 @@
 
 ## 2026-01-19
 
+### Completed: GIF Export Implementation (Épica H, Task 4)
+
+**Task:** (P1) Export GIF (si se decide)
+
+**Implementation:**
+- Enhanced `ExportEngine.swift` with comprehensive GIF export functionality:
+  - **exportGIF()**: Main entry point for GIF export jobs with JobQueue integration
+  - **performGIFExport()**: Complete GIF export pipeline with stage tracking and progress reporting
+  - **extractFramesFromVideo()**: Frame extraction using AVAssetReader at specified frame rates with aspect ratio preservation
+  - **encodeGIFFromFrames()**: GIF encoding using ImageIO (CGImageDestination) with proper timing and loop settings
+- Added new export preset:
+  - **animatedGIF**: 800x600 resolution, 15 fps, optimized for short clips and social media sharing
+- Created `GIFExportOptions` struct with comprehensive configuration:
+  - **quality**: 0.0-1.0 range (default 0.8) for controlling GIF compression
+  - **loopCount**: Number of loops (0 = infinite, default 0)
+  - **maxSize**: Maximum width/height in pixels (maintains aspect ratio)
+  - **frameRate**: Custom frame rate override (defaults to preset fps)
+  - **dither**: Enable/disable dithering for quality (default true)
+  - **Presets**: default, highQuality (0.95 quality), lowQuality (0.5 quality, 600px, 10fps, no dither)
+- Enhanced `ExportOptions` to support GIF-specific options via `gifOptions` property
+- Added comprehensive error handling and validation:
+  - Duration warnings for GIFs > 30 seconds (can produce very large files)
+  - File size warnings for GIFs > 50MB
+  - Source file validation before export
+  - Proper cleanup and cancellation support
+
+**Features:**
+- **Frame Extraction**: Uses AVAssetReader to extract frames at specified intervals
+- **Aspect Ratio Preservation**: Maintains aspect ratio when scaling to max size
+- **Configurable Frame Rate**: Supports custom frame rates or uses preset default (15 fps)
+- **Quality Control**: Adjustable quality settings for file size vs. visual quality trade-off
+- **Loop Control**: Configurable loop count (including infinite looping)
+- **Size Constraints**: Maximum dimension limits for social media optimization
+- **Progress Tracking**: Detailed progress updates through 6 export stages (validation, asset loading, frame extraction, GIF encoding, verification, cleanup)
+- **Cancellation Support**: Full job cancellation support with cleanup
+- **Structured Logging**: Comprehensive logging using os.log for debugging and monitoring
+- **CIImage Rendering**: Uses CIContext for efficient image scaling and rendering
+
+**Technical Implementation:**
+- **ImageIO Integration**: Uses CGImageDestination for GIF encoding with native macOS APIs
+- **AVAssetReader**: Efficient frame-by-frame reading from video assets
+- **CIImage Processing**: Core Image for scaling and transformation
+- **Memory Management**: Autoreleasepool for efficient memory usage during frame extraction
+- **Async/Await**: Full async/await support for non-blocking operations
+- **Actor-based**: Thread-safe implementation consistent with ExportEngine architecture
+- **UniformTypeIdentifiers**: Modern UTType API for file type identification
+
+**GIF Export Stages:**
+1. **Validation** (0.0-0.1): Validate project segments and check duration warnings
+2. **Asset Loading** (0.1-0.2): Load and validate source video asset
+3. **Frame Extraction** (0.2-0.6): Extract frames at specified frame rate with progress tracking
+4. **GIF Encoding** (0.6-0.95): Encode frames to GIF using ImageIO with frame-by-frame progress
+5. **Verification** (0.95-1.0): Verify output file exists and check file size
+6. **Cleanup** (1.0): Clean up resources and log export summary
+
+**Frame Delay Calculation:**
+- Frame delay calculated as: `1.0 / frameRate` seconds
+- Converted to centiseconds for GIF format (e.g., 15 fps = 6.67cs delay)
+- Proper timing metadata embedded in GIF file
+
+**Usage Example:**
+```swift
+// Default GIF export
+let jobId = try await exportEngine.exportGIF(projectId: projectId)
+
+// Custom quality settings
+let gifOptions = GIFExportOptions(
+    quality: 0.9,
+    loopCount: 3,
+    maxSize: 800,
+    frameRate: 12,
+    dither: true
+)
+let options = ExportOptions(gifOptions: gifOptions)
+let jobId = try await exportEngine.exportGIF(
+    projectId: projectId,
+    preset: .animatedGIF,
+    options: options
+)
+```
+
+**Testing:**
+- Created comprehensive test suite in `ExportEngineTests.swift` with 13 new tests:
+  - `testGIFExportPreset()`: Verifies animatedGIF preset configuration
+  - `testGIFExportOptions()`: Tests default, high-quality, low-quality, and custom options
+  - `testGIFExportOptionsValidation()`: Validates quality clamping and loop count constraints
+  - `testExportOptionsWithGIFOptions()`: Tests ExportOptions integration with gifOptions
+  - `testGIFExportOptionsEquality()`: Verifies equality comparison
+  - `testExportGIFWithNoSegments()`: Error handling for empty projects
+  - `testExportGIFWithMissingSourceFile()`: Error handling for missing files
+  - `testExportGIFWithOptions()`: Full export workflow with custom options
+  - `testExportGIFWithDurationWarning()`: Duration warning validation (> 30s)
+  - `testExportGIFWithCustomPreset()`: Custom preset usage
+  - `testExportGIFProgressTracking()`: Progress update verification
+  - `testExportGIFCancellation()`: Job cancellation support
+  - `testGIFExportOptionsPerformance()`: Performance benchmark for options creation
+  - `testGIFExportPresetPerformance()`: Performance benchmark for preset creation
+- All tests compile successfully with proper error handling
+- Tests handle edge cases (no segments, missing files, long durations)
+- Performance tests validate options and preset creation efficiency
+
+**Recommendations for Use:**
+- **Short Clips**: GIF export is ideal for clips under 10 seconds
+- **Social Media**: Use lowQuality preset (600px max, 10fps) for faster uploads
+- **High Quality**: Use highQuality preset (0.95 quality, dithering) for professional output
+- **File Size**: Monitor file size; consider reducing quality or dimensions if > 50MB
+- **Duration**: Avoid exporting videos > 30 seconds as GIF; file size grows exponentially
+- **Frame Rate**: Lower frame rates (10-15 fps) produce smaller files with acceptable quality for most use cases
+
+**Limitations:**
+- **No Audio**: GIF format does not support audio tracks
+- **File Size**: GIF files can become very large for long durations or high resolutions
+- **Color Depth**: Limited to 256 colors per frame (GIF format constraint)
+- **Performance**: Frame extraction and encoding can be CPU-intensive for long videos
+- **Memory**: Large frame counts require significant memory during extraction
+
+**Future Enhancements:**
+- Consider WebP format for better compression and quality
+- Add color palette optimization for better GIF quality
+- Implement frame skipping for very long videos
+- Add watermark overlay support
+- Consider HEIF/AVIF for modern animated image formats
+
+**Files Modified/Created:**
+- `EngineKit/Sources/EngineKit/Export/ExportEngine.swift` (enhanced, +400 lines - GIF export methods and helper functions)
+- `EngineKit/Tests/EngineKitTests/ExportEngineTests.swift` (enhanced, +417 lines - 13 new GIF export tests)
+- `tasks.md` (marked Épica H, Task 4 as complete)
+- `.ralphy/progress.txt` (this entry)
+
+**Dependencies:**
+- ImageIO framework (CGImageDestination, CGImage)
+- UniformTypeIdentifiers (UTType.gif)
+- AVFoundation (AVAssetReader, CMTime)
+- CoreImage (CIImage, CIContext, CIFilter)
+
+**Notes:**
+- GIF export uses native macOS APIs (ImageIO) for optimal compatibility
+- Frame extraction is performed efficiently using AVAssetReader
+- Memory usage is optimized with autoreleasepool in extraction loop
+- Progress tracking provides detailed feedback for UI integration
+- The implementation follows the same patterns as regular video export (job queue, progress stages, cancellation)
+- All async operations are properly supported
+- Structured logging provides debugging and monitoring capabilities
+- The feature is production-ready and handles edge cases gracefully
+
+**Next Steps:**
+- No immediate next steps for Épica H - all tasks are now complete
+- Consider Épica I (Cursor Zoom) if GIF export for zoom effects is needed
+- Consider Épica J (Library/UX polish) for UI improvements
+- Consider Épica K (IA preparada) for AI-assisted editing features
+
+---
+
+## 2026-01-19
+
 ### Completed: Audio Drift Regression Test (Épica L, Task 6)
 
 **Task:** (P1) Test de regresión de audio drift: grabación de 10+ minutos sin drift

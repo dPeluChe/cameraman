@@ -11,6 +11,8 @@ import CoreFoundation
 import QuartzCore
 import AppKit
 import os.log
+import ImageIO
+import UniformTypeIdentifiers
 
 /// ExportEngine handles video export with trims, cuts, layouts, and overlays applied
 /// Supports downsampling from native resolution to 1080p, with configurable presets
@@ -165,6 +167,404 @@ public actor ExportEngine {
         logger.debug("Export job started: \(jobId.uuidString)")
 
         return jobId
+    }
+
+    /// Start a GIF export job for a project
+    /// - Parameters:
+    ///   - projectId: Project to export as GIF
+    ///   - preset: Export preset (should be .animatedGIF or compatible)
+    ///   - options: Additional export options including GIF-specific settings
+    /// - Returns: JobId for tracking progress
+    public func exportGIF(
+        projectId: ProjectId,
+        preset: ExportPreset = .animatedGIF,
+        options: ExportOptions = .default
+    ) async throws -> JobId {
+        logger.info("Starting GIF export for project: \(projectId.uuidString), preset: \(preset.id)")
+
+        // Load project
+        let project = try await projectStore.loadProject(projectId: projectId)
+        logger.debug("Loaded project '\(project.name)' with \(project.timeline.segments.count) segments")
+
+        // Validate project has segments
+        guard !project.timeline.segments.isEmpty else {
+            logger.error("GIF export failed: project has no timeline segments")
+            throw ExportError.noSegments
+        }
+
+        // Validate source files exist
+        try await validateSourceFiles(for: project, projectId: projectId)
+        logger.debug("All source files validated successfully")
+
+        // Create job
+        let jobId = await jobQueue.createJob(type: .export, projectId: projectId)
+        logger.info("Created GIF export job: \(jobId.uuidString)")
+
+        // Initialize export stages for tracking
+        initializeExportStages(for: jobId, project: project, preset: preset)
+
+        // Start GIF export task
+        let task = Task {
+            await performGIFExport(
+                jobId: jobId,
+                projectId: projectId,
+                project: project,
+                preset: preset,
+                options: options
+            )
+        }
+
+        await jobQueue.startJob(jobId: jobId, task: task)
+        logger.debug("GIF export job started: \(jobId.uuidString)")
+
+        return jobId
+    }
+
+    /// Perform the actual GIF export work
+    private func performGIFExport(
+        jobId: JobId,
+        projectId: ProjectId,
+        project: Project,
+        preset: ExportPreset,
+        options: ExportOptions
+    ) async {
+        let startTime = Date()
+        logger.debug("Starting GIF export performance for job: \(jobId.uuidString)")
+
+        do {
+            let projectDirectory = getProjectDirectory(for: projectId)
+            let outputDirectory = projectDirectory.appendingPathComponent("renders", isDirectory: true)
+
+            // Create renders directory if it doesn't exist
+            try fileManager.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
+            logger.debug("Created renders directory: \(outputDirectory.path)")
+
+            // Generate output filename with timestamp
+            let timestamp = ISO8601DateFormatter().string(from: Date())
+            let outputFilename = options.outputFilename ?? "export_\(timestamp).gif"
+            let outputURL = outputDirectory.appendingPathComponent(outputFilename)
+
+            logger.info("Output GIF file: \(outputFilename)")
+
+            // Stage 1: Validation (0.0 - 0.1)
+            try await checkCancellation(jobId: jobId)
+            await updateExportStage(jobId: jobId, stage: .validation, progress: 0.02)
+            logger.debug("Validating project for GIF export")
+            logger.debug("Project has \(project.timeline.segments.count) segments")
+
+            // Validate total duration for GIF export (warn if > 30 seconds)
+            let totalDuration = project.timeline.duration
+            if totalDuration > 30.0 {
+                logger.warning("GIF export duration (\(totalDuration)s) exceeds recommended maximum of 30s. File may be very large.")
+            }
+
+            // Stage 2: Load and validate source assets (0.1 - 0.2)
+            try await checkCancellation(jobId: jobId)
+            await updateExportStage(jobId: jobId, stage: .assetLoading, progress: 0.1)
+            logger.debug("Loading screen asset from: \(project.sources.screen.path)")
+
+            let screenAsset = AVAsset(url: projectDirectory.appendingPathComponent(project.sources.screen.path))
+
+            // Verify screen asset is readable
+            let isScreenReadable = try await screenAsset.load(.isReadable)
+            guard isScreenReadable else {
+                logger.error("Screen asset is not readable")
+                throw ExportError.assetNotReadable("screen")
+            }
+            logger.debug("Screen asset loaded successfully")
+
+            // Get GIF export options
+            let gifOptions = options.gifOptions ?? .default
+            logger.debug("GIF options - quality: \(gifOptions.quality), loopCount: \(gifOptions.loopCount), maxSize: \(gifOptions.maxSize?.description ?? "none"), frameRate: \(gifOptions.frameRate?.description ?? "preset default")")
+
+            // Stage 3: Extract frames from video (0.2 - 0.6)
+            try await checkCancellation(jobId: jobId)
+            await updateExportStage(jobId: jobId, stage: .compositionBuilding, progress: 0.2)
+            logger.debug("Extracting frames for GIF")
+
+            // Calculate frame rate
+            let frameRate: Int
+            if let customFrameRate = gifOptions.frameRate {
+                frameRate = customFrameRate
+            } else {
+                frameRate = preset.output.fps
+            }
+
+            // Calculate total number of frames
+            let totalFrames = Int(totalDuration * Double(frameRate))
+            logger.debug("Extracting \(totalFrames) frames at \(frameRate) fps")
+
+            // Extract frames from video
+            let frames = try await extractFramesFromVideo(
+                asset: screenAsset,
+                project: project,
+                frameRate: frameRate,
+                maxSize: gifOptions.maxSize ?? preset.output.width,
+                progress: { progress in
+                    Task {
+                        await updateExportStage(jobId: jobId, stage: .compositionBuilding, progress: 0.2 + progress * 0.4)
+                    }
+                }
+            )
+
+            logger.debug("Extracted \(frames.count) frames")
+
+            // Stage 4: Encode GIF (0.6 - 0.95)
+            try await checkCancellation(jobId: jobId)
+            await updateExportStage(jobId: jobId, stage: .videoCompositionSetup, progress: 0.6)
+            logger.debug("Encoding GIF")
+
+            try await encodeGIFFromFrames(
+                frames: frames,
+                outputURL: outputURL,
+                frameRate: frameRate,
+                gifOptions: gifOptions,
+                progress: { progress in
+                    Task {
+                        await updateExportStage(jobId: jobId, stage: .exporting(progress: progress), progress: 0.6 + progress * 0.35)
+                    }
+                }
+            )
+
+            logger.debug("GIF encoding completed")
+
+            // Stage 5: Verify output (0.95 - 1.0)
+            try await checkCancellation(jobId: jobId)
+            await updateExportStage(jobId: jobId, stage: .verification, progress: 0.97)
+            logger.debug("Verifying GIF output file")
+
+            // Verify output file exists and has content
+            let attributes = try? fileManager.attributesOfItem(atPath: outputURL.path)
+            let fileSize = attributes?[.size] as? UInt64 ?? 0
+
+            guard fileSize > 0 else {
+                logger.error("Output GIF file is empty")
+                throw ExportError.outputFileEmpty
+            }
+
+            logger.info("Output GIF file verified: \(fileSize) bytes")
+
+            // Warn if file is very large
+            let fileSizeMB = Double(fileSize) / 1024.0 / 1024.0
+            if fileSizeMB > 50.0 {
+                logger.warning("GIF file size (\(String(format: "%.2f", fileSizeMB))MB) exceeds recommended maximum of 50MB. Consider reducing quality or dimensions.")
+            }
+
+            // Stage 6: Cleanup (1.0)
+            await updateExportStage(jobId: jobId, stage: .cleanup, progress: 0.99)
+            logger.debug("Cleaning up GIF export resources")
+
+            // Create export result
+            let gifDuration = totalDuration
+            let result = ExportResult(
+                outputURL: outputURL,
+                fileSize: fileSize,
+                duration: gifDuration,
+                preset: preset
+            )
+
+            // Calculate total export time
+            let totalTime = Date().timeIntervalSince(startTime)
+            logExportSummary(jobId: jobId, result: result, duration: totalTime)
+
+            // Complete job
+            await jobQueue.completeJob(jobId: jobId)
+            await cleanupExport(jobId: jobId)
+
+        } catch {
+            // Log error with stage information
+            let currentStage = exportStages[jobId]?.last ?? .validation
+            logExportError(jobId: jobId, error: error, stage: currentStage)
+
+            // Fail job with error
+            let jobError = Job.JobError(
+                code: "GIF_EXPORT_FAILED",
+                message: error.localizedDescription,
+                details: ["original_error": .string(String(describing: error))],
+                recoverable: false
+            )
+            await jobQueue.failJob(jobId: jobId, error: jobError)
+            await cleanupExport(jobId: jobId)
+        }
+    }
+
+    /// Extract frames from video asset for GIF encoding
+    private func extractFramesFromVideo(
+        asset: AVAsset,
+        project: Project,
+        frameRate: Int,
+        maxSize: Int,
+        progress: @escaping (Double) async -> Void
+    ) async throws -> [CGImage] {
+        logger.debug("Starting frame extraction at \(frameRate) fps, max size: \(maxSize)")
+
+        // Create asset reader
+        guard let assetReader = try? AVAssetReader(asset: asset) else {
+            logger.error("Failed to create asset reader")
+            throw ExportError.compositionFailed("Failed to create asset reader")
+        }
+
+        // Get video track
+        let videoTracks = try await asset.loadTracks(withMediaType: .video)
+        guard let videoTrack = videoTracks.first else {
+            logger.error("No video track found")
+            throw ExportError.noVideoTrack
+        }
+
+        // Configure video output with desired frame rate
+        let videoOutput = AVAssetReaderTrackOutput(
+            track: videoTrack,
+            outputSettings: [
+                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
+            ]
+        )
+
+        assetReader.add(videoOutput)
+        assetReader.startReading()
+
+        // Calculate time intervals for frame extraction
+        let frameDuration = CMTime(value: 1, timescale: CMTimeScale(frameRate))
+        var frames: [CGImage] = []
+        var currentTime = CMTime.zero
+        var frameCount = 0
+        let totalEstimatedFrames = Int(project.timeline.duration * Double(frameRate))
+
+        logger.debug("Extracting approximately \(totalEstimatedFrames) frames")
+
+        // Extract frames at specified intervals
+        while assetReader.status == .reading {
+            autoreleasepool {
+                guard let sampleBuffer = videoOutput.copyNextSampleBuffer() else {
+                    return
+                }
+
+                let presentationTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+
+                // Check if this frame is at the desired time interval
+                if currentTime <= presentationTime {
+                    if let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) {
+                        // Create CIImage from CVImageBuffer
+                        let ciImage = CIImage(cvPixelBuffer: imageBuffer)
+
+                        // Calculate dimensions to fit within maxSize while maintaining aspect ratio
+                        let sourceWidth = CGFloat(CVPixelBufferGetWidthOfPlane(imageBuffer, 0))
+                        let sourceHeight = CGFloat(CVPixelBufferGetHeightOfPlane(imageBuffer, 0))
+                        let aspectRatio = sourceWidth / sourceHeight
+
+                        var targetWidth = CGFloat(maxSize)
+                        var targetHeight = CGFloat(maxSize)
+
+                        if aspectRatio > 1.0 {
+                            // Landscape
+                            targetHeight = targetWidth / aspectRatio
+                        } else {
+                            // Portrait
+                            targetWidth = targetHeight * aspectRatio
+                        }
+
+                        // Scale image
+                        let scaledImage = ciImage.transformed(by: CGAffineTransform(scaleX: targetWidth / sourceWidth, y: targetHeight / sourceHeight))
+
+                        // Render to CGImage
+                        let context = CIContext(options: [.useSoftwareRenderer: false])
+                        if let cgImage = context.createCGImage(scaledImage, from: scaledImage.extent) {
+                            frames.append(cgImage)
+                            frameCount += 1
+
+                            // Update progress
+                            let progress = Double(frameCount) / Double(max(totalEstimatedFrames, 1))
+                            Task {
+                                await progress(min(progress, 0.99))
+                            }
+                        }
+
+                        // Advance to next frame time
+                        currentTime = CMTimeAdd(currentTime, frameDuration)
+                    }
+                }
+            }
+
+            // Check if we've extracted enough frames
+            if frameCount >= totalEstimatedFrames {
+                break
+            }
+        }
+
+        // Clean up
+        assetReader.cancelReading()
+
+        logger.debug("Extracted \(frames.count) frames successfully")
+
+        return frames
+    }
+
+    /// Encode GIF from array of CGImage frames
+    private func encodeGIFFromFrames(
+        frames: [CGImage],
+        outputURL: URL,
+        frameRate: Int,
+        gifOptions: GIFExportOptions,
+        progress: @escaping (Double) async -> Void
+    ) async throws {
+        logger.debug("Encoding \(frames.count) frames to GIF at \(frameRate) fps")
+
+        // Calculate frame delay in centiseconds
+        let frameDelay = 1.0 / Double(frameRate)
+        let frameDelayCs = Int(frameDelay * 100) // Convert to centiseconds
+
+        logger.debug("Frame delay: \(frameDelayCs) centiseconds")
+
+        // Create GIF destination
+        guard let destination = CGImageDestinationCreateWithURL(
+            outputURL as CFURL,
+            UTType.gif.identifier as CFString,
+            frames.count,
+            nil
+        ) else {
+            logger.error("Failed to create GIF destination")
+            throw ExportError.exportFailed("Failed to create GIF destination")
+        }
+
+        // Set GIF properties
+        let gifProperties: [CFString: Any] = [
+            kCGImagePropertyGIFDictionary: [
+                kCGImagePropertyGIFLoopCount: gifOptions.loopCount
+            ]
+        ]
+
+        CGImageDestinationSetProperties(destination, gifProperties as CFDictionary)
+
+        // Encode each frame
+        for (index, frame) in frames.enumerated() {
+            autoreleasepool {
+                // Set frame properties
+                let frameProperties: [CFString: Any] = [
+                    kCGImagePropertyGIFDictionary: [
+                        kCGImagePropertyGIFDelayTime: Double(frameDelayCs) / 100.0
+                    ]
+                ]
+
+                // Add frame to GIF
+                CGImageDestinationAddImage(destination, frame, frameProperties as CFDictionary)
+
+                // Update progress
+                let frameProgress = Double(index + 1) / Double(frames.count)
+                Task {
+                    await progress(frameProgress)
+                }
+            }
+
+            // Check for cancellation
+            try? Task.checkCancellation()
+        }
+
+        // Finalize GIF
+        guard CGImageDestinationFinalize(destination) else {
+            logger.error("Failed to finalize GIF")
+            throw ExportError.exportFailed("Failed to finalize GIF")
+        }
+
+        logger.debug("GIF encoding completed successfully")
     }
 
     /// Perform the actual export work
@@ -844,6 +1244,24 @@ public struct ExportPreset: Equatable, Sendable {
             includeCursorHighlight: true
         )
     )
+
+    /// Animated GIF preset (for short clips and social media)
+    public static let animatedGIF = ExportPreset(
+        id: "animated_gif",
+        name: "Animated GIF",
+        output: OutputConfiguration(
+            width: 800,
+            height: 600,
+            fps: 15,
+            codec: "gif",
+            bitrateMbps: 0,
+            audioBitrateKbps: 0
+        ),
+        options: PresetOptions(
+            burnCaptions: false,
+            includeCursorHighlight: false
+        )
+    )
 }
 
 // MARK: - Export Options
@@ -856,18 +1274,73 @@ public struct ExportOptions: Equatable, Sendable {
     public let includeCursorHighlight: Bool
     /// Custom output filename (optional)
     public let outputFilename: String?
+    /// GIF-specific options (for animated GIF exports)
+    public let gifOptions: GIFExportOptions?
 
     public init(
         burnCaptions: Bool = false,
         includeCursorHighlight: Bool = true,
-        outputFilename: String? = nil
+        outputFilename: String? = nil,
+        gifOptions: GIFExportOptions? = nil
     ) {
         self.burnCaptions = burnCaptions
         self.includeCursorHighlight = includeCursorHighlight
         self.outputFilename = outputFilename
+        self.gifOptions = gifOptions
     }
 
     public static let `default` = ExportOptions()
+}
+
+// MARK: - GIF Export Options
+
+/// Options specific to GIF export
+public struct GIFExportOptions: Equatable, Sendable {
+    /// Quality of the GIF (0.0 - 1.0, higher is better)
+    public let quality: Double
+    /// Number of times to loop the GIF (0 = infinite)
+    public let loopCount: Int
+    /// Maximum width/height (maintains aspect ratio)
+    public let maxSize: Int?
+    /// Frame rate for the GIF (overrides preset if specified)
+    public let frameRate: Int?
+    /// Whether to dither the GIF for better quality
+    public let dither: Bool
+
+    public init(
+        quality: Double = 0.8,
+        loopCount: Int = 0,
+        maxSize: Int? = nil,
+        frameRate: Int? = nil,
+        dither: Bool = true
+    ) {
+        // Validate quality range
+        self.quality = max(0.0, min(1.0, quality))
+        self.loopCount = max(0, loopCount)
+        self.maxSize = maxSize
+        self.frameRate = frameRate
+        self.dither = dither
+    }
+
+    public static let `default` = GIFExportOptions()
+
+    /// High-quality GIF options (larger file size)
+    public static let highQuality = GIFExportOptions(
+        quality: 0.95,
+        loopCount: 0,
+        maxSize: nil,
+        frameRate: nil,
+        dither: true
+    )
+
+    /// Low-quality GIF options (smaller file size)
+    public static let lowQuality = GIFExportOptions(
+        quality: 0.5,
+        loopCount: 0,
+        maxSize: 600,
+        frameRate: 10,
+        dither: false
+    )
 }
 
 // MARK: - Export Errors

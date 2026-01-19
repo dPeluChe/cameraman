@@ -75,7 +75,7 @@ Este backlog está organizado por épicas y por orden recomendado.
 - [x] (P0) `ExportEngine` job: render final con trims/cuts/layouts/overlays, downscale de resolución nativa a 1080p, preset `web_1080_h264`
 - [x] (P0) Progreso + cancelación + logs estructurados
 - [x] (P1) Presets adicionales: HEVC, calidad alta (4K)
-- [ ] (P1) Export GIF (si se decide)
+- [x] (P1) Export GIF (si se decide)
 
 ---
 
