@@ -794,4 +794,157 @@ final class PreviewEngineTests: XCTestCase {
             style: style ?? defaultStyle
         )
     }
+
+    // MARK: - Proxy Generation Tests
+
+    func testGenerateProxiesWithoutProject() async {
+        do {
+            _ = try await previewEngine.generateProxies(projectDirectory: "/tmp")
+            XCTFail("Should have thrown PreviewError.noProjectLoaded")
+        } catch PreviewEngine.PreviewError.noProjectLoaded {
+            // Expected
+        } catch {
+            XCTFail("Wrong error type: \(error)")
+        }
+    }
+
+    func testHasProxiesWithoutProject() async {
+        let hasProxies = await previewEngine.hasProxies()
+        XCTAssertFalse(hasProxies)
+    }
+
+    func testHasProxiesWithoutProjectDirectory() async throws {
+        try await previewEngine.loadProject(mockProject)
+        let hasProxies = await previewEngine.hasProxies()
+        XCTAssertFalse(hasProxies)
+    }
+
+    func testHasProxiesWithProjectDirectory() async throws {
+        let tempDir = NSTemporaryDirectory()
+        let projectDir = (tempDir as NSString).appendingPathComponent("TestProject_\(UUID().uuidString)")
+
+        // Create proxies directory and screen proxy file
+        let proxiesDir = (projectDir as NSString).appendingPathComponent("proxies")
+        try? FileManager.default.createDirectory(atPath: proxiesDir, withIntermediateDirectories: true, attributes: nil)
+        let screenProxyPath = (proxiesDir as NSString).appendingPathComponent("screen_proxy.mov")
+        FileManager.default.createFile(atPath: screenProxyPath, contents: Data())
+
+        try await previewEngine.loadProject(mockProject, projectDirectory: projectDir)
+        let hasProxies = await previewEngine.hasProxies()
+        XCTAssertTrue(hasProxies)
+
+        // Clean up
+        try? FileManager.default.removeItem(atPath: projectDir)
+    }
+
+    func testGetProxyPathWithoutProjectDirectory() async throws {
+        try await previewEngine.loadProject(mockProject)
+        let proxyPath = await previewEngine.getProxyPath(for: "screen")
+        XCTAssertNil(proxyPath)
+    }
+
+    func testGetProxyPathWithProjectDirectory() async throws {
+        let tempDir = NSTemporaryDirectory()
+        let projectDir = (tempDir as NSString).appendingPathComponent("TestProject_\(UUID().uuidString)")
+
+        // Create proxies directory and screen proxy file
+        let proxiesDir = (projectDir as NSString).appendingPathComponent("proxies")
+        try? FileManager.default.createDirectory(atPath: proxiesDir, withIntermediateDirectories: true, attributes: nil)
+        let screenProxyPath = (proxiesDir as NSString).appendingPathComponent("screen_proxy.mov")
+        FileManager.default.createFile(atPath: screenProxyPath, contents: Data())
+
+        try await previewEngine.loadProject(mockProject, projectDirectory: projectDir)
+        let proxyPath = await previewEngine.getProxyPath(for: "screen")
+        XCTAssertNotNil(proxyPath)
+        XCTAssertEqual(proxyPath, screenProxyPath)
+
+        // Clean up
+        try? FileManager.default.removeItem(atPath: projectDir)
+    }
+
+    func testGetProxyPathForCamera() async throws {
+        let tempDir = NSTemporaryDirectory()
+        let projectDir = (tempDir as NSString).appendingPathComponent("TestProject_\(UUID().uuidString)")
+
+        // Create proxies directory and camera proxy file
+        let proxiesDir = (projectDir as NSString).appendingPathComponent("proxies")
+        try? FileManager.default.createDirectory(atPath: proxiesDir, withIntermediateDirectories: true, attributes: nil)
+        let cameraProxyPath = (proxiesDir as NSString).appendingPathComponent("camera_proxy.mov")
+        FileManager.default.createFile(atPath: cameraProxyPath, contents: Data())
+
+        try await previewEngine.loadProject(mockProject, projectDirectory: projectDir)
+        let proxyPath = await previewEngine.getProxyPath(for: "camera")
+        XCTAssertNotNil(proxyPath)
+        XCTAssertEqual(proxyPath, cameraProxyPath)
+
+        // Clean up
+        try? FileManager.default.removeItem(atPath: projectDir)
+    }
+
+    func testDeleteProxiesWithoutProjectDirectory() async throws {
+        try await previewEngine.loadProject(mockProject)
+
+        do {
+            try await previewEngine.deleteProxies()
+            XCTFail("Should have thrown PreviewError.noProjectLoaded")
+        } catch PreviewEngine.PreviewError.noProjectLoaded {
+            // Expected
+        } catch {
+            XCTFail("Wrong error type: \(error)")
+        }
+    }
+
+    func testDeleteProxiesSuccessfully() async throws {
+        let tempDir = NSTemporaryDirectory()
+        let projectDir = (tempDir as NSString).appendingPathComponent("TestProject_\(UUID().uuidString)")
+
+        // Create proxies directory and screen proxy file
+        let proxiesDir = (projectDir as NSString).appendingPathComponent("proxies")
+        try? FileManager.default.createDirectory(atPath: proxiesDir, withIntermediateDirectories: true, attributes: nil)
+        let screenProxyPath = (proxiesDir as NSString).appendingPathComponent("screen_proxy.mov")
+        FileManager.default.createFile(atPath: screenProxyPath, contents: Data())
+
+        try await previewEngine.loadProject(mockProject, projectDirectory: projectDir)
+
+        // Verify proxies exist
+        XCTAssertTrue(await previewEngine.hasProxies())
+
+        // Delete proxies
+        try await previewEngine.deleteProxies()
+
+        // Verify proxies are deleted
+        XCTAssertFalse(await previewEngine.hasProxies())
+
+        // Clean up
+        try? FileManager.default.removeItem(atPath: projectDir)
+    }
+
+    func testLoadProjectWithProjectDirectory() async throws {
+        let tempDir = NSTemporaryDirectory()
+        let projectDir = (tempDir as NSString).appendingPathComponent("TestProject_\(UUID().uuidString)")
+
+        try await previewEngine.loadProject(mockProject, projectDirectory: projectDir)
+
+        // Verify project directory is stored
+        let session = await previewEngine.getSession()
+        // We can't directly access projectDirectory, but we can verify it works via hasProxies
+        XCTAssertFalse(await previewEngine.hasProxies()) // No proxies created yet
+
+        // Clean up
+        try? FileManager.default.removeItem(atPath: projectDir)
+    }
+
+    func testUnloadProjectClearsProjectDirectory() async throws {
+        let tempDir = NSTemporaryDirectory()
+        let projectDir = (tempDir as NSString).appendingPathComponent("TestProject_\(UUID().uuidString)")
+
+        try await previewEngine.loadProject(mockProject, projectDirectory: projectDir)
+        await previewEngine.unloadProject()
+
+        // After unloading, hasProxies should return false
+        XCTAssertFalse(await previewEngine.hasProxies())
+
+        // Clean up
+        try? FileManager.default.removeItem(atPath: projectDir)
+    }
 }

@@ -154,7 +154,7 @@ final class TranscriptionEngineTests: XCTestCase {
             ),
             canvas: Project.Canvas(
                 format: Project.Canvas.Format(aspect: "16:9", w: 1920, h: 1080),
-                background: Project.Canvas.Background(type: "solid", value: "#000000"),
+                background: Project.Canvas.Background(type: "solid", value: "#000000", fitMode: "fill"),
                 layout: Project.Canvas.Layout(type: "pip")
             ),
             overlays: [],
@@ -217,7 +217,7 @@ final class TranscriptionEngineTests: XCTestCase {
             ),
             canvas: Project.Canvas(
                 format: Project.Canvas.Format(aspect: "16:9", w: 1920, h: 1080),
-                background: Project.Canvas.Background(type: "solid", value: "#000000"),
+                background: Project.Canvas.Background(type: "solid", value: "#000000", fitMode: "fill"),
                 layout: Project.Canvas.Layout(type: "pip")
             ),
             overlays: [],
@@ -279,7 +279,7 @@ final class TranscriptionEngineTests: XCTestCase {
             ),
             canvas: Project.Canvas(
                 format: Project.Canvas.Format(aspect: "16:9", w: 1920, h: 1080),
-                background: Project.Canvas.Background(type: "solid", value: "#000000"),
+                background: Project.Canvas.Background(type: "solid", value: "#000000", fitMode: "fill"),
                 layout: Project.Canvas.Layout(type: "pip")
             ),
             overlays: [],
@@ -343,7 +343,7 @@ final class TranscriptionEngineTests: XCTestCase {
             ),
             canvas: Project.Canvas(
                 format: Project.Canvas.Format(aspect: "16:9", w: 1920, h: 1080),
-                background: Project.Canvas.Background(type: "solid", value: "#000000"),
+                background: Project.Canvas.Background(type: "solid", value: "#000000", fitMode: "fill"),
                 layout: Project.Canvas.Layout(type: "pip")
             ),
             overlays: [],
@@ -416,7 +416,7 @@ final class TranscriptionEngineTests: XCTestCase {
             ),
             canvas: Project.Canvas(
                 format: Project.Canvas.Format(aspect: "16:9", w: 1920, h: 1080),
-                background: Project.Canvas.Background(type: "solid", value: "#000000"),
+                background: Project.Canvas.Background(type: "solid", value: "#000000", fitMode: "fill"),
                 layout: Project.Canvas.Layout(type: "pip")
             ),
             overlays: [],
@@ -595,7 +595,7 @@ final class TranscriptionEngineTests: XCTestCase {
             ),
             canvas: Project.Canvas(
                 format: Project.Canvas.Format(aspect: "16:9", w: 1920, h: 1080),
-                background: Project.Canvas.Background(type: "solid", value: "#000000"),
+                background: Project.Canvas.Background(type: "solid", value: "#000000", fitMode: "fill"),
                 layout: Project.Canvas.Layout(type: "pip")
             ),
             overlays: [],

@@ -852,4 +852,322 @@ final class EditorModelTests: XCTestCase {
             }
         }
     }
+
+    // MARK: - Overlay Timing Tests
+
+    func testUpdateOverlayStartTime() async throws {
+        let project = createTestProjectWithOverlay()
+        let editor = EditorModel(project: project)
+
+        let result = await editor.updateOverlay(
+            projectId: project.projectId,
+            overlayId: project.overlays[0].id,
+            start: 2.0
+        )
+
+        switch result {
+        case .success:
+            let editedProject = result.getProject()!
+            XCTAssertEqual(editedProject.overlays[0].start, 2.0)
+            XCTAssertEqual(editedProject.overlays[0].end, 10.0)
+        case .failure(let error):
+            XCTFail("Expected success, got error: \(error.localizedDescription)")
+        }
+    }
+
+    func testUpdateOverlayEndTime() async throws {
+        let project = createTestProjectWithOverlay()
+        let editor = EditorModel(project: project)
+
+        let result = await editor.updateOverlay(
+            projectId: project.projectId,
+            overlayId: project.overlays[0].id,
+            end: 8.0
+        )
+
+        switch result {
+        case .success:
+            let editedProject = result.getProject()!
+            XCTAssertEqual(editedProject.overlays[0].start, 0.0)
+            XCTAssertEqual(editedProject.overlays[0].end, 8.0)
+        case .failure(let error):
+            XCTFail("Expected success, got error: \(error.localizedDescription)")
+        }
+    }
+
+    func testUpdateOverlayBothTimes() async throws {
+        let project = createTestProjectWithOverlay()
+        let editor = EditorModel(project: project)
+
+        let result = await editor.updateOverlay(
+            projectId: project.projectId,
+            overlayId: project.overlays[0].id,
+            start: 3.0,
+            end: 7.0
+        )
+
+        switch result {
+        case .success:
+            let editedProject = result.getProject()!
+            XCTAssertEqual(editedProject.overlays[0].start, 3.0)
+            XCTAssertEqual(editedProject.overlays[0].end, 7.0)
+        case .failure(let error):
+            XCTFail("Expected success, got error: \(error.localizedDescription)")
+        }
+    }
+
+    func testUpdateOverlayStartTimeExceedsEnd() async throws {
+        let project = createTestProjectWithOverlay()
+        let editor = EditorModel(project: project)
+
+        let result = await editor.updateOverlay(
+            projectId: project.projectId,
+            overlayId: project.overlays[0].id,
+            start: 9.0
+        )
+
+        switch result {
+        case .success:
+            XCTFail("Expected failure for start time >= end time")
+        case .failure(let error):
+            if case .invalidTrimTime(let sourceIn, let sourceOut, let reason) = error {
+                XCTAssertEqual(sourceIn, 9.0)
+                XCTAssertEqual(sourceOut, 10.0)
+                XCTAssertEqual(reason, "Start time must be less than end time")
+            } else {
+                XCTFail("Expected invalidTrimTime error")
+            }
+        }
+    }
+
+    func testUpdateOverlayEndTimeBeforeStart() async throws {
+        let project = createTestProjectWithOverlay()
+        let editor = EditorModel(project: project)
+
+        let result = await editor.updateOverlay(
+            projectId: project.projectId,
+            overlayId: project.overlays[0].id,
+            end: 1.0
+        )
+
+        switch result {
+        case .success:
+            XCTFail("Expected failure for end time <= start time")
+        case .failure(let error):
+            if case .invalidTrimTime(let sourceIn, let sourceOut, let reason) = error {
+                XCTAssertEqual(sourceIn, 0.0)
+                XCTAssertEqual(sourceOut, 1.0)
+                XCTAssertEqual(reason, "Start time must be less than end time")
+            } else {
+                XCTFail("Expected invalidTrimTime error")
+            }
+        }
+    }
+
+    func testUpdateOverlayStartNegative() async throws {
+        let project = createTestProjectWithOverlay()
+        let editor = EditorModel(project: project)
+
+        let result = await editor.updateOverlay(
+            projectId: project.projectId,
+            overlayId: project.overlays[0].id,
+            start: -1.0
+        )
+
+        switch result {
+        case .success:
+            XCTFail("Expected failure for negative start time")
+        case .failure(let error):
+            if case .invalidTrimTime(let sourceIn, let sourceOut, let reason) = error {
+                XCTAssertEqual(sourceIn, -1.0)
+                XCTAssertEqual(sourceOut, 10.0)
+                XCTAssertEqual(reason, "Overlay timing must be within timeline duration")
+            } else {
+                XCTFail("Expected invalidTrimTime error")
+            }
+        }
+    }
+
+    func testUpdateOverlayEndExceedsTimeline() async throws {
+        let project = createTestProjectWithOverlay()
+        let editor = EditorModel(project: project)
+
+        let result = await editor.updateOverlay(
+            projectId: project.projectId,
+            overlayId: project.overlays[0].id,
+            end: 15.0
+        )
+
+        switch result {
+        case .success:
+            XCTFail("Expected failure for end time exceeding timeline duration")
+        case .failure(let error):
+            if case .invalidTrimTime(let sourceIn, let sourceOut, let reason) = error {
+                XCTAssertEqual(sourceIn, 0.0)
+                XCTAssertEqual(sourceOut, 15.0)
+                XCTAssertEqual(reason, "Overlay timing must be within timeline duration")
+            } else {
+                XCTFail("Expected invalidTrimTime error")
+            }
+        }
+    }
+
+    func testUpdateOverlayNonExistent() async throws {
+        let project = createTestProjectWithOverlay()
+        let editor = EditorModel(project: project)
+
+        let result = await editor.updateOverlay(
+            projectId: project.projectId,
+            overlayId: UUID(),
+            start: 2.0
+        )
+
+        switch result {
+        case .success:
+            XCTFail("Expected failure for non-existent overlay")
+        case .failure(let error):
+            XCTAssertEqual(error, .segmentNotFound(""))
+        }
+    }
+
+    func testUpdateOverlayTimingWithStyleAndTransform() async throws {
+        let project = createTestProjectWithOverlay()
+        let editor = EditorModel(project: project)
+
+        let newTransform = Project.Overlay.Transform(x: 0.6, y: 0.6, scale: 1.2, rotation: 15.0)
+        let newStyle = Project.Overlay.Style(stroke: "#FF0000", strokeWidth: 8.0, shadow: false)
+
+        let result = await editor.updateOverlay(
+            projectId: project.projectId,
+            overlayId: project.overlays[0].id,
+            transform: newTransform,
+            style: newStyle,
+            start: 1.0,
+            end: 9.0
+        )
+
+        switch result {
+        case .success:
+            let editedProject = result.getProject()!
+            XCTAssertEqual(editedProject.overlays[0].start, 1.0)
+            XCTAssertEqual(editedProject.overlays[0].end, 9.0)
+            XCTAssertEqual(editedProject.overlays[0].transform.x, 0.6)
+            XCTAssertEqual(editedProject.overlays[0].style.stroke, "#FF0000")
+        case .failure(let error):
+            XCTFail("Expected success, got error: \(error.localizedDescription)")
+        }
+    }
+
+    func testUpdateOverlayTimingAtTimelineBoundaries() async throws {
+        let project = createTestProjectWithOverlay()
+        let editor = EditorModel(project: project)
+
+        // Test at timeline start (0.0)
+        let result1 = await editor.updateOverlay(
+            projectId: project.projectId,
+            overlayId: project.overlays[0].id,
+            start: 0.0
+        )
+
+        switch result1 {
+        case .success:
+            let editedProject = result1.getProject()!
+            XCTAssertEqual(editedProject.overlays[0].start, 0.0)
+        case .failure(let error):
+            XCTFail("Expected success for start at 0.0, got error: \(error.localizedDescription)")
+        }
+
+        // Test at timeline end (10.0)
+        let result2 = await editor.updateOverlay(
+            projectId: project.projectId,
+            overlayId: project.overlays[0].id,
+            end: 10.0
+        )
+
+        switch result2 {
+        case .success:
+            let editedProject = result2.getProject()!
+            XCTAssertEqual(editedProject.overlays[0].end, 10.0)
+        case .failure(let error):
+            XCTFail("Expected success for end at timeline duration, got error: \(error.localizedDescription)")
+        }
+    }
+
+    func testUpdateOverlayTimingWithMinimumDuration() async throws {
+        let project = createTestProjectWithOverlay()
+        let editor = EditorModel(project: project)
+
+        // Test minimum duration (0.1s difference)
+        let result = await editor.updateOverlay(
+            projectId: project.projectId,
+            overlayId: project.overlays[0].id,
+            start: 5.0,
+            end: 5.1
+        )
+
+        switch result {
+        case .success:
+            let editedProject = result.getProject()!
+            XCTAssertEqual(editedProject.overlays[0].start, 5.0)
+            XCTAssertEqual(editedProject.overlays[0].end, 5.1)
+        case .failure(let error):
+            XCTFail("Expected success for minimum duration, got error: \(error.localizedDescription)")
+        }
+    }
+
+    // MARK: - Helper Methods
+
+    func createTestProjectWithOverlay() -> Project {
+        let timeline = Project.Timeline(
+            duration: 10.0,
+            segments: [
+                Project.Timeline.Segment(
+                    id: "seg-1",
+                    sourceIn: 0.0,
+                    sourceOut: 10.0,
+                    timelineIn: 0.0,
+                    speed: 1.0
+                )
+            ]
+        )
+
+        let canvas = Project.Canvas(
+            format: Project.Canvas.Format(aspect: "16:9", w: 1920, h: 1080),
+            background: Project.Canvas.Background(type: "solid", value: "#000000", fitMode: nil),
+            layout: Project.Canvas.Layout(type: "pip", camera: nil)
+        )
+
+        let overlay = Project.Overlay(
+            id: UUID(),
+            type: .arrow,
+            start: 0.0,
+            end: 10.0,
+            transform: Project.Overlay.Transform(x: 0.5, y: 0.5, scale: 1.0, rotation: 0.0),
+            style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 6.0, shadow: true)
+        )
+
+        return Project(
+            schemaVersion: 1,
+            projectId: UUID().uuidString,
+            name: "Test Project",
+            tags: [],
+            createdAt: Date(),
+            updatedAt: Date(),
+            sources: Project.Sources(
+                syncReference: "screen",
+                screen: Project.Sources.MediaTrack(
+                    path: "/path/to/screen.mov",
+                    fps: 60.0,
+                    size: Project.Sources.Size(w: 1920, h: 1080),
+                    syncOffsetMs: 0,
+                    sha256: "abc123",
+                    sizeBytes: 1024000
+                )
+            ),
+            timeline: timeline,
+            canvas: canvas,
+            overlays: [overlay],
+            captions: nil
+        )
+    }
 }

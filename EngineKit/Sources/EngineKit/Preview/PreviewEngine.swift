@@ -10,9 +10,13 @@ import AVFoundation
 
 /// Preview engine for playing back video with edits applied
 /// Supports seek, play, pause, and applies trims/cuts/layouts from project
+/// Also supports proxy generation for smooth preview of large files
 public actor PreviewEngine {
     /// The project being previewed
     private var project: Project?
+
+    /// Project directory path (for proxy generation)
+    private var projectDirectory: String?
 
     /// AVPlayer for video playback
     private var player: AVPlayer?
@@ -28,6 +32,12 @@ public actor PreviewEngine {
 
     /// Whether to loop playback
     private var loopEnabled: Bool = false
+
+    /// Configuration for preview
+    private var configuration: Configuration
+
+    /// Proxy generator for creating low-resolution previews
+    private var proxyGenerator: ProxyGenerator
 
     /// Configuration for preview
     public struct Configuration: Sendable {
@@ -129,14 +139,16 @@ public actor PreviewEngine {
     /// Initialize with optional configuration
     /// - Parameter configuration: Preview configuration
     public init(configuration: Configuration = .default) {
-        // Store configuration for later use
-        // For now, we'll use a simple implementation
+        self.configuration = configuration
+        self.proxyGenerator = ProxyGenerator()
     }
 
     /// Load a project for preview
-    /// - Parameter project: The project to preview
+    /// - Parameters:
+    ///   - project: The project to preview
+    ///   - projectDirectory: Optional project directory path (for proxy generation)
     /// - Throws: PreviewError if project cannot be loaded
-    public func loadProject(_ project: Project) async throws {
+    public func loadProject(_ project: Project, projectDirectory: String? = nil) async throws {
         guard !project.timeline.segments.isEmpty else {
             throw PreviewError.noSegments
         }
@@ -147,6 +159,7 @@ public actor PreviewEngine {
         _ = project.sources.screen.path
 
         self.project = project
+        self.projectDirectory = projectDirectory
         self.currentTime = 0
         self.playbackState = .stopped
 
@@ -157,6 +170,7 @@ public actor PreviewEngine {
     /// Unload the current project
     public func unloadProject() {
         self.project = nil
+        self.projectDirectory = nil
         self.player?.pause()
         self.player = nil
         self.currentTime = 0
@@ -781,6 +795,79 @@ public actor PreviewEngine {
 
         return project.overlays.filter { overlay in
             time >= overlay.start && time <= overlay.end
+        }
+    }
+
+    // MARK: - Proxy Generation
+
+    /// Generate proxies for the current project
+    /// - Parameters:
+    ///   - projectDirectory: Project's directory path
+    ///   - configuration: Optional proxy configuration (uses default if nil)
+    ///   - progress: Optional progress handler (0.0 to 1.0)
+    /// - Returns: Dictionary of track type to ProxyResult
+    /// - Throws: PreviewError if generation fails
+    public func generateProxies(
+        projectDirectory: String,
+        configuration: ProxyGenerator.Configuration? = nil,
+        progress: ProxyGenerator.ProgressHandler? = nil
+    ) async throws -> [String: ProxyGenerator.ProxyResult] {
+        guard let project = project else {
+            throw PreviewError.noProjectLoaded
+        }
+
+        let proxyConfig = configuration ?? ProxyGenerator.Configuration(
+            width: self.configuration.proxyWidth,
+            height: self.configuration.proxyHeight
+        )
+
+        return try await proxyGenerator.generateProjectProxies(
+            for: project,
+            projectDirectory: projectDirectory,
+            configuration: proxyConfig,
+            progress: progress
+        )
+    }
+
+    /// Check if proxies are available for the current project
+    /// - Returns: True if proxies exist and should be used
+    public func hasProxies() -> Bool {
+        guard project != nil,
+              let projectDir = projectDirectory else {
+            return false
+        }
+
+        // Check if screen proxy exists
+        let screenProxyPath = (projectDir as NSString).appendingPathComponent("proxies/screen_proxy.mov")
+        return FileManager.default.fileExists(atPath: screenProxyPath)
+    }
+
+    /// Get proxy path for a specific track
+    /// - Parameter trackType: Track type ("screen" or "camera")
+    /// - Returns: Path to proxy file if it exists, nil otherwise
+    public func getProxyPath(for trackType: String) -> String? {
+        guard let projectDir = projectDirectory else {
+            return nil
+        }
+
+        let proxiesDirectory = (projectDir as NSString).appendingPathComponent("proxies")
+        let proxyFileName = "\(trackType)_proxy.mov"
+        let proxyPath = (proxiesDirectory as NSString).appendingPathComponent(proxyFileName)
+
+        return FileManager.default.fileExists(atPath: proxyPath) ? proxyPath : nil
+    }
+
+    /// Delete all proxies for the current project
+    /// - Throws: PreviewError if deletion fails
+    public func deleteProxies() async throws {
+        guard let projectDir = projectDirectory else {
+            throw PreviewError.noProjectLoaded
+        }
+
+        let proxiesDirectory = (projectDir as NSString).appendingPathComponent("proxies")
+
+        if FileManager.default.fileExists(atPath: proxiesDirectory) {
+            try FileManager.default.removeItem(atPath: proxiesDirectory)
         }
     }
 }

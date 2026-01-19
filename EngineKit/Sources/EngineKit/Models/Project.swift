@@ -155,8 +155,8 @@ public struct Project: Codable, Equatable {
 
     /// Overlay (annotation) model
     public struct Overlay: Codable, Equatable, Identifiable {
-        public let id: UUID
-        public let type: OverlayType
+        public var id: UUID
+        public var type: OverlayType
         public var start: TimeInterval
         public var end: TimeInterval
         public var transform: Transform

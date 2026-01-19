@@ -139,7 +139,7 @@ public actor ProjectStore {
             ),
             canvas: Project.Canvas(
                 format: Project.Canvas.Format(aspect: "16:9", w: 1920, h: 1080),
-                background: Project.Canvas.Background(type: "solid", value: "#0B0B0D"),
+                background: Project.Canvas.Background(type: "solid", value: "#0B0B0D", fitMode: nil),
                 layout: Project.Canvas.Layout(
                     type: "pip",
                     camera: Project.Canvas.Layout.CameraPosition(x: 0.74, y: 0.72, w: 0.22, h: 0.22, cornerRadius: 18)

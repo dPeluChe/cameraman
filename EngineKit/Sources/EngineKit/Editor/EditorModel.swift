@@ -305,6 +305,109 @@ public actor EditorModel {
         )
         project.timeline = newTimeline
     }
+
+    // MARK: - Overlay Operations
+
+    /// Update an overlay's transform, style, or timing
+    /// - Parameters:
+    ///   - projectId: The project ID
+    ///   - overlayId: The overlay ID to update
+    ///   - transform: New transform (optional)
+    ///   - style: New style (optional)
+    ///   - start: New start time (optional)
+    ///   - end: New end time (optional)
+    /// - Returns: Result indicating success or failure
+    public func updateOverlay(
+        projectId: ProjectId,
+        overlayId: UUID,
+        transform: Project.Overlay.Transform? = nil,
+        style: Project.Overlay.Style? = nil,
+        start: TimeInterval? = nil,
+        end: TimeInterval? = nil
+    ) async -> EditorResult {
+        guard let index = project.overlays.firstIndex(where: { $0.id == overlayId }) else {
+            return .failure(.segmentNotFound(overlayId.uuidString))
+        }
+
+        var overlay = project.overlays[index]
+
+        if let newTransform = transform {
+            overlay.transform = newTransform
+        }
+
+        if let newStyle = style {
+            overlay.style = newStyle
+        }
+
+        if let newStart = start {
+            overlay.start = newStart
+        }
+
+        if let newEnd = end {
+            overlay.end = newEnd
+        }
+
+        // Validate timing constraints
+        guard overlay.start < overlay.end else {
+            return .failure(.invalidTrimTime(sourceIn: overlay.start, sourceOut: overlay.end, reason: "Start time must be less than end time"))
+        }
+
+        guard overlay.start >= 0 && overlay.end <= project.timeline.duration else {
+            return .failure(.invalidTrimTime(sourceIn: overlay.start, sourceOut: overlay.end, reason: "Overlay timing must be within timeline duration"))
+        }
+
+        project.overlays[index] = overlay
+
+        // Update project timestamp
+        project = Project(
+            schemaVersion: project.schemaVersion,
+            projectId: project.projectId,
+            name: project.name,
+            tags: project.tags,
+            createdAt: project.createdAt,
+            updatedAt: Date(),
+            sources: project.sources,
+            timeline: project.timeline,
+            canvas: project.canvas,
+            overlays: project.overlays,
+            captions: project.captions
+        )
+
+        return .success(project)
+    }
+
+    /// Delete an overlay
+    /// - Parameters:
+    ///   - projectId: The project ID
+    ///   - overlayId: The overlay ID to delete
+    /// - Returns: Result indicating success or failure
+    public func deleteOverlay(
+        projectId: ProjectId,
+        overlayId: UUID
+    ) async -> EditorResult {
+        guard project.overlays.contains(where: { $0.id == overlayId }) else {
+            return .failure(.segmentNotFound(overlayId.uuidString))
+        }
+
+        project.overlays.removeAll { $0.id == overlayId }
+
+        // Update project timestamp
+        project = Project(
+            schemaVersion: project.schemaVersion,
+            projectId: project.projectId,
+            name: project.name,
+            tags: project.tags,
+            createdAt: project.createdAt,
+            updatedAt: Date(),
+            sources: project.sources,
+            timeline: project.timeline,
+            canvas: project.canvas,
+            overlays: project.overlays,
+            captions: project.captions
+        )
+
+        return .success(project)
+    }
 }
 
 // MARK: - Editor Result Types
