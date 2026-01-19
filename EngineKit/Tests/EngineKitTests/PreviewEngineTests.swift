@@ -1577,4 +1577,238 @@ final class PreviewEngineTests: XCTestCase {
             }
         }
     }
+
+    // MARK: - Zoom Rendering Tests
+
+    func testLoadZoomPlan() async throws {
+        let zoomPlan = createMockZoomPlan()
+        await previewEngine.loadZoomPlan(zoomPlan)
+
+        let loadedPlan = await previewEngine.getZoomPlan()
+        XCTAssertNotNil(loadedPlan)
+        XCTAssertEqual(loadedPlan?.keyframes.count, zoomPlan.keyframes.count)
+    }
+
+    func testClearZoomPlan() async throws {
+        let zoomPlan = createMockZoomPlan()
+        await previewEngine.loadZoomPlan(zoomPlan)
+
+        await previewEngine.clearZoomPlan()
+
+        let loadedPlan = await previewEngine.getZoomPlan()
+        XCTAssertNil(loadedPlan)
+    }
+
+    func testZoomEnabledByDefault() {
+        let engine = PreviewEngine()
+        let isEnabled = engine.isZoomEnabled()
+        XCTAssertTrue(isEnabled)
+    }
+
+    func testSetZoomEnabled() async {
+        await previewEngine.setZoomEnabled(false)
+        var isEnabled = await previewEngine.isZoomEnabled()
+        XCTAssertFalse(isEnabled)
+
+        await previewEngine.setZoomEnabled(true)
+        isEnabled = await previewEngine.isZoomEnabled()
+        XCTAssertTrue(isEnabled)
+    }
+
+    func testGetZoomLevelAtSpecificTime() async throws {
+        let zoomPlan = createMockZoomPlan()
+        await previewEngine.loadZoomPlan(zoomPlan)
+
+        // Test at zoom-in keyframe time (5.0s)
+        let zoomLevelAtZoomIn = await previewEngine.getZoomLevel(at: 5.0)
+        XCTAssertEqual(zoomLevelAtZoomIn, 2.5, accuracy: 0.01)
+
+        // Test at hold time (7.0s)
+        let zoomLevelAtHold = await previewEngine.getZoomLevel(at: 7.0)
+        XCTAssertEqual(zoomLevelAtHold, 2.5, accuracy: 0.01)
+
+        // Test after zoom-out (12.0s)
+        let zoomLevelAfterZoomOut = await previewEngine.getZoomLevel(at: 12.0)
+        XCTAssertEqual(zoomLevelAfterZoomOut, 1.0, accuracy: 0.01)
+    }
+
+    func testGetZoomLevelWhenZoomDisabled() async throws {
+        let zoomPlan = createMockZoomPlan()
+        await previewEngine.loadZoomPlan(zoomPlan)
+        await previewEngine.setZoomEnabled(false)
+
+        let zoomLevel = await previewEngine.getZoomLevel(at: 5.0)
+        XCTAssertEqual(zoomLevel, 1.0, accuracy: 0.01)
+    }
+
+    func testGetZoomLevelWhenNoZoomPlan() async {
+        let zoomLevel = await previewEngine.getZoomLevel(at: 5.0)
+        XCTAssertEqual(zoomLevel, 1.0, accuracy: 0.01)
+    }
+
+    func testGetZoomFocusPointAtSpecificTime() async throws {
+        let zoomPlan = createMockZoomPlan()
+        await previewEngine.loadZoomPlan(zoomPlan)
+
+        // Test at zoom-in time
+        let focusPoint = await previewEngine.getZoomFocusPoint(at: 5.0)
+        XCTAssertEqual(focusPoint.x, 0.6, accuracy: 0.01)
+        XCTAssertEqual(focusPoint.y, 0.4, accuracy: 0.01)
+    }
+
+    func testGetZoomFocusPointWhenNoZoomPlan() async {
+        let focusPoint = await previewEngine.getZoomFocusPoint(at: 5.0)
+        XCTAssertEqual(focusPoint.x, 0.5, accuracy: 0.01)
+        XCTAssertEqual(focusPoint.y, 0.5, accuracy: 0.01)
+    }
+
+    func testConfigurationWithZoomDisabled() {
+        let config = PreviewEngine.Configuration(zoomEnabled: false)
+        let engine = PreviewEngine(configuration: config)
+
+        XCTAssertFalse(engine.isZoomEnabled())
+    }
+
+    func testUnloadProjectClearsZoomPlan() async throws {
+        try await previewEngine.loadProject(mockProject)
+
+        let zoomPlan = createMockZoomPlan()
+        await previewEngine.loadZoomPlan(zoomPlan)
+
+        var loadedPlan = await previewEngine.getZoomPlan()
+        XCTAssertNotNil(loadedPlan)
+
+        await previewEngine.unloadProject()
+
+        loadedPlan = await previewEngine.getZoomPlan()
+        XCTAssertNil(loadedPlan)
+    }
+
+    func testZoomPlanInterpolation() async throws {
+        let zoomPlan = createMockZoomPlan()
+        await previewEngine.loadZoomPlan(zoomPlan)
+
+        // Test interpolation between keyframes (zooming in)
+        let zoomLevel1 = await previewEngine.getZoomLevel(at: 4.5) // Midway through zoom-in
+        XCTAssertTrue(zoomLevel1 > 1.0 && zoomLevel1 < 2.5)
+
+        // Test interpolation during zoom-out
+        let zoomLevel2 = await previewEngine.getZoomLevel(at: 9.0) // Midway through zoom-out
+        XCTAssertTrue(zoomLevel2 > 1.0 && zoomLevel2 < 2.5)
+    }
+
+    func testMultipleZoomEvents() async throws {
+        var keyframes: [ZoomPlanGenerator.ZoomKeyframe] = []
+
+        // First zoom event (0-10s)
+        keyframes.append(contentsOf: [
+            ZoomPlanGenerator.ZoomKeyframe(timestamp: 0, zoomLevel: 1.0, focusX: 0.5, focusY: 0.5, easing: .easeInOut),
+            ZoomPlanGenerator.ZoomKeyframe(timestamp: 2, zoomLevel: 2.0, focusX: 0.3, focusY: 0.3, easing: .easeInOut),
+            ZoomPlanGenerator.ZoomKeyframe(timestamp: 5, zoomLevel: 2.0, focusX: 0.3, focusY: 0.3, easing: .easeInOut),
+            ZoomPlanGenerator.ZoomKeyframe(timestamp: 7, zoomLevel: 1.0, focusX: 0.5, focusY: 0.5, easing: .easeInOut)
+        ])
+
+        // Second zoom event (15-25s)
+        keyframes.append(contentsOf: [
+            ZoomPlanGenerator.ZoomKeyframe(timestamp: 15, zoomLevel: 1.0, focusX: 0.5, focusY: 0.5, easing: .easeInOut),
+            ZoomPlanGenerator.ZoomKeyframe(timestamp: 17, zoomLevel: 2.5, focusX: 0.7, focusY: 0.6, easing: .easeInOut),
+            ZoomPlanGenerator.ZoomKeyframe(timestamp: 20, zoomLevel: 2.5, focusX: 0.7, focusY: 0.6, easing: .easeInOut),
+            ZoomPlanGenerator.ZoomKeyframe(timestamp: 22, zoomLevel: 1.0, focusX: 0.5, focusY: 0.5, easing: .easeInOut)
+        ])
+
+        let zoomPlan = ZoomPlanGenerator.ZoomPlan(
+            events: [],
+            keyframes: keyframes,
+            configuration: .default(),
+            stats: ZoomPlanGenerator.ZoomPlanStats(
+                totalZoomEvents: 2,
+                totalKeyframes: 8,
+                totalZoomedTime: 14,
+                zoomedTimePercentage: 56.0,
+                averageZoomLevel: 1.75,
+                maximumZoomLevel: 2.5,
+                averageTimeBetweenZooms: 5.0,
+                zoomsPerMinute: 4.8,
+                timeRange: 0...25
+            )
+        )
+
+        await previewEngine.loadZoomPlan(zoomPlan)
+
+        // Test first zoom event
+        let zoomLevel1 = await previewEngine.getZoomLevel(at: 3)
+        XCTAssertEqual(zoomLevel1, 2.0, accuracy: 0.1)
+
+        // Test between zoom events (should be 1.0)
+        let zoomLevel2 = await previewEngine.getZoomLevel(at: 10)
+        XCTAssertEqual(zoomLevel2, 1.0, accuracy: 0.1)
+
+        // Test second zoom event
+        let zoomLevel3 = await previewEngine.getZoomLevel(at: 18)
+        XCTAssertEqual(zoomLevel3, 2.5, accuracy: 0.1)
+    }
+
+    // MARK: - Helper Methods for Zoom Tests
+
+    private func createMockZoomPlan() -> ZoomPlanGenerator.ZoomPlan {
+        let keyframes = [
+            ZoomPlanGenerator.ZoomKeyframe(
+                timestamp: 0,
+                zoomLevel: 1.0,
+                focusX: 0.5,
+                focusY: 0.5,
+                easing: .easeInOut
+            ),
+            ZoomPlanGenerator.ZoomKeyframe(
+                timestamp: 5,
+                zoomLevel: 2.5,
+                focusX: 0.6,
+                focusY: 0.4,
+                easing: .easeInOut
+            ),
+            ZoomPlanGenerator.ZoomKeyframe(
+                timestamp: 8,
+                zoomLevel: 2.5,
+                focusX: 0.6,
+                focusY: 0.4,
+                easing: .easeInOut
+            ),
+            ZoomPlanGenerator.ZoomKeyframe(
+                timestamp: 10,
+                zoomLevel: 1.0,
+                focusX: 0.5,
+                focusY: 0.5,
+                easing: .easeInOut
+            )
+        ]
+
+        let zoomEvent = ZoomPlanGenerator.ZoomEvent(
+            zoomInStartTime: 5,
+            zoomInEndTime: 5.5,
+            holdEndTime: 8,
+            zoomOutEndTime: 10,
+            targetZoomLevel: 2.5,
+            focusX: 0.6,
+            focusY: 0.4,
+            clickWindowId: UUID(),
+            easing: .easeInOut
+        )
+
+        return ZoomPlanGenerator.ZoomPlan(
+            events: [zoomEvent],
+            keyframes: keyframes,
+            configuration: .default(),
+            stats: ZoomPlanGenerator.ZoomPlanStats(
+                totalZoomEvents: 1,
+                totalKeyframes: 4,
+                totalZoomedTime: 5,
+                zoomedTimePercentage: 50.0,
+                averageZoomLevel: 1.75,
+                maximumZoomLevel: 2.5,
+                averageTimeBetweenZooms: 0,
+                zoomsPerMinute: 6.0,
+                timeRange: 0...10
+            )
+        )
+    }
 }

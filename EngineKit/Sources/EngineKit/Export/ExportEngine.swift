@@ -734,7 +734,22 @@ public actor ExportEngine {
                 contentMode: project.canvas.background.fitMode ?? "fill"
             )
 
-            layerInstruction.setTransform(transform, at: .zero)
+            // Apply zoom transforms if enabled
+            if options.applyZoom, let zoomPlan = options.zoomPlan {
+                logger.debug("Applying zoom transforms with \(zoomPlan.keyframes.count) keyframes")
+                try await applyZoomTransforms(
+                    to: layerInstruction,
+                    zoomPlan: zoomPlan,
+                    baseTransform: transform,
+                    sourceSize: sourceSize,
+                    renderSize: videoComposition.renderSize,
+                    compositionDuration: composition.duration
+                )
+            } else {
+                // No zoom, just apply base transform
+                layerInstruction.setTransform(transform, at: .zero)
+            }
+
             instruction.layerInstructions = [layerInstruction]
             videoComposition.instructions = [instruction]
 
@@ -1160,6 +1175,107 @@ public actor ExportEngine {
 
         return transform
     }
+
+    /// Apply zoom transforms to layer instruction based on zoom plan keyframes
+    /// - Parameters:
+    ///   - layerInstruction: Layer instruction to apply transforms to
+    ///   - zoomPlan: Zoom plan with keyframes
+    ///   - baseTransform: Base transform (downscale, layout, etc.)
+    ///   - sourceSize: Source video size
+    ///   - renderSize: Output render size
+    ///   - compositionDuration: Total composition duration
+    /// - Throws: ExportError if transform application fails
+    private func applyZoomTransforms(
+        to layerInstruction: AVMutableVideoCompositionLayerInstruction,
+        zoomPlan: ZoomPlanGenerator.ZoomPlan,
+        baseTransform: CGAffineTransform,
+        sourceSize: CoreFoundation.CGSize,
+        renderSize: CoreFoundation.CGSize,
+        compositionDuration: CMTime
+    ) async throws {
+        guard !zoomPlan.keyframes.isEmpty else {
+            // No keyframes, just apply base transform
+            layerInstruction.setTransform(baseTransform, at: .zero)
+            return
+        }
+
+        // Apply transform at each keyframe
+        for keyframe in zoomPlan.keyframes {
+            let keyframeTime = CMTime(seconds: keyframe.timestamp, preferredTimescale: 600)
+
+            // Calculate zoom transform
+            let zoomTransform = calculateZoomTransform(
+                zoomLevel: keyframe.zoomLevel,
+                focusX: keyframe.focusX,
+                focusY: keyframe.focusY,
+                baseTransform: baseTransform,
+                sourceSize: sourceSize,
+                renderSize: renderSize
+            )
+
+            layerInstruction.setTransform(zoomTransform, at: keyframeTime)
+        }
+
+        // Ensure first keyframe is applied at time zero
+        if let firstKeyframe = zoomPlan.keyframes.first {
+            let firstTransform = calculateZoomTransform(
+                zoomLevel: firstKeyframe.zoomLevel,
+                focusX: firstKeyframe.focusX,
+                focusY: firstKeyframe.focusY,
+                baseTransform: baseTransform,
+                sourceSize: sourceSize,
+                renderSize: renderSize
+            )
+            layerInstruction.setTransform(firstTransform, at: .zero)
+        }
+    }
+
+    /// Calculate zoom transform for a specific zoom level and focus point
+    /// - Parameters:
+    ///   - zoomLevel: Zoom level (1.0 = no zoom, 2.0 = 2x zoom)
+    ///   - focusX: Focus point X (normalized 0.0-1.0)
+    ///   - focusY: Focus point Y (normalized 0.0-1.0)
+    ///   - baseTransform: Base transform to apply zoom on top of
+    ///   - sourceSize: Source video size
+    ///   - renderSize: Output render size
+    /// - Returns: Combined transform with zoom applied
+    private func calculateZoomTransform(
+        zoomLevel: Double,
+        focusX: Double,
+        focusY: Double,
+        baseTransform: CGAffineTransform,
+        sourceSize: CoreFoundation.CGSize,
+        renderSize: CoreFoundation.CGSize
+    ) -> CGAffineTransform {
+        // Only apply zoom if zoom level is significant (> 1.01)
+        guard zoomLevel > 1.01 else {
+            return baseTransform
+        }
+
+        // Calculate focus point in render coordinates
+        let focusPointRender = CGPoint(
+            x: CGFloat(focusX) * renderSize.width,
+            y: CGFloat(focusY) * renderSize.height
+        )
+
+        // Create zoom transform
+        // 1. Translate to focus point
+        let translateToFocus = CGAffineTransform(translationX: focusPointRender.x, y: focusPointRender.y)
+
+        // 2. Scale by zoom level
+        let scale = CGAffineTransform(scaleX: CGFloat(zoomLevel), y: CGFloat(zoomLevel))
+
+        // 3. Translate back from focus point
+        let translateFromFocus = CGAffineTransform(translationX: -focusPointRender.x, y: -focusPointRender.y)
+
+        // Combine transforms: base -> translate to focus -> scale -> translate back
+        var zoomTransform = baseTransform
+        zoomTransform = zoomTransform.concatenating(translateToFocus)
+        zoomTransform = zoomTransform.concatenating(scale)
+        zoomTransform = zoomTransform.concatenating(translateFromFocus)
+
+        return zoomTransform
+    }
 }
 
 // MARK: - Export Preset
@@ -1276,20 +1392,31 @@ public struct ExportOptions: Equatable, Sendable {
     public let outputFilename: String?
     /// GIF-specific options (for animated GIF exports)
     public let gifOptions: GIFExportOptions?
+    /// Whether to apply zoom during export
+    public let applyZoom: Bool
+    /// Zoom plan to use for export (optional, will be loaded from project if not provided)
+    public let zoomPlan: ZoomPlanGenerator.ZoomPlan?
 
     public init(
         burnCaptions: Bool = false,
         includeCursorHighlight: Bool = true,
         outputFilename: String? = nil,
-        gifOptions: GIFExportOptions? = nil
+        gifOptions: GIFExportOptions? = nil,
+        applyZoom: Bool = true,
+        zoomPlan: ZoomPlanGenerator.ZoomPlan? = nil
     ) {
         self.burnCaptions = burnCaptions
         self.includeCursorHighlight = includeCursorHighlight
         self.outputFilename = outputFilename
         self.gifOptions = gifOptions
+        self.applyZoom = applyZoom
+        self.zoomPlan = zoomPlan
     }
 
     public static let `default` = ExportOptions()
+
+    /// Export options with zoom disabled
+    public static let noZoom = ExportOptions(applyZoom: false)
 }
 
 // MARK: - GIF Export Options

@@ -45,6 +45,12 @@ public actor PreviewEngine {
     /// Captions manager for displaying captions overlay
     private var captionsManager: CaptionsManager
 
+    /// Zoom plan for auto-zoom rendering
+    private var zoomPlan: ZoomPlanGenerator.ZoomPlan?
+
+    /// Whether zoom rendering is enabled
+    private var zoomEnabled: Bool = true
+
     /// Configuration for preview
     public struct Configuration: Sendable {
         /// Whether to use low-quality proxy for smoother preview
@@ -55,17 +61,21 @@ public actor PreviewEngine {
         public let proxyHeight: Int
         /// Whether to enable hardware acceleration
         public let hardwareAcceleration: Bool
+        /// Whether to enable zoom rendering
+        public let zoomEnabled: Bool
 
         public init(
             useProxy: Bool = true,
             proxyWidth: Int = 1280,
             proxyHeight: Int = 720,
-            hardwareAcceleration: Bool = true
+            hardwareAcceleration: Bool = true,
+            zoomEnabled: Bool = true
         ) {
             self.useProxy = useProxy
             self.proxyWidth = proxyWidth
             self.proxyHeight = proxyHeight
             self.hardwareAcceleration = hardwareAcceleration
+            self.zoomEnabled = zoomEnabled
         }
 
         /// Default configuration for smooth preview
@@ -73,6 +83,9 @@ public actor PreviewEngine {
 
         /// High-quality configuration (no proxy)
         public static let highQuality = Configuration(useProxy: false)
+
+        /// Configuration with zoom disabled
+        public static let noZoom = Configuration(zoomEnabled: false)
     }
 
     /// Playback state
@@ -148,6 +161,7 @@ public actor PreviewEngine {
         self.configuration = configuration
         self.proxyGenerator = ProxyGenerator()
         self.captionsManager = CaptionsManager()
+        self.zoomEnabled = configuration.zoomEnabled
     }
 
     /// Load a project for preview
@@ -195,6 +209,9 @@ public actor PreviewEngine {
         Task {
             await captionsManager.clear()
         }
+
+        // Clear zoom plan
+        self.zoomPlan = nil
     }
 
     // MARK: - Playback Control
@@ -529,8 +546,12 @@ public actor PreviewEngine {
         // Get active caption at current time
         let activeCaption = await captionsManager.getCaption(at: time)
 
-        // If no active overlays or captions, return original image
+        // If no active overlays or captions, return original image (or zoomed image)
         if activeOverlays.isEmpty && activeCaption == nil {
+            // Apply zoom if enabled
+            if zoomEnabled, let zoomPlan = zoomPlan {
+                return try await applyZoom(to: image, at: time, zoomPlan: zoomPlan, canvasSize: CoreFoundation.CGSize(width: CGFloat(canvasWidth), height: CGFloat(canvasHeight)))
+            }
             return image
         }
 
@@ -547,9 +568,20 @@ public actor PreviewEngine {
             throw PreviewError.playbackFailed("Failed to create graphics context")
         }
 
+        // Apply zoom transformation if enabled
+        let zoomApplied = zoomEnabled && zoomPlan != nil
+        if zoomApplied, let zoomPlan = zoomPlan {
+            try await applyZoomTransform(to: context, at: time, zoomPlan: zoomPlan, imageSize: CoreFoundation.CGSize(width: CGFloat(image.width), height: CGFloat(image.height)), canvasSize: CoreFoundation.CGSize(width: CGFloat(canvasWidth), height: CGFloat(canvasHeight)))
+        }
+
         // Draw original image
         let imageRect = CoreFoundation.CGRect(x: 0, y: 0, width: CGFloat(image.width), height: CGFloat(image.height))
         context.draw(image, in: imageRect)
+
+        // Restore context after zoom transform (so overlays are not zoomed)
+        if zoomApplied {
+            context.restoreGState()
+        }
 
         // Render each overlay
         for overlay in activeOverlays {
@@ -1086,5 +1118,193 @@ public actor PreviewEngine {
         if FileManager.default.fileExists(atPath: proxiesDirectory) {
             try FileManager.default.removeItem(atPath: proxiesDirectory)
         }
+    }
+
+    // MARK: - Zoom Rendering
+
+    /// Load a zoom plan for rendering
+    /// - Parameter zoomPlan: Zoom plan to use for rendering
+    public func loadZoomPlan(_ zoomPlan: ZoomPlanGenerator.ZoomPlan) {
+        self.zoomPlan = zoomPlan
+    }
+
+    /// Clear the current zoom plan
+    public func clearZoomPlan() {
+        self.zoomPlan = nil
+    }
+
+    /// Get the current zoom plan
+    /// - Returns: Current zoom plan if loaded, nil otherwise
+    public func getZoomPlan() -> ZoomPlanGenerator.ZoomPlan? {
+        return zoomPlan
+    }
+
+    /// Enable or disable zoom rendering
+    /// - Parameter enabled: Whether to enable zoom rendering
+    public func setZoomEnabled(_ enabled: Bool) {
+        self.zoomEnabled = enabled
+    }
+
+    /// Check if zoom rendering is enabled
+    /// - Returns: True if zoom rendering is enabled
+    public func isZoomEnabled() -> Bool {
+        return zoomEnabled
+    }
+
+    /// Get zoom level at a specific time
+    /// - Parameter time: Time in seconds
+    /// - Returns: Zoom level (1.0 = no zoom, 2.0 = 2x zoom), or 1.0 if no zoom plan
+    public func getZoomLevel(at time: TimeInterval) -> Double {
+        guard let zoomPlan = zoomPlan, zoomEnabled else {
+            return 1.0
+        }
+        return zoomPlan.zoomLevel(at: time)
+    }
+
+    /// Get zoom focus point at a specific time
+    /// - Parameter time: Time in seconds
+    /// - Returns: Focus point (normalized 0.0-1.0), or center (0.5, 0.5) if no zoom plan
+    public func getZoomFocusPoint(at time: TimeInterval) -> CGPoint {
+        guard let zoomPlan = zoomPlan, zoomEnabled else {
+            return CGPoint(x: 0.5, y: 0.5)
+        }
+        return zoomPlan.focusPoint(at: time)
+    }
+
+    /// Apply zoom transformation to a graphics context
+    /// - Parameters:
+    ///   - context: Graphics context to transform
+    ///   - time: Current timeline time
+    ///   - zoomPlan: Zoom plan with keyframes
+    ///   - imageSize: Size of the image being rendered
+    ///   - canvasSize: Canvas format size
+    /// - Throws: PreviewError if transformation fails
+    private func applyZoomTransform(
+        to context: CGContext,
+        at time: TimeInterval,
+        zoomPlan: ZoomPlanGenerator.ZoomPlan,
+        imageSize: CoreFoundation.CGSize,
+        canvasSize: CoreFoundation.CGSize
+    ) async throws {
+        // Get zoom level and focus point at current time
+        let zoomLevel = zoomPlan.zoomLevel(at: time)
+        let focusPoint = zoomPlan.focusPoint(at: time)
+
+        // Only apply transform if zoom is active (> 1.0)
+        guard zoomLevel > 1.01 else {
+            return
+        }
+
+        // Save context state before transformation
+        context.saveGState()
+
+        // Calculate the scale factors
+        let scaleX = imageSize.width / CGFloat(canvasSize.width)
+        let scaleY = imageSize.height / CGFloat(canvasSize.height)
+
+        // Calculate focus point in image coordinates
+        let focusX = focusPoint.x * CGFloat(canvasSize.width) * scaleX
+        let focusY = focusPoint.y * CGFloat(canvasSize.height) * scaleY
+
+        // Apply zoom transformation
+        // 1. Translate to focus point
+        context.translateBy(x: focusX, y: focusY)
+
+        // 2. Scale by zoom level
+        context.scaleBy(x: CGFloat(zoomLevel), y: CGFloat(zoomLevel))
+
+        // 3. Translate back from focus point
+        context.translateBy(x: -focusX, y: -focusY)
+    }
+
+    /// Apply zoom to an image (for frames without overlays)
+    /// - Parameters:
+    ///   - image: Original image
+    ///   - time: Current timeline time
+    ///   - zoomPlan: Zoom plan with keyframes
+    ///   - canvasSize: Canvas format size
+    /// - Returns: Zoomed image, or original if zoom is not active
+    /// - Throws: PreviewError if zoom application fails
+    private func applyZoom(
+        to image: CGImage,
+        at time: TimeInterval,
+        zoomPlan: ZoomPlanGenerator.ZoomPlan,
+        canvasSize: CoreFoundation.CGSize
+    ) async throws -> CGImage {
+        // Get zoom level and focus point at current time
+        let zoomLevel = zoomPlan.zoomLevel(at: time)
+        let focusPoint = zoomPlan.focusPoint(at: time)
+
+        // Only apply zoom if zoom is active (> 1.01)
+        guard zoomLevel > 1.01 else {
+            return image
+        }
+
+        // Calculate new dimensions for zoomed image
+        let newWidth = Int(Double(image.width) * zoomLevel)
+        let newHeight = Int(Double(image.height) * zoomLevel)
+
+        // Create bitmap context for zoomed image
+        guard let context = CGContext(
+            data: nil,
+            width: newWidth,
+            height: newHeight,
+            bitsPerComponent: image.bitsPerComponent,
+            bytesPerRow: 0,
+            space: image.colorSpace ?? CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: image.bitmapInfo.rawValue
+        ) else {
+            throw PreviewError.playbackFailed("Failed to create graphics context for zoom")
+        }
+
+        // Calculate the source rectangle to crop
+        // We want to center on the focus point
+        let scaleX = CGFloat(image.width) / CGFloat(canvasSize.width)
+        let scaleY = CGFloat(image.height) / CGFloat(canvasSize.height)
+
+        let focusX = focusPoint.x * CGFloat(canvasSize.width) * scaleX
+        let focusY = focusPoint.y * CGFloat(canvasSize.height) * scaleY
+
+        // Calculate the crop rectangle centered on focus point
+        let cropWidth = CGFloat(image.width) / CGFloat(zoomLevel)
+        let cropHeight = CGFloat(image.height) / CGFloat(zoomLevel)
+        let cropX = max(0, min(focusX - cropWidth / 2, CGFloat(image.width) - cropWidth))
+        let cropY = max(0, min(focusY - cropHeight / 2, CGFloat(image.height) - cropHeight))
+
+        let cropRect = CoreFoundation.CGRect(x: cropX, y: cropY, width: cropWidth, height: cropHeight)
+
+        // Draw cropped and scaled image
+        let destRect = CoreFoundation.CGRect(x: 0, y: 0, width: CGFloat(newWidth), height: CGFloat(newHeight))
+        context.draw(image, in: destRect, from: cropRect)
+
+        // Extract zoomed image
+        guard let zoomedImage = context.makeImage() else {
+            throw PreviewError.playbackFailed("Failed to create zoomed image")
+        }
+
+        return zoomedImage
+    }
+
+    /// Extract a frame with zoom applied at a specific time
+    /// - Parameter time: Time in seconds
+    /// - Returns: CGImage of the frame with zoom applied
+    /// - Throws: PreviewError if frame cannot be extracted
+    public func extractFrameWithZoom(at time: TimeInterval) async throws -> CGImage {
+        let frame = try await extractFrame(at: time)
+
+        guard zoomEnabled, let zoomPlan = zoomPlan else {
+            return frame
+        }
+
+        guard let project = project else {
+            throw PreviewError.noProjectLoaded
+        }
+
+        let canvasSize = CoreFoundation.CGSize(
+            width: CGFloat(project.canvas.format.w),
+            height: CGFloat(project.canvas.format.h)
+        )
+
+        return try await applyZoom(to: frame, at: time, zoomPlan: zoomPlan, canvasSize: canvasSize)
     }
 }

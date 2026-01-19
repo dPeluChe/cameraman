@@ -82,7 +82,7 @@ Este backlog está organizado por épicas y por orden recomendado.
 ## Épica I — Cursor Zoom (auto-zoom por clicks)
 - [x] (P1) Parser de telemetría: detectar clicks "importantes", agrupar eventos por ventanas temporales
 - [x] (P1) Generador de "zoom plan": keyframes con easing, límites (no marear; min/max zoom)
-- [ ] (P1) Render de zoom en preview/export
+- [x] (P1) Render de zoom en preview/export
 - [ ] (P1) Controles: intensidad / on/off por sección
 
 ---

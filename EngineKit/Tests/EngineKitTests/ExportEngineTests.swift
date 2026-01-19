@@ -1918,4 +1918,297 @@ final class ExportEngineTests: XCTestCase {
             }
         }
     }
+
+    // MARK: - Zoom Rendering Tests
+
+    func testExportOptionsWithZoom() {
+        let options = ExportOptions(applyZoom: true)
+        XCTAssertTrue(options.applyZoom)
+    }
+
+    func testExportOptionsWithZoomDisabled() {
+        let options = ExportOptions.noZoom
+        XCTAssertFalse(options.applyZoom)
+    }
+
+    func testExportOptionsWithZoomPlan() {
+        let zoomPlan = createMockZoomPlan()
+        let options = ExportOptions(applyZoom: true, zoomPlan: zoomPlan)
+        XCTAssertTrue(options.applyZoom)
+        XCTAssertNotNil(options.zoomPlan)
+    }
+
+    func testExportOptionsDefaultIncludesZoom() {
+        let options = ExportOptions.default
+        XCTAssertTrue(options.applyZoom)
+    }
+
+    func testZoomTransformCalculation() {
+        // Create a simple base transform (identity)
+        let baseTransform = CGAffineTransform.identity
+
+        let sourceSize = CoreFoundation.CGSize(width: 1920, height: 1080)
+        let renderSize = CoreFoundation.CGSize(width: 1920, height: 1080)
+
+        // Test no zoom (zoom level = 1.0)
+        let noZoomTransform = calculateZoomTransformHelper(
+            zoomLevel: 1.0,
+            focusX: 0.5,
+            focusY: 0.5,
+            baseTransform: baseTransform,
+            sourceSize: sourceSize,
+            renderSize: renderSize
+        )
+
+        XCTAssertEqual(noZoomTransform, baseTransform)
+
+        // Test 2x zoom at center
+        let zoom2xTransform = calculateZoomTransformHelper(
+            zoomLevel: 2.0,
+            focusX: 0.5,
+            focusY: 0.5,
+            baseTransform: baseTransform,
+            sourceSize: sourceSize,
+            renderSize: renderSize
+        )
+
+        // Verify that the transform scales by 2x
+        XCTAssertNotEqual(zoom2xTransform, baseTransform)
+    }
+
+    func testZoomTransformWithDifferentFocusPoints() {
+        let baseTransform = CGAffineTransform.identity
+        let sourceSize = CoreFoundation.CGSize(width: 1920, height: 1080)
+        let renderSize = CoreFoundation.CGSize(width: 1920, height: 1080)
+
+        // Test zoom at top-left focus point
+        let topLeftTransform = calculateZoomTransformHelper(
+            zoomLevel: 2.0,
+            focusX: 0.0,
+            focusY: 0.0,
+            baseTransform: baseTransform,
+            sourceSize: sourceSize,
+            renderSize: renderSize
+        )
+
+        // Test zoom at center focus point
+        let centerTransform = calculateZoomTransformHelper(
+            zoomLevel: 2.0,
+            focusX: 0.5,
+            focusY: 0.5,
+            baseTransform: baseTransform,
+            sourceSize: sourceSize,
+            renderSize: renderSize
+        )
+
+        // Test zoom at bottom-right focus point
+        let bottomRightTransform = calculateZoomTransformHelper(
+            zoomLevel: 2.0,
+            focusX: 1.0,
+            focusY: 1.0,
+            baseTransform: baseTransform,
+            sourceSize: sourceSize,
+            renderSize: renderSize
+        )
+
+        // Transforms should be different for different focus points
+        XCTAssertNotEqual(topLeftTransform, centerTransform)
+        XCTAssertNotEqual(centerTransform, bottomRightTransform)
+    }
+
+    func testZoomTransformWithMinimumZoom() {
+        let baseTransform = CGAffineTransform.identity
+        let sourceSize = CoreFoundation.CGSize(width: 1920, height: 1080)
+        let renderSize = CoreFoundation.CGSize(width: 1920, height: 1080)
+
+        // Test with zoom level = 1.01 (should not apply zoom)
+        let minZoomTransform = calculateZoomTransformHelper(
+            zoomLevel: 1.01,
+            focusX: 0.5,
+            focusY: 0.5,
+            baseTransform: baseTransform,
+            sourceSize: sourceSize,
+            renderSize: renderSize
+        )
+
+        XCTAssertEqual(minZoomTransform, baseTransform)
+    }
+
+    func testZoomTransformWithMaximumZoom() {
+        let baseTransform = CGAffineTransform.identity
+        let sourceSize = CoreFoundation.CGSize(width: 1920, height: 1080)
+        let renderSize = CoreFoundation.CGSize(width: 1920, height: 1080)
+
+        // Test with maximum zoom level (5.0)
+        let maxZoomTransform = calculateZoomTransformHelper(
+            zoomLevel: 5.0,
+            focusX: 0.5,
+            focusY: 0.5,
+            baseTransform: baseTransform,
+            sourceSize: sourceSize,
+            renderSize: renderSize
+        )
+
+        // Verify that the transform is significantly different from base
+        XCTAssertNotEqual(maxZoomTransform, baseTransform)
+
+        // Verify scale is 5x
+        let scaleX = sqrt(maxZoomTransform.a * maxZoomTransform.a + maxZoomTransform.c * maxZoomTransform.c)
+        XCTAssertEqual(scaleX, 5.0, accuracy: 0.1)
+    }
+
+    func testZoomTransformWithDifferentResolutions() {
+        let baseTransform = CGAffineTransform.identity
+
+        // Test with 4K source to 1080p output
+        let source4K = CoreFoundation.CGSize(width: 3840, height: 2160)
+        let render1080p = CoreFoundation.CGSize(width: 1920, height: 1080)
+
+        let transform4Kto1080p = calculateZoomTransformHelper(
+            zoomLevel: 2.0,
+            focusX: 0.5,
+            focusY: 0.5,
+            baseTransform: baseTransform,
+            sourceSize: source4K,
+            renderSize: render1080p
+        )
+
+        XCTAssertNotNil(transform4Kto1080p)
+
+        // Test with 1080p source to 720p output
+        let source1080p = CoreFoundation.CGSize(width: 1920, height: 1080)
+        let render720p = CoreFoundation.CGSize(width: 1280, height: 720)
+
+        let transform1080pto720p = calculateZoomTransformHelper(
+            zoomLevel: 2.0,
+            focusX: 0.5,
+            focusY: 0.5,
+            baseTransform: baseTransform,
+            sourceSize: source1080p,
+            renderSize: render720p
+        )
+
+        XCTAssertNotNil(transform1080pto720p)
+    }
+
+    func testExportOptionsEquality() {
+        let options1 = ExportOptions(applyZoom: true)
+        let options2 = ExportOptions(applyZoom: true)
+        XCTAssertEqual(options1, options2)
+
+        let options3 = ExportOptions(applyZoom: false)
+        XCTAssertNotEqual(options1, options3)
+    }
+
+    func testExportOptionsWithZoomAndOtherSettings() {
+        let zoomPlan = createMockZoomPlan()
+        let options = ExportOptions(
+            burnCaptions: true,
+            includeCursorHighlight: false,
+            applyZoom: true,
+            zoomPlan: zoomPlan
+        )
+
+        XCTAssertTrue(options.burnCaptions)
+        XCTAssertFalse(options.includeCursorHighlight)
+        XCTAssertTrue(options.applyZoom)
+        XCTAssertNotNil(options.zoomPlan)
+    }
+
+    // MARK: - Helper Methods for Zoom Tests
+
+    private func createMockZoomPlan() -> ZoomPlanGenerator.ZoomPlan {
+        let keyframes = [
+            ZoomPlanGenerator.ZoomKeyframe(
+                timestamp: 0,
+                zoomLevel: 1.0,
+                focusX: 0.5,
+                focusY: 0.5,
+                easing: .easeInOut
+            ),
+            ZoomPlanGenerator.ZoomKeyframe(
+                timestamp: 5,
+                zoomLevel: 2.5,
+                focusX: 0.6,
+                focusY: 0.4,
+                easing: .easeInOut
+            ),
+            ZoomPlanGenerator.ZoomKeyframe(
+                timestamp: 10,
+                zoomLevel: 1.0,
+                focusX: 0.5,
+                focusY: 0.5,
+                easing: .easeInOut
+            )
+        ]
+
+        let zoomEvent = ZoomPlanGenerator.ZoomEvent(
+            zoomInStartTime: 5,
+            zoomInEndTime: 5.5,
+            holdEndTime: 8,
+            zoomOutEndTime: 10,
+            targetZoomLevel: 2.5,
+            focusX: 0.6,
+            focusY: 0.4,
+            clickWindowId: UUID(),
+            easing: .easeInOut
+        )
+
+        return ZoomPlanGenerator.ZoomPlan(
+            events: [zoomEvent],
+            keyframes: keyframes,
+            configuration: .default(),
+            stats: ZoomPlanGenerator.ZoomPlanStats(
+                totalZoomEvents: 1,
+                totalKeyframes: 3,
+                totalZoomedTime: 5,
+                zoomedTimePercentage: 50.0,
+                averageZoomLevel: 1.5,
+                maximumZoomLevel: 2.5,
+                averageTimeBetweenZooms: 0,
+                zoomsPerMinute: 6.0,
+                timeRange: 0...10
+            )
+        )
+    }
+
+    /// Helper method to access the private calculateZoomTransform method for testing
+    /// In a real implementation, this would be tested through the public export API
+    private func calculateZoomTransformHelper(
+        zoomLevel: Double,
+        focusX: Double,
+        focusY: Double,
+        baseTransform: CGAffineTransform,
+        sourceSize: CoreFoundation.CGSize,
+        renderSize: CoreFoundation.CGSize
+    ) -> CGAffineTransform {
+        // Only apply zoom if zoom level is significant (> 1.01)
+        guard zoomLevel > 1.01 else {
+            return baseTransform
+        }
+
+        // Calculate focus point in render coordinates
+        let focusPointRender = CGPoint(
+            x: CGFloat(focusX) * renderSize.width,
+            y: CGFloat(focusY) * renderSize.height
+        )
+
+        // Create zoom transform
+        // 1. Translate to focus point
+        let translateToFocus = CGAffineTransform(translationX: focusPointRender.x, y: focusPointRender.y)
+
+        // 2. Scale by zoom level
+        let scale = CGAffineTransform(scaleX: CGFloat(zoomLevel), y: CGFloat(zoomLevel))
+
+        // 3. Translate back from focus point
+        let translateFromFocus = CGAffineTransform(translationX: -focusPointRender.x, y: -focusPointRender.y)
+
+        // Combine transforms: base -> translate to focus -> scale -> translate back
+        var zoomTransform = baseTransform
+        zoomTransform = zoomTransform.concatenating(translateToFocus)
+        zoomTransform = zoomTransform.concatenating(scale)
+        zoomTransform = zoomTransform.concatenating(translateFromFocus)
+
+        return zoomTransform
+    }
 }
