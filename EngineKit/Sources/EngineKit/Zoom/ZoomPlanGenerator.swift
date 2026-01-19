@@ -354,7 +354,7 @@ public actor ZoomPlanGenerator {
     }
 
     /// Complete zoom plan with all zoom events and keyframes
-    public struct ZoomPlan: Equatable {
+    public struct ZoomPlan: Equatable, Sendable {
         /// All zoom events in chronological order
         public let events: [ZoomEvent]
         /// All keyframes in chronological order (merged from all events)

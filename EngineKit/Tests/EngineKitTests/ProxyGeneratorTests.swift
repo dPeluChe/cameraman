@@ -219,22 +219,22 @@ final class ProxyGeneratorTests: XCTestCase {
         FileManager.default.createFile(atPath: proxyPath, contents: Data())
 
         let sourcePath = "test.mov"
-        let result = proxyGenerator.getProxyPath(for: sourcePath, projectDirectory: tempDirectory)
+        let result = await proxyGenerator.getProxyPath(for: sourcePath, projectDirectory: tempDirectory)
 
         XCTAssertNotNil(result)
         XCTAssertEqual(result, proxyPath)
     }
 
-    func testGetProxyPathWithoutProxy() {
+    func testGetProxyPathWithoutProxy() async {
         let sourcePath = "test.mov"
-        let result = proxyGenerator.getProxyPath(for: sourcePath, projectDirectory: tempDirectory)
+        let result = await proxyGenerator.getProxyPath(for: sourcePath, projectDirectory: tempDirectory)
 
         XCTAssertNil(result)
     }
 
-    func testGetProxyPathWithoutProjectDirectory() {
+    func testGetProxyPathWithoutProjectDirectory() async {
         let sourcePath = "test.mov"
-        let result = proxyGenerator.getProxyPath(for: sourcePath, projectDirectory: "")
+        let result = await proxyGenerator.getProxyPath(for: sourcePath, projectDirectory: "")
 
         XCTAssertNil(result)
     }

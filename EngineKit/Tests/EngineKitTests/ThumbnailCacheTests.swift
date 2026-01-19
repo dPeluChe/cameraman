@@ -397,8 +397,8 @@ final class ThumbnailCacheTests: XCTestCase {
     }
 
     func testCachedWaveformWithDifferentResolutions() {
-        let lowResSamples = Array(repeating: 0.0, count: 100)
-        let highResSamples = Array(repeating: 0.0, count: 2000)
+        let lowResSamples = Array(repeating: 0.0 as Float, count: 100)
+        let highResSamples = Array(repeating: 0.0 as Float, count: 2000)
 
         let lowRes = ThumbnailCache.CachedWaveform(
             samples: lowResSamples,

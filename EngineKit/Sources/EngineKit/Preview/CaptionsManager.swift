@@ -134,14 +134,16 @@ public actor CaptionsManager {
         self.style = style
     }
 
-    /// Initialize with captions from a file
+    /// Initialize with captions from a file (async factory method)
     /// - Parameters:
     ///   - filePath: Path to caption file (SRT or VTT)
     ///   - style: Caption style (uses default if not specified)
+    /// - Returns: A new CaptionsManager instance with loaded captions
     /// - Throws: CaptionsError if file cannot be loaded or parsed
-    public init(filePath: String, style: CaptionStyle = .default) throws {
-        self.style = style
-        try loadCaptions(from: filePath)
+    public static func load(from filePath: String, style: CaptionStyle = .default) async throws -> CaptionsManager {
+        let manager = CaptionsManager(style: style)
+        try await manager.loadCaptionsAsync(from: filePath)
+        return manager
     }
 
     // MARK: - Loading Captions
@@ -150,6 +152,46 @@ public actor CaptionsManager {
     /// - Parameter filePath: Path to caption file (SRT or VTT)
     /// - Throws: CaptionsError if file cannot be loaded or parsed
     public func loadCaptions(from filePath: String) throws {
+        // Synchronous wrapper for compatibility
+        let fileURL = URL(fileURLWithPath: filePath)
+
+        guard FileManager.default.fileExists(atPath: filePath) else {
+            throw CaptionsError.fileNotFound(filePath)
+        }
+
+        let content = try String(contentsOf: fileURL, encoding: .utf8)
+
+        // Determine format from file extension
+        let fileExtension = (filePath as NSString).pathExtension.lowercased()
+        let format: CaptionFormat
+
+        switch fileExtension {
+        case "srt":
+            format = .srt
+        case "vtt":
+            format = .vtt
+        default:
+            // Try to auto-detect from content
+            if content.hasPrefix("WEBVTT") {
+                format = .vtt
+            } else {
+                format = .srt
+            }
+        }
+
+        // Parse based on format
+        switch format {
+        case .srt:
+            self.captions = try parseSRT(content)
+        case .vtt:
+            self.captions = try parseVTT(content)
+        }
+    }
+
+    /// Load captions from a file (async version)
+    /// - Parameter filePath: Path to caption file (SRT or VTT)
+    /// - Throws: CaptionsError if file cannot be loaded or parsed
+    public func loadCaptionsAsync(from filePath: String) async throws {
         let fileURL = URL(fileURLWithPath: filePath)
 
         guard FileManager.default.fileExists(atPath: filePath) else {

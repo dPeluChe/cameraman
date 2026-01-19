@@ -119,15 +119,17 @@ final class CaptionsManagerTests: XCTestCase {
 
     func testLoadSRTFile() async throws {
         let manager = CaptionsManager()
-        try manager.loadCaptions(from: testSRTFile.path)
+        try await manager.loadCaptions(from: testSRTFile.path)
 
-        XCTAssertTrue(await manager.hasCaptions())
-        XCTAssertEqual(await manager.getCaptionCount(), 4)
+        let hasCaptions = await manager.hasCaptions()
+        let captionCount = await manager.getCaptionCount()
+        XCTAssertTrue(hasCaptions)
+        XCTAssertEqual(captionCount, 4)
     }
 
     func testLoadSRTFileParseContent() async throws {
         let manager = CaptionsManager()
-        try manager.loadCaptions(from: testSRTFile.path)
+        try await manager.loadCaptions(from: testSRTFile.path)
 
         let captions = await manager.getAllCaptions()
 
@@ -160,7 +162,7 @@ final class CaptionsManagerTests: XCTestCase {
 
     func testLoadVTTFile() async throws {
         let manager = CaptionsManager()
-        try manager.loadCaptions(from: testVTTFile.path)
+        try await manager.loadCaptions(from: testVTTFile.path)
 
         XCTAssertTrue(await manager.hasCaptions())
         XCTAssertEqual(await manager.getCaptionCount(), 4)
@@ -168,7 +170,7 @@ final class CaptionsManagerTests: XCTestCase {
 
     func testLoadVTTFileParseContent() async throws {
         let manager = CaptionsManager()
-        try manager.loadCaptions(from: testVTTFile.path)
+        try await manager.loadCaptions(from: testVTTFile.path)
 
         let captions = await manager.getAllCaptions()
 
@@ -191,7 +193,7 @@ final class CaptionsManagerTests: XCTestCase {
 
     func testGetCaptionAtTime() async throws {
         let manager = CaptionsManager()
-        try manager.loadCaptions(from: testSRTFile.path)
+        try await manager.loadCaptions(from: testSRTFile.path)
 
         // Test at start of first caption
         let caption1 = await manager.getCaption(at: 1.0)
@@ -215,7 +217,7 @@ final class CaptionsManagerTests: XCTestCase {
 
     func testGetCaptionAtBoundary() async throws {
         let manager = CaptionsManager()
-        try manager.loadCaptions(from: testSRTFile.path)
+        try await manager.loadCaptions(from: testSRTFile.path)
 
         // Test at exact start time (should be included)
         let captionAtStart = await manager.getCaption(at: 3.2)
@@ -229,7 +231,7 @@ final class CaptionsManagerTests: XCTestCase {
 
     func testGetCaptionByIndex() async throws {
         let manager = CaptionsManager()
-        try manager.loadCaptions(from: testSRTFile.path)
+        try await manager.loadCaptions(from: testSRTFile.path)
 
         let caption1 = await manager.getCaption(byIndex: 1)
         XCTAssertNotNil(caption1)
@@ -246,7 +248,7 @@ final class CaptionsManagerTests: XCTestCase {
 
     func testGetActiveCaptions() async throws {
         let manager = CaptionsManager()
-        try manager.loadCaptions(from: testSRTFile.path)
+        try await manager.loadCaptions(from: testSRTFile.path)
 
         // Test with single active caption
         let captions = await manager.getActiveCaptions(at: 1.0)
@@ -291,7 +293,7 @@ final class CaptionsManagerTests: XCTestCase {
 
     func testSetEnabled() async throws {
         let manager = CaptionsManager()
-        try manager.loadCaptions(from: testSRTFile.path)
+        try await manager.loadCaptions(from: testSRTFile.path)
 
         // Initially enabled
         XCTAssertTrue(await manager.isEnabled())
@@ -319,7 +321,7 @@ final class CaptionsManagerTests: XCTestCase {
         let manager = CaptionsManager()
 
         do {
-            try manager.loadCaptions(from: "/non/existent/path.srt")
+            try await manager.loadCaptions(from: "/non/existent/path.srt")
             XCTFail("Should have thrown an error")
         } catch let error as CaptionsManager.CaptionsError {
             switch error {
@@ -340,7 +342,7 @@ final class CaptionsManagerTests: XCTestCase {
         let manager = CaptionsManager()
 
         do {
-            try manager.loadCaptions(from: emptyFile.path)
+            try await manager.loadCaptions(from: emptyFile.path)
             XCTFail("Should have thrown an error")
         } catch let error as CaptionsManager.CaptionsError {
             switch error {
@@ -361,7 +363,7 @@ final class CaptionsManagerTests: XCTestCase {
         let manager = CaptionsManager()
 
         do {
-            try manager.loadCaptions(from: invalidFile.path)
+            try await manager.loadCaptions(from: invalidFile.path)
             XCTFail("Should have thrown an error")
         } catch let error as CaptionsManager.CaptionsError {
             switch error {
@@ -382,7 +384,7 @@ final class CaptionsManagerTests: XCTestCase {
         let manager = CaptionsManager()
 
         do {
-            try manager.loadCaptions(from: invalidFile.path)
+            try await manager.loadCaptions(from: invalidFile.path)
             XCTFail("Should have thrown an error")
         } catch let error as CaptionsManager.CaptionsError {
             switch error {
@@ -400,7 +402,7 @@ final class CaptionsManagerTests: XCTestCase {
 
     func testGetTimeRange() async throws {
         let manager = CaptionsManager()
-        try manager.loadCaptions(from: testSRTFile.path)
+        try await manager.loadCaptions(from: testSRTFile.path)
 
         let range = await manager.getTimeRange()
         XCTAssertNotNil(range)
@@ -416,7 +418,7 @@ final class CaptionsManagerTests: XCTestCase {
 
     func testClearCaptions() async throws {
         let manager = CaptionsManager()
-        try manager.loadCaptions(from: testSRTFile.path)
+        try await manager.loadCaptions(from: testSRTFile.path)
 
         XCTAssertTrue(await manager.hasCaptions())
         XCTAssertEqual(await manager.getCaptionCount(), 4)
@@ -444,7 +446,7 @@ final class CaptionsManagerTests: XCTestCase {
         try String(data: Data(contentsOf: testSRTFile), encoding: .utf8)?.write(to: noExtFile, atomically: true, encoding: .utf8)
 
         let manager = CaptionsManager()
-        try manager.loadCaptions(from: noExtFile.path)
+        try await manager.loadCaptions(from: noExtFile.path)
 
         XCTAssertTrue(await manager.hasCaptions())
         XCTAssertEqual(await manager.getCaptionCount(), 4)
@@ -456,7 +458,7 @@ final class CaptionsManagerTests: XCTestCase {
         try String(data: Data(contentsOf: testVTTFile), encoding: .utf8)?.write(to: noExtFile, atomically: true, encoding: .utf8)
 
         let manager = CaptionsManager()
-        try manager.loadCaptions(from: noExtFile.path)
+        try await manager.loadCaptions(from: noExtFile.path)
 
         XCTAssertTrue(await manager.hasCaptions())
         XCTAssertEqual(await manager.getCaptionCount(), 4)
@@ -480,7 +482,7 @@ final class CaptionsManagerTests: XCTestCase {
         try content.write(to: multiLineFile, atomically: true, encoding: .utf8)
 
         let manager = CaptionsManager()
-        try manager.loadCaptions(from: multiLineFile.path)
+        try await manager.loadCaptions(from: multiLineFile.path)
 
         let captions = await manager.getAllCaptions()
         XCTAssertEqual(captions.count, 2)
@@ -507,7 +509,7 @@ final class CaptionsManagerTests: XCTestCase {
 
     func testPerformanceCaptionQuery() async throws {
         let manager = CaptionsManager()
-        try manager.loadCaptions(from: testSRTFile.path)
+        try await manager.loadCaptions(from: testSRTFile.path)
 
         measure {
             for i in 0..<1000 {

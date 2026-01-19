@@ -19,6 +19,7 @@ import Foundation
 /// - ExportEngine: Async export jobs
 /// - TranscriptionEngine: Offline STT via Whisper.cpp
 /// - OverlayEngine: Vector overlay rendering
+/// - AIService: AI-assisted editing features
 /// - JobQueue: Job management with progress/cancellation
 /// - LoggingSystem: Centralized structured logging
 /// - CrashReporter: Crash reporting and crash log capture
@@ -53,21 +54,21 @@ public enum EngineKit {
         enableConsoleLogging: Bool = false,
         enableCrashReporting: Bool = true
     ) {
-        // Configure logging
-        logging.setMinimumLevel(logLevel)
-        logging.setConsoleLogging(enableConsoleLogging)
-        
-        // Configure crash reporting
-        crashReporter.setEnabled(enableCrashReporting)
-        
-        // Set global metadata
-        crashReporter.setGlobalMetadata([
-            "appVersion": version,
-            "build": build,
-            "platform": "macOS"
-        ])
-        
-        logging.notice(category: .general, "EngineKit v\(version) (build \(build)) initialized")
+        Task {
+            // Configure logging
+            await logging.setMinimumLevel(logLevel)
+            await logging.setConsoleLogging(enableConsoleLogging)
+
+            // Configure crash reporting
+            await crashReporter.setEnabled(enableCrashReporting)
+            await crashReporter.setGlobalMetadata([
+                "appVersion": version,
+                "build": build,
+                "platform": "macOS"
+            ])
+
+            await logging.notice(category: .general, "EngineKit v\(version) (build \(build)) initialized")
+        }
     }
 }
 

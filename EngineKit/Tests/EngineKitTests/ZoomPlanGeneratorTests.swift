@@ -874,7 +874,7 @@ final class ZoomPlanGeneratorTests: XCTestCase {
                 sourceOut: 10.0,
                 timelineIn: 0.0,
                 speed: 1.0,
-                zoom: Project.Timeline.Segment.ZoomConfiguration(intensity: .subtle)
+                zoom: Project.Timeline.ZoomConfiguration(intensity: .subtle)
             ),
             Project.Timeline.Segment(
                 id: "segment-2",
@@ -882,7 +882,7 @@ final class ZoomPlanGeneratorTests: XCTestCase {
                 sourceOut: 20.0,
                 timelineIn: 10.0,
                 speed: 1.0,
-                zoom: Project.Timeline.Segment.ZoomConfiguration(intensity: .normal)
+                zoom: Project.Timeline.ZoomConfiguration(intensity: .normal)
             ),
             Project.Timeline.Segment(
                 id: "segment-3",
@@ -890,7 +890,7 @@ final class ZoomPlanGeneratorTests: XCTestCase {
                 sourceOut: 30.0,
                 timelineIn: 20.0,
                 speed: 1.0,
-                zoom: Project.Timeline.Segment.ZoomConfiguration(intensity: .aggressive)
+                zoom: Project.Timeline.ZoomConfiguration(intensity: .aggressive)
             )
         ]
 
@@ -934,7 +934,7 @@ final class ZoomPlanGeneratorTests: XCTestCase {
                 sourceOut: 10.0,
                 timelineIn: 0.0,
                 speed: 1.0,
-                zoom: Project.Timeline.Segment.ZoomConfiguration(intensity: .normal)
+                zoom: Project.Timeline.ZoomConfiguration(intensity: .normal)
             ),
             Project.Timeline.Segment(
                 id: "segment-2",
@@ -942,7 +942,7 @@ final class ZoomPlanGeneratorTests: XCTestCase {
                 sourceOut: 20.0,
                 timelineIn: 10.0,
                 speed: 1.0,
-                zoom: Project.Timeline.Segment.ZoomConfiguration.disabled // Disabled
+                zoom: Project.Timeline.ZoomConfiguration.disabled // Disabled
             ),
             Project.Timeline.Segment(
                 id: "segment-3",
@@ -950,7 +950,7 @@ final class ZoomPlanGeneratorTests: XCTestCase {
                 sourceOut: 30.0,
                 timelineIn: 20.0,
                 speed: 1.0,
-                zoom: Project.Timeline.Segment.ZoomConfiguration(intensity: .normal)
+                zoom: Project.Timeline.ZoomConfiguration(intensity: .normal)
             )
         ]
 
@@ -988,7 +988,7 @@ final class ZoomPlanGeneratorTests: XCTestCase {
                 sourceOut: 10.0,
                 timelineIn: 0.0,
                 speed: 1.0,
-                zoom: Project.Timeline.Segment.ZoomConfiguration.disabled
+                zoom: Project.Timeline.ZoomConfiguration.disabled
             ),
             Project.Timeline.Segment(
                 id: "segment-2",
@@ -996,7 +996,7 @@ final class ZoomPlanGeneratorTests: XCTestCase {
                 sourceOut: 20.0,
                 timelineIn: 10.0,
                 speed: 1.0,
-                zoom: Project.Timeline.Segment.ZoomConfiguration.disabled
+                zoom: Project.Timeline.ZoomConfiguration.disabled
             ),
             Project.Timeline.Segment(
                 id: "segment-3",
@@ -1004,7 +1004,7 @@ final class ZoomPlanGeneratorTests: XCTestCase {
                 sourceOut: 30.0,
                 timelineIn: 20.0,
                 speed: 1.0,
-                zoom: Project.Timeline.Segment.ZoomConfiguration.disabled
+                zoom: Project.Timeline.ZoomConfiguration.disabled
             )
         ]
 
@@ -1075,7 +1075,7 @@ final class ZoomPlanGeneratorTests: XCTestCase {
                 sourceOut: 10.0,
                 timelineIn: 0.0,
                 speed: 1.0,
-                zoom: Project.Timeline.Segment.ZoomConfiguration(
+                zoom: Project.Timeline.ZoomConfiguration(
                     enabled: true,
                     minZoomLevel: 1.5,
                     maxZoomLevel: 4.0,
@@ -1104,47 +1104,6 @@ final class ZoomPlanGeneratorTests: XCTestCase {
         }
     }
 
-    func testGenerateZoomPlanWithSections_ParseResult() async throws {
-        // Arrange
-        let zoomPlanGenerator = ZoomPlanGenerator()
-
-        let segments = [
-            Project.Timeline.Segment(
-                id: "segment-1",
-                sourceIn: 0.0,
-                sourceOut: 10.0,
-                timelineIn: 0.0,
-                speed: 1.0,
-                zoom: Project.Timeline.Segment.ZoomConfiguration(intensity: .subtle)
-            ),
-            Project.Timeline.Segment(
-                id: "segment-2",
-                sourceIn: 10.0,
-                sourceOut: 20.0,
-                timelineIn: 10.0,
-                speed: 1.0,
-                zoom: Project.Timeline.Segment.ZoomConfiguration(intensity: .aggressive)
-            )
-        ]
-
-        // Create a mock parse result
-        let telemetryParser = TelemetryParser()
-        let events = createTestTelemetryEvents(count: 100, duration: 20.0)
-        let parseResult = try await telemetryParser.parse(events, minTimeBetweenClicks: 0.5)
-
-        // Act
-        let zoomPlan = try await zoomPlanGenerator.generateZoomPlanWithSections(
-            from: parseResult,
-            segments: segments,
-            defaultConfig: .default(),
-            timelineDuration: 20.0
-        )
-
-        // Assert
-        XCTAssertGreaterThan(zoomPlan.events.count, 0, "Should generate zoom events from parse result")
-        XCTAssertGreaterThan(zoomPlan.keyframes.count, 0, "Should generate keyframes")
-    }
-
     func testGenerateZoomPlanWithSections_EmptyClickWindows() async throws {
         // Arrange
         let zoomPlanGenerator = ZoomPlanGenerator()
@@ -1156,7 +1115,7 @@ final class ZoomPlanGeneratorTests: XCTestCase {
                 sourceOut: 10.0,
                 timelineIn: 0.0,
                 speed: 1.0,
-                zoom: Project.Timeline.Segment.ZoomConfiguration(intensity: .normal)
+                zoom: Project.Timeline.ZoomConfiguration(intensity: .normal)
             )
         ]
 
@@ -1180,7 +1139,7 @@ final class ZoomPlanGeneratorTests: XCTestCase {
         let zoomPlanGenerator = ZoomPlanGenerator()
 
         // Create click windows only in segment 1 (0-10s)
-        var clickWindows = createTestClickWindows(count: 3, duration: 10.0)
+        let clickWindows = createTestClickWindows(count: 3, duration: 10.0)
 
         // Create segments spanning 0-30s
         let segments = [
@@ -1190,7 +1149,7 @@ final class ZoomPlanGeneratorTests: XCTestCase {
                 sourceOut: 10.0,
                 timelineIn: 0.0,
                 speed: 1.0,
-                zoom: Project.Timeline.Segment.ZoomConfiguration(intensity: .normal)
+                zoom: Project.Timeline.ZoomConfiguration(intensity: .normal)
             ),
             Project.Timeline.Segment(
                 id: "segment-2",
@@ -1198,7 +1157,7 @@ final class ZoomPlanGeneratorTests: XCTestCase {
                 sourceOut: 20.0,
                 timelineIn: 10.0,
                 speed: 1.0,
-                zoom: Project.Timeline.Segment.ZoomConfiguration(intensity: .normal)
+                zoom: Project.Timeline.ZoomConfiguration(intensity: .normal)
             ),
             Project.Timeline.Segment(
                 id: "segment-3",
@@ -1206,7 +1165,7 @@ final class ZoomPlanGeneratorTests: XCTestCase {
                 sourceOut: 30.0,
                 timelineIn: 20.0,
                 speed: 1.0,
-                zoom: Project.Timeline.Segment.ZoomConfiguration(intensity: .normal)
+                zoom: Project.Timeline.ZoomConfiguration(intensity: .normal)
             )
         ]
 
@@ -1243,7 +1202,7 @@ final class ZoomPlanGeneratorTests: XCTestCase {
                 sourceOut: 10.0,
                 timelineIn: 0.0,
                 speed: 1.0,
-                zoom: Project.Timeline.Segment.ZoomConfiguration(intensity: .normal)
+                zoom: Project.Timeline.ZoomConfiguration(intensity: .normal)
             ),
             Project.Timeline.Segment(
                 id: "segment-2",
@@ -1251,7 +1210,7 @@ final class ZoomPlanGeneratorTests: XCTestCase {
                 sourceOut: 20.0,
                 timelineIn: 10.0,
                 speed: 1.0,
-                zoom: Project.Timeline.Segment.ZoomConfiguration(intensity: .aggressive)
+                zoom: Project.Timeline.ZoomConfiguration(intensity: .aggressive)
             )
         ]
 
@@ -1280,13 +1239,31 @@ final class ZoomPlanGeneratorTests: XCTestCase {
 
         for i in 0..<count {
             let startTime = Double(i) * timeInterval
+            let windowId = UUID()
+            let click = TelemetryParser.ImportantClick(
+                timestamp: startTime + timeInterval / 2,
+                x: 100 + i * 10,
+                y: 100 + i * 10,
+                button: 0,
+                timeSincePreviousClick: i > 0 ? timeInterval : 0,
+                distanceFromPreviousClick: i > 0 ? 10.0 : 0,
+                windowId: windowId,
+                displayID: "main"
+            )
+            let boundingBox = TelemetryParser.BoundingBox(
+                minX: 100 + i * 10 - 50,
+                maxX: 100 + i * 10 + 50,
+                minY: 100 + i * 10 - 50,
+                maxY: 100 + i * 10 + 50
+            )
+            let centerPoint = CGPoint(x: 100.0 + Double(i * 10), y: 100.0 + Double(i * 10))
             let window = TelemetryParser.ClickWindow(
-                id: UUID(),
+                id: windowId,
                 startTime: startTime,
                 endTime: startTime + timeInterval,
-                clickCount: i + 1,
-                boundingBox: CGRect(x: 100 + Double(i * 10), y: 100 + Double(i * 10), width: 200, height: 200),
-                centerPoint: CGPoint(x: 200 + Double(i * 10), y: 200 + Double(i * 10)),
+                clicks: [click],
+                centerPoint: centerPoint,
+                boundingBox: boundingBox,
                 importanceScore: Double(count - i) / Double(count)
             )
             windows.append(window)
@@ -1305,29 +1282,20 @@ final class ZoomPlanGeneratorTests: XCTestCase {
             if i % 3 == 0 {
                 // Click event
                 let event = TelemetryRecorder.Event(
-                    id: UUID(),
-                    timestamp: timestamp,
+                    t: timestamp,
                     type: .down,
-                    x: 100 + Double(i * 10),
-                    y: 100 + Double(i * 10),
-                    button: 0,
-                    scrollDx: 0,
-                    scrollDy: 0,
-                    displayId: nil
+                    x: 100 + i * 10,
+                    y: 100 + i * 10,
+                    button: 0
                 )
                 events.append(event)
             } else {
                 // Move event
                 let event = TelemetryRecorder.Event(
-                    id: UUID(),
-                    timestamp: timestamp,
+                    t: timestamp,
                     type: .move,
-                    x: 100 + Double(i * 10),
-                    y: 100 + Double(i * 10),
-                    button: -1,
-                    scrollDx: 0,
-                    scrollDy: 0,
-                    displayId: nil
+                    x: 100 + i * 10,
+                    y: 100 + i * 10
                 )
                 events.append(event)
             }

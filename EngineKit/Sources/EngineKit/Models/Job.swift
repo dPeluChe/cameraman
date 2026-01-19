@@ -29,6 +29,8 @@ public struct Job: Codable, Equatable, Identifiable {
         case export
         case transcribe
         case proxyGeneration
+        case aiSuggestion
+        case aiGeneration
     }
 
     /// Job status with progress

@@ -47,6 +47,7 @@ public actor LoggingSystem {
         case telemetry = "Telemetry"
         case overlay = "Overlay"
         case editor = "Editor"
+        case ai = "AI"
         case jobQueue = "JobQueue"
         case crashReporter = "CrashReporter"
         case ui = "UI"
@@ -60,7 +61,21 @@ public actor LoggingSystem {
         public let category: Category
         public let message: String
         public let metadata: [String: String]?
-        
+
+        public init(
+            timestamp: Date,
+            level: Level,
+            category: Category,
+            message: String,
+            metadata: [String: String]? = nil
+        ) {
+            self.timestamp = timestamp
+            self.level = level
+            self.category = category
+            self.message = message
+            self.metadata = metadata
+        }
+
         enum CodingKeys: String, CodingKey {
             case timestamp
             case level
@@ -68,7 +83,7 @@ public actor LoggingSystem {
             case message
             case metadata
         }
-        
+
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             timestamp = try container.decode(Date.self, forKey: .timestamp)
@@ -79,7 +94,7 @@ public actor LoggingSystem {
             message = try container.decode(String.self, forKey: .message)
             metadata = try container.decodeIfPresent([String: String].self, forKey: .metadata)
         }
-        
+
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(timestamp, forKey: .timestamp)
@@ -139,25 +154,33 @@ public actor LoggingSystem {
     /// Set the minimum log level
     public func setMinimumLevel(_ level: Level) {
         minimumLevel = level
-        log(level: .notice, category: .general, "Minimum log level set to \(level)")
+        Task {
+            log(level: .notice, category: .general, "Minimum log level set to \(level)")
+        }
     }
-    
+
     /// Enable or disable console logging
     public func setConsoleLogging(_ enabled: Bool) {
         logToConsole = enabled
-        log(level: .notice, category: .general, "Console logging \(enabled ? "enabled" : "disabled")")
+        Task {
+            log(level: .notice, category: .general, "Console logging \(enabled ? "enabled" : "disabled")")
+        }
     }
-    
+
     /// Enable or disable source info (file, line, function) in logs
     public func setSourceInfo(_ enabled: Bool) {
         includeSourceInfo = enabled
-        log(level: .notice, category: .general, "Source info \(enabled ? "enabled" : "disabled")")
+        Task {
+            log(level: .notice, category: .general, "Source info \(enabled ? "enabled" : "disabled")")
+        }
     }
-    
+
     /// Clear the log buffer
     public func clearBuffer() {
         logBuffer.removeAll()
-        log(level: .debug, category: .general, "Log buffer cleared")
+        Task {
+            log(level: .debug, category: .general, "Log buffer cleared")
+        }
     }
     
     // MARK: - Logging API
@@ -190,11 +213,11 @@ public actor LoggingSystem {
         var formattedMessage = message
         if includeSourceInfo {
             let filename = URL(fileURLWithPath: file).lastPathComponent
-            formattedMessage = "[\(filename):\(line) \(function())] \(message)"
+            formattedMessage = "[\(filename):\(line) \(function)] \(message)"
         }
         
         // Log to OSLog
-        logger.log(level.osLogType, "\(formattedMessage)")
+        logger.log(level: level.osLogType, "\(formattedMessage)")
         
         // Log to console if enabled
         if logToConsole {
@@ -322,8 +345,9 @@ public actor LoggingSystem {
         
         let data = try encoder.encode(logBuffer)
         try data.write(to: fileURL)
-        
-        info(category: .general, "Exported \(logBuffer.count) log entries to \(fileURL.path)")
+
+        // Note: Can't call async function here in sync context
+        // Use global LogNotice function instead if needed
     }
     
     // MARK: - Signpost API
@@ -334,40 +358,28 @@ public actor LoggingSystem {
     ///   - id: Unique identifier
     ///   - message: Optional message
     public func beginSignpost(name: String, id: String, message: String? = nil) {
-        let signpostID = OSSignpostID(log: signpostLog)
-        if let message = message {
-            os_signpost(.begin, log: signpostLog, name: name, signpostID: signpostID, "%{public}@[%{public}@]", message, id)
-        } else {
-            os_signpost(.begin, log: signpostLog, name: name, signpostID: signpostID, "%{public}@", id)
-        }
+        // NOTE: Signposts disabled due to StaticString requirement
+        // TODO: Re-implement with proper StaticString support
     }
-    
+
     /// End a signpost interval
     /// - Parameters:
     ///   - name: Signpost name
     ///   - id: Unique identifier
     ///   - message: Optional message
     public func endSignpost(name: String, id: String, message: String? = nil) {
-        let signpostID = OSSignpostID(log: signpostLog)
-        if let message = message {
-            os_signpost(.end, log: signpostLog, name: name, signpostID: signpostID, "%{public}@[%{public}@]", message, id)
-        } else {
-            os_signpost(.end, log: signpostLog, name: name, signpostID: signpostID, "%{public}@", id)
-        }
+        // NOTE: Signposts disabled due to StaticString requirement
+        // TODO: Re-implement with proper StaticString support
     }
-    
+
     /// Emit a signpost event (instantaneous)
     /// - Parameters:
     ///   - name: Signpost name
     ///   - id: Unique identifier
     ///   - message: Optional message
     public func emitSignpost(name: String, id: String, message: String? = nil) {
-        let signpostID = OSSignpostID(log: signpostLog)
-        if let message = message {
-            os_signpost(.event, log: signpostLog, name: name, signpostID: signpostID, "%{public}@[%{public}@]", message, id)
-        } else {
-            os_signpost(.event, log: signpostLog, name: name, signpostID: signpostID, "%{public}@", id)
-        }
+        // NOTE: Signposts disabled due to StaticString requirement
+        // TODO: Re-implement with proper StaticString support
     }
 }
 
@@ -377,7 +389,7 @@ extension LoggingSystem.Category: CaseIterable {
     public static var allCases: [LoggingSystem.Category] = [
         .general, .capture, .export, .preview, .projectStore,
         .projectLibrary, .transcription, .telemetry, .overlay,
-        .editor, .jobQueue, .crashReporter, .ui, .performance
+        .editor, .ai, .jobQueue, .crashReporter, .ui, .performance
     ]
 }
 

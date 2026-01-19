@@ -377,7 +377,7 @@ public actor CrashReporter {
         }
         
         logger.log(
-            osLogType,
+            level: osLogType,
             "Crash Report: Type=\(report.crashType.rawValue), Reason=\(report.reason), App Version=\(report.appVersion), OS Version=\(report.osVersion), Device=\(report.deviceModel), Metadata=\(report.metadata)"
         )
         
