@@ -20,7 +20,7 @@ Este backlog está organizado por épicas y por orden recomendado.
 ## Épica B — Recording Studio (Screen + Audio + Camera)
 - [x] (P0) Selector de fuente: list displays, list windows, list apps
 - [x] (P0) Permisos y "health checks": screen recording permission, mic permission, camera permission
-- [ ] (P0) `CaptureEngine`: stream de video pantalla (resolución nativa, 60fps), system audio vía `SCStreamConfiguration.capturesAudio` (macOS 13+), timestamps consistentes (sync reference)
+- [x] (P0) `CaptureEngine`: stream de video pantalla (resolución nativa, 60fps), system audio vía `SCStreamConfiguration.capturesAudio` (macOS 13+), timestamps consistentes (sync reference)
 - [ ] (P0) `CameraEngine`: captura cámara como pista separada (720p/1080p @ 30fps), sync offset configurable respecto a screen
 - [ ] (P0) `Recorder`: escribir `screen.mov` (resolución nativa), escribir `camera.mov`, escribir `system_audio.m4a` y `mic_audio.m4a`, registrar sync offsets en metadata
 - [ ] (P0) Hotkeys start/stop/pause + UI mínima

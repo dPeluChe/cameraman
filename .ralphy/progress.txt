@@ -93,3 +93,90 @@
 - All permission checks are async and thread-safe (actor-based)
 - Compatible with macOS 13+ (ScreenCaptureKit requirement)
 
+
+---
+
+## 2026-01-19
+
+### Completed: CaptureEngine Implementation (Épica B, Task 3)
+
+**Task:** (P0) `CaptureEngine`: stream de video pantalla (resolución nativa, 60fps), system audio vía `SCStreamConfiguration.capturesAudio` (macOS 13+), timestamps consistentes (sync reference)
+
+**Implementation:**
+- Created `CaptureEngine.swift` with comprehensive screen capture functionality:
+  - `CaptureConfiguration`: Configuration struct supporting display, window, and application capture sources
+  - `startRecording()`: Initiates recording session with specified configuration
+  - `stopRecording()`: Stops recording and returns RecordingResult with file paths
+  - `pauseRecording()` / `resumeRecording()`: Session control methods (pause/resume functionality)
+  - `RecordingSession`: Manages active recording state with duration tracking
+  - `RecordingResult`: Contains paths to recorded files and metadata
+- Implemented ScreenCaptureKit integration for:
+  - Display capture (full screen at native resolution)
+  - Window capture (specific windows)
+  - Application capture (all windows of an application)
+  - System audio capture via `SCStreamConfiguration.capturesAudio`
+- Created AVAssetWriter integration for:
+  - Video recording in H.264 codec at native resolution
+  - Audio recording in AAC format for system audio
+  - Configurable frame rates (24, 30, 60, 120 fps supported)
+  - Configurable pixel formats (32BGRA default)
+- Implemented proper error handling with descriptive error messages
+- Created data models: `CaptureConfiguration`, `RecordingSession`, `RecordingResult`, `CaptureError`
+
+**Features:**
+- Native resolution capture (Retina/4K support)
+- Configurable frame rate (default 60fps for smooth motion)
+- System audio capture via ScreenCaptureKit (no external drivers needed)
+- Timestamp consistency for multi-track synchronization
+- Duration tracking with real-time updates
+- Permission validation before recording starts
+- Concurrent recording prevention (only one session at a time)
+- Graceful error handling and recovery
+
+**Technical Implementation:**
+- Uses ScreenCaptureKit's SCStream for capture
+- SCStreamConfiguration for capture settings (width, height, frame rate, audio)
+- SCContentFilter for source selection (display/window/application)
+- AVAssetWriter for file output with H.264 video codec
+- Async/await pattern for all operations
+- Actor-based thread safety
+- Compatible with macOS 13+ (ScreenCaptureKit requirement)
+
+**Testing:**
+- Created comprehensive test suite in `CaptureEngineTests.swift` with 30+ tests
+- Tests cover:
+  - Configuration creation for different source types (display, window, application)
+  - Recording session lifecycle (start, stop, pause, resume)
+  - Error handling scenarios (permission denied, invalid configuration, concurrent recordings)
+  - Different frame rates and resolutions
+  - Different pixel formats
+  - RecordingResult validation
+  - Performance tests for configuration and session creation
+  - Edge cases (zero duration, very long duration, without system audio)
+- All tests compile successfully
+- Tests handle permission-denied scenarios gracefully for CI environments
+
+**Files Modified/Created:**
+- `EngineKit/Sources/EngineKit/Capture/CaptureEngine.swift` (new, 540+ lines)
+- `EngineKit/Tests/EngineKitTests/CaptureEngineTests.swift` (new, 500+ lines)
+- `tasks.md` (marked task as complete)
+- `.ralphy/progress.txt` (this entry)
+
+**Notes:**
+- System audio capture uses ScreenCaptureKit's native audio capture (macOS 13+)
+- No need for external audio drivers (BlackHole, Loopback, etc.)
+- Video is recorded at native display resolution for maximum quality
+- H.264 codec provides good compression/quality balance
+- Frame rate defaults to 60fps for smooth motion capture
+- Pixel format defaults to 32BGRA for compatibility
+- CaptureEngine is actor-based for thread safety
+- Recording sessions can be tracked and managed independently
+- Duration tracking runs in background with 0.1s updates
+- Error messages provide clear guidance for common issues
+
+**Next Steps:**
+- CameraEngine implementation (separate camera track)
+- Recorder implementation (coordinate multiple tracks)
+- Telemetry recorder (cursor/clicks/keys)
+
+
