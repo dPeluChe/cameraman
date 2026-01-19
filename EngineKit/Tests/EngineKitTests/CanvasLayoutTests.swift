@@ -330,12 +330,12 @@ final class CanvasLayoutTests: XCTestCase {
     }
 
     func testValidateBackgroundSolidValid() {
-        let background = Project.Canvas.Background(type: "solid", value: "#0B0B0D")
+        let background = Project.Canvas.Background(type: "solid", value: "#0B0B0D", fitMode: nil)
         XCTAssertNoThrow(try CanvasLayout.validateBackground(background))
     }
 
     func testValidateBackgroundSolidInvalidHex() {
-        let background = Project.Canvas.Background(type: "solid", value: "invalid-color")
+        let background = Project.Canvas.Background(type: "solid", value: "invalid-color", fitMode: nil)
         XCTAssertThrowsError(try CanvasLayout.validateBackground(background)) { error in
             if case .invalidBackgroundValue(let reason) = error as? CanvasLayout.LayoutError {
                 XCTAssertTrue(reason.contains("Invalid hex color format"))
@@ -346,12 +346,12 @@ final class CanvasLayoutTests: XCTestCase {
     }
 
     func testValidateBackgroundBlurValid() {
-        let background = Project.Canvas.Background(type: "blur", value: "10")
+        let background = Project.Canvas.Background(type: "blur", value: "10", fitMode: nil)
         XCTAssertNoThrow(try CanvasLayout.validateBackground(background))
     }
 
     func testValidateBackgroundBlurOutOfRange() {
-        let background = Project.Canvas.Background(type: "blur", value: "150") // > 100
+        let background = Project.Canvas.Background(type: "blur", value: "150", fitMode: nil) // > 100
         XCTAssertThrowsError(try CanvasLayout.validateBackground(background)) { error in
             if case .invalidBackgroundValue(let reason) = error as? CanvasLayout.LayoutError {
                 XCTAssertTrue(reason.contains("Blur radius must be between 0 and 100"))
@@ -362,7 +362,7 @@ final class CanvasLayoutTests: XCTestCase {
     }
 
     func testValidateBackgroundInvalidType() {
-        let background = Project.Canvas.Background(type: "invalid-type", value: "something")
+        let background = Project.Canvas.Background(type: "invalid-type", value: "something", fitMode: nil)
         XCTAssertThrowsError(try CanvasLayout.validateBackground(background)) { error in
             if case .invalidBackgroundValue(let value) = error as? CanvasLayout.LayoutError {
                 XCTAssertEqual(value, "invalid-type")
@@ -605,7 +605,7 @@ final class CanvasLayoutTests: XCTestCase {
             )
         )
 
-        let background = Project.Canvas.Background(type: "solid", value: "#0B0B0D")
+        let background = Project.Canvas.Background(type: "solid", value: "#0B0B0D", fitMode: nil)
         let format = Project.Canvas.Format(aspect: "16:9", w: 1920, h: 1080)
 
         measure {
@@ -615,5 +615,318 @@ final class CanvasLayoutTests: XCTestCase {
                 try? CanvasLayout.validateFormat(format)
             }
         }
+    }
+
+    // MARK: - Image Fit Mode Tests
+
+    func testImageFitModeDisplayNames() {
+        XCTAssertEqual(CanvasLayout.ImageFitMode.fit.displayName, "Fit (Contain)")
+        XCTAssertEqual(CanvasLayout.ImageFitMode.fill.displayName, "Fill (Cover)")
+    }
+
+    func testImageFitModeDescriptions() {
+        XCTAssertFalse(CanvasLayout.ImageFitMode.fit.description.isEmpty)
+        XCTAssertFalse(CanvasLayout.ImageFitMode.fill.description.isEmpty)
+    }
+
+    func testImageFitModeRawValues() {
+        XCTAssertEqual(CanvasLayout.ImageFitMode.fit.rawValue, "fit")
+        XCTAssertEqual(CanvasLayout.ImageFitMode.fill.rawValue, "fill")
+    }
+
+    // MARK: - Background Creation Tests
+
+    func testCreateSolidBackground() {
+        let background = CanvasLayout.createSolidBackground(hexColor: "#FF0000")
+        XCTAssertEqual(background.type, "solid")
+        XCTAssertEqual(background.value, "#FF0000")
+        XCTAssertNil(background.fitMode)
+    }
+
+    func testCreateImageBackgroundWithFit() {
+        let background = CanvasLayout.createImageBackground(
+            imagePath: "/path/to/image.jpg",
+            fitMode: .fit
+        )
+        XCTAssertEqual(background.type, "image")
+        XCTAssertEqual(background.value, "/path/to/image.jpg")
+        XCTAssertEqual(background.fitMode, "fit")
+    }
+
+    func testCreateImageBackgroundWithFill() {
+        let background = CanvasLayout.createImageBackground(
+            imagePath: "/path/to/image.jpg",
+            fitMode: .fill
+        )
+        XCTAssertEqual(background.type, "image")
+        XCTAssertEqual(background.value, "/path/to/image.jpg")
+        XCTAssertEqual(background.fitMode, "fill")
+    }
+
+    func testCreateImageBackgroundDefaultFitMode() {
+        let background = CanvasLayout.createImageBackground(imagePath: "/path/to/image.jpg")
+        XCTAssertEqual(background.type, "image")
+        XCTAssertEqual(background.value, "/path/to/image.jpg")
+        XCTAssertEqual(background.fitMode, "fill") // Default is fill
+    }
+
+    func testCreateBlurBackground() {
+        let background = CanvasLayout.createBlurBackground(radius: 15)
+        XCTAssertEqual(background.type, "blur")
+        XCTAssertEqual(background.value, "15")
+        XCTAssertNil(background.fitMode)
+    }
+
+    func testCreateBlurBackgroundDefaultRadius() {
+        let background = CanvasLayout.createBlurBackground()
+        XCTAssertEqual(background.type, "blur")
+        XCTAssertEqual(background.value, "10")
+        XCTAssertNil(background.fitMode)
+    }
+
+    // MARK: - Background Validation Tests
+
+    func testValidateSolidBackgroundValidHex() throws {
+        let background = CanvasLayout.createSolidBackground(hexColor: "#FF0000")
+        try CanvasLayout.validateBackground(background)
+        // Should not throw
+    }
+
+    func testValidateSolidBackgroundValidHexWithAlpha() throws {
+        let background = CanvasLayout.createSolidBackground(hexColor: "#FF000080")
+        try CanvasLayout.validateBackground(background)
+        // Should not throw
+    }
+
+    func testValidateSolidBackgroundInvalidHex() {
+        let background = CanvasLayout.createSolidBackground(hexColor: "FF0000")
+        XCTAssertThrowsError(try CanvasLayout.validateBackground(background)) { error in
+            XCTAssertEqual(
+                error as? CanvasLayout.LayoutError,
+                .invalidBackgroundValue("Invalid hex color format: FF0000. Expected #RRGGBB or #RRGGBBAA")
+            )
+        }
+    }
+
+    func testValidateSolidBackgroundInvalidHexLength() {
+        let background = CanvasLayout.createSolidBackground(hexColor: "#FFF")
+        XCTAssertThrowsError(try CanvasLayout.validateBackground(background)) { error in
+            XCTAssertEqual(
+                error as? CanvasLayout.LayoutError,
+                .invalidBackgroundValue("Invalid hex color format: #FFF. Expected #RRGGBB or #RRGGBBAA")
+            )
+        }
+    }
+
+    func testValidateImageBackgroundValidFitMode() throws {
+        let background = CanvasLayout.createImageBackground(
+            imagePath: "/path/to/image.jpg",
+            fitMode: .fit
+        )
+        try CanvasLayout.validateBackground(background)
+        // Should not throw
+    }
+
+    func testValidateImageBackgroundInvalidFitMode() {
+        let background = Project.Canvas.Background(
+            type: "image",
+            value: "/path/to/image.jpg",
+            fitMode: "stretch"
+        )
+        XCTAssertThrowsError(try CanvasLayout.validateBackground(background)) { error in
+            XCTAssertEqual(
+                error as? CanvasLayout.LayoutError,
+                .invalidBackgroundValue("Invalid fit mode: stretch. Expected 'fit' or 'fill'")
+            )
+        }
+    }
+
+    func testValidateImageBackgroundEmptyPath() throws {
+        let background = CanvasLayout.createImageBackground(imagePath: "")
+        try CanvasLayout.validateBackground(background)
+        // Should not throw - empty path is allowed
+    }
+
+    func testValidateBlurBackgroundValidRadius() throws {
+        let background = CanvasLayout.createBlurBackground(radius: 10)
+        try CanvasLayout.validateBackground(background)
+        // Should not throw
+    }
+
+    func testValidateBlurBackgroundInvalidRadiusNegative() {
+        let background = CanvasLayout.createBlurBackground(radius: -5)
+        XCTAssertThrowsError(try CanvasLayout.validateBackground(background)) { error in
+            XCTAssertEqual(
+                error as? CanvasLayout.LayoutError,
+                .invalidBackgroundValue("Blur radius must be between 0 and 100, got -5.0")
+            )
+        }
+    }
+
+    func testValidateBlurBackgroundInvalidRadiusTooLarge() {
+        let background = CanvasLayout.createBlurBackground(radius: 150)
+        XCTAssertThrowsError(try CanvasLayout.validateBackground(background)) { error in
+            XCTAssertEqual(
+                error as? CanvasLayout.LayoutError,
+                .invalidBackgroundValue("Blur radius must be between 0 and 100, got 150.0")
+            )
+        }
+    }
+
+    func testValidateBackgroundInvalidType() {
+        let background = Project.Canvas.Background(
+            type: "gradient",
+            value: "some-value",
+            fitMode: nil
+        )
+        XCTAssertThrowsError(try CanvasLayout.validateBackground(background)) { error in
+            XCTAssertEqual(
+                error as? CanvasLayout.LayoutError,
+                .invalidBackgroundValue("gradient")
+            )
+        }
+    }
+
+    // MARK: - Image Frame Calculation Tests
+
+    func testCalculateImageFrameFitWiderImage() {
+        let imageSize = CGSize(width: 2000, height: 1000) // 2:1 aspect ratio
+        let canvasSize = CGSize(width: 1920, height: 1080) // 16:9 aspect ratio
+        let frame = CanvasLayout.calculateImageFrame(
+            imageSize: imageSize,
+            canvasSize: canvasSize,
+            fitMode: .fit
+        )
+
+        // Image should fit to width, with letterboxing on top/bottom
+        XCTAssertEqual(frame.width, 1920)
+        XCTAssertEqual(frame.height, 960) // 1920 / 2
+        XCTAssertEqual(frame.x, 0)
+        XCTAssertEqual(frame.y, 60) // (1080 - 960) / 2
+    }
+
+    func testCalculateImageFrameFitTallerImage() {
+        let imageSize = CGSize(width: 1000, height: 2000) // 1:2 aspect ratio
+        let canvasSize = CGSize(width: 1920, height: 1080) // 16:9 aspect ratio
+        let frame = CanvasLayout.calculateImageFrame(
+            imageSize: imageSize,
+            canvasSize: canvasSize,
+            fitMode: .fit
+        )
+
+        // Image should fit to height, with letterboxing on sides
+        XCTAssertEqual(frame.height, 1080)
+        XCTAssertEqual(frame.width, 540) // 1080 / 2
+        XCTAssertEqual(frame.x, 690) // (1920 - 540) / 2
+        XCTAssertEqual(frame.y, 0)
+    }
+
+    func testCalculateImageFrameFillWiderImage() {
+        let imageSize = CGSize(width: 2000, height: 1000) // 2:1 aspect ratio
+        let canvasSize = CGSize(width: 1920, height: 1080) // 16:9 aspect ratio
+        let frame = CanvasLayout.calculateImageFrame(
+            imageSize: imageSize,
+            canvasSize: canvasSize,
+            fitMode: .fill
+        )
+
+        // Image should fill height, cropping left/right
+        XCTAssertEqual(frame.height, 1080)
+        XCTAssertEqual(frame.width, 2160) // 1080 * 2
+        XCTAssertEqual(frame.x, -120) // (1920 - 2160) / 2
+        XCTAssertEqual(frame.y, 0)
+    }
+
+    func testCalculateImageFrameFillTallerImage() {
+        let imageSize = CGSize(width: 1000, height: 2000) // 1:2 aspect ratio
+        let canvasSize = CGSize(width: 1920, height: 1080) // 16:9 aspect ratio
+        let frame = CanvasLayout.calculateImageFrame(
+            imageSize: imageSize,
+            canvasSize: canvasSize,
+            fitMode: .fill
+        )
+
+        // Image should fill width, cropping top/bottom
+        XCTAssertEqual(frame.width, 1920)
+        XCTAssertEqual(frame.height, 3840) // 1920 * 2
+        XCTAssertEqual(frame.x, 0)
+        XCTAssertEqual(frame.y, -1380) // (1080 - 3840) / 2
+    }
+
+    func testCalculateImageFramePerfectMatch() {
+        let imageSize = CGSize(width: 1920, height: 1080) // 16:9 aspect ratio
+        let canvasSize = CGSize(width: 1920, height: 1080) // 16:9 aspect ratio
+        let frame = CanvasLayout.calculateImageFrame(
+            imageSize: imageSize,
+            canvasSize: canvasSize,
+            fitMode: .fit
+        )
+
+        XCTAssertEqual(frame.width, 1920)
+        XCTAssertEqual(frame.height, 1080)
+        XCTAssertEqual(frame.x, 0)
+        XCTAssertEqual(frame.y, 0)
+    }
+
+    // MARK: - Hex Color Parsing Tests
+
+    func testParseHexColorValidRGB() {
+        let color = CanvasLayout.parseHexColor("#FF0000")
+        XCTAssertNotNil(color)
+        XCTAssertEqual(color?.r, 255)
+        XCTAssertEqual(color?.g, 0)
+        XCTAssertEqual(color?.b, 0)
+        XCTAssertEqual(color?.a, 255) // Default alpha
+    }
+
+    func testParseHexColorValidRGBA() {
+        let color = CanvasLayout.parseHexColor("#FF000080")
+        XCTAssertNotNil(color)
+        XCTAssertEqual(color?.r, 255)
+        XCTAssertEqual(color?.g, 0)
+        XCTAssertEqual(color?.b, 0)
+        XCTAssertEqual(color?.a, 128) // 0x80 = 128
+    }
+
+    func testParseHexColorWithoutHash() {
+        let color = CanvasLayout.parseHexColor("FF0000")
+        XCTAssertNotNil(color)
+        XCTAssertEqual(color?.r, 255)
+        XCTAssertEqual(color?.g, 0)
+        XCTAssertEqual(color?.b, 0)
+        XCTAssertEqual(color?.a, 255)
+    }
+
+    func testParseHexColorLowerCase() {
+        let color = CanvasLayout.parseHexColor("#ff0000")
+        XCTAssertNotNil(color)
+        XCTAssertEqual(color?.r, 255)
+        XCTAssertEqual(color?.g, 0)
+        XCTAssertEqual(color?.b, 0)
+        XCTAssertEqual(color?.a, 255)
+    }
+
+    func testParseHexColorMixedCase() {
+        let color = CanvasLayout.parseHexColor("#Ff00Aa")
+        XCTAssertNotNil(color)
+        XCTAssertEqual(color?.r, 255)
+        XCTAssertEqual(color?.g, 0)
+        XCTAssertEqual(color?.b, 170)
+        XCTAssertEqual(color?.a, 255)
+    }
+
+    func testParseHexColorInvalidLength() {
+        let color = CanvasLayout.parseHexColor("#FFF")
+        XCTAssertNil(color)
+    }
+
+    func testParseHexColorInvalidCharacters() {
+        let color = CanvasLayout.parseHexColor("#GGGGGG")
+        XCTAssertNil(color)
+    }
+
+    func testParseHexColorEmptyString() {
+        let color = CanvasLayout.parseHexColor("")
+        XCTAssertNil(color)
     }
 }

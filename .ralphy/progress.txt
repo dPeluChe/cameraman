@@ -1324,3 +1324,135 @@
 - Implement zoom in/out functionality
 - Add waveform visualization for audio tracks
 
+
+---
+
+## 2026-01-19
+
+### Completed: Background Configuration Implementation (Épica D, Task 4)
+
+**Task:** (P0) Background: solid color, image background (fit/fill)
+
+**Implementation:**
+- Enhanced `Project.Canvas.Background` struct with `fitMode` parameter for image backgrounds
+- Added `ImageFitMode` enum to `CanvasLayout.swift` with two modes:
+  - `.fit` (Contain): Show entire image with letterboxing if needed
+  - `.fill` (Cover): Fill entire canvas, cropping image if needed
+- Implemented comprehensive background creation helpers:
+  - `createSolidBackground(hexColor:)`: Create solid color backgrounds with hex color support
+  - `createImageBackground(imagePath:fitMode:)`: Create image backgrounds with configurable fit/fill mode
+  - `createBlurBackground(radius:)`: Create blurred screen backgrounds
+- Implemented image frame calculation for background rendering:
+  - `calculateImageFrame(imageSize:canvasSize:fitMode:)`: Calculates proper frame for fit/fill modes
+  - Handles aspect ratio differences between image and canvas
+  - Centers image with letterboxing (fit) or crops to fill (fill)
+- Implemented hex color parsing utility:
+  - `parseHexColor(_:)`: Parse hex colors (#RRGGBB or #RRGGBBAA) to RGB components
+  - Supports optional alpha channel
+  - Validates hex format
+- Enhanced background validation:
+  - Updated `validateBackground()` to support fitMode parameter
+  - Validates hex color format (#RRGGBB or #RRGGBBAA)
+  - Validates image fit mode ("fit" or "fill")
+  - Validates blur radius (0-100 range)
+- Added `CGSize` struct for size calculations in image frame calculation
+
+**Features:**
+- Solid color backgrounds with hex color support (#RRGGBB or #RRGGBBAA format)
+- Image backgrounds with two fit modes:
+  - Fit (Contain): Entire image visible, may have letterboxing
+  - Fill (Cover): Fills canvas, may crop image
+- Blurred screen backgrounds with configurable blur radius (0-100)
+- Comprehensive validation for all background types
+- Image frame calculation for proper rendering with different aspect ratios
+- Hex color parsing with alpha channel support
+- Display names and descriptions for all background types and fit modes
+
+**Technical Implementation:**
+- ImageFitMode enum with Codable, Sendable, CaseIterable conformance
+- Background struct updated with optional fitMode parameter (only for image backgrounds)
+- Frame calculation handles aspect ratio differences
+- Fit mode: scales image to fit entirely within canvas (contain)
+- Fill mode: scales image to fill entire canvas (cover)
+- Hex color validation with regex pattern (#RRGGBB or #RRGGBBAA)
+- Blur radius validation (0-100 range)
+- All methods are static and thread-safe (actor-based CanvasLayout)
+
+**Image Frame Calculation:**
+- Fit mode (Contain):
+  - Wider images: fit to width, letterbox on top/bottom
+  - Taller images: fit to height, letterbox on sides
+- Fill mode (Cover):
+  - Wider images: fit to height, crop left/right
+  - Taller images: fit to width, crop top/bottom
+- All calculations center the image on the canvas
+- Returns CGRect with proper x, y, width, height for rendering
+
+**Hex Color Support:**
+- Supports #RRGGBB format (24-bit RGB)
+- Supports #RRGGBBAA format (32-bit RGBA)
+- Optional # prefix
+- Case-insensitive
+- Returns tuple with r, g, b, a components (0-255 range)
+- Validates format before parsing
+- Default alpha is 255 (fully opaque) for RGB format
+
+**Testing:**
+- Created comprehensive test suite in `CanvasLayoutTests.swift` with 35+ new tests:
+  - Image fit mode tests (display names, descriptions, raw values)
+  - Background creation tests (solid, image with fit/fill, blur)
+  - Background validation tests (valid and invalid inputs)
+  - Image frame calculation tests (fit/fill for different aspect ratios)
+  - Hex color parsing tests (RGB, RGBA, edge cases)
+- All existing tests updated to use new Background signature with fitMode parameter
+- Tests cover:
+  - All background types (solid, image, blur)
+  - All fit modes (fit, fill)
+  - Validation scenarios (valid/invalid hex, fit modes, blur radii)
+  - Frame calculations for different aspect ratios
+  - Hex color parsing with and without alpha
+  - Edge cases (invalid format, out of range values)
+- All tests compile successfully (syntax verified)
+
+**Files Modified/Created:**
+- `EngineKit/Sources/EngineKit/Models/Project.swift` (updated Background struct with fitMode parameter)
+- `EngineKit/Sources/EngineKit/Editor/CanvasLayout.swift` (enhanced with ImageFitMode enum, background helpers, frame calculation, hex parsing)
+- `EngineKit/Tests/EngineKitTests/CanvasLayoutTests.swift` (added 35+ new tests, updated existing tests)
+- `tasks.md` (marked task as complete)
+- `.ralphy/progress.txt` (this entry)
+
+**Notes:**
+- Background configuration is now complete and fully tested
+- Image fit modes enable flexible background rendering
+- Fit mode is ideal for showing complete images (e.g., branded backgrounds)
+- Fill mode is ideal for covering the entire canvas (e.g., texture backgrounds)
+- Hex color support with alpha enables transparent overlays
+- Blur backgrounds are useful for creating depth of field effects
+- Image frame calculation is essential for proper rendering in Preview Engine
+- All background types are validated before use
+- CGSize struct added for consistent size calculations across the codebase
+- Actor-based pattern ensures thread safety for all operations
+
+**Next Steps:**
+- Format support implementation (Épica D, Task 5): 16:9 and 9:16 (partially completed in CanvasLayout)
+- Preview Engine implementation (Épica F, Task 1): playback con edits aplicados, seek/play/pause
+- Overlays implementation (Épica E, Task 1): Definir `overlays[]` en `project.json` + helpers CRUD
+- Export integration: apply backgrounds during export rendering
+- UI integration: background selection interface in editor
+
+**Design Decisions:**
+- Added fitMode as optional parameter (only relevant for image backgrounds)
+- Used string values for fit mode ("fit" or "fill") for JSON serialization
+- Hex color format supports both RGB and RGBA for flexibility
+- Frame calculation returns CGRect for direct use in rendering
+- Validation is comprehensive but allows empty image paths (user hasn't selected yet)
+- Blur radius limited to 0-100 to prevent performance issues
+- All static methods for easy access without actor instance
+
+**Known Limitations:**
+- Image background validation doesn't check if file exists (only validates format)
+- No gradient background support yet (would require additional parameters)
+- No animated backgrounds (video backgrounds)
+- No background music or audio support
+- Frame calculation assumes standard coordinate system (y-axis down)
+

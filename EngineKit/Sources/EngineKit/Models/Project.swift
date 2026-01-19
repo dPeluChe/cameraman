@@ -134,6 +134,7 @@ public struct Project: Codable, Equatable {
         public struct Background: Codable, Equatable {
             public let type: String
             public let value: String
+            public let fitMode: String? // For image backgrounds: "fit" or "fill"
         }
 
         /// Layout configuration

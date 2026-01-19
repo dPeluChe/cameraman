@@ -106,6 +106,32 @@ public actor CanvasLayout {
         }
     }
 
+    /// Image fit modes for background images
+    public enum ImageFitMode: String, Codable, Sendable, CaseIterable {
+        case fit = "fit"    // Contain: entire image visible, may have letterboxing
+        case fill = "fill"  // Cover: fill entire canvas, may crop image
+
+        /// Display name for the fit mode
+        public var displayName: String {
+            switch self {
+            case .fit:
+                return "Fit (Contain)"
+            case .fill:
+                return "Fill (Cover)"
+            }
+        }
+
+        /// Description of the fit mode
+        public var description: String {
+            switch self {
+            case .fit:
+                return "Show entire image with letterboxing if needed"
+            case .fill:
+                return "Fill canvas, cropping image if needed"
+            }
+        }
+    }
+
     /// Layout configuration errors
     public enum LayoutError: Error, LocalizedError, Sendable, Equatable {
         case invalidAspectRatio(String)
@@ -178,24 +204,30 @@ public actor CanvasLayout {
     }
 
     /// Default backgrounds for common types
-    public static func defaultBackground(for type: BackgroundType) -> Project.Canvas.Background {
+    public static func defaultBackground(
+        for type: BackgroundType,
+        fitMode: ImageFitMode = .fill
+    ) -> Project.Canvas.Background {
         switch type {
         case .solid:
             return Project.Canvas.Background(
                 type: type.rawValue,
-                value: "#0B0B0D"
+                value: "#0B0B0D",
+                fitMode: nil
             )
 
         case .image:
             return Project.Canvas.Background(
                 type: type.rawValue,
-                value: "" // Empty path - user must provide image
+                value: "", // Empty path - user must provide image
+                fitMode: fitMode.rawValue
             )
 
         case .blur:
             return Project.Canvas.Background(
                 type: type.rawValue,
-                value: "10" // Blur radius
+                value: "10", // Blur radius
+                fitMode: nil
             )
         }
     }
@@ -305,16 +337,21 @@ public actor CanvasLayout {
 
         switch background.type {
         case "solid":
-            // Validate hex color format (#RRGGBB)
-            let hexPattern = #"^#[0-9A-Fa-f]{6}$"#
+            // Validate hex color format (#RRGGBB or #RRGGBBAA)
+            let hexPattern = #"^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$"#
             let isValid = background.value.range(of: hexPattern, options: .regularExpression) != nil
             if !isValid {
-                throw LayoutError.invalidBackgroundValue("Invalid hex color format: \(background.value)")
+                throw LayoutError.invalidBackgroundValue("Invalid hex color format: \(background.value). Expected #RRGGBB or #RRGGBBAA")
             }
 
         case "image":
+            // Validate fit mode if provided
+            if let fitMode = background.fitMode {
+                guard ImageFitMode(rawValue: fitMode) != nil else {
+                    throw LayoutError.invalidBackgroundValue("Invalid fit mode: \(fitMode). Expected 'fit' or 'fill'")
+                }
+            }
             // Image path can be empty (user hasn't selected one yet)
-            break
 
         case "blur":
             // Validate blur radius is a valid number
@@ -398,6 +435,120 @@ public actor CanvasLayout {
         )
     }
 
+    /// Create a solid color background
+    public static func createSolidBackground(hexColor: String) -> Project.Canvas.Background {
+        return Project.Canvas.Background(
+            type: BackgroundType.solid.rawValue,
+            value: hexColor,
+            fitMode: nil
+        )
+    }
+
+    /// Create an image background with specified fit mode
+    public static func createImageBackground(
+        imagePath: String,
+        fitMode: ImageFitMode = .fill
+    ) -> Project.Canvas.Background {
+        return Project.Canvas.Background(
+            type: BackgroundType.image.rawValue,
+            value: imagePath,
+            fitMode: fitMode.rawValue
+        )
+    }
+
+    /// Create a blurred screen background
+    public static func createBlurBackground(radius: Int = 10) -> Project.Canvas.Background {
+        return Project.Canvas.Background(
+            type: BackgroundType.blur.rawValue,
+            value: String(radius),
+            fitMode: nil
+        )
+    }
+
+    /// Calculate image frame for background with fit/fill mode
+    /// Returns the frame where the background image should be drawn
+    public static func calculateImageFrame(
+        imageSize: CGSize,
+        canvasSize: CGSize,
+        fitMode: ImageFitMode
+    ) -> CGRect {
+        let imageAspect = imageSize.width / imageSize.height
+        let canvasAspect = canvasSize.width / canvasSize.height
+
+        var frame: CGRect
+
+        switch fitMode {
+        case .fit:
+            // Contain: fit entire image within canvas
+            if imageAspect > canvasAspect {
+                // Image is wider than canvas - fit to width
+                let width = canvasSize.width
+                let height = width / imageAspect
+                let x = CGFloat(0)
+                let y = (canvasSize.height - height) / 2
+                frame = CGRect(x: x, y: y, width: width, height: height)
+            } else {
+                // Image is taller than canvas - fit to height
+                let height = canvasSize.height
+                let width = height * imageAspect
+                let x = (canvasSize.width - width) / 2
+                let y = CGFloat(0)
+                frame = CGRect(x: x, y: y, width: width, height: height)
+            }
+
+        case .fill:
+            // Cover: fill entire canvas with image (may crop)
+            if imageAspect > canvasAspect {
+                // Image is wider than canvas - fit to height
+                let height = canvasSize.height
+                let width = height * imageAspect
+                let x = (canvasSize.width - width) / 2
+                let y = CGFloat(0)
+                frame = CGRect(x: x, y: y, width: width, height: height)
+            } else {
+                // Image is taller than canvas - fit to width
+                let width = canvasSize.width
+                let height = width / imageAspect
+                let x = CGFloat(0)
+                let y = (canvasSize.height - height) / 2
+                frame = CGRect(x: x, y: y, width: width, height: height)
+            }
+        }
+
+        return frame
+    }
+
+    /// Parse hex color to RGB components
+    /// Supports #RRGGBB and #RRGGBBAA formats
+    public static func parseHexColor(_ hex: String) -> (r: Int, g: Int, b: Int, a: Int)? {
+        // Remove # prefix if present
+        let cleanHex = hex.hasPrefix("#") ? String(hex.dropFirst()) : hex
+
+        // Validate hex format
+        let hexPattern = #"^[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$"#
+        guard cleanHex.range(of: hexPattern, options: .regularExpression) != nil else {
+            return nil
+        }
+
+        // Parse components
+        var r: Int = 0
+        var g: Int = 0
+        var b: Int = 0
+        var a: Int = 255
+
+        let index = cleanHex.startIndex
+
+        r = Int(cleanHex[index..<cleanHex.index(index, offsetBy: 2)], radix: 16) ?? 0
+        g = Int(cleanHex[cleanHex.index(index, offsetBy: 2)..<cleanHex.index(index, offsetBy: 4)], radix: 16) ?? 0
+        b = Int(cleanHex[cleanHex.index(index, offsetBy: 4)..<cleanHex.index(index, offsetBy: 6)], radix: 16) ?? 0
+
+        if cleanHex.count == 8 {
+            a = Int(cleanHex[cleanHex.index(index, offsetBy: 6)..<cleanHex.index(index, offsetBy: 8)], radix: 16) ?? 255
+        }
+
+        return (r, g, b, a)
+    }
+
     /// Get recommended layout presets for a given aspect ratio
     public static func recommendedLayouts(for aspectRatio: AspectRatio) -> [LayoutPreset] {
         switch aspectRatio {
@@ -476,6 +627,17 @@ public struct CGRect: Sendable {
     public init(x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat) {
         self.x = x
         self.y = y
+        self.width = width
+        self.height = height
+    }
+}
+
+/// CGSize for size calculations
+public struct CGSize: Sendable {
+    public var width: CGFloat
+    public var height: CGFloat
+
+    public init(width: CGFloat, height: CGFloat) {
         self.width = width
         self.height = height
     }
