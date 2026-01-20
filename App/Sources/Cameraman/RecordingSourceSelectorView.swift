@@ -95,8 +95,35 @@ struct RecordingSourceSelectorView: View {
                 }
             }
 
-            // Error message
-            if let error = viewModel.errorMessage {
+            // Error or Permission message
+            if viewModel.permissionDenied {
+                VStack(spacing: 12) {
+                    Image(systemName: "lock.shield.fill")
+                        .font(.largeTitle)
+                        .foregroundColor(.orange)
+                    
+                    Text("Permission Required")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                    
+                    Text("Cameraman needs screen recording permission to capture your screen and windows.")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.8))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                    
+                    Button("Open System Settings") {
+                        Task {
+                            await viewModel.openSystemSettings()
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.black.opacity(0.5))
+                .cornerRadius(8)
+            } else if let error = viewModel.errorMessage {
                 HStack {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundColor(.orange)
@@ -362,12 +389,23 @@ class SourceSelectorViewModel: ObservableObject {
     @Published var applicationSources: [SourceSelector.ApplicationSource] = []
     @Published var previewImage: NSImage?
     @Published var errorMessage: String?
+    @Published var permissionDenied = false
 
     private let sourceSelector = SourceSelector.shared
+    private let permissionManager = PermissionManager.shared
 
     func loadSources(for tab: SourceTab) async {
         errorMessage = nil
         previewImage = nil
+        permissionDenied = false
+
+        // Check permission first
+        let status = await permissionManager.checkScreenRecordingPermission()
+        if status != .authorized {
+            permissionDenied = true
+            errorMessage = "Screen recording permission is required to list sources."
+            return
+        }
 
         do {
             switch tab {
@@ -379,9 +417,19 @@ class SourceSelectorViewModel: ObservableObject {
                 applicationSources = try await sourceSelector.listApplications()
             }
         } catch {
-            errorMessage = "Failed to load sources: \(error.localizedDescription)"
+            if let selectorError = error as? SourceSelector.SourceSelectorError,
+               case .permissionDenied = selectorError {
+                permissionDenied = true
+                errorMessage = "Screen recording permission denied."
+            } else {
+                errorMessage = "Failed to load sources: \(error.localizedDescription)"
+            }
             print("❌ Error loading sources: \(error)")
         }
+    }
+    
+    func openSystemSettings() async {
+        _ = await permissionManager.requestScreenRecordingPermission()
     }
 
     func capturePreview(display: SourceSelector.DisplaySource) async {
