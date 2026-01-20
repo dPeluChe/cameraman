@@ -7,7 +7,7 @@
 
 import AVFoundation
 import XCTest
-@testable import App
+@testable import Cameraman
 @testable import EngineKit
 
 @MainActor
@@ -228,7 +228,8 @@ final class PreviewPlayerViewModelTests: XCTestCase {
             timeline: timeline,
             canvas: canvas,
             overlays: [],
-            captions: nil
+            captions: nil,
+            chapters: []
         )
     }
 }

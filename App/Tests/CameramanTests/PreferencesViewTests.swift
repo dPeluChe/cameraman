@@ -8,7 +8,7 @@
 
 import XCTest
 import SwiftUI
-@testable import App
+@testable import Cameraman
 @testable import EngineKit
 
 @MainActor

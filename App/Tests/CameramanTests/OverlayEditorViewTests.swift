@@ -8,7 +8,7 @@
 
 import XCTest
 import SwiftUI
-@testable import App
+@testable import Cameraman
 import EngineKit
 import CoreGraphics
 
@@ -22,25 +22,35 @@ final class OverlayEditorViewTests: XCTestCase {
 
         // Create a mock project
         mockProject = Project(
-            id: UUID().uuidString,
+            schemaVersion: 1,
+            projectId: UUID(),
             name: "Test Project",
+            tags: [],
             createdAt: Date(),
             updatedAt: Date(),
-            duration: 60.0,
-            canvas: Project.Canvas(
-                format: Project.Canvas.Format(w: 1920, h: 1080),
-                layout: CanvasLayout.defaultLayout(for: .fullscreen),
-                background: CanvasLayout.createSolidBackground(hexColor: "#000000")
-            ),
             sources: Project.Sources(
-                screen: nil,
+                syncReference: "screen",
+                screen: Project.Sources.MediaTrack(
+                    path: "screen.mov",
+                    fps: 60,
+                    size: .init(w: 1920, h: 1080),
+                    syncOffsetMs: 0,
+                    sha256: "hash",
+                    sizeBytes: 1000
+                ),
                 camera: nil,
-                systemAudio: nil,
-                micAudio: nil
+                audio: nil,
+                telemetry: nil
             ),
-            timeline: Project.Timeline(segments: []),
+            timeline: Project.Timeline(duration: 60.0, segments: []),
+            canvas: Project.Canvas(
+                format: Project.Canvas.Format(aspect: "16:9", w: 1920, h: 1080),
+                background: Project.Canvas.Background(type: "color", value: "#000000", fitMode: nil),
+                layout: Project.Canvas.Layout(type: "fullscreen", camera: nil)
+            ),
             overlays: [],
-            transcripts: []
+            captions: nil,
+            chapters: []
         )
 
         mockEditor = ProjectEditor(project: mockProject)
@@ -58,16 +68,16 @@ final class OverlayEditorViewTests: XCTestCase {
         bg: String? = nil,
         text: String? = nil
     ) -> Project.Overlay.Style {
-        var style = Project.Overlay.Style()
-        style.stroke = stroke
-        style.strokeWidth = strokeWidth
-        style.shadow = shadow
-        style.font = font
-        style.size = size
-        style.color = color
-        style.bg = bg
-        style.text = text
-        return style
+        return Project.Overlay.Style(
+            stroke: stroke,
+            strokeWidth: strokeWidth,
+            shadow: shadow,
+            font: font,
+            size: size,
+            color: color,
+            bg: bg,
+            text: text
+        )
     }
 
     private func createOverlayTransform(
@@ -76,12 +86,12 @@ final class OverlayEditorViewTests: XCTestCase {
         scale: Double = 1.0,
         rotation: Double = 0.0
     ) -> Project.Overlay.Transform {
-        var transform = Project.Overlay.Transform()
-        transform.x = x
-        transform.y = y
-        transform.scale = scale
-        transform.rotation = rotation
-        return transform
+        return Project.Overlay.Transform(
+            x: x,
+            y: y,
+            scale: scale,
+            rotation: rotation
+        )
     }
 
     private func createCameraPosition(
@@ -91,13 +101,13 @@ final class OverlayEditorViewTests: XCTestCase {
         h: Double = 0.3,
         cornerRadius: Double = 8.0
     ) -> Project.Canvas.Layout.CameraPosition {
-        var position = Project.Canvas.Layout.CameraPosition()
-        position.x = x
-        position.y = y
-        position.w = w
-        position.h = h
-        position.cornerRadius = cornerRadius
-        return position
+        return Project.Canvas.Layout.CameraPosition(
+            x: x,
+            y: y,
+            w: w,
+            h: h,
+            cornerRadius: cornerRadius
+        )
     }
 
     // MARK: - Overlay Creation Tests

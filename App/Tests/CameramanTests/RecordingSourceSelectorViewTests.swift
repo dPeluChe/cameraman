@@ -9,7 +9,7 @@
 import XCTest
 import SwiftUI
 import EngineKit
-@testable import App
+@testable import Cameraman
 
 /// Comprehensive test suite for RecordingSourceSelectorView
 final class RecordingSourceSelectorViewTests: XCTestCase {

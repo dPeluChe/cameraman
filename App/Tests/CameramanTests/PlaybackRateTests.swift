@@ -7,7 +7,7 @@
 
 import XCTest
 import AVFoundation
-@testable import App
+@testable import Cameraman
 @testable import EngineKit
 
 @MainActor

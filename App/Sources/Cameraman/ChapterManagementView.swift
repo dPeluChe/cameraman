@@ -241,7 +241,7 @@ struct ChapterManagementView: View {
     }
 
     private func applyAllChapterSuggestions() async {
-        let added = await editor.applyChapterSuggestions(from: suggestions)
+        _ = await editor.applyChapterSuggestions(from: suggestions)
 
         // Remove applied suggestions
         suggestions.removeAll { $0.type == .createChapter }

@@ -206,7 +206,7 @@ final class PreviewPlayerViewModel: ObservableObject {
         stopUpdateTimer()
         
         // Use a Task for the update loop to respect actor isolation
-        let timerTask = Task { [weak self] in
+        Task { [weak self] in
             while !Task.isCancelled {
                 guard let self = self else { return }
                 

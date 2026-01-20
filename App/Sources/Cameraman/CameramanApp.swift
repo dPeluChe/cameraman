@@ -382,7 +382,7 @@ class RecordingControlViewModel: ObservableObject {
     }
 
     func pauseResumeRecording() async {
-        guard isRecording, let session = recordingSession else { return }
+        guard isRecording, recordingSession != nil else { return }
 
         if isPaused {
             statusText = "Resuming..."
@@ -451,7 +451,9 @@ class StatusBarMenu {
     private func setupStatusUpdateTimer() {
         // Update status bar every second to reflect recording state
         updateTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            self?.updateStatus()
+            Task { @MainActor in
+                self?.updateStatus()
+            }
         }
     }
 
@@ -483,7 +485,7 @@ class StatusBarMenu {
     }
 
     @objc private func statusBarButtonClicked() {
-        guard let button = statusItem?.button else { return }
+        guard statusItem?.button != nil else { return }
 
         let menu = NSMenu()
 

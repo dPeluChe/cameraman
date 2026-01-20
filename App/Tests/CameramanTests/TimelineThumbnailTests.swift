@@ -7,11 +7,12 @@
 
 import XCTest
 import SwiftUI
-@testable import App
+@testable import Cameraman
 @testable import EngineKit
 import CoreGraphics
 
 @available(macOS 13.0, *)
+@MainActor
 final class TimelineThumbnailTests: XCTestCase {
 
     var mockProject: Project!
@@ -100,7 +101,8 @@ final class TimelineThumbnailTests: XCTestCase {
             timeline: timeline,
             canvas: canvas,
             overlays: [],
-            captions: nil
+            captions: nil,
+            chapters: []
         )
     }
 
@@ -330,7 +332,7 @@ final class TimelineThumbnailTests: XCTestCase {
 
     func testThumbnailDictionaryPerformance() {
         // Test thumbnail dictionary lookup performance
-        var thumbnails: [TimeInterval: NSImage] = []
+        var thumbnails: [TimeInterval: NSImage] = [:]
 
         // Add 100 thumbnails
         for i in 0..<100 {
@@ -534,7 +536,7 @@ final class TimelineThumbnailTests: XCTestCase {
         let samples: [Float] = [0.0, 0.5, 1.0, 0.5, 0.0]
 
         for sample in samples {
-            let amplitude = abs(sample) * centerY
+            let amplitude = CGFloat(abs(sample)) * centerY
             let yStart = centerY - amplitude
             let yEnd = centerY + amplitude
 
@@ -634,7 +636,7 @@ final class TimelineThumbnailTests: XCTestCase {
         let centerY: CGFloat = 20.0
         let sample: Float = 0.5
 
-        let amplitude = abs(sample) * centerY
+        let amplitude = CGFloat(abs(sample)) * centerY
         let yStart = centerY - amplitude
         let yEnd = centerY + amplitude
 
@@ -648,7 +650,7 @@ final class TimelineThumbnailTests: XCTestCase {
         let centerY: CGFloat = 20.0
         let sample: Float = -0.5
 
-        let amplitude = abs(sample) * centerY
+        let amplitude = CGFloat(abs(sample)) * centerY
         let yStart = centerY - amplitude
         let yEnd = centerY + amplitude
 
@@ -663,7 +665,7 @@ final class TimelineThumbnailTests: XCTestCase {
         let centerY: CGFloat = 20.0
         let sample: Float = 0.0
 
-        let amplitude = abs(sample) * centerY
+        let amplitude = CGFloat(abs(sample)) * centerY
         let yStart = centerY - amplitude
         let yEnd = centerY + amplitude
 
@@ -704,24 +706,24 @@ final class TimelineThumbnailTests: XCTestCase {
         waveforms[micAudioPath] = [0.3, 0.7, 0.3]
 
         // Verify system audio mapping
-        let systemAudioTrack: TimelineTrackKind = .systemAudio
+        _ = TimelineTrackKind.systemAudio
         let systemWaveform = waveforms[systemAudioPath]
         XCTAssertNotNil(systemWaveform)
         XCTAssertEqual(systemWaveform?.count, 3)
 
         // Verify mic audio mapping
-        let micAudioTrack: TimelineTrackKind = .micAudio
+        _ = TimelineTrackKind.micAudio
         let micWaveform = waveforms[micAudioPath]
         XCTAssertNotNil(micWaveform)
         XCTAssertEqual(micWaveform?.count, 3)
 
         // Verify screen track has no waveform
-        let screenTrack: TimelineTrackKind = .screen
+        _ = TimelineTrackKind.screen
         let screenWaveform = waveforms["/tmp/screen.mov"]
         XCTAssertNil(screenWaveform)
 
         // Verify camera track has no waveform
-        let cameraTrack: TimelineTrackKind = .camera
+        _ = TimelineTrackKind.camera
         let cameraWaveform = waveforms["/tmp/camera.mov"]
         XCTAssertNil(cameraWaveform)
     }
@@ -793,7 +795,7 @@ final class TimelineThumbnailTests: XCTestCase {
 
     func testWaveformToggleWithCache() {
         // Test waveform toggle interaction with cache
-        let thumbnailCache = ThumbnailCache(configuration: .default)
+        _ = ThumbnailCache(configuration: .default)
         var showWaveforms = true
         var waveforms: [String: [Float]] = [:]
 

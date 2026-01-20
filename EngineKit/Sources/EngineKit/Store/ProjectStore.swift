@@ -282,7 +282,7 @@ public actor ProjectStore {
                 let project = try decoder.decode(Project.self, from: data)
 
                 let summary = ProjectSummary(
-                    id: project.projectId,
+                    projectId: project.projectId,
                     name: project.name,
                     createdAt: project.createdAt,
                     updatedAt: project.updatedAt,

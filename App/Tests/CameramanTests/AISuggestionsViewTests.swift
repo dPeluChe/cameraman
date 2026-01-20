@@ -9,7 +9,7 @@
 import XCTest
 import SwiftUI
 import EngineKit
-@testable import App
+@testable import Cameraman
 
 /// Tests for AISuggestionsView and AISuggestionsViewModel
 final class AISuggestionsViewTests: XCTestCase {

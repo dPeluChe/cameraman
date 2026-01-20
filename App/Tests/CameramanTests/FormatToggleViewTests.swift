@@ -8,7 +8,7 @@
 import XCTest
 import SwiftUI
 import EngineKit
-@testable import App
+@testable import Cameraman
 
 @MainActor
 final class FormatToggleViewTests: XCTestCase {

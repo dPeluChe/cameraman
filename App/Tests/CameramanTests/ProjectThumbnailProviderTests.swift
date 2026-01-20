@@ -7,7 +7,7 @@
 
 import AppKit
 import XCTest
-@testable import App
+@testable import Cameraman
 
 @MainActor
 final class ProjectThumbnailProviderTests: XCTestCase {

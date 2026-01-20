@@ -500,4 +500,22 @@ public struct ProjectSummary: Codable, Equatable, Identifiable {
     public var projectId: ProjectId {
         id
     }
+
+    public init(
+        projectId: ProjectId,
+        name: String,
+        createdAt: Date,
+        updatedAt: Date,
+        tags: [String],
+        duration: TimeInterval,
+        thumbnailPath: String?
+    ) {
+        self.id = projectId
+        self.name = name
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.tags = tags
+        self.duration = duration
+        self.thumbnailPath = thumbnailPath
+    }
 }

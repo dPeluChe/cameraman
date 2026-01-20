@@ -7,7 +7,7 @@
 
 import XCTest
 import EngineKit
-@testable import App
+@testable import Cameraman
 
 @MainActor
 final class ProjectLibrarySearchTests: XCTestCase {

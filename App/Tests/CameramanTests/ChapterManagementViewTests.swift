@@ -7,7 +7,7 @@
 //
 
 import XCTest
-@testable import App
+@testable import Cameraman
 import EngineKit
 
 /// Tests for chapter management functionality
@@ -642,7 +642,7 @@ final class ChapterManagementViewTests: XCTestCase {
     private func createMockProject() -> Project {
         Project(
             schemaVersion: 1,
-            projectId: UUID().uuidString,
+            projectId: UUID(),
             name: "Test Project",
             tags: ["test"],
             createdAt: Date(),

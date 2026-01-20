@@ -6,7 +6,7 @@
 //
 
 import XCTest
-@testable import App
+@testable import Cameraman
 import EngineKit
 import SwiftData
 
@@ -20,32 +20,46 @@ final class ExportViewTests: XCTestCase {
 
         // Create a test project
         testProject = Project(
+            schemaVersion: 1,
+            projectId: UUID(),
             name: "Test Export Project",
-            canvas: CanvasLayout(),
+            tags: [],
+            createdAt: Date(),
+            updatedAt: Date(),
+            sources: Project.Sources(
+                syncReference: "screen",
+                screen: Project.Sources.MediaTrack(
+                    path: "test_screen.mov",
+                    fps: 60,
+                    size: .init(w: 1920, h: 1080),
+                    syncOffsetMs: 0,
+                    sha256: "hash",
+                    sizeBytes: 1000
+                ),
+                camera: nil,
+                audio: nil,
+                telemetry: nil
+            ),
             timeline: Project.Timeline(
+                duration: 10.0,
                 segments: [
                     Project.Timeline.Segment(
-                        id: UUID(),
-                        source: .screen,
-                        sourceTrackId: UUID(),
-                        startTime: 0,
-                        duration: 10,
-                        trimStart: 0,
-                        trimEnd: 10
+                        id: UUID().uuidString,
+                        sourceIn: 0,
+                        sourceOut: 10,
+                        timelineIn: 0,
+                        speed: 1.0
                     )
                 ]
             ),
-            sources: Project.Sources(
-                screen: Project.Sources.Source(
-                    path: "test_screen.mov",
-                    type: .screen,
-                    frameRate: 60,
-                    duration: 10,
-                    hasAudio: true
-                )
+            canvas: Project.Canvas(
+                format: .init(aspect: "16:9", w: 1920, h: 1080),
+                background: .init(type: "solid", value: "#000000", fitMode: nil),
+                layout: .init(type: "fullscreen", camera: nil)
             ),
-            createdAt: Date(),
-            updatedAt: Date()
+            overlays: [],
+            captions: nil,
+            chapters: []
         )
 
         // Create a temporary directory for the test project
@@ -328,7 +342,7 @@ final class ExportViewTests: XCTestCase {
             try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
 
             let jobQueue = await engine.getJobQueue()
-            let job = await jobQueue.getJob(id: jobId)
+            let job = await jobQueue.getJob(jobId: jobId)
             XCTAssertTrue(job?.status == .failed || job?.status == .pending, "Job should be cancelled or in pending state")
 
         } catch {

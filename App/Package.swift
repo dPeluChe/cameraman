@@ -11,14 +11,14 @@ let package = Package(
     ],
     targets: [
         .executableTarget(
-            name: "App",
+            name: "Cameraman",
             dependencies: ["EngineKit"],
-            path: "Sources/App"
+            path: "Sources/Cameraman"
         ),
         .testTarget(
-            name: "AppTests",
-            dependencies: ["App"],
-            path: "Tests/AppTests"
+            name: "CameramanTests",
+            dependencies: ["Cameraman"],
+            path: "Tests/CameramanTests"
         ),
     ]
 )

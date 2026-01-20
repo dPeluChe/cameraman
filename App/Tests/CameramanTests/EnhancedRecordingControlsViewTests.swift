@@ -8,7 +8,7 @@
 
 import XCTest
 import SwiftUI
-@testable import App
+@testable import Cameraman
 
 /// Comprehensive test suite for EnhancedRecordingControlsView
 final class EnhancedRecordingControlsViewTests: XCTestCase {

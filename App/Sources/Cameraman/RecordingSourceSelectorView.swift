@@ -397,7 +397,7 @@ class SourceSelectorViewModel: ObservableObject {
     private func captureScreenshot(displayID: String? = nil, windowID: String? = nil) async {
         // Use CGDisplayCreateImage or CGWindowListCreateImage
         // This is a simplified implementation
-        if let displayID = displayID {
+        if displayID != nil {
             // In a real implementation, you'd convert displayID to CGDirectDisplayID
             // and use CGDisplayCreateImage
             let screenshot = CGDisplayCreateImage(CGMainDisplayID())

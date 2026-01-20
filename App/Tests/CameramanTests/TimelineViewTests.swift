@@ -7,7 +7,7 @@
 
 import XCTest
 import SwiftUI
-@testable import App
+@testable import Cameraman
 @testable import EngineKit
 
 @MainActor
@@ -100,7 +100,8 @@ final class TimelineViewTests: XCTestCase {
             timeline: timeline,
             canvas: canvas,
             overlays: [],
-            captions: nil
+            captions: nil,
+            chapters: []
         )
     }
 
