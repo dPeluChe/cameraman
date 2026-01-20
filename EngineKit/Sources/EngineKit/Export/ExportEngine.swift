@@ -220,6 +220,27 @@ public actor ExportEngine {
         return jobId
     }
 
+    /// Cancel an export job
+    /// - Parameter jobId: Job to cancel
+    /// - Throws: ExportError if cancellation fails
+    public func cancelExport(jobId: JobId) async throws {
+        logger.info("Cancelling export job: \(jobId.uuidString)")
+
+        do {
+            try await jobQueue.cancelJob(jobId: jobId)
+            logger.info("Export job cancelled successfully: \(jobId.uuidString)")
+        } catch {
+            logger.error("Failed to cancel export job: \(jobId.uuidString), error: \(error.localizedDescription)")
+            throw ExportError.exportFailed("Failed to cancel export: \(error.localizedDescription)")
+        }
+    }
+
+    /// Get the shared job queue for export operations
+    /// - Returns: JobQueue instance
+    public func getJobQueue() -> JobQueue {
+        return self.jobQueue
+    }
+
     /// Perform the actual GIF export work
     private func performGIFExport(
         jobId: JobId,

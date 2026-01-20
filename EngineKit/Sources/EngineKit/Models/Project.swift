@@ -222,6 +222,21 @@ public struct Project: Codable, Equatable {
                 public var w: Double
                 public var h: Double
                 public var cornerRadius: Double
+
+                /// Initialize a new camera position
+                public init(
+                    x: Double,
+                    y: Double,
+                    w: Double,
+                    h: Double,
+                    cornerRadius: Double = 0
+                ) {
+                    self.x = x
+                    self.y = y
+                    self.w = w
+                    self.h = h
+                    self.cornerRadius = cornerRadius
+                }
             }
         }
     }
@@ -250,6 +265,19 @@ public struct Project: Codable, Equatable {
             public var y: Double
             public var scale: Double
             public var rotation: Double
+
+            /// Initialize a new transform
+            public init(
+                x: Double = 0,
+                y: Double = 0,
+                scale: Double = 1,
+                rotation: Double = 0
+            ) {
+                self.x = x
+                self.y = y
+                self.scale = scale
+                self.rotation = rotation
+            }
         }
 
         /// Style configuration
@@ -262,6 +290,27 @@ public struct Project: Codable, Equatable {
             public var color: String?
             public var bg: String?
             public var text: String?
+
+            /// Initialize a new style
+            public init(
+                stroke: String,
+                strokeWidth: Double,
+                shadow: Bool,
+                font: String? = nil,
+                size: Double? = nil,
+                color: String? = nil,
+                bg: String? = nil,
+                text: String? = nil
+            ) {
+                self.stroke = stroke
+                self.strokeWidth = strokeWidth
+                self.shadow = shadow
+                self.font = font
+                self.size = size
+                self.color = color
+                self.bg = bg
+                self.text = text
+            }
         }
 
         /// Animation configuration

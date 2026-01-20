@@ -48,6 +48,7 @@ struct ProjectEditorView: View {
     let projectSummary: ProjectSummary
 
     @StateObject private var viewModel: ProjectEditorViewModel
+    @State private var showExportModal: Bool = false
 
     init(projectSummary: ProjectSummary, library: ProjectLibrary = ProjectLibrary()) {
         self.projectSummary = projectSummary
@@ -86,24 +87,54 @@ struct ProjectEditorView: View {
         .task {
             await viewModel.loadProject()
         }
+        .sheet(isPresented: $showExportModal) {
+            if let editor = viewModel.editor,
+               let projectDirectory = viewModel.projectDirectory {
+                ExportView(
+                    project: editor.project,
+                    projectDirectory: projectDirectory,
+                    onExportComplete: { url in
+                        showExportModal = false
+                        if let url = url {
+                            NSWorkspace.shared.activateFileViewerSelecting([url])
+                        }
+                    },
+                    onCancel: {
+                        showExportModal = false
+                    }
+                )
+            }
+        }
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(projectSummary.name)
-                .font(.largeTitle)
+        HStack(alignment: .top, spacing: 20) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(projectSummary.name)
+                    .font(.largeTitle)
 
-            HStack(spacing: 12) {
-                Label(ProjectEditorView.durationText(for: projectSummary.duration), systemImage: "clock")
-                Label(ProjectEditorView.dateText(for: projectSummary.updatedAt), systemImage: "calendar")
-            }
-            .foregroundStyle(.secondary)
+                HStack(spacing: 12) {
+                    Label(ProjectEditorView.durationText(for: projectSummary.duration), systemImage: "clock")
+                    Label(ProjectEditorView.dateText(for: projectSummary.updatedAt), systemImage: "calendar")
+                }
+                .foregroundStyle(.secondary)
 
-            if !projectSummary.tags.isEmpty {
-                Text("Tags: \(projectSummary.tags.joined(separator: ", "))")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                if !projectSummary.tags.isEmpty {
+                    Text("Tags: \(projectSummary.tags.joined(separator: ", "))")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
             }
+
+            Spacer()
+
+            Button {
+                showExportModal = true
+            } label: {
+                Label("Export", systemImage: "square.and.arrow.up")
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(viewModel.editor == nil)
         }
     }
 
@@ -387,7 +418,7 @@ private struct PiPCanvasEditor: View {
         }
     }
 
-    private func moveGesture(in size: CGSize) -> some Gesture {
+    private func moveGesture(in size: CoreGraphics.CGSize) -> some Gesture {
         DragGesture()
             .onChanged { value in
                 let base = dragStartCamera ?? camera
@@ -422,7 +453,7 @@ private struct PiPCanvasEditor: View {
             }
     }
 
-    private func resizeGesture(for handle: PiPHandle, in size: CGSize) -> some Gesture {
+    private func resizeGesture(for handle: PiPHandle, in size: CoreGraphics.CGSize) -> some Gesture {
         DragGesture()
             .onChanged { value in
                 let base = resizeStartCamera ?? camera

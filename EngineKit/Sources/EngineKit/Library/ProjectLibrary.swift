@@ -286,6 +286,13 @@ public actor ProjectLibrary {
     public func updateProject(_ project: Project) async throws {
         try await store.saveProject(project)
     }
+
+    /// Get the ExportEngine for exporting projects
+    /// - Returns: ExportEngine instance
+    public func getExportEngine() async throws -> ExportEngine {
+        let jobQueue = JobQueue()
+        return ExportEngine(jobQueue: jobQueue, projectStore: store)
+    }
 }
 
 /// Filter for listing projects

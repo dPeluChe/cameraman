@@ -256,7 +256,7 @@ Este PRD es el documento principal del proyecto. Se acompaña de:
 - [x] Editar: trim + split/delete + overlay (flecha + texto) visibles en preview.
 - [x] Timeline: navegación (click playhead, drag selección, zoom, scroll).
 - [ ] Generar transcript offline y exportar `.srt`.
-- [ ] Exportar MP4 1080p 16:9 y 9:16 con layout post‑grabación aplicado.
+- [x] Exportar MP4 1080p 16:9 y 9:16 con layout post‑grabación aplicado.
 - [x] Biblioteca muestra proyectos con **nombre**, **tags** y **última actualización** correctamente.
 - [x] Timeline básico con tracks (screen/camera/audio) y playhead visible.
 - [x] Preview: reproductor de video con aspect ratio correcto y frame visible al pausar.

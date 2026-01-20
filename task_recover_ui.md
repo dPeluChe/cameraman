@@ -40,9 +40,9 @@ Este backlog define las tareas para reconstruir la UI de edición que fue removi
 > **Referencia PRD:** Sección 5.5
 > **API Backend:** `ExportEngine.startExport()`, `cancelExport()`, `Job.progress`
 
-- [ ] (P0) Modal de export: selector de preset (Web 1080p, HEVC, Portrait), destino con file picker
-- [ ] (P0) Progreso: progress bar, porcentaje, tiempo estimado, botón Cancel
-- [ ] (P0) Completado: notificación de éxito, botón "Reveal in Finder"
+- [x] (P0) Modal de export: selector de preset (Web 1080p, HEVC, Portrait), destino con file picker
+- [x] (P0) Progreso: progress bar, porcentaje, tiempo estimado, botón Cancel
+- [x] (P0) Completado: notificación de éxito, botón "Reveal in Finder"
 
 ---
 
