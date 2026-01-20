@@ -212,7 +212,8 @@ final class PreviewEngineTests: XCTestCase {
         let session = await previewEngine.getSession()
         XCTAssertEqual(session.state, .stopped)
         XCTAssertEqual(session.currentTime, 0)
-        XCTAssertTrue(await previewEngine.isStopped())
+        let isStopped_0 = await previewEngine.isStopped()
+        XCTAssertTrue(isStopped_0)
     }
 
     func testStopWithoutProject() async {
@@ -276,14 +277,16 @@ final class PreviewEngineTests: XCTestCase {
         try await previewEngine.seek(to: 5.0)
         try await previewEngine.seek(to: 0)
 
-        XCTAssertEqual(await previewEngine.getCurrentTime(), 0)
+        let getCurrentTime_0 = await previewEngine.getCurrentTime()
+        XCTAssertEqual(getCurrentTime_0, 0)
     }
 
     func testSeekToEnd() async throws {
         try await previewEngine.loadProject(mockProject)
         try await previewEngine.seek(to: 10)
 
-        XCTAssertEqual(await previewEngine.getCurrentTime(), 10)
+        let getCurrentTime_0 = await previewEngine.getCurrentTime()
+        XCTAssertEqual(getCurrentTime_0, 10)
     }
 
     // MARK: - Playback Rate Tests
@@ -383,84 +386,95 @@ final class PreviewEngineTests: XCTestCase {
 
     func testGetCurrentTime() async throws {
         try await previewEngine.loadProject(mockProject)
-        XCTAssertEqual(await previewEngine.getCurrentTime(), 0)
+        let getCurrentTime_0 = await previewEngine.getCurrentTime()
+        XCTAssertEqual(getCurrentTime_0, 0)
     }
 
     func testGetDuration() async throws {
         try await previewEngine.loadProject(mockProject)
-        XCTAssertEqual(await previewEngine.getDuration(), 10)
+        let getDuration_0 = await previewEngine.getDuration()
+        XCTAssertEqual(getDuration_0, 10)
     }
 
     func testGetPlaybackState() async throws {
         try await previewEngine.loadProject(mockProject)
-        XCTAssertEqual(await previewEngine.getPlaybackState(), .stopped)
+        let getPlaybackState_0 = await previewEngine.getPlaybackState()
+        XCTAssertEqual(getPlaybackState_0, .stopped)
     }
 
     func testIsPlaying() async throws {
         try await previewEngine.loadProject(mockProject)
-        XCTAssertFalse(await previewEngine.isPlaying())
+        let isPlaying_0 = await previewEngine.isPlaying()
+        XCTAssertFalse(isPlaying_0)
 
         try await previewEngine.play()
-        XCTAssertTrue(await previewEngine.isPlaying())
+        let isPlaying_1 = await previewEngine.isPlaying()
+        XCTAssertTrue(isPlaying_1)
     }
 
     func testIsPaused() async throws {
         try await previewEngine.loadProject(mockProject)
-        XCTAssertFalse(await previewEngine.isPaused())
+        let isPaused_0 = await previewEngine.isPaused()
+        XCTAssertFalse(isPaused_0)
 
         try await previewEngine.play()
-        XCTAssertFalse(await previewEngine.isPaused())
+        let isPaused_1 = await previewEngine.isPaused()
+        XCTAssertFalse(isPaused_1)
 
         try await previewEngine.pause()
-        XCTAssertTrue(await previewEngine.isPaused())
+        let isPaused_2 = await previewEngine.isPaused()
+        XCTAssertTrue(isPaused_2)
     }
 
     func testIsStopped() async throws {
         try await previewEngine.loadProject(mockProject)
-        XCTAssertTrue(await previewEngine.isStopped())
+        let isStopped_0 = await previewEngine.isStopped()
+        XCTAssertTrue(isStopped_0)
 
         try await previewEngine.play()
-        XCTAssertFalse(await previewEngine.isStopped())
+        let isStopped_1 = await previewEngine.isStopped()
+        XCTAssertFalse(isStopped_1)
 
         try await previewEngine.stop()
-        XCTAssertTrue(await previewEngine.isStopped())
+        let isStopped_2 = await previewEngine.isStopped()
+        XCTAssertTrue(isStopped_2)
     }
 
     // MARK: - Error Description Tests
 
     func testErrorDescriptions() {
         XCTAssertEqual(
-            PreviewError.noProjectLoaded.localizedDescription,
+            PreviewEngine.PreviewError.noProjectLoaded.localizedDescription,
             "No project loaded for preview"
         )
 
         XCTAssertEqual(
-            PreviewError.projectLoadFailed("test reason").localizedDescription,
+            PreviewEngine.PreviewError.projectLoadFailed("test reason").localizedDescription,
             "Failed to load project: test reason"
         )
 
         XCTAssertEqual(
-            PreviewError.playbackFailed("test reason").localizedDescription,
+            PreviewEngine.PreviewError.playbackFailed("test reason").localizedDescription,
             "Playback failed: test reason"
         )
 
         XCTAssertEqual(
-            PreviewError.seekFailed("test reason").localizedDescription,
+            PreviewEngine.PreviewError.seekFailed("test reason").localizedDescription,
             "Seek failed: test reason"
         )
 
         XCTAssertEqual(
-            PreviewError.invalidTime(5.0).localizedDescription,
+            PreviewEngine.PreviewError.invalidTime(5.0).localizedDescription,
             "Invalid time: 5.0s"
         )
 
         XCTAssertEqual(
-            PreviewError.noSegments.localizedDescription,
+            PreviewEngine.PreviewError.noSegments.localizedDescription,
             "Project has no segments to preview"
         )
 
         XCTAssertEqual(
-            PreviewError.mediaFileNotFound("/tmp/test.mov").localizedDescription,
+            PreviewEngine.PreviewError.mediaFileNotFound("/tmp/test.mov").localizedDescription,
             "Media file not found: /tmp/test.mov"
         )
     }
@@ -551,9 +565,15 @@ final class PreviewEngineTests: XCTestCase {
     func testPerformanceGetSession() async throws {
         try await previewEngine.loadProject(mockProject)
 
-        measure {
+        // Measure performance of getSession calls
+        let start = Date()
+        for _ in 0..<1000 {
             _ = await previewEngine.getSession()
         }
+        let duration = Date().timeIntervalSince(start)
+
+        // Should complete 1000 calls in reasonable time (< 0.1 seconds)
+        XCTAssertLessThan(duration, 0.1, "getSession calls should be very fast")
     }
 
     // MARK: - Overlay Rendering Tests
@@ -909,13 +929,15 @@ final class PreviewEngineTests: XCTestCase {
         try await previewEngine.loadProject(mockProject, projectDirectory: projectDir)
 
         // Verify proxies exist
-        XCTAssertTrue(await previewEngine.hasProxies())
+        let hasProxies_0 = await previewEngine.hasProxies()
+        XCTAssertTrue(hasProxies_0)
 
         // Delete proxies
         try await previewEngine.deleteProxies()
 
         // Verify proxies are deleted
-        XCTAssertFalse(await previewEngine.hasProxies())
+        let hasProxies_1 = await previewEngine.hasProxies()
+        XCTAssertFalse(hasProxies_1)
 
         // Clean up
         try? FileManager.default.removeItem(atPath: projectDir)
@@ -930,7 +952,8 @@ final class PreviewEngineTests: XCTestCase {
         // Verify project directory is stored
         let session = await previewEngine.getSession()
         // We can't directly access projectDirectory, but we can verify it works via hasProxies
-        XCTAssertFalse(await previewEngine.hasProxies()) // No proxies created yet
+        let hasProxies_0 = await previewEngine.hasProxies()
+        XCTAssertFalse(hasProxies_0)
 
         // Clean up
         try? FileManager.default.removeItem(atPath: projectDir)
@@ -944,7 +967,8 @@ final class PreviewEngineTests: XCTestCase {
         await previewEngine.unloadProject()
 
         // After unloading, hasProxies should return false
-        XCTAssertFalse(await previewEngine.hasProxies())
+        let hasProxies_0 = await previewEngine.hasProxies()
+        XCTAssertFalse(hasProxies_0)
 
         // Clean up
         try? FileManager.default.removeItem(atPath: projectDir)
@@ -978,15 +1002,18 @@ final class PreviewEngineTests: XCTestCase {
 
         // Test seek to exact start
         try await previewEngine.seek(to: 0)
-        XCTAssertEqual(await previewEngine.getCurrentTime(), 0, accuracy: 0.001)
+        let getCurrentTime_0 = await previewEngine.getCurrentTime()
+        XCTAssertEqual(getCurrentTime_0, 0, accuracy: 0.001)
 
         // Test seek to exact end
         try await previewEngine.seek(to: 10.0)
-        XCTAssertEqual(await previewEngine.getCurrentTime(), 10.0, accuracy: 0.001)
+        let getCurrentTime_1 = await previewEngine.getCurrentTime()
+        XCTAssertEqual(getCurrentTime_1, 10.0, accuracy: 0.001)
 
         // Test seek to middle
         try await previewEngine.seek(to: 5.0)
-        XCTAssertEqual(await previewEngine.getCurrentTime(), 5.0, accuracy: 0.001)
+        let getCurrentTime_2 = await previewEngine.getCurrentTime()
+        XCTAssertEqual(getCurrentTime_2, 5.0, accuracy: 0.001)
     }
 
     func testSeekAccuracyWithFractionalSeconds() async throws {
@@ -1019,14 +1046,16 @@ final class PreviewEngineTests: XCTestCase {
 
         // Seek to a specific time and verify accuracy
         try await previewEngine.seek(to: 3.5)
-        XCTAssertEqual(await previewEngine.getCurrentTime(), 3.5, accuracy: 0.01)
+        let getCurrentTime_0 = await previewEngine.getCurrentTime()
+        XCTAssertEqual(getCurrentTime_0, 3.5, accuracy: 0.01)
 
         // Resume playback and seek again
         try await previewEngine.play()
         try await Task.sleep(nanoseconds: 100_000_000) // Sleep 100ms
         try await previewEngine.pause()
         try await previewEngine.seek(to: 7.8)
-        XCTAssertEqual(await previewEngine.getCurrentTime(), 7.8, accuracy: 0.01)
+        let getCurrentTime_1 = await previewEngine.getCurrentTime()
+        XCTAssertEqual(getCurrentTime_1, 7.8, accuracy: 0.01)
     }
 
     func testSeekAccuracyMultipleSequentials() async throws {
@@ -1099,15 +1128,18 @@ final class PreviewEngineTests: XCTestCase {
         try await previewEngine.loadProject(project)
 
         // Verify timeline duration reflects the trim (8 - 2 = 6 seconds)
-        XCTAssertEqual(await previewEngine.getDuration(), 6.0)
+        let getDuration_0 = await previewEngine.getDuration()
+        XCTAssertEqual(getDuration_0, 6.0)
 
         // Seek to timeline position 0 should correspond to source position 2.0
         try await previewEngine.seek(to: 0)
-        XCTAssertEqual(await previewEngine.getCurrentTime(), 0)
+        let getCurrentTime_1 = await previewEngine.getCurrentTime()
+        XCTAssertEqual(getCurrentTime_1, 0)
 
         // Seek to timeline position 3 should correspond to source position 5.0 (2 + 3)
         try await previewEngine.seek(to: 3.0)
-        XCTAssertEqual(await previewEngine.getCurrentTime(), 3.0)
+        let getCurrentTime_2 = await previewEngine.getCurrentTime()
+        XCTAssertEqual(getCurrentTime_2, 3.0)
     }
 
     func testPlaybackWithTrimOutApplied() async throws {
@@ -1128,11 +1160,13 @@ final class PreviewEngineTests: XCTestCase {
         try await previewEngine.loadProject(project)
 
         // Verify timeline duration reflects the trim
-        XCTAssertEqual(await previewEngine.getDuration(), 8.0)
+        let getDuration_0 = await previewEngine.getDuration()
+        XCTAssertEqual(getDuration_0, 8.0)
 
         // Verify we can seek to the end of the trimmed segment
         try await previewEngine.seek(to: 8.0)
-        XCTAssertEqual(await previewEngine.getCurrentTime(), 8.0)
+        let getCurrentTime_1 = await previewEngine.getCurrentTime()
+        XCTAssertEqual(getCurrentTime_1, 8.0)
     }
 
     func testPlaybackWithTrimsInAndOutApplied() async throws {
@@ -1153,11 +1187,13 @@ final class PreviewEngineTests: XCTestCase {
         try await previewEngine.loadProject(project)
 
         // Verify timeline duration reflects both trims (8 - 1 = 7 seconds)
-        XCTAssertEqual(await previewEngine.getDuration(), 7.0)
+        let getDuration_0 = await previewEngine.getDuration()
+        XCTAssertEqual(getDuration_0, 7.0)
 
         // Test seek accuracy with trimmed segment
         try await previewEngine.seek(to: 3.5)
-        XCTAssertEqual(await previewEngine.getCurrentTime(), 3.5, accuracy: 0.01)
+        let getCurrentTime_1 = await previewEngine.getCurrentTime()
+        XCTAssertEqual(getCurrentTime_1, 3.5, accuracy: 0.01)
     }
 
     func testPlaybackWithMultipleSegmentsAfterCut() async throws {
@@ -1185,19 +1221,23 @@ final class PreviewEngineTests: XCTestCase {
         try await previewEngine.loadProject(project)
 
         // Verify timeline duration reflects the cut (4 + 4 = 8 seconds, gap removed)
-        XCTAssertEqual(await previewEngine.getDuration(), 8.0)
+        let getDuration_0 = await previewEngine.getDuration()
+        XCTAssertEqual(getDuration_0, 8.0)
 
         // Verify we can seek within first segment
         try await previewEngine.seek(to: 2.0)
-        XCTAssertEqual(await previewEngine.getCurrentTime(), 2.0)
+        let getCurrentTime_1 = await previewEngine.getCurrentTime()
+        XCTAssertEqual(getCurrentTime_1, 2.0)
 
         // Verify we can seek within second segment
         try await previewEngine.seek(to: 6.0)
-        XCTAssertEqual(await previewEngine.getCurrentTime(), 6.0)
+        let getCurrentTime_2 = await previewEngine.getCurrentTime()
+        XCTAssertEqual(getCurrentTime_2, 6.0)
 
         // Verify we can seek to the boundary between segments
         try await previewEngine.seek(to: 4.0)
-        XCTAssertEqual(await previewEngine.getCurrentTime(), 4.0)
+        let getCurrentTime_3 = await previewEngine.getCurrentTime()
+        XCTAssertEqual(getCurrentTime_3, 4.0)
     }
 
     func testPlaybackWithSpeedChangeSlowMotion() async throws {
@@ -1218,11 +1258,13 @@ final class PreviewEngineTests: XCTestCase {
         try await previewEngine.loadProject(project)
 
         // Verify timeline duration reflects speed change (5 / 0.5 = 10 seconds)
-        XCTAssertEqual(await previewEngine.getDuration(), 10.0)
+        let getDuration_0 = await previewEngine.getDuration()
+        XCTAssertEqual(getDuration_0, 10.0)
 
         // Verify seek accuracy with speed change
         try await previewEngine.seek(to: 5.0)
-        XCTAssertEqual(await previewEngine.getCurrentTime(), 5.0, accuracy: 0.01)
+        let getCurrentTime_1 = await previewEngine.getCurrentTime()
+        XCTAssertEqual(getCurrentTime_1, 5.0, accuracy: 0.01)
     }
 
     func testPlaybackWithSpeedChangeFastForward() async throws {
@@ -1243,11 +1285,13 @@ final class PreviewEngineTests: XCTestCase {
         try await previewEngine.loadProject(project)
 
         // Verify timeline duration reflects speed change (10 / 2 = 5 seconds)
-        XCTAssertEqual(await previewEngine.getDuration(), 5.0)
+        let getDuration_0 = await previewEngine.getDuration()
+        XCTAssertEqual(getDuration_0, 5.0)
 
         // Verify seek accuracy with speed change
         try await previewEngine.seek(to: 2.5)
-        XCTAssertEqual(await previewEngine.getCurrentTime(), 2.5, accuracy: 0.01)
+        let getCurrentTime_1 = await previewEngine.getCurrentTime()
+        XCTAssertEqual(getCurrentTime_1, 2.5, accuracy: 0.01)
     }
 
     func testPlaybackWithMixedEdits() async throws {
@@ -1282,23 +1326,28 @@ final class PreviewEngineTests: XCTestCase {
         try await previewEngine.loadProject(project)
 
         // Verify timeline duration: 3 + 1.5 + 4 = 8.5 seconds
-        XCTAssertEqual(await previewEngine.getDuration(), 8.5, accuracy: 0.01)
+        let getDuration_0 = await previewEngine.getDuration()
+        XCTAssertEqual(getDuration_0, 8.5, accuracy: 0.01)
 
         // Verify seek accuracy in first segment
         try await previewEngine.seek(to: 1.5)
-        XCTAssertEqual(await previewEngine.getCurrentTime(), 1.5, accuracy: 0.01)
+        let getCurrentTime_1 = await previewEngine.getCurrentTime()
+        XCTAssertEqual(getCurrentTime_1, 1.5, accuracy: 0.01)
 
         // Verify seek accuracy in second segment (fast forward)
         try await previewEngine.seek(to: 3.75)
-        XCTAssertEqual(await previewEngine.getCurrentTime(), 3.75, accuracy: 0.01)
+        let getCurrentTime_2 = await previewEngine.getCurrentTime()
+        XCTAssertEqual(getCurrentTime_2, 3.75, accuracy: 0.01)
 
         // Verify seek accuracy in third segment (slow motion)
         try await previewEngine.seek(to: 6.5)
-        XCTAssertEqual(await previewEngine.getCurrentTime(), 6.5, accuracy: 0.01)
+        let getCurrentTime_3 = await previewEngine.getCurrentTime()
+        XCTAssertEqual(getCurrentTime_3, 6.5, accuracy: 0.01)
 
         // Verify seek to end
         try await previewEngine.seek(to: 8.5)
-        XCTAssertEqual(await previewEngine.getCurrentTime(), 8.5, accuracy: 0.01)
+        let getCurrentTime_4 = await previewEngine.getCurrentTime()
+        XCTAssertEqual(getCurrentTime_4, 8.5, accuracy: 0.01)
     }
 
     func testPlaybackWithComplexSegmentStructure() async throws {
@@ -1317,13 +1366,15 @@ final class PreviewEngineTests: XCTestCase {
         try await previewEngine.loadProject(project)
 
         // Verify duration: 2 + 4 + 1 + 2 + 2 = 11 seconds
-        XCTAssertEqual(await previewEngine.getDuration(), 11, accuracy: 0.01)
+        let getDuration_0 = await previewEngine.getDuration()
+        XCTAssertEqual(getDuration_0, 11, accuracy: 0.01)
 
         // Test seeks across all segments
         let testPositions: [TimeInterval] = [0, 1, 3, 6.5, 8, 10, 11]
         for pos in testPositions {
             try await previewEngine.seek(to: pos)
-            XCTAssertEqual(await previewEngine.getCurrentTime(), pos, accuracy: 0.01)
+            let getCurrentTime_1 = await previewEngine.getCurrentTime()
+            XCTAssertEqual(getCurrentTime_1, pos, accuracy: 0.01)
         }
     }
 
@@ -1340,26 +1391,34 @@ final class PreviewEngineTests: XCTestCase {
         try await previewEngine.loadProject(project)
 
         // Verify initial state
-        XCTAssertEqual(await previewEngine.getPlaybackState(), .stopped)
-        XCTAssertEqual(await previewEngine.getCurrentTime(), 0)
+        let getPlaybackState_0 = await previewEngine.getPlaybackState()
+        XCTAssertEqual(getPlaybackState_0, .stopped)
+        let getCurrentTime_1 = await previewEngine.getCurrentTime()
+        XCTAssertEqual(getCurrentTime_1, 0)
 
         // Play and verify state
         try await previewEngine.play()
-        XCTAssertEqual(await previewEngine.getPlaybackState(), .playing)
+        let getPlaybackState_2 = await previewEngine.getPlaybackState()
+        XCTAssertEqual(getPlaybackState_2, .playing)
 
         // Pause and verify state
         try await previewEngine.pause()
-        XCTAssertEqual(await previewEngine.getPlaybackState(), .paused)
+        let getPlaybackState_3 = await previewEngine.getPlaybackState()
+        XCTAssertEqual(getPlaybackState_3, .paused)
 
         // Seek and verify state remains paused
         try await previewEngine.seek(to: 2.5)
-        XCTAssertEqual(await previewEngine.getPlaybackState(), .paused)
-        XCTAssertEqual(await previewEngine.getCurrentTime(), 2.5, accuracy: 0.01)
+        let getPlaybackState_4 = await previewEngine.getPlaybackState()
+        XCTAssertEqual(getPlaybackState_4, .paused)
+        let getCurrentTime_5 = await previewEngine.getCurrentTime()
+        XCTAssertEqual(getCurrentTime_5, 2.5, accuracy: 0.01)
 
         // Stop and verify state
         try await previewEngine.stop()
-        XCTAssertEqual(await previewEngine.getPlaybackState(), .stopped)
-        XCTAssertEqual(await previewEngine.getCurrentTime(), 0)
+        let getPlaybackState_6 = await previewEngine.getPlaybackState()
+        XCTAssertEqual(getPlaybackState_6, .stopped)
+        let getCurrentTime_7 = await previewEngine.getCurrentTime()
+        XCTAssertEqual(getCurrentTime_7, 0)
     }
 
     func testPlaybackWithEditsAndOverlays() async throws {
@@ -1439,7 +1498,8 @@ final class PreviewEngineTests: XCTestCase {
         // Verify we can seek anywhere within the trimmed segment
         for targetTime in stride(from: 0, through: 5, by: 0.5) {
             try await previewEngine.seek(to: targetTime)
-            XCTAssertEqual(await previewEngine.getCurrentTime(), targetTime, accuracy: 0.01)
+            let getCurrentTime_0 = await previewEngine.getCurrentTime()
+            XCTAssertEqual(getCurrentTime_0, targetTime, accuracy: 0.01)
         }
     }
 
@@ -1459,7 +1519,8 @@ final class PreviewEngineTests: XCTestCase {
         // Verify we can seek across all segments
         for targetTime in [0, 1.5, 3, 4.5, 6, 7, 8] {
             try await previewEngine.seek(to: targetTime)
-            XCTAssertEqual(await previewEngine.getCurrentTime(), targetTime, accuracy: 0.01)
+            let getCurrentTime_0 = await previewEngine.getCurrentTime()
+            XCTAssertEqual(getCurrentTime_0, targetTime, accuracy: 0.01)
         }
     }
 
@@ -1480,7 +1541,8 @@ final class PreviewEngineTests: XCTestCase {
         let testPositions: [TimeInterval] = [0, 5, 10, 15, 20, 21.25, 22.5, 25, 27.5]
         for targetTime in testPositions {
             try await previewEngine.seek(to: targetTime)
-            XCTAssertEqual(await previewEngine.getCurrentTime(), targetTime, accuracy: 0.01)
+            let getCurrentTime_0 = await previewEngine.getCurrentTime()
+            XCTAssertEqual(getCurrentTime_0, targetTime, accuracy: 0.01)
         }
     }
 
@@ -1499,7 +1561,8 @@ final class PreviewEngineTests: XCTestCase {
         try await previewEngine.loadProject(project)
 
         // Verify duration calculation: 3 + 4 + 2 + 3 = 12 seconds
-        XCTAssertEqual(await previewEngine.getDuration(), 12, accuracy: 0.01)
+        let getDuration_0 = await previewEngine.getDuration()
+        XCTAssertEqual(getDuration_0, 12, accuracy: 0.01)
 
         // Verify seek accuracy across all edits
         let testPositions: [TimeInterval] = [0, 1.5, 3, 5, 7, 8, 9, 10.5, 12]
@@ -1599,9 +1662,9 @@ final class PreviewEngineTests: XCTestCase {
         XCTAssertNil(loadedPlan)
     }
 
-    func testZoomEnabledByDefault() {
+    func testZoomEnabledByDefault() async {
         let engine = PreviewEngine()
-        let isEnabled = engine.isZoomEnabled()
+        let isEnabled = await engine.isZoomEnabled()
         XCTAssertTrue(isEnabled)
     }
 
@@ -1662,11 +1725,12 @@ final class PreviewEngineTests: XCTestCase {
         XCTAssertEqual(focusPoint.y, 0.5, accuracy: 0.01)
     }
 
-    func testConfigurationWithZoomDisabled() {
+    func testConfigurationWithZoomDisabled() async {
         let config = PreviewEngine.Configuration(zoomEnabled: false)
         let engine = PreviewEngine(configuration: config)
 
-        XCTAssertFalse(engine.isZoomEnabled())
+        let isEnabled = await engine.isZoomEnabled()
+        XCTAssertFalse(isEnabled)
     }
 
     func testUnloadProjectClearsZoomPlan() async throws {

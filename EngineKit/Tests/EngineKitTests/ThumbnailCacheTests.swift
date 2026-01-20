@@ -505,24 +505,40 @@ final class ThumbnailCacheTests: XCTestCase {
 
     func testWaveformCacheWithAudioTracks() async {
         // Create project with audio tracks
-        var projectWithAudio = createMockProject()
+        let baseProject = createMockProject()
 
-        let systemAudio = Project.Sources.AudioTrack(
+        let systemAudio = Project.Sources.AudioTracks.AudioTrack(
             path: "sources/system_audio.m4a",
-            syncOffsetMs: 0
+            syncOffsetMs: 0,
+            sha256: "abc123",
+            sizeBytes: 10485760
         )
 
-        let micAudio = Project.Sources.AudioTrack(
+        let micAudio = Project.Sources.AudioTracks.AudioTrack(
             path: "sources/mic_audio.m4a",
-            syncOffsetMs: 0
+            syncOffsetMs: 0,
+            sha256: "def456",
+            sizeBytes: 10485760
         )
 
-        projectWithAudio.sources = Project.Sources(
-            syncReference: "screen",
-            screen: projectWithAudio.sources.screen,
-            camera: nil,
-            audio: Project.Sources.AudioTracks(system: systemAudio, mic: micAudio),
-            telemetry: nil
+        let projectWithAudio = Project(
+            schemaVersion: baseProject.schemaVersion,
+            projectId: baseProject.projectId,
+            name: baseProject.name,
+            tags: baseProject.tags,
+            createdAt: baseProject.createdAt,
+            updatedAt: baseProject.updatedAt,
+            sources: Project.Sources(
+                syncReference: "screen",
+                screen: baseProject.sources.screen,
+                camera: nil,
+                audio: Project.Sources.AudioTracks(system: systemAudio, mic: micAudio),
+                telemetry: nil
+            ),
+            timeline: baseProject.timeline,
+            canvas: baseProject.canvas,
+            overlays: baseProject.overlays,
+            captions: baseProject.captions
         )
 
         await thumbnailCache.setProject(projectWithAudio, projectDirectory: tempDirectory)
@@ -575,14 +591,11 @@ final class ThumbnailCacheTests: XCTestCase {
         let thumbnailCacheDir = (tempDirectory as NSString).appendingPathComponent("cache/thumbnails")
         let waveformCacheDir = (tempDirectory as NSString).appendingPathComponent("cache/waveforms")
 
-        var thumbnailDirExists = false
-        var waveformDirExists = false
-
         // Small delay to ensure directories are created
         try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
 
-        thumbnailDirExists = FileManager.default.fileExists(atPath: thumbnailCacheDir)
-        waveformDirExists = FileManager.default.fileExists(atPath: waveformCacheDir)
+        _ = FileManager.default.fileExists(atPath: thumbnailCacheDir)
+        _ = FileManager.default.fileExists(atPath: waveformCacheDir)
 
         // Note: Directories might not be created until they're actually needed
         // so we're just verifying the paths are correct

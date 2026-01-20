@@ -59,7 +59,7 @@ final class EditorModelTests: XCTestCase {
 
         let canvas = Project.Canvas(
             format: Project.Canvas.Format(aspect: "16:9", w: 1920, h: 1080),
-            background: Project.Canvas.Background(type: "solid", value: "#000000"),
+            background: Project.Canvas.Background(type: "solid", value: "#000000", fitMode: nil),
             layout: Project.Canvas.Layout(type: "pip", camera: nil)
         )
 
@@ -650,7 +650,7 @@ final class EditorModelTests: XCTestCase {
 
         let canvas = Project.Canvas(
             format: Project.Canvas.Format(aspect: "16:9", w: 1920, h: 1080),
-            background: Project.Canvas.Background(type: "solid", value: "#000000"),
+            background: Project.Canvas.Background(type: "solid", value: "#000000", fitMode: nil),
             layout: Project.Canvas.Layout(type: "pip", camera: nil)
         )
 
@@ -717,7 +717,7 @@ final class EditorModelTests: XCTestCase {
 
         let canvas = Project.Canvas(
             format: Project.Canvas.Format(aspect: "16:9", w: 1920, h: 1080),
-            background: Project.Canvas.Background(type: "solid", value: "#000000"),
+            background: Project.Canvas.Background(type: "solid", value: "#000000", fitMode: nil),
             layout: Project.Canvas.Layout(type: "pip", camera: nil)
         )
 
@@ -785,7 +785,7 @@ final class EditorModelTests: XCTestCase {
 
         let canvas = Project.Canvas(
             format: Project.Canvas.Format(aspect: "16:9", w: 1920, h: 1080),
-            background: Project.Canvas.Background(type: "solid", value: "#000000"),
+            background: Project.Canvas.Background(type: "solid", value: "#000000", fitMode: nil),
             layout: Project.Canvas.Layout(type: "pip", camera: nil)
         )
 
@@ -866,7 +866,7 @@ final class EditorModelTests: XCTestCase {
         )
 
         switch result {
-        case .success:
+        case .success, .successWithInfo:
             let editedProject = result.getProject()!
             XCTAssertEqual(editedProject.overlays[0].start, 2.0)
             XCTAssertEqual(editedProject.overlays[0].end, 10.0)
@@ -886,7 +886,7 @@ final class EditorModelTests: XCTestCase {
         )
 
         switch result {
-        case .success:
+        case .success, .successWithInfo:
             let editedProject = result.getProject()!
             XCTAssertEqual(editedProject.overlays[0].start, 0.0)
             XCTAssertEqual(editedProject.overlays[0].end, 8.0)
@@ -907,7 +907,7 @@ final class EditorModelTests: XCTestCase {
         )
 
         switch result {
-        case .success:
+        case .success, .successWithInfo:
             let editedProject = result.getProject()!
             XCTAssertEqual(editedProject.overlays[0].start, 3.0)
             XCTAssertEqual(editedProject.overlays[0].end, 7.0)
@@ -927,7 +927,7 @@ final class EditorModelTests: XCTestCase {
         )
 
         switch result {
-        case .success:
+        case .success, .successWithInfo:
             XCTFail("Expected failure for start time >= end time")
         case .failure(let error):
             if case .invalidTrimTime(let sourceIn, let sourceOut, let reason) = error {
@@ -951,7 +951,7 @@ final class EditorModelTests: XCTestCase {
         )
 
         switch result {
-        case .success:
+        case .success, .successWithInfo:
             XCTFail("Expected failure for end time <= start time")
         case .failure(let error):
             if case .invalidTrimTime(let sourceIn, let sourceOut, let reason) = error {
@@ -975,7 +975,7 @@ final class EditorModelTests: XCTestCase {
         )
 
         switch result {
-        case .success:
+        case .success, .successWithInfo:
             XCTFail("Expected failure for negative start time")
         case .failure(let error):
             if case .invalidTrimTime(let sourceIn, let sourceOut, let reason) = error {
@@ -999,7 +999,7 @@ final class EditorModelTests: XCTestCase {
         )
 
         switch result {
-        case .success:
+        case .success, .successWithInfo:
             XCTFail("Expected failure for end time exceeding timeline duration")
         case .failure(let error):
             if case .invalidTrimTime(let sourceIn, let sourceOut, let reason) = error {
@@ -1023,7 +1023,7 @@ final class EditorModelTests: XCTestCase {
         )
 
         switch result {
-        case .success:
+        case .success, .successWithInfo:
             XCTFail("Expected failure for non-existent overlay")
         case .failure(let error):
             XCTAssertEqual(error, .segmentNotFound(""))
@@ -1047,7 +1047,7 @@ final class EditorModelTests: XCTestCase {
         )
 
         switch result {
-        case .success:
+        case .success, .successWithInfo:
             let editedProject = result.getProject()!
             XCTAssertEqual(editedProject.overlays[0].start, 1.0)
             XCTAssertEqual(editedProject.overlays[0].end, 9.0)
@@ -1070,7 +1070,7 @@ final class EditorModelTests: XCTestCase {
         )
 
         switch result1 {
-        case .success:
+        case .success, .successWithInfo:
             let editedProject = result1.getProject()!
             XCTAssertEqual(editedProject.overlays[0].start, 0.0)
         case .failure(let error):
@@ -1085,7 +1085,7 @@ final class EditorModelTests: XCTestCase {
         )
 
         switch result2 {
-        case .success:
+        case .success, .successWithInfo:
             let editedProject = result2.getProject()!
             XCTAssertEqual(editedProject.overlays[0].end, 10.0)
         case .failure(let error):
@@ -1106,7 +1106,7 @@ final class EditorModelTests: XCTestCase {
         )
 
         switch result {
-        case .success:
+        case .success, .successWithInfo:
             let editedProject = result.getProject()!
             XCTAssertEqual(editedProject.overlays[0].start, 5.0)
             XCTAssertEqual(editedProject.overlays[0].end, 5.1)
@@ -1148,7 +1148,7 @@ final class EditorModelTests: XCTestCase {
 
         return Project(
             schemaVersion: 1,
-            projectId: UUID().uuidString,
+            projectId: UUID(),
             name: "Test Project",
             tags: [],
             createdAt: Date(),

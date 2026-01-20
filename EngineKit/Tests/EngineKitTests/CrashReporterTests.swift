@@ -44,7 +44,8 @@ final class CrashReporterTests: XCTestCase {
     func testCrashReporterInitialization() async throws {
         let reporter = await CrashReporter.shared
         XCTAssertNotNil(reporter)
-        XCTAssertTrue(await reporter.isEnabled)
+        let enabled = await reporter.isEnabled
+        XCTAssertTrue(enabled)
     }
     
     func testEngineKitCrashReporterAccess() async throws {

@@ -210,7 +210,7 @@ final class ProxyGeneratorTests: XCTestCase {
 
     // MARK: - Helper Methods Tests
 
-    func testGetProxyPathWithExistingProxy() {
+    func testGetProxyPathWithExistingProxy() async {
         // Create proxies directory and proxy file
         let proxiesDir = (tempDirectory as NSString).appendingPathComponent("proxies")
         try? FileManager.default.createDirectory(atPath: proxiesDir, withIntermediateDirectories: true)

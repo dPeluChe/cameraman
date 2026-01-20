@@ -42,8 +42,9 @@ final class AIServiceTests: XCTestCase {
         XCTAssertNotNil(aiService, "AIService should be initialized")
     }
 
-    func testAIServiceHasNoProviderByDefault() {
-        XCTAssertFalse(aiService.hasProvider(), "AIService should not have a provider by default")
+    func testAIServiceHasNoProviderByDefault() async {
+        let hasProvider = await aiService.hasProvider()
+        XCTAssertFalse(hasProvider, "AIService should not have a provider by default")
     }
 
     // MARK: - Provider Management Tests
@@ -52,16 +53,21 @@ final class AIServiceTests: XCTestCase {
         let mockProvider = MockAIProvider()
         await aiService.setProvider(mockProvider)
 
-        XCTAssertTrue(aiService.hasProvider(), "AIService should have a provider after setting one")
+        let hasProvider = await aiService.hasProvider()
+        XCTAssertTrue(hasProvider, "AIService should have a provider after setting one")
     }
 
     func testClearProvider() async throws {
         let mockProvider = MockAIProvider()
         await aiService.setProvider(mockProvider)
-        XCTAssertTrue(aiService.hasProvider())
+
+        let hasProvider1 = await aiService.hasProvider()
+        XCTAssertTrue(hasProvider1)
 
         await aiService.clearProvider()
-        XCTAssertFalse(aiService.hasProvider(), "AIService should not have a provider after clearing")
+
+        let hasProvider2 = await aiService.hasProvider()
+        XCTAssertFalse(hasProvider2, "AIService should not have a provider after clearing")
     }
 
     // MARK: - Suggestion Model Tests

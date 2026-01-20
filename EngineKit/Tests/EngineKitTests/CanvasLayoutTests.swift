@@ -776,11 +776,10 @@ final class CanvasLayoutTests: XCTestCase {
     // MARK: - Image Frame Calculation Tests
 
     func testCalculateImageFrameFitWiderImage() {
-        let imageSize = CGSize(width: 2000, height: 1000) // 2:1 aspect ratio
-        let canvasSize = CGSize(width: 1920, height: 1080) // 16:9 aspect ratio
+        // Rely on type inference from calculateImageFrame parameter types
         let frame = CanvasLayout.calculateImageFrame(
-            imageSize: imageSize,
-            canvasSize: canvasSize,
+            imageSize: .init(width: 2000, height: 1000), // 2:1 aspect ratio
+            canvasSize: .init(width: 1920, height: 1080), // 16:9 aspect ratio
             fitMode: .fit
         )
 
@@ -792,11 +791,9 @@ final class CanvasLayoutTests: XCTestCase {
     }
 
     func testCalculateImageFrameFitTallerImage() {
-        let imageSize = CGSize(width: 1000, height: 2000) // 1:2 aspect ratio
-        let canvasSize = CGSize(width: 1920, height: 1080) // 16:9 aspect ratio
         let frame = CanvasLayout.calculateImageFrame(
-            imageSize: imageSize,
-            canvasSize: canvasSize,
+            imageSize: .init(width: 1000, height: 2000), // 1:2 aspect ratio
+            canvasSize: .init(width: 1920, height: 1080), // 16:9 aspect ratio
             fitMode: .fit
         )
 
@@ -808,11 +805,9 @@ final class CanvasLayoutTests: XCTestCase {
     }
 
     func testCalculateImageFrameFillWiderImage() {
-        let imageSize = EngineKit.CGSize(width: 2000, height: 1000) // 2:1 aspect ratio
-        let canvasSize = EngineKit.CGSize(width: 1920, height: 1080) // 16:9 aspect ratio
         let frame = CanvasLayout.calculateImageFrame(
-            imageSize: imageSize,
-            canvasSize: canvasSize,
+            imageSize: .init(width: 2000, height: 1000), // 2:1 aspect ratio
+            canvasSize: .init(width: 1920, height: 1080), // 16:9 aspect ratio
             fitMode: .fill
         )
 
@@ -824,11 +819,9 @@ final class CanvasLayoutTests: XCTestCase {
     }
 
     func testCalculateImageFrameFillTallerImage() {
-        let imageSize = EngineKit.CGSize(width: 1000, height: 2000) // 1:2 aspect ratio
-        let canvasSize = EngineKit.CGSize(width: 1920, height: 1080) // 16:9 aspect ratio
         let frame = CanvasLayout.calculateImageFrame(
-            imageSize: imageSize,
-            canvasSize: canvasSize,
+            imageSize: .init(width: 1000, height: 2000), // 1:2 aspect ratio
+            canvasSize: .init(width: 1920, height: 1080), // 16:9 aspect ratio
             fitMode: .fill
         )
 
@@ -840,11 +833,9 @@ final class CanvasLayoutTests: XCTestCase {
     }
 
     func testCalculateImageFramePerfectMatch() {
-        let imageSize = EngineKit.CGSize(width: 1920, height: 1080) // 16:9 aspect ratio
-        let canvasSize = EngineKit.CGSize(width: 1920, height: 1080) // 16:9 aspect ratio
         let frame = CanvasLayout.calculateImageFrame(
-            imageSize: imageSize,
-            canvasSize: canvasSize,
+            imageSize: .init(width: 1920, height: 1080), // 16:9 aspect ratio
+            canvasSize: .init(width: 1920, height: 1080), // 16:9 aspect ratio
             fitMode: .fit
         )
 

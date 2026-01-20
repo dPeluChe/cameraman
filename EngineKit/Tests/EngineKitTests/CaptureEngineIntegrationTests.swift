@@ -67,7 +67,9 @@ final class CaptureEngineIntegrationTests: XCTestCase {
         // Then - Verify session started
         XCTAssertTrue(session.isRecording, "Session should be recording")
         XCTAssertNotNil(session.startTime, "Start time should be set")
-        XCTAssertEqual(captureEngine.getCurrentSession()?.id, session.id, "Current session should match")
+
+        let currentSession = await captureEngine.getCurrentSession()
+        XCTAssertEqual(currentSession?.id, session.id, "Current session should match")
 
         // When - Record for a short duration
         try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds

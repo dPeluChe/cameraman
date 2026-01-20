@@ -328,7 +328,7 @@ final class ProjectLibraryTests: XCTestCase {
         _ = try await createMockProject(name: "Project1", tags: [], duration: 60)
         try await Task.sleep(nanoseconds: 50_000_000) // 0.05 seconds
 
-        let middleTime = Date()
+        _ = Date() // middleTime
         _ = try await createMockProject(name: "Project2", tags: [], duration: 60)
         try await Task.sleep(nanoseconds: 50_000_000) // 0.05 seconds
 

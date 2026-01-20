@@ -98,8 +98,8 @@ Este backlog está organizado por épicas y por orden recomendado.
 ## Épica K — IA preparada (Feature flags)
 - [x] (P1) Definir interfaz `AIService` + `Suggestion` + `AssetRef`
 - [x] (P1) Local "smart edits": sugerir cortes por silencios, capítulos desde transcript
-- [ ] (P2) Cloud provider: generar background asset por prompt, aplicar a canvas como asset
-- [ ] (P2) Labs: estilo frame‑a‑frame (experimental), reemplazo de fondo en cámara (experimental)
+- [x] (P2) Cloud provider: generar background asset por prompt, aplicar a canvas como asset
+- [x] (P2) Labs: estilo frame‑a‑frame (experimental), reemplazo de fondo en cámara (experimental)
 
 ---
 

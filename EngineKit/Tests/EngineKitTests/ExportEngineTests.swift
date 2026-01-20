@@ -1492,7 +1492,7 @@ final class ExportEngineTests: XCTestCase {
         XCTAssertFalse(exportOptions.includeCursorHighlight)
         XCTAssertEqual(exportOptions.outputFilename, "test.gif")
         XCTAssertNotNil(exportOptions.gifOptions)
-        XCTAssertEqual(exportOptions.gifOptions?.quality, 0.85, accuracy: 0.01)
+        XCTAssertEqual(exportOptions.gifOptions!.quality, 0.85, accuracy: 0.01)
         XCTAssertEqual(exportOptions.gifOptions?.loopCount, 3)
         XCTAssertEqual(exportOptions.gifOptions?.maxSize, 800)
         XCTAssertEqual(exportOptions.gifOptions?.frameRate, 12)

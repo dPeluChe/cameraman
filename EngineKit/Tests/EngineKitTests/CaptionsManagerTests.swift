@@ -164,8 +164,13 @@ final class CaptionsManagerTests: XCTestCase {
         let manager = CaptionsManager()
         try await manager.loadCaptions(from: testVTTFile.path)
 
-        XCTAssertTrue(await manager.hasCaptions())
-        XCTAssertEqual(await manager.getCaptionCount(), 4)
+        let hasCaptions_1 = await manager.hasCaptions()
+
+
+        XCTAssertTrue(hasCaptions_1)
+        let getCaptionCount_9 = await manager.getCaptionCount()
+
+        XCTAssertEqual(getCaptionCount_9, 4)
     }
 
     func testLoadVTTFileParseContent() async throws {
@@ -296,11 +301,15 @@ final class CaptionsManagerTests: XCTestCase {
         try await manager.loadCaptions(from: testSRTFile.path)
 
         // Initially enabled
-        XCTAssertTrue(await manager.isEnabled())
+        let isEnabled_2 = await manager.isEnabled()
+
+        XCTAssertTrue(isEnabled_2)
 
         // Disable
         await manager.setEnabled(false)
-        XCTAssertFalse(await manager.isEnabled())
+        let isEnabled_7 = await manager.isEnabled()
+
+        XCTAssertFalse(isEnabled_7)
 
         // Caption query should return nil when disabled
         let caption = await manager.getCaption(at: 1.0)
@@ -308,7 +317,9 @@ final class CaptionsManagerTests: XCTestCase {
 
         // Re-enable
         await manager.setEnabled(true)
-        XCTAssertTrue(await manager.isEnabled())
+        let isEnabled_3 = await manager.isEnabled()
+
+        XCTAssertTrue(isEnabled_3)
 
         // Caption query should work again
         let caption2 = await manager.getCaption(at: 1.0)
@@ -420,13 +431,23 @@ final class CaptionsManagerTests: XCTestCase {
         let manager = CaptionsManager()
         try await manager.loadCaptions(from: testSRTFile.path)
 
-        XCTAssertTrue(await manager.hasCaptions())
-        XCTAssertEqual(await manager.getCaptionCount(), 4)
+        let hasCaptions_4 = await manager.hasCaptions()
+
+
+        XCTAssertTrue(hasCaptions_4)
+        let getCaptionCount_10 = await manager.getCaptionCount()
+
+        XCTAssertEqual(getCaptionCount_10, 4)
 
         await manager.clear()
 
-        XCTAssertFalse(await manager.hasCaptions())
-        XCTAssertEqual(await manager.getCaptionCount(), 0)
+        let hasCaptions_8 = await manager.hasCaptions()
+
+
+        XCTAssertFalse(hasCaptions_8)
+        let getCaptionCount_11 = await manager.getCaptionCount()
+
+        XCTAssertEqual(getCaptionCount_11, 0)
     }
 
     func testCaptionEntryEquality() async throws {
@@ -448,8 +469,13 @@ final class CaptionsManagerTests: XCTestCase {
         let manager = CaptionsManager()
         try await manager.loadCaptions(from: noExtFile.path)
 
-        XCTAssertTrue(await manager.hasCaptions())
-        XCTAssertEqual(await manager.getCaptionCount(), 4)
+        let hasCaptions_5 = await manager.hasCaptions()
+
+
+        XCTAssertTrue(hasCaptions_5)
+        let getCaptionCount_12 = await manager.getCaptionCount()
+
+        XCTAssertEqual(getCaptionCount_12, 4)
     }
 
     func testAutoDetectVTTFormat() async throws {
@@ -460,8 +486,13 @@ final class CaptionsManagerTests: XCTestCase {
         let manager = CaptionsManager()
         try await manager.loadCaptions(from: noExtFile.path)
 
-        XCTAssertTrue(await manager.hasCaptions())
-        XCTAssertEqual(await manager.getCaptionCount(), 4)
+        let hasCaptions_6 = await manager.hasCaptions()
+
+
+        XCTAssertTrue(hasCaptions_6)
+        let getCaptionCount_13 = await manager.getCaptionCount()
+
+        XCTAssertEqual(getCaptionCount_13, 4)
     }
 
     // MARK: - Multi-Line Caption Tests
@@ -511,11 +542,15 @@ final class CaptionsManagerTests: XCTestCase {
         let manager = CaptionsManager()
         try await manager.loadCaptions(from: testSRTFile.path)
 
-        measure {
-            for i in 0..<1000 {
-                let time = Double(i) / 100.0
-                _ = await manager.getCaption(at: time)
-            }
+        // Measure performance of caption queries
+        let start = Date()
+        for i in 0..<1000 {
+            let time = Double(i) / 100.0
+            _ = await manager.getCaption(at: time)
         }
+        let duration = Date().timeIntervalSince(start)
+
+        // Should complete 1000 queries in reasonable time (< 1 second)
+        XCTAssertLessThan(duration, 1.0, "Caption queries should be fast")
     }
 }

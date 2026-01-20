@@ -127,7 +127,7 @@ final class OverlayEditViewTests: XCTestCase {
 
         // Update position
         let newTransform = Project.Overlay.Transform(x: 0.6, y: 0.7, scale: 1.0, rotation: 0.0)
-        let result = await editorModel.updateOverlay(
+        _ = await editorModel.updateOverlay(
             projectId: project.projectId,
             overlayId: overlay.id,
             transform: newTransform
@@ -233,9 +233,21 @@ final class OverlayEditViewTests: XCTestCase {
             style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 4.0, shadow: true)
         )
 
-        var updatedProject = project
-        updatedProject.overlays.append(overlay)
-        await editorModel.setProject(updatedProject)
+        // Create a new project with the overlay
+        let projectWithOverlay = Project(
+            schemaVersion: project.schemaVersion,
+            projectId: project.projectId,
+            name: project.name,
+            tags: project.tags,
+            createdAt: project.createdAt,
+            updatedAt: project.updatedAt,
+            sources: project.sources,
+            timeline: project.timeline,
+            canvas: project.canvas,
+            overlays: [overlay],
+            captions: project.captions
+        )
+        await editorModel.setProject(projectWithOverlay)
 
         // Update stroke width
         let newStyle = Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 10.0, shadow: true)
@@ -261,9 +273,24 @@ final class OverlayEditViewTests: XCTestCase {
             style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 4.0, shadow: true)
         )
 
-        var updatedProject = project
-        updatedProject.overlays.append(overlay)
-        await editorModel.setProject(updatedProject)
+        // Create a new project with the overlay
+        let projectWithOverlay = Project(
+            schemaVersion: project.schemaVersion,
+            projectId: project.projectId,
+            name: project.name,
+            tags: project.tags,
+            createdAt: project.createdAt,
+            updatedAt: project.updatedAt,
+            sources: project.sources,
+            timeline: project.timeline,
+            canvas: project.canvas,
+            overlays: [overlay],
+            captions: project.captions
+        )
+        await editorModel.setProject(projectWithOverlay)
+
+        let currentProject = await editorModel.getProject()
+        XCTAssertNotNil(currentProject)
 
         // Disable shadow
         let newStyle = Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 4.0, shadow: false)
@@ -275,6 +302,7 @@ final class OverlayEditViewTests: XCTestCase {
 
         let projectResult = await editorModel.getProject()
         let updatedOverlay = projectResult.overlays.first(where: { $0.id == overlay.id })
+        XCTAssertNotNil(updatedOverlay)
         XCTAssertFalse(updatedOverlay!.style.shadow)
     }
 
@@ -300,9 +328,21 @@ final class OverlayEditViewTests: XCTestCase {
             style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 4.0, shadow: true)
         )
 
-        var updatedProject = project
-        updatedProject.overlays = [overlay1, overlay2]
-        await editorModel.setProject(updatedProject)
+        // Create a new project with overlays
+        let projectWithOverlays = Project(
+            schemaVersion: project.schemaVersion,
+            projectId: project.projectId,
+            name: project.name,
+            tags: project.tags,
+            createdAt: project.createdAt,
+            updatedAt: project.updatedAt,
+            sources: project.sources,
+            timeline: project.timeline,
+            canvas: project.canvas,
+            overlays: [overlay1, overlay2],
+            captions: project.captions
+        )
+        await editorModel.setProject(projectWithOverlays)
 
         let projectBeforeDelete = await editorModel.getProject()
         XCTAssertEqual(projectBeforeDelete.overlays.count, 2)
@@ -330,9 +370,21 @@ final class OverlayEditViewTests: XCTestCase {
             style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 6.0, shadow: true)
         )
 
-        var updatedProject = project
-        updatedProject.overlays = [overlay]
-        await editorModel.setProject(updatedProject)
+        // Create a new project with the overlay
+        let projectWithOverlay = Project(
+            schemaVersion: project.schemaVersion,
+            projectId: project.projectId,
+            name: project.name,
+            tags: project.tags,
+            createdAt: project.createdAt,
+            updatedAt: project.updatedAt,
+            sources: project.sources,
+            timeline: project.timeline,
+            canvas: project.canvas,
+            overlays: [overlay],
+            captions: project.captions
+        )
+        await editorModel.setProject(projectWithOverlay)
 
         let projectBeforeDelete = await editorModel.getProject()
         XCTAssertEqual(projectBeforeDelete.overlays.count, 1)
@@ -404,9 +456,21 @@ final class OverlayEditViewTests: XCTestCase {
             style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 6.0, shadow: true)
         )
 
-        var updatedProject = project
-        updatedProject.overlays.append(overlay)
-        await editorModel.setProject(updatedProject)
+        // Create a new project with the overlay
+        let projectWithOverlay = Project(
+            schemaVersion: project.schemaVersion,
+            projectId: project.projectId,
+            name: project.name,
+            tags: project.tags,
+            createdAt: project.createdAt,
+            updatedAt: project.updatedAt,
+            sources: project.sources,
+            timeline: project.timeline,
+            canvas: project.canvas,
+            overlays: [overlay],
+            captions: project.captions
+        )
+        await editorModel.setProject(projectWithOverlay)
 
         let projectBeforeUpdate = await editorModel.getProject()
         let originalUpdatedAt = projectBeforeUpdate.updatedAt
@@ -437,9 +501,21 @@ final class OverlayEditViewTests: XCTestCase {
             style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 6.0, shadow: true)
         )
 
-        var updatedProject = project
-        updatedProject.overlays.append(overlay)
-        await editorModel.setProject(updatedProject)
+        // Create a new project with the overlay
+        let projectWithOverlay = Project(
+            schemaVersion: project.schemaVersion,
+            projectId: project.projectId,
+            name: project.name,
+            tags: project.tags,
+            createdAt: project.createdAt,
+            updatedAt: project.updatedAt,
+            sources: project.sources,
+            timeline: project.timeline,
+            canvas: project.canvas,
+            overlays: [overlay],
+            captions: project.captions
+        )
+        await editorModel.setProject(projectWithOverlay)
 
         let projectBeforeDelete = await editorModel.getProject()
         let originalUpdatedAt = projectBeforeDelete.updatedAt

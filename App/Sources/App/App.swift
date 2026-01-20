@@ -14,16 +14,19 @@ struct CameramanApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
-        // Empty scene - we use a floating panel
-        Settings {
-            EmptyView()
+        // Main window with recording controls
+        WindowGroup {
+            RecordingControlView()
+                .frame(minWidth: 300, minHeight: 200)
+                .padding()
         }
+        .windowStyle(.hiddenTitleBar)
+        .defaultSize(width: 350, height: 300)
     }
 }
 
 /// App delegate for managing lifecycle and hotkeys
 class AppDelegate: NSObject, NSApplicationDelegate {
-    var floatingPanel: FloatingPanel?
     var statusBarMenu: StatusBarMenu?
     var hotkeyManager: HotkeyManager?
 
@@ -34,8 +37,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Create status bar menu
         statusBarMenu = StatusBarMenu()
 
-        // Create floating panel (hidden by default)
-        floatingPanel = FloatingPanel()
+        // Note: Floating panel removed - using WindowGroup instead
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -46,7 +48,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         // Cleanup
         hotkeyManager?.unregisterAllHotkeys()
-        floatingPanel?.close()
     }
 
     private func setupHotkeys() {
@@ -110,36 +111,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-/// Floating recording control panel
-class FloatingPanel: NSPanel {
-    init() {
-        super.init(
-            contentRect: NSRect(x: 0, y: 0, width: 280, height: 200),
-            styleMask: [.hudWindow, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
-        )
-
-        self.title = "Recording Controls"
-        self.isFloatingPanel = true
-        self.level = .floating
-        self.backgroundColor = NSColor.clear
-        self.contentView = NSHostingView(rootView: RecordingControlView())
-
-        // Center panel on screen
-        if let screen = NSScreen.main {
-            let frame = screen.visibleFrame
-            let panelFrame = self.frame
-            self.setFrameOrigin(
-                NSPoint(
-                    x: frame.midX - panelFrame.width / 2,
-                    y: frame.midY - panelFrame.height / 2
-                )
-            )
-        }
-    }
-}
-
 /// Recording control UI
 struct RecordingControlView: View {
     @StateObject private var viewModel = RecordingControlViewModel()
@@ -172,7 +143,7 @@ struct RecordingControlView: View {
 
                 if viewModel.isRecording {
                     Text(viewModel.elapsedTime)
-                        .font(.system(.monospacedDigit, size: 12))
+                        .font(.system(size: 12, design: .monospaced))
                         .foregroundColor(.white)
                 }
             }
@@ -265,29 +236,109 @@ class RecordingControlViewModel: ObservableObject {
     @Published var includeMicrophone = false
     @Published var includeSystemAudio = true
 
-    private var startTime: Date?
     private var timer: Timer?
-    private var session: EngineKit.Recorder.RecordingSession?
+    private var recordingSession: Recorder.RecordingSession?
 
     func startRecording() async {
         guard !isRecording else { return }
 
-        statusText = "Starting recording..."
-        startTime = Date()
+        statusText = "Requesting permissions..."
+        do {
+            // Check permissions first
+            let permissionManager = PermissionManager.shared
+            let screenPermission = await permissionManager.requestScreenRecordingPermission()
+            guard screenPermission == .authorized else {
+                statusText = "Screen recording permission denied"
+                return
+            }
 
-        // Start timer
-        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-            self?.updateElapsedTime()
+            if includeCamera {
+                let cameraPermission = await permissionManager.requestCameraPermission()
+                guard cameraPermission == .authorized else {
+                    statusText = "Camera permission denied"
+                    return
+                }
+            }
+
+            if includeMicrophone {
+                let micPermission = await permissionManager.requestMicrophonePermission()
+                guard micPermission == .authorized else {
+                    statusText = "Microphone permission denied"
+                    return
+                }
+            }
+
+            statusText = "Starting recording..."
+
+            // Create output URL
+            let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            let recordingsPath = documentsPath.appendingPathComponent("Recordings")
+            try FileManager.default.createDirectory(at: recordingsPath, withIntermediateDirectories: true)
+            let timestamp = ISO8601DateFormatter().string(from: Date())
+            let outputURL = recordingsPath.appendingPathComponent("recording_\(timestamp).mov")
+
+            // Create screen capture configuration
+            let sourceSelector = SourceSelector.shared
+            let displays = try await sourceSelector.listDisplays()
+            guard let display = displays.first else {
+                statusText = "No displays found"
+                return
+            }
+
+            let screenConfig = CaptureEngine.CaptureConfiguration(
+                sourceType: .display,
+                display: display,
+                window: nil,
+                application: nil,
+                captureSystemAudio: includeSystemAudio,
+                frameRate: 60,
+                pixelFormat: kCVPixelFormatType_32ARGB
+            )
+
+            // Create camera configuration if needed
+            var cameraConfig: CameraEngine.CameraConfiguration?
+            if includeCamera {
+                cameraConfig = CameraEngine.CameraConfiguration(
+                    deviceID: nil, // Use default camera
+                    resolutionPreset: .hd1080,
+                    frameRate: 30,
+                    codec: .h264,
+                    syncOffsetMs: 0
+                )
+            }
+
+            // Create recording configuration
+            let config = Recorder.RecordingConfiguration(
+                screenConfig: screenConfig,
+                cameraConfig: cameraConfig,
+                captureMicAudio: includeMicrophone
+            )
+
+            // Start recording
+            let recorder = Recorder.shared
+            recordingSession = try await recorder.startRecording(
+                config: config,
+                outputURL: outputURL
+            )
+
+            // Start timer
+            timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+                Task { @MainActor in
+                    await self?.updateElapsedTime()
+                }
+            }
+
+            statusText = "Recording..."
+            isRecording = true
+
+        } catch {
+            statusText = "Error: \(error.localizedDescription)"
+            print("❌ Failed to start recording: \(error)")
         }
-
-        // TODO: Create recording configuration and start
-        // This would integrate with Recorder from EngineKit
-        statusText = "Recording..."
-        isRecording = true
     }
 
     func stopRecording() async {
-        guard isRecording else { return }
+        guard isRecording, let session = recordingSession else { return }
 
         statusText = "Stopping recording..."
 
@@ -295,36 +346,56 @@ class RecordingControlViewModel: ObservableObject {
         timer?.invalidate()
         timer = nil
 
-        // TODO: Stop recording and save result
+        do {
+            let recorder = Recorder.shared
+            let result = try await recorder.stopRecording(session: session)
+
+            statusText = "Saved: \(result.screenVideoPath.lastPathComponent)"
+            print("✅ Recording saved to: \(result.screenVideoPath)")
+            print("   Duration: \(result.duration)s")
+            if let cameraPath = result.cameraVideoPath {
+                print("   Camera: \(cameraPath.lastPathComponent)")
+            }
+            if let micPath = result.micAudioPath {
+                print("   Mic audio: \(micPath.lastPathComponent)")
+            }
+        } catch {
+            statusText = "Error: \(error.localizedDescription)"
+            print("❌ Failed to stop recording: \(error)")
+        }
+
         isRecording = false
         isPaused = false
-        startTime = nil
-        statusText = "Recording saved"
         elapsedTime = "00:00"
+        recordingSession = nil
     }
 
     func pauseResumeRecording() async {
-        guard isRecording else { return }
+        guard isRecording, let session = recordingSession else { return }
 
         if isPaused {
             statusText = "Resuming..."
+            // TODO: Implement pause/resume in Recorder
             isPaused = false
-            // TODO: Resume recording
             statusText = "Recording..."
         } else {
             statusText = "Pausing..."
+            // TODO: Implement pause/resume in Recorder
             isPaused = true
-            // TODO: Pause recording
             statusText = "Paused"
         }
     }
 
-    private func updateElapsedTime() {
-        guard let start = startTime else { return }
-        let elapsed = Date().timeIntervalSince(start)
-        let minutes = Int(elapsed) / 60
-        let seconds = Int(elapsed) % 60
-        elapsedTime = String(format: "%02d:%02d", minutes, seconds)
+    private func updateElapsedTime() async {
+        guard let session = recordingSession else { return }
+
+        // Calculate elapsed time from session
+        if let start = session.startTime {
+            let elapsed = Date().timeIntervalSince(start)
+            let minutes = Int(elapsed) / 60
+            let seconds = Int(elapsed) % 60
+            elapsedTime = String(format: "%02d:%02d", minutes, seconds)
+        }
     }
 }
 
@@ -358,7 +429,9 @@ class StatusBarMenu {
             button.target = self
         }
 
-        updateStatus()
+        Task { @MainActor in
+            updateStatus()
+        }
     }
 
     private func setupStatusUpdateTimer() {
@@ -368,6 +441,7 @@ class StatusBarMenu {
         }
     }
 
+    @MainActor
     private func updateStatus() {
         guard let button = statusItem?.button else { return }
 
@@ -394,15 +468,17 @@ class StatusBarMenu {
         let menu = NSMenu()
 
         // Recording status section
-        if let viewModel = RecordingStateManager.shared.viewModel {
-            let statusItem = NSMenuItem(title: viewModel.statusText, action: nil, keyEquivalent: "")
-            statusItem.isEnabled = false
-            menu.addItem(statusItem)
+        Task { @MainActor in
+            if let viewModel = RecordingStateManager.shared.viewModel {
+                let statusItem = NSMenuItem(title: viewModel.statusText, action: nil, keyEquivalent: "")
+                statusItem.isEnabled = false
+                menu.addItem(statusItem)
 
-            if viewModel.isRecording {
-                let timeItem = NSMenuItem(title: "Elapsed: \(viewModel.elapsedTime)", action: nil, keyEquivalent: "")
-                timeItem.isEnabled = false
-                menu.addItem(timeItem)
+                if viewModel.isRecording {
+                    let timeItem = NSMenuItem(title: "Elapsed: \(viewModel.elapsedTime)", action: nil, keyEquivalent: "")
+                    timeItem.isEnabled = false
+                    menu.addItem(timeItem)
+                }
             }
         }
 
@@ -466,10 +542,13 @@ class StatusBarMenu {
     }
 
     @objc private func showRecordingControls() {
-        // Show floating panel
-        if let appDelegate = NSApp.delegate as? AppDelegate {
-            appDelegate.floatingPanel?.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
+        // Bring main window to front
+        NSApp.activate(ignoringOtherApps: true)
+        for window in NSApp.windows {
+            if window.title == "CameramanApp" || window.title.isEmpty {
+                window.makeKeyAndOrderFront(nil)
+                break
+            }
         }
     }
 

@@ -476,33 +476,45 @@ final class AnimationEngineTests: XCTestCase {
     func testPerformance_CalculateAnimationProgress() async throws {
         let overlay = createTestOverlay(animation: .fadeIn)
 
-        measure {
-            for i in 0..<1000 {
-                let time = Double(i) / 100.0
-                _ = await animationEngine.calculateAnimationProgress(overlay: overlay, at: time)
-            }
+        // Measure performance of calculateAnimationProgress calls
+        let start = Date()
+        for i in 0..<1000 {
+            let time = Double(i) / 100.0
+            _ = await animationEngine.calculateAnimationProgress(overlay: overlay, at: time)
         }
+        let duration = Date().timeIntervalSince(start)
+
+        // Should complete 1000 calls in reasonable time (< 0.1 seconds)
+        XCTAssertLessThan(duration, 0.1, "calculateAnimationProgress calls should be fast")
     }
 
     func testPerformance_CalculateOpacity() async throws {
         let overlay = createTestOverlay(animation: .fadeInOut)
 
-        measure {
-            for i in 0..<1000 {
-                let time = Double(i) / 100.0
-                _ = await animationEngine.calculateOpacity(overlay: overlay, at: time)
-            }
+        // Measure performance of calculateOpacity calls
+        let start = Date()
+        for i in 0..<1000 {
+            let time = Double(i) / 100.0
+            _ = await animationEngine.calculateOpacity(overlay: overlay, at: time)
         }
+        let duration = Date().timeIntervalSince(start)
+
+        // Should complete 1000 calls in reasonable time (< 0.1 seconds)
+        XCTAssertLessThan(duration, 0.1, "calculateOpacity calls should be fast")
     }
 
     func testPerformance_GetRenderState() async throws {
         let overlay = createTestOverlay(animation: .drawOn(duration: 1.0))
 
-        measure {
-            for i in 0..<1000 {
-                let time = Double(i) / 100.0
-                _ = await animationEngine.getRenderState(overlay: overlay, at: time)
-            }
+        // Measure performance of getRenderState calls
+        let start = Date()
+        for i in 0..<1000 {
+            let time = Double(i) / 100.0
+            _ = await animationEngine.getRenderState(overlay: overlay, at: time)
         }
+        let duration = Date().timeIntervalSince(start)
+
+        // Should complete 1000 calls in reasonable time (< 0.1 seconds)
+        XCTAssertLessThan(duration, 0.1, "getRenderState calls should be fast")
     }
 }

@@ -8,7 +8,7 @@
 import Foundation
 
 /// AI suggestion for improving a video project
-public struct Suggestion: Codable, Identifiable {
+public struct Suggestion: Codable, Identifiable, Equatable {
     /// Unique identifier
     public let id: UUID
     /// Type of suggestion
@@ -49,6 +49,18 @@ public struct Suggestion: Codable, Identifiable {
     /// Helper to get metadata value
     public func metadata<T>(_ key: String, as type: T.Type) -> T? {
         metadata[key]?.value as? T
+    }
+
+    /// Equatable conformance (metadata comparison is shallow)
+    public static func == (lhs: Suggestion, rhs: Suggestion) -> Bool {
+        lhs.id == rhs.id &&
+        lhs.type == rhs.type &&
+        lhs.title == rhs.title &&
+        lhs.description == rhs.description &&
+        lhs.confidence == rhs.confidence &&
+        lhs.timelineIn == rhs.timelineIn &&
+        lhs.timelineOut == rhs.timelineOut &&
+        lhs.metadata.keys == rhs.metadata.keys
     }
 
     /// Coding keys to handle AnyCodable metadata
