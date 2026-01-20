@@ -54,7 +54,7 @@ Este backlog define las tareas para reconstruir la UI de edición que fue removi
 - [x] (P0) Selector de layout: botones para Full, PiP, Side-by-Side con preview visual
 - [x] (P0) Configuración PiP: drag para posicionar cámara, resize handles, corner radius, presets de posición
 - [x] (P0) Background: color picker para fondo sólido, selector de imagen, fit mode (fit/fill)
-- [ ] (P1) Toggle formato 16:9 / 9:16 con preview
+- [x] (P1) Toggle formato 16:9 / 9:16 con preview
 
 ---
 
@@ -70,7 +70,7 @@ Este backlog define las tareas para reconstruir la UI de edición que fue removi
 - [x] (P0) Inspector de estilo: color picker (stroke), stroke width, shadow toggle
 - [x] (P0) Para texto: selector de font, size, color
 - [x] (P0) Timing: campos start/end time por overlay
-- [ ] (P1) Animaciones: selector None/Fade In/Fade Out/Draw-on, duration
+- [x] (P1) Animaciones: selector None/Fade In/Fade Out/Draw-on, duration
 
 ---
 

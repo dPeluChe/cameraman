@@ -260,6 +260,26 @@ final class ProjectEditor: ObservableObject {
         return true
     }
 
+    @discardableResult
+    func setFormat(_ aspectRatio: CanvasLayout.AspectRatio) async -> Bool {
+        let previousProject = project
+        var updatedProject = project
+
+        // Create new format for the aspect ratio
+        updatedProject.canvas.format = CanvasLayout.createFormat(for: aspectRatio)
+
+        do {
+            try CanvasLayout.validateFormat(updatedProject.canvas.format)
+        } catch {
+            return false
+        }
+
+        await editorModel.setProject(updatedProject)
+        recordUndoSnapshot(previousProject)
+        project = updatedProject
+        return true
+    }
+
     private func updatePublishedProject(from result: EditorResult, previousProject: Project) {
         if let updatedProject = result.getProject() {
             recordUndoSnapshot(previousProject)
@@ -280,7 +300,6 @@ final class ProjectEditor: ObservableObject {
 
     func addOverlay(projectId: ProjectId, overlay: Project.Overlay) async -> EditorResult {
         let previousProject = project
-        var result: EditorResult?
 
         // Directly add to project since EditorModel doesn't have addOverlay
         var updatedProject = project
@@ -299,7 +318,8 @@ final class ProjectEditor: ObservableObject {
         transform: Project.Overlay.Transform? = nil,
         style: Project.Overlay.Style? = nil,
         start: TimeInterval? = nil,
-        end: TimeInterval? = nil
+        end: TimeInterval? = nil,
+        animation: Project.Overlay.Animation? = nil
     ) async -> EditorResult {
         let previousProject = project
 
@@ -309,7 +329,8 @@ final class ProjectEditor: ObservableObject {
             transform: transform,
             style: style,
             start: start,
-            end: end
+            end: end,
+            animation: animation
         )
 
         updatePublishedProject(from: result, previousProject: previousProject)

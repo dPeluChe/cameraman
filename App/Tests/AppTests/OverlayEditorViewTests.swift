@@ -820,4 +820,701 @@ final class OverlayEditorViewTests: XCTestCase {
             XCTFail("Expected success, got failure: \(error)")
         }
     }
+
+    // MARK: - Animation Tests (Épica UI-G, P1)
+
+    func testAddOverlayWithFadeInAnimation() async throws {
+        let animation = Project.Overlay.Animation(
+            type: .fadeIn,
+            fadeInDuration: 0.5,
+            fadeOutDuration: 0.3,
+            drawOnDuration: nil,
+            easing: .easeInOut
+        )
+
+        let overlay = Project.Overlay(
+            id: UUID(),
+            type: .arrow,
+            start: 0.0,
+            end: 5.0,
+            transform: Project.Overlay.Transform(),
+            style: Project.Overlay.Style(
+                stroke: "#FF3B30",
+                strokeWidth: 3.0,
+                shadow: false,
+                font: nil,
+                size: nil,
+                color: nil,
+                bg: nil,
+                text: nil
+            ),
+            animation: animation
+        )
+
+        let result = await mockEditor.addOverlay(projectId: mockProject.id, overlay: overlay)
+
+        switch result {
+        case .success(let project):
+            XCTAssertEqual(project.overlays.count, 1, "Should add overlay with fade-in animation")
+            let addedOverlay = project.overlays.first
+            XCTAssertNotNil(addedOverlay?.animation, "Animation should be set")
+            XCTAssertEqual(addedOverlay?.animation?.type, .fadeIn, "Animation type should be fade-in")
+            XCTAssertEqual(addedOverlay?.animation?.fadeInDuration, 0.5, accuracy: 0.001, "Fade-in duration should be 0.5s")
+        case .failure(let error):
+            XCTFail("Expected success, got failure: \(error)")
+        }
+    }
+
+    func testAddOverlayWithFadeOutAnimation() async throws {
+        let animation = Project.Overlay.Animation(
+            type: .fadeOut,
+            fadeInDuration: 0.3,
+            fadeOutDuration: 0.8,
+            drawOnDuration: nil,
+            easing: .easeOut
+        )
+
+        let overlay = Project.Overlay(
+            id: UUID(),
+            type: .rect,
+            start: 2.0,
+            end: 8.0,
+            transform: Project.Overlay.Transform(),
+            style: Project.Overlay.Style(
+                stroke: "#007AFF",
+                strokeWidth: 2.0,
+                shadow: true,
+                font: nil,
+                size: nil,
+                color: nil,
+                bg: nil,
+                text: nil
+            ),
+            animation: animation
+        )
+
+        let result = await mockEditor.addOverlay(projectId: mockProject.id, overlay: overlay)
+
+        switch result {
+        case .success(let project):
+            XCTAssertEqual(project.overlays.count, 1, "Should add overlay with fade-out animation")
+            let addedOverlay = project.overlays.first
+            XCTAssertEqual(addedOverlay?.animation?.type, .fadeOut, "Animation type should be fade-out")
+            XCTAssertEqual(addedOverlay?.animation?.fadeOutDuration, 0.8, accuracy: 0.001, "Fade-out duration should be 0.8s")
+        case .failure(let error):
+            XCTFail("Expected success, got failure: \(error)")
+        }
+    }
+
+    func testAddOverlayWithFadeInOutAnimation() async throws {
+        let animation = Project.Overlay.Animation(
+            type: .fadeInOut,
+            fadeInDuration: 0.4,
+            fadeOutDuration: 0.4,
+            drawOnDuration: nil,
+            easing: .easeInOut
+        )
+
+        let overlay = Project.Overlay(
+            id: UUID(),
+            type: .text,
+            start: 1.0,
+            end: 6.0,
+            transform: Project.Overlay.Transform(),
+            style: Project.Overlay.Style(
+                stroke: "#000000",
+                strokeWidth: 0.0,
+                shadow: false,
+                font: "Helvetica",
+                size: 24.0,
+                color: "#FFFFFF",
+                bg: nil,
+                text: "Hello World"
+            ),
+            animation: animation
+        )
+
+        let result = await mockEditor.addOverlay(projectId: mockProject.id, overlay: overlay)
+
+        switch result {
+        case .success(let project):
+            XCTAssertEqual(project.overlays.count, 1, "Should add overlay with fade-in-out animation")
+            let addedOverlay = project.overlays.first
+            XCTAssertEqual(addedOverlay?.animation?.type, .fadeInOut, "Animation type should be fade-in-out")
+            XCTAssertEqual(addedOverlay?.animation?.fadeInDuration, 0.4, accuracy: 0.001, "Fade-in duration should be 0.4s")
+            XCTAssertEqual(addedOverlay?.animation?.fadeOutDuration, 0.4, accuracy: 0.001, "Fade-out duration should be 0.4s")
+        case .failure(let error):
+            XCTFail("Expected success, got failure: \(error)")
+        }
+    }
+
+    func testAddOverlayWithDrawOnAnimation() async throws {
+        let animation = Project.Overlay.Animation(
+            type: .drawOn,
+            fadeInDuration: 0.3,
+            fadeOutDuration: 0.3,
+            drawOnDuration: 1.2,
+            easing: .linear
+        )
+
+        let overlay = Project.Overlay(
+            id: UUID(),
+            type: .arrow,
+            start: 0.0,
+            end: 5.0,
+            transform: Project.Overlay.Transform(),
+            style: Project.Overlay.Style(
+                stroke: "#FF9500",
+                strokeWidth: 4.0,
+                shadow: true,
+                font: nil,
+                size: nil,
+                color: nil,
+                bg: nil,
+                text: nil
+            ),
+            animation: animation
+        )
+
+        let result = await mockEditor.addOverlay(projectId: mockProject.id, overlay: overlay)
+
+        switch result {
+        case .success(let project):
+            XCTAssertEqual(project.overlays.count, 1, "Should add overlay with draw-on animation")
+            let addedOverlay = project.overlays.first
+            XCTAssertEqual(addedOverlay?.animation?.type, .drawOn, "Animation type should be draw-on")
+            XCTAssertEqual(addedOverlay?.animation?.drawOnDuration, 1.2, accuracy: 0.001, "Draw-on duration should be 1.2s")
+        case .failure(let error):
+            XCTFail("Expected success, got failure: \(error)")
+        }
+    }
+
+    func testAddOverlayWithNoAnimation() async throws {
+        let overlay = Project.Overlay(
+            id: UUID(),
+            type: .line,
+            start: 0.0,
+            end: 3.0,
+            transform: Project.Overlay.Transform(),
+            style: Project.Overlay.Style(
+                stroke: "#34C759",
+                strokeWidth: 2.0,
+                shadow: false,
+                font: nil,
+                size: nil,
+                color: nil,
+                bg: nil,
+                text: nil
+            ),
+            animation: nil
+        )
+
+        let result = await mockEditor.addOverlay(projectId: mockProject.id, overlay: overlay)
+
+        switch result {
+        case .success(let project):
+            XCTAssertEqual(project.overlays.count, 1, "Should add overlay without animation")
+            let addedOverlay = project.overlays.first
+            XCTAssertNil(addedOverlay?.animation, "Animation should be nil for no animation")
+        case .failure(let error):
+            XCTFail("Expected success, got failure: \(error)")
+        }
+    }
+
+    func testUpdateOverlayAnimationType() async throws {
+        // First add an overlay without animation
+        let overlay = Project.Overlay(
+            id: UUID(),
+            type: .rect,
+            start: 0.0,
+            end: 5.0,
+            transform: Project.Overlay.Transform(),
+            style: Project.Overlay.Style(
+                stroke: "#5856D6",
+                strokeWidth: 3.0,
+                shadow: false,
+                font: nil,
+                size: nil,
+                color: nil,
+                bg: nil,
+                text: nil
+            ),
+            animation: nil
+        )
+
+        let addResult = await mockEditor.addOverlay(projectId: mockProject.id, overlay: overlay)
+        guard case .success(let project) = addResult,
+              let addedOverlay = project.overlays.first else {
+            XCTFail("Failed to add overlay")
+            return
+        }
+
+        // Update animation to fade-in
+        let newAnimation = Project.Overlay.Animation(
+            type: .fadeIn,
+            fadeInDuration: 0.5,
+            fadeOutDuration: 0.3,
+            drawOnDuration: nil,
+            easing: .easeIn
+        )
+
+        let updateResult = await mockEditor.updateOverlay(
+            projectId: mockProject.id,
+            overlayId: addedOverlay.id,
+            animation: newAnimation
+        )
+
+        switch updateResult {
+        case .success(let project):
+            let updatedOverlay = project.overlays.first
+            XCTAssertNotNil(updatedOverlay?.animation, "Animation should be set after update")
+            XCTAssertEqual(updatedOverlay?.animation?.type, .fadeIn, "Animation type should be updated to fade-in")
+            XCTAssertEqual(updatedOverlay?.animation?.easing, .easeIn, "Easing should be updated")
+        case .failure(let error):
+            XCTFail("Expected success, got failure: \(error)")
+        }
+    }
+
+    func testUpdateOverlayAnimationDuration() async throws {
+        let animation = Project.Overlay.Animation(
+            type: .fadeInOut,
+            fadeInDuration: 0.3,
+            fadeOutDuration: 0.3,
+            drawOnDuration: nil,
+            easing: .easeInOut
+        )
+
+        let overlay = Project.Overlay(
+            id: UUID(),
+            type: .arrow,
+            start: 0.0,
+            end: 5.0,
+            transform: Project.Overlay.Transform(),
+            style: Project.Overlay.Style(
+                stroke: "#FF3B30",
+                strokeWidth: 3.0,
+                shadow: true,
+                font: nil,
+                size: nil,
+                color: nil,
+                bg: nil,
+                text: nil
+            ),
+            animation: animation
+        )
+
+        let addResult = await mockEditor.addOverlay(projectId: mockProject.id, overlay: overlay)
+        guard case .success(let project) = addResult,
+              let addedOverlay = project.overlays.first else {
+            XCTFail("Failed to add overlay")
+            return
+        }
+
+        // Update fade-in duration
+        let updatedAnimation = Project.Overlay.Animation(
+            type: .fadeInOut,
+            fadeInDuration: 0.8,
+            fadeOutDuration: 0.3,
+            drawOnDuration: nil,
+            easing: .easeInOut
+        )
+
+        let updateResult = await mockEditor.updateOverlay(
+            projectId: mockProject.id,
+            overlayId: addedOverlay.id,
+            animation: updatedAnimation
+        )
+
+        switch updateResult {
+        case .success(let project):
+            let updatedOverlay = project.overlays.first
+            XCTAssertEqual(updatedOverlay?.animation?.fadeInDuration, 0.8, accuracy: 0.001, "Fade-in duration should be updated")
+        case .failure(let error):
+            XCTFail("Expected success, got failure: \(error)")
+        }
+    }
+
+    func testUpdateOverlayAnimationEasing() async throws {
+        let animation = Project.Overlay.Animation(
+            type: .fadeIn,
+            fadeInDuration: 0.5,
+            fadeOutDuration: 0.3,
+            drawOnDuration: nil,
+            easing: .linear
+        )
+
+        let overlay = Project.Overlay(
+            id: UUID(),
+            type: .text,
+            start: 0.0,
+            end: 5.0,
+            transform: Project.Overlay.Transform(),
+            style: Project.Overlay.Style(
+                stroke: "#000000",
+                strokeWidth: 0.0,
+                shadow: false,
+                font: "Arial",
+                size: 20.0,
+                color: "#000000",
+                bg: nil,
+                text: "Test"
+            ),
+            animation: animation
+        )
+
+        let addResult = await mockEditor.addOverlay(projectId: mockProject.id, overlay: overlay)
+        guard case .success(let project) = addResult,
+              let addedOverlay = project.overlays.first else {
+            XCTFail("Failed to add overlay")
+            return
+        }
+
+        // Update easing function
+        let updatedAnimation = Project.Overlay.Animation(
+            type: .fadeIn,
+            fadeInDuration: 0.5,
+            fadeOutDuration: 0.3,
+            drawOnDuration: nil,
+            easing: .easeOut
+        )
+
+        let updateResult = await mockEditor.updateOverlay(
+            projectId: mockProject.id,
+            overlayId: addedOverlay.id,
+            animation: updatedAnimation
+        )
+
+        switch updateResult {
+        case .success(let project):
+            let updatedOverlay = project.overlays.first
+            XCTAssertEqual(updatedOverlay?.animation?.easing, .easeOut, "Easing should be updated to ease-out")
+        case .failure(let error):
+            XCTFail("Expected success, got failure: \(error)")
+        }
+    }
+
+    func testRemoveOverlayAnimation() async throws {
+        let animation = Project.Overlay.Animation(
+            type: .fadeIn,
+            fadeInDuration: 0.5,
+            fadeOutDuration: 0.3,
+            drawOnDuration: nil,
+            easing: .easeInOut
+        )
+
+        let overlay = Project.Overlay(
+            id: UUID(),
+            type: .rect,
+            start: 0.0,
+            end: 5.0,
+            transform: Project.Overlay.Transform(),
+            style: Project.Overlay.Style(
+                stroke: "#007AFF",
+                strokeWidth: 2.0,
+                shadow: false,
+                font: nil,
+                size: nil,
+                color: nil,
+                bg: nil,
+                text: nil
+            ),
+            animation: animation
+        )
+
+        let addResult = await mockEditor.addOverlay(projectId: mockProject.id, overlay: overlay)
+        guard case .success(let project) = addResult,
+              let addedOverlay = project.overlays.first else {
+            XCTFail("Failed to add overlay")
+            return
+        }
+
+        // Remove animation by setting it to nil
+        let updateResult = await mockEditor.updateOverlay(
+            projectId: mockProject.id,
+            overlayId: addedOverlay.id,
+            animation: nil
+        )
+
+        switch updateResult {
+        case .success(let project):
+            let updatedOverlay = project.overlays.first
+            XCTAssertNil(updatedOverlay?.animation, "Animation should be removed")
+        case .failure(let error):
+            XCTFail("Expected success, got failure: \(error)")
+        }
+    }
+
+    func testAnimationWithAllEasingFunctions() async throws {
+        let easingFunctions: [Project.Overlay.Animation.EasingFunction] = [.linear, .easeIn, .easeOut, .easeInOut]
+
+        for easing in easingFunctions {
+            let animation = Project.Overlay.Animation(
+                type: .fadeIn,
+                fadeInDuration: 0.3,
+                fadeOutDuration: 0.3,
+                drawOnDuration: nil,
+                easing: easing
+            )
+
+            let overlay = Project.Overlay(
+                id: UUID(),
+                type: .arrow,
+                start: 0.0,
+                end: 3.0,
+                transform: Project.Overlay.Transform(),
+                style: Project.Overlay.Style(
+                    stroke: "#FF3B30",
+                    strokeWidth: 3.0,
+                    shadow: false,
+                    font: nil,
+                    size: nil,
+                    color: nil,
+                    bg: nil,
+                    text: nil
+                ),
+                animation: animation
+            )
+
+            let result = await mockEditor.addOverlay(projectId: mockProject.id, overlay: overlay)
+
+            switch result {
+            case .success(let project):
+                let addedOverlay = project.overlays.last
+                XCTAssertEqual(addedOverlay?.animation?.easing, easing, "Easing should be \(easing)")
+            case .failure(let error):
+                XCTFail("Expected success for easing \(easing), got failure: \(error)")
+            }
+        }
+    }
+
+    func testAnimationWithAllAnimationTypes() async throws {
+        let animationTypes: [Project.Overlay.Animation.AnimationType] = [.none, .fadeIn, .fadeOut, .fadeInOut, .drawOn]
+
+        for type in animationTypes {
+            let animation = type == .none ? nil : Project.Overlay.Animation(
+                type: type,
+                fadeInDuration: 0.3,
+                fadeOutDuration: 0.3,
+                drawOnDuration: type == .drawOn ? 0.8 : nil,
+                easing: .easeInOut
+            )
+
+            let overlay = Project.Overlay(
+                id: UUID(),
+                type: .rect,
+                start: 0.0,
+                end: 4.0,
+                transform: Project.Overlay.Transform(),
+                style: Project.Overlay.Style(
+                    stroke: "#007AFF",
+                    strokeWidth: 2.0,
+                    shadow: false,
+                    font: nil,
+                    size: nil,
+                    color: nil,
+                    bg: nil,
+                    text: nil
+                ),
+                animation: animation
+            )
+
+            let result = await mockEditor.addOverlay(projectId: mockProject.id, overlay: overlay)
+
+            switch result {
+            case .success(let project):
+                let addedOverlay = project.overlays.last
+                if type == .none {
+                    XCTAssertNil(addedOverlay?.animation, "Animation should be nil for none type")
+                } else {
+                    XCTAssertEqual(addedOverlay?.animation?.type, type, "Animation type should be \(type)")
+                }
+            case .failure(let error):
+                XCTFail("Expected success for type \(type), got failure: \(error)")
+            }
+        }
+    }
+
+    func testMultipleOverlaysWithDifferentAnimations() async throws {
+        var overlayCount = 0
+
+        // Add overlay with fade-in
+        let fadeInAnimation = Project.Overlay.Animation(
+            type: .fadeIn,
+            fadeInDuration: 0.5,
+            fadeOutDuration: 0.3,
+            drawOnDuration: nil,
+            easing: .easeIn
+        )
+
+        let overlay1 = Project.Overlay(
+            id: UUID(),
+            type: .arrow,
+            start: 0.0,
+            end: 3.0,
+            transform: Project.Overlay.Transform(),
+            style: Project.Overlay.Style(
+                stroke: "#FF3B30",
+                strokeWidth: 3.0,
+                shadow: false,
+                font: nil,
+                size: nil,
+                color: nil,
+                bg: nil,
+                text: nil
+            ),
+            animation: fadeInAnimation
+        )
+
+        let result1 = await mockEditor.addOverlay(projectId: mockProject.id, overlay: overlay1)
+        if case .success = result1 { overlayCount += 1 }
+
+        // Add overlay with draw-on
+        let drawOnAnimation = Project.Overlay.Animation(
+            type: .drawOn,
+            fadeInDuration: 0.3,
+            fadeOutDuration: 0.3,
+            drawOnDuration: 1.0,
+            easing: .linear
+        )
+
+        let overlay2 = Project.Overlay(
+            id: UUID(),
+            type: .line,
+            start: 3.0,
+            end: 6.0,
+            transform: Project.Overlay.Transform(),
+            style: Project.Overlay.Style(
+                stroke: "#34C759",
+                strokeWidth: 2.0,
+                shadow: false,
+                font: nil,
+                size: nil,
+                color: nil,
+                bg: nil,
+                text: nil
+            ),
+            animation: drawOnAnimation
+        )
+
+        let result2 = await mockEditor.addOverlay(projectId: mockProject.id, overlay: overlay2)
+        if case .success = result2 { overlayCount += 1 }
+
+        // Add overlay without animation
+        let overlay3 = Project.Overlay(
+            id: UUID(),
+            type: .rect,
+            start: 6.0,
+            end: 9.0,
+            transform: Project.Overlay.Transform(),
+            style: Project.Overlay.Style(
+                stroke: "#5856D6",
+                strokeWidth: 4.0,
+                shadow: true,
+                font: nil,
+                size: nil,
+                color: nil,
+                bg: nil,
+                text: nil
+            ),
+            animation: nil
+        )
+
+        let result3 = await mockEditor.addOverlay(projectId: mockProject.id, overlay: overlay3)
+        if case .success = result3 { overlayCount += 1 }
+
+        // Verify all overlays were added with correct animations
+        switch result3 {
+        case .success(let project):
+            XCTAssertEqual(project.overlays.count, overlayCount, "Should have \(overlayCount) overlays")
+            XCTAssertEqual(project.overlays[0].animation?.type, .fadeIn, "First overlay should have fade-in")
+            XCTAssertEqual(project.overlays[1].animation?.type, .drawOn, "Second overlay should have draw-on")
+            XCTAssertNil(project.overlays[2].animation, "Third overlay should have no animation")
+        case .failure(let error):
+            XCTFail("Expected success, got failure: \(error)")
+        }
+    }
+
+    func testAnimationDefaultValues() async throws {
+        let animation = Project.Overlay.Animation(
+            type: .fadeInOut,
+            fadeInDuration: 0.3,
+            fadeOutDuration: 0.3,
+            drawOnDuration: nil,
+            easing: .easeInOut
+        )
+
+        let overlay = Project.Overlay(
+            id: UUID(),
+            type: .text,
+            start: 0.0,
+            end: 5.0,
+            transform: Project.Overlay.Transform(),
+            style: Project.Overlay.Style(
+                stroke: "#000000",
+                strokeWidth: 0.0,
+                shadow: false,
+                font: "Courier",
+                size: 18.0,
+                color: "#000000",
+                bg: nil,
+                text: "Animation Test"
+            ),
+            animation: animation
+        )
+
+        let result = await mockEditor.addOverlay(projectId: mockProject.id, overlay: overlay)
+
+        switch result {
+        case .success(let project):
+            let addedOverlay = project.overlays.first
+            XCTAssertNotNil(addedOverlay?.animation, "Animation should be set")
+            XCTAssertEqual(addedOverlay?.animation?.fadeInDuration, 0.3, accuracy: 0.001, "Default fade-in should be 0.3s")
+            XCTAssertEqual(addedOverlay?.animation?.fadeOutDuration, 0.3, accuracy: 0.001, "Default fade-out should be 0.3s")
+            XCTAssertEqual(addedOverlay?.animation?.easing, .easeInOut, "Default easing should be ease-in-out")
+        case .failure(let error):
+            XCTFail("Expected success, got failure: \(error)")
+        }
+    }
+
+    func testAnimationWithTextOverlay() async throws {
+        let animation = Project.Overlay.Animation(
+            type: .fadeIn,
+            fadeInDuration: 0.6,
+            fadeOutDuration: 0.4,
+            drawOnDuration: nil,
+            easing: .easeOut
+        )
+
+        let overlay = Project.Overlay(
+            id: UUID(),
+            type: .text,
+            start: 1.0,
+            end: 6.0,
+            transform: Project.Overlay.Transform(),
+            style: Project.Overlay.Style(
+                stroke: "#000000",
+                strokeWidth: 0.0,
+                shadow: true,
+                font: "Georgia",
+                size: 32.0,
+                color: "#FFFFFF",
+                bg: "#00000080",
+                text: "Animated Text"
+            ),
+            animation: animation
+        )
+
+        let result = await mockEditor.addOverlay(projectId: mockProject.id, overlay: overlay)
+
+        switch result {
+        case .success(let project):
+            XCTAssertEqual(project.overlays.count, 1, "Should add text overlay with animation")
+            let addedOverlay = project.overlays.first
+            XCTAssertEqual(addedOverlay?.type, .text, "Overlay type should be text")
+            XCTAssertEqual(addedOverlay?.animation?.type, .fadeIn, "Text overlay should have fade-in animation")
+            XCTAssertEqual(addedOverlay?.style.text, "Animated Text", "Text should be preserved")
+        case .failure(let error):
+            XCTFail("Expected success, got failure: \(error)")
+        }
+    }
 }

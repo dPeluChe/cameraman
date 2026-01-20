@@ -323,7 +323,8 @@ public actor EditorModel {
         transform: Project.Overlay.Transform? = nil,
         style: Project.Overlay.Style? = nil,
         start: TimeInterval? = nil,
-        end: TimeInterval? = nil
+        end: TimeInterval? = nil,
+        animation: Project.Overlay.Animation? = nil
     ) async -> EditorResult {
         guard let index = project.overlays.firstIndex(where: { $0.id == overlayId }) else {
             return .failure(.segmentNotFound(overlayId.uuidString))
@@ -345,6 +346,10 @@ public actor EditorModel {
 
         if let newEnd = end {
             overlay.end = newEnd
+        }
+
+        if let newAnimation = animation {
+            overlay.animation = newAnimation
         }
 
         // Validate timing constraints

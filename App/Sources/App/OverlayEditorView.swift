@@ -386,6 +386,9 @@ struct OverlayEditorView: View {
                 textSpecificControls(for: overlay)
             }
 
+            // Animation controls
+            animationControls(for: overlay)
+
             // Timing controls
             timingControls(for: overlay)
         }
@@ -471,6 +474,98 @@ struct OverlayEditorView: View {
         }
     }
 
+    private func animationControls(for overlay: Project.Overlay) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Animation")
+                .font(.subheadline)
+
+            // Animation type selector
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Type")
+                        .font(.caption)
+                    Picker("", selection: Binding(
+                        get: { overlay.animation?.type ?? .none },
+                        set: { newType in updateOverlayAnimation(type: newType, overlay: overlay) }
+                    )) {
+                        Text("None").tag(Project.Overlay.Animation.AnimationType.none)
+                        Text("Fade In").tag(Project.Overlay.Animation.AnimationType.fadeIn)
+                        Text("Fade Out").tag(Project.Overlay.Animation.AnimationType.fadeOut)
+                        Text("Fade In + Out").tag(Project.Overlay.Animation.AnimationType.fadeInOut)
+                        Text("Draw On").tag(Project.Overlay.Animation.AnimationType.drawOn)
+                    }
+                    .labelsHidden()
+                    .frame(width: 140)
+                }
+
+                // Duration controls (only show if animation is selected)
+                if overlay.animation != nil && overlay.animation?.type != .none {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Duration")
+                            .font(.caption)
+                        HStack(spacing: 8) {
+                            if overlay.animation?.type == .fadeIn || overlay.animation?.type == .fadeInOut {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("In")
+                                        .font(.caption2)
+                                    TextField("s", value: Binding(
+                                        get: { overlay.animation?.fadeInDuration ?? 0.3 },
+                                        set: { updateOverlayAnimation(fadeInDuration: $0, overlay: overlay) }
+                                    ), format: .number)
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(width: 50)
+                                }
+                            }
+
+                            if overlay.animation?.type == .fadeOut || overlay.animation?.type == .fadeInOut {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Out")
+                                        .font(.caption2)
+                                    TextField("s", value: Binding(
+                                        get: { overlay.animation?.fadeOutDuration ?? 0.3 },
+                                        set: { updateOverlayAnimation(fadeOutDuration: $0, overlay: overlay) }
+                                    ), format: .number)
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(width: 50)
+                                }
+                            }
+
+                            if overlay.animation?.type == .drawOn {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Draw")
+                                        .font(.caption2)
+                                    TextField("s", value: Binding(
+                                        get: { overlay.animation?.drawOnDuration ?? 0.5 },
+                                        set: { updateOverlayAnimation(drawOnDuration: $0, overlay: overlay) }
+                                    ), format: .number)
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(width: 50)
+                                }
+                            }
+                        }
+                    }
+
+                    // Easing function selector
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Easing")
+                            .font(.caption)
+                        Picker("", selection: Binding(
+                            get: { overlay.animation?.easing ?? .easeInOut },
+                            set: { updateOverlayAnimation(easing: $0, overlay: overlay) }
+                        )) {
+                            Text("Linear").tag(Project.Overlay.Animation.EasingFunction.linear)
+                            Text("Ease In").tag(Project.Overlay.Animation.EasingFunction.easeIn)
+                            Text("Ease Out").tag(Project.Overlay.Animation.EasingFunction.easeOut)
+                            Text("Ease In/Out").tag(Project.Overlay.Animation.EasingFunction.easeInOut)
+                        }
+                        .labelsHidden()
+                        .frame(width: 100)
+                    }
+                }
+            }
+        }
+    }
+
     // MARK: - Helper Methods
 
     private func selectTool(_ tool: OverlayTool) {
@@ -529,6 +624,120 @@ struct OverlayEditorView: View {
             )
         }
     }
+
+    // MARK: - Animation Update Helpers
+
+    private func updateOverlayAnimation(type: Project.Overlay.Animation.AnimationType, overlay: Project.Overlay) {
+        guard let overlayId = selectedOverlayId else { return }
+
+        let animation: Project.Overlay.Animation?
+        if type == .none {
+            animation = nil
+        } else {
+            let currentAnimation = overlay.animation
+            animation = Project.Overlay.Animation(
+                type: type,
+                fadeInDuration: currentAnimation?.fadeInDuration ?? 0.3,
+                fadeOutDuration: currentAnimation?.fadeOutDuration ?? 0.3,
+                drawOnDuration: currentAnimation?.drawOnDuration ?? 0.5,
+                easing: currentAnimation?.easing ?? .easeInOut
+            )
+        }
+
+        Task {
+            _ = await editor.updateOverlay(
+                projectId: editor.project.id,
+                overlayId: overlayId,
+                animation: animation
+            )
+        }
+    }
+
+    private func updateOverlayAnimation(fadeInDuration: TimeInterval, overlay: Project.Overlay) {
+        guard let overlayId = selectedOverlayId else { return }
+        guard let currentAnimation = overlay.animation else { return }
+
+        let animation = Project.Overlay.Animation(
+            type: currentAnimation.type,
+            fadeInDuration: fadeInDuration,
+            fadeOutDuration: currentAnimation.fadeOutDuration,
+            drawOnDuration: currentAnimation.drawOnDuration,
+            easing: currentAnimation.easing
+        )
+
+        Task {
+            _ = await editor.updateOverlay(
+                projectId: editor.project.id,
+                overlayId: overlayId,
+                animation: animation
+            )
+        }
+    }
+
+    private func updateOverlayAnimation(fadeOutDuration: TimeInterval, overlay: Project.Overlay) {
+        guard let overlayId = selectedOverlayId else { return }
+        guard let currentAnimation = overlay.animation else { return }
+
+        let animation = Project.Overlay.Animation(
+            type: currentAnimation.type,
+            fadeInDuration: currentAnimation.fadeInDuration,
+            fadeOutDuration: fadeOutDuration,
+            drawOnDuration: currentAnimation.drawOnDuration,
+            easing: currentAnimation.easing
+        )
+
+        Task {
+            _ = await editor.updateOverlay(
+                projectId: editor.project.id,
+                overlayId: overlayId,
+                animation: animation
+            )
+        }
+    }
+
+    private func updateOverlayAnimation(drawOnDuration: TimeInterval, overlay: Project.Overlay) {
+        guard let overlayId = selectedOverlayId else { return }
+        guard let currentAnimation = overlay.animation else { return }
+
+        let animation = Project.Overlay.Animation(
+            type: currentAnimation.type,
+            fadeInDuration: currentAnimation.fadeInDuration,
+            fadeOutDuration: currentAnimation.fadeOutDuration,
+            drawOnDuration: drawOnDuration,
+            easing: currentAnimation.easing
+        )
+
+        Task {
+            _ = await editor.updateOverlay(
+                projectId: editor.project.id,
+                overlayId: overlayId,
+                animation: animation
+            )
+        }
+    }
+
+    private func updateOverlayAnimation(easing: Project.Overlay.Animation.EasingFunction, overlay: Project.Overlay) {
+        guard let overlayId = selectedOverlayId else { return }
+        guard let currentAnimation = overlay.animation else { return }
+
+        let animation = Project.Overlay.Animation(
+            type: currentAnimation.type,
+            fadeInDuration: currentAnimation.fadeInDuration,
+            fadeOutDuration: currentAnimation.fadeOutDuration,
+            drawOnDuration: currentAnimation.drawOnDuration,
+            easing: easing
+        )
+
+        Task {
+            _ = await editor.updateOverlay(
+                projectId: editor.project.id,
+                overlayId: overlayId,
+                animation: animation
+            )
+        }
+    }
+
+    // MARK: - Geometry Helpers
 
     private func overlayRect(_ overlay: Project.Overlay, in size: CoreFoundation.CGSize) -> CGRect {
         let x = overlay.transform.x * size.width

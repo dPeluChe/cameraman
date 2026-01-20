@@ -190,7 +190,7 @@ public struct Project: Codable, Equatable {
     /// Canvas configuration
     public struct Canvas: Codable, Equatable {
         /// Output format
-        public let format: Format
+        public var format: Format
         /// Background configuration
         public var background: Background
         /// Layout preset
@@ -198,9 +198,20 @@ public struct Project: Codable, Equatable {
 
         /// Output format specification
         public struct Format: Codable, Equatable {
-            public let aspect: String
-            public let w: Int
-            public let h: Int
+            public var aspect: String
+            public var w: Int
+            public var h: Int
+
+            /// Initialize a new format specification
+            public init(
+                aspect: String,
+                w: Int,
+                h: Int
+            ) {
+                self.aspect = aspect
+                self.w = w
+                self.h = h
+            }
         }
 
         /// Background configuration
@@ -225,6 +236,15 @@ public struct Project: Codable, Equatable {
         public struct Layout: Codable, Equatable {
             public let type: String
             public var camera: CameraPosition?
+
+            /// Initialize a new layout configuration
+            public init(
+                type: String,
+                camera: CameraPosition? = nil
+            ) {
+                self.type = type
+                self.camera = camera
+            }
 
             /// Camera position for PiP/side-by-side
             public struct CameraPosition: Codable, Equatable {
