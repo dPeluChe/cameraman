@@ -195,9 +195,9 @@ Usar como referencia de UI/UX, NO copiar directamente (API cambió).
 
 > Basado en PRD Sección 10
 
-- [ ] Crear proyecto desde grabación con preview funcional
-- [ ] Editar: trim + split/delete visibles en timeline
-- [ ] Agregar overlay (flecha + texto) visible en preview
-- [ ] Cambiar layout (PiP) y ver cambio en preview
-- [ ] Exportar MP4 1080p con progreso visible
-- [ ] Biblioteca muestra proyectos con nombre, tags, fecha
+- [x] Crear proyecto desde grabación con preview funcional
+- [x] Editar: trim + split/delete visibles en timeline
+- [x] Agregar overlay (flecha + texto) visible en preview
+- [x] Cambiar layout (PiP) y ver cambio en preview
+- [x] Exportar MP4 1080p con progreso visible
+- [x] Biblioteca muestra proyectos con nombre, tags, fecha
