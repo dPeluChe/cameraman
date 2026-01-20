@@ -65,6 +65,7 @@ struct ProjectEditorView: View {
 
             if let editor = viewModel.editor {
                 LayoutSelectorView(editor: editor)
+                FormatToggleView(editor: editor)
                 if editor.project.canvas.layout.type == CanvasLayout.LayoutPreset.pip.rawValue,
                    editor.project.sources.camera != nil,
                    editor.project.canvas.layout.camera != nil {

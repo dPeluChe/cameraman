@@ -125,8 +125,10 @@ final class PreviewPlayerViewModel: ObservableObject {
     }
 
     static func aspectRatio(for project: Project) -> Double {
-        let width = Double(project.sources.screen.size.w)
-        let height = Double(project.sources.screen.size.h)
+        // Use project canvas format aspect ratio instead of source dimensions
+        // This allows preview to reflect 16:9 vs 9:16 format selection
+        let width = Double(project.canvas.format.w)
+        let height = Double(project.canvas.format.h)
         guard width > 0, height > 0 else {
             return fallbackAspectRatio
         }
