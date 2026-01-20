@@ -17,6 +17,9 @@ Este documento lista las tareas pendientes para llevar el proyecto de "MVP Funci
 - [ ] **Validación de Performance:**
     - No se ha probado con proyectos de larga duración.
     - **Tarea:** Grabar y editar un video de >1 hora para verificar que el Timeline y el Preview no degraden su rendimiento (FPS).
+- [ ] **Reparación de Tests Unitarios:**
+    - Tras el renombrado de `App` a `Cameraman` y los cambios en la API (inicializadores de `Project`), los tests unitarios actuales no compilan.
+    - **Tarea:** Actualizar imports, corregir mocks de `Project` y `ProjectEditor`, y asegurar que `swift test` pase exitosamente.
 
 ## 3. Infraestructura y Distribución (Prioridad Baja/Final)
 - [ ] **Permisos y Entitlements:**

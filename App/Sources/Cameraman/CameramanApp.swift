@@ -125,108 +125,132 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 /// Recording control UI
 struct RecordingControlView: View {
     @StateObject private var viewModel = RecordingControlViewModel()
+    @State private var showSourceSelector = true
+    @State private var selectedSource: RecordingSourceSelectorView.CaptureSource?
 
     var body: some View {
         VStack(spacing: 16) {
-            // Header
-            HStack {
-                Text("Recording Controls")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                Spacer()
-            }
-            .padding(.horizontal)
-
-            Divider()
-                .background(Color.white.opacity(0.2))
-
-            // Status
-            HStack {
-                Circle()
-                    .fill(viewModel.isRecording ? Color.red : Color.gray)
-                    .frame(width: 8, height: 8)
-
-                Text(viewModel.statusText)
-                    .font(.system(size: 12))
-                    .foregroundColor(.white)
-
-                Spacer()
-
-                if viewModel.isRecording {
-                    Text(viewModel.elapsedTime)
-                        .font(.system(size: 12, design: .monospaced))
-                        .foregroundColor(.white)
-                }
-            }
-            .padding(.horizontal)
-
-            // Controls
-            HStack(spacing: 12) {
-                // Record/Stop button
-                Button(action: {
-                    if viewModel.isRecording {
-                        Task { await viewModel.stopRecording() }
-                    } else {
-                        Task { await viewModel.startRecording() }
+            if showSourceSelector && !viewModel.isRecording {
+                RecordingSourceSelectorView(selectedSource: Binding(
+                    get: { selectedSource ?? .display(SourceSelector.DisplaySource(id: "0", name: "Main", width: 1920, height: 1080, refreshRate: 60, isMain: true)) }, // Dummy default for binding
+                    set: { newValue in
+                        selectedSource = newValue
+                        showSourceSelector = false
+                        Task {
+                            await viewModel.configureSource(newValue)
+                        }
                     }
-                }) {
-                    ZStack {
-                        Circle()
-                            .fill(viewModel.isRecording ? Color.red : Color.green)
-                            .frame(width: 50, height: 50)
+                ))
+            } else {
+                // Header
+                HStack {
+                    Text("Recording Controls")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                    Spacer()
+                    
+                    if !viewModel.isRecording {
+                        Button("Change Source") {
+                            showSourceSelector = true
+                        }
+                        .font(.caption)
+                        .buttonStyle(.link)
+                    }
+                }
+                .padding(.horizontal)
 
-                        Image(systemName: viewModel.isRecording ? "stop.fill" : "record.circle")
-                            .font(.system(size: 24))
+                Divider()
+                    .background(Color.white.opacity(0.2))
+
+                // Status
+                HStack {
+                    Circle()
+                        .fill(viewModel.isRecording ? Color.red : Color.gray)
+                        .frame(width: 8, height: 8)
+
+                    Text(viewModel.statusText)
+                        .font(.system(size: 12))
+                        .foregroundColor(.white)
+
+                    Spacer()
+
+                    if viewModel.isRecording {
+                        Text(viewModel.elapsedTime)
+                            .font(.system(size: 12, design: .monospaced))
                             .foregroundColor(.white)
                     }
                 }
-                .buttonStyle(.plain)
+                .padding(.horizontal)
 
-                // Pause/Resume button
-                if viewModel.isRecording {
+                // Controls
+                HStack(spacing: 12) {
+                    // Record/Stop button
                     Button(action: {
-                        Task { await viewModel.pauseResumeRecording() }
+                        if viewModel.isRecording {
+                            Task { await viewModel.stopRecording() }
+                        } else {
+                            Task { await viewModel.startRecording() }
+                        }
                     }) {
                         ZStack {
                             Circle()
-                                .fill(Color.white.opacity(0.2))
-                                .frame(width: 40, height: 40)
+                                .fill(viewModel.isRecording ? Color.red : Color.green)
+                                .frame(width: 50, height: 50)
 
-                            Image(systemName: viewModel.isPaused ? "play.fill" : "pause.fill")
-                                .font(.system(size: 16))
+                            Image(systemName: viewModel.isRecording ? "stop.fill" : "record.circle")
+                                .font(.system(size: 24))
                                 .foregroundColor(.white)
                         }
                     }
                     .buttonStyle(.plain)
+                    .disabled(selectedSource == nil && !viewModel.isRecording) // Disable if no source selected
+
+                    // Pause/Resume button
+                    if viewModel.isRecording {
+                        Button(action: {
+                            Task { await viewModel.pauseResumeRecording() }
+                        }) {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.white.opacity(0.2))
+                                    .frame(width: 40, height: 40)
+
+                                Image(systemName: viewModel.isPaused ? "play.fill" : "pause.fill")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(.white)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
+
+                Divider()
+                    .background(Color.white.opacity(0.2))
+
+                // Options
+                VStack(spacing: 8) {
+                    Toggle("Camera", isOn: $viewModel.includeCamera)
+                        .toggleStyle(.switch)
+                        .foregroundColor(.white)
+                        .font(.system(size: 12))
+
+                    Toggle("Microphone", isOn: $viewModel.includeMicrophone)
+                        .toggleStyle(.switch)
+                        .foregroundColor(.white)
+                        .font(.system(size: 12))
+
+                    Toggle("System Audio", isOn: $viewModel.includeSystemAudio)
+                        .toggleStyle(.switch)
+                        .foregroundColor(.white)
+                        .font(.system(size: 12))
+                }
+                .padding(.horizontal)
+
+                Spacer()
             }
-
-            Divider()
-                .background(Color.white.opacity(0.2))
-
-            // Options
-            VStack(spacing: 8) {
-                Toggle("Camera", isOn: $viewModel.includeCamera)
-                    .toggleStyle(.switch)
-                    .foregroundColor(.white)
-                    .font(.system(size: 12))
-
-                Toggle("Microphone", isOn: $viewModel.includeMicrophone)
-                    .toggleStyle(.switch)
-                    .foregroundColor(.white)
-                    .font(.system(size: 12))
-
-                Toggle("System Audio", isOn: $viewModel.includeSystemAudio)
-                    .toggleStyle(.switch)
-                    .foregroundColor(.white)
-                    .font(.system(size: 12))
-            }
-            .padding(.horizontal)
-
-            Spacer()
         }
         .padding()
-        .frame(width: 280, height: 200)
+        .frame(width: showSourceSelector && !viewModel.isRecording ? 500 : 280, height: showSourceSelector && !viewModel.isRecording ? 450 : 260) // Dynamic size
         .background(Color.black.opacity(0.8))
         .cornerRadius(12)
         .onAppear {
@@ -246,12 +270,60 @@ class RecordingControlViewModel: ObservableObject {
     @Published var includeCamera = true
     @Published var includeMicrophone = false
     @Published var includeSystemAudio = true
+    
+    private var selectedConfig: CaptureEngine.CaptureConfiguration?
 
     private var timer: Timer?
     private var recordingSession: Recorder.RecordingSession?
+    
+    func configureSource(_ source: RecordingSourceSelectorView.CaptureSource) async {
+        // Convert UI selection to CaptureConfiguration
+        switch source {
+        case .display(let displaySource):
+            selectedConfig = CaptureEngine.CaptureConfiguration(
+                sourceType: .display,
+                display: displaySource,
+                window: nil,
+                application: nil,
+                captureSystemAudio: includeSystemAudio,
+                frameRate: 60,
+                pixelFormat: kCVPixelFormatType_32ARGB
+            )
+            statusText = "Selected: \(displaySource.name)"
+            
+        case .window(let windowSource):
+            selectedConfig = CaptureEngine.CaptureConfiguration(
+                sourceType: .window,
+                display: nil,
+                window: windowSource,
+                application: nil,
+                captureSystemAudio: includeSystemAudio,
+                frameRate: 60,
+                pixelFormat: kCVPixelFormatType_32ARGB
+            )
+            statusText = "Selected: \(windowSource.title)"
+            
+        case .application(let appSource):
+            selectedConfig = CaptureEngine.CaptureConfiguration(
+                sourceType: .application,
+                display: nil,
+                window: nil,
+                application: appSource,
+                captureSystemAudio: includeSystemAudio,
+                frameRate: 60,
+                pixelFormat: kCVPixelFormatType_32ARGB
+            )
+            statusText = "Selected: \(appSource.name)"
+        }
+    }
 
     func startRecording() async {
         guard !isRecording else { return }
+        
+        guard let config = selectedConfig else {
+            statusText = "Please select a source first"
+            return
+        }
 
         statusText = "Requesting permissions..."
         do {
@@ -288,22 +360,15 @@ class RecordingControlViewModel: ObservableObject {
             let timestamp = ISO8601DateFormatter().string(from: Date())
             let outputURL = recordingsPath.appendingPathComponent("recording_\(timestamp).mov")
 
-            // Create screen capture configuration
-            let sourceSelector = SourceSelector.shared
-            let displays = try await sourceSelector.listDisplays()
-            guard let display = displays.first else {
-                statusText = "No displays found"
-                return
-            }
-
+            // Recreate config with current system audio setting
             let screenConfig = CaptureEngine.CaptureConfiguration(
-                sourceType: .display,
-                display: display,
-                window: nil,
-                application: nil,
+                sourceType: config.sourceType,
+                display: config.display,
+                window: config.window,
+                application: config.application,
                 captureSystemAudio: includeSystemAudio,
-                frameRate: 60,
-                pixelFormat: kCVPixelFormatType_32ARGB
+                frameRate: config.frameRate,
+                pixelFormat: config.pixelFormat
             )
 
             // Create camera configuration if needed
