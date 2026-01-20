@@ -80,7 +80,7 @@ private struct FormatButton: View {
         .help("Switch to \(format.displayName) format")
     }
 
-    private var previewWidth: CGFloat {
+    private var previewWidth: CoreGraphics.CGFloat {
         switch format {
         case .landscape16_9:
             return 60
@@ -93,7 +93,7 @@ private struct FormatButton: View {
         }
     }
 
-    private var previewHeight: CGFloat {
+    private var previewHeight: CoreGraphics.CGFloat {
         switch format {
         case .landscape16_9:
             return 34
@@ -105,46 +105,4 @@ private struct FormatButton: View {
             return 41
         }
     }
-}
-
-#Preview {
-    struct PreviewWrapper: View {
-        @StateObject private var editor = {
-            let project = Project(
-                schemaVersion: 1,
-                projectId: "test",
-                name: "Test Project",
-                tags: [],
-                createdAt: Date(),
-                updatedAt: Date(),
-                sources: Project.Sources(
-                    syncReference: "screen",
-                    screen: Project.Sources.MediaTrack(
-                        path: "screen.mov",
-                        fps: 60,
-                        size: Project.Sources.Size(w: 1920, h: 1080),
-                        syncOffsetMs: 0,
-                        sha256: "abc",
-                        sizeBytes: 1000
-                    )
-                ),
-                timeline: Project.Timeline(duration: 10, segments: []),
-                canvas: Project.Canvas(
-                    format: Project.Canvas.Format(aspect: "16:9", w: 1920, h: 1080),
-                    background: Project.Canvas.Background(type: "solid", value: "#000000", fitMode: nil),
-                    layout: Project.Canvas.Layout(type: "fullscreen")
-                ),
-                overlays: [],
-                captions: nil
-            )
-            return ProjectEditor(project: project)
-        }()
-
-        var body: some View {
-            FormatToggleView(editor: editor)
-                .padding()
-        }
-    }
-
-    return PreviewWrapper()
 }

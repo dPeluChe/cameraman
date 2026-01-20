@@ -20,10 +20,27 @@ final class PreviewPlayerViewModel: ObservableObject {
     @Published private(set) var duration: Double = 0
     @Published private(set) var isPlaying: Bool = false
     @Published private(set) var isScrubbing: Bool = false
+    @Published var playbackRate: PlaybackRate = .normal
 
     private static let fallbackAspectRatio: Double = 16.0 / 9.0
     private var timeObserverToken: Any?
     private var timeControlObserver: NSKeyValueObservation?
+
+    enum PlaybackRate: Double, CaseIterable, Identifiable {
+        case half = 0.5
+        case normal = 1.0
+        case double = 2.0
+
+        var id: Double { rawValue }
+
+        var displayName: String {
+            switch self {
+            case .half: return "0.5x"
+            case .normal: return "1x"
+            case .double: return "2x"
+            }
+        }
+    }
 
     func load(project: Project?, projectDirectory: URL?) {
         guard let project, let projectDirectory else {
@@ -60,6 +77,16 @@ final class PreviewPlayerViewModel: ObservableObject {
         duration = 0
         isPlaying = false
         isScrubbing = false
+        playbackRate = .normal
+    }
+
+    func setPlaybackRate(_ rate: PlaybackRate) {
+        playbackRate = rate
+        guard let player = player else { return }
+        // Apply rate immediately if playing, or just store it for when playback starts
+        if isPlaying {
+            player.rate = Float(rate.rawValue)
+        }
     }
 
     func togglePlayPause() {
@@ -67,7 +94,7 @@ final class PreviewPlayerViewModel: ObservableObject {
         if isPlaying {
             player.pause()
         } else {
-            player.play()
+            player.rate = Float(playbackRate.rawValue)
         }
     }
 
@@ -257,6 +284,15 @@ private struct PlaybackControlsView: View {
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(.secondary)
                 .frame(minWidth: 88, alignment: .trailing)
+
+            Picker("", selection: $viewModel.playbackRate) {
+                ForEach(PreviewPlayerViewModel.PlaybackRate.allCases) { rate in
+                    Text(rate.displayName).tag(rate)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 140)
+            .disabled(viewModel.player == nil)
         }
         .padding(.horizontal, 8)
     }

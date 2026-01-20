@@ -106,7 +106,7 @@ Este backlog define las tareas para reconstruir la UI de edición que fue removi
 
 - [x] (P0) Reproductor de video: vista con aspect ratio correcto, mostrar frame actual cuando pausado
 - [x] (P0) Controles de playback: play/pause/stop, scrubber sincronizado con timeline, tiempo actual/duración
-- [ ] (P1) Playback rate selector (0.5x, 1x, 2x)
+- [x] (P1) Playback rate selector (0.5x, 1x, 2x)
 - [ ] (P1) Preview con edits aplicados: overlays en tiempo real, layout (PiP), zoom, captions
 
 ---

@@ -371,7 +371,7 @@ private struct PiPCanvasEditor: View {
                 layout: layout,
                 canvasWidth: Int(size.width),
                 canvasHeight: Int(size.height)
-            ) ?? .zero
+            ) ?? CGRect(x: 0, y: 0, width: 0, height: 0)
 
             ZStack {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)

@@ -154,7 +154,7 @@ struct ExportView: View {
                 Text(errorMessage)
             }
         }
-        .onChange(of: viewModel.exportResult) { oldValue, newValue in
+        .onChange(of: viewModel.exportResult) { newValue in
             if newValue != nil {
                 dismiss()
                 onExportComplete(newValue)
@@ -380,7 +380,7 @@ final class ExportViewModel: ObservableObject {
             // Start export
             progressMessage = "Starting export job..."
             let jobId = try await engine.export(
-                projectId: projectSummary.projectId,
+                projectId: project.projectId,
                 preset: selectedPreset,
                 options: ExportOptions(
                     burnCaptions: false,
@@ -412,28 +412,33 @@ final class ExportViewModel: ObservableObject {
 
                 let jobQueue = await engine.getJobQueue()
                 let job = await jobQueue.getJob(jobId: jobId)
-                let progress = job?.progress ?? 0
-                let status = job?.status ?? .pending
+                let progress = job?.status.progress ?? 0
+                let status = job?.status ?? .queued
                 let error = job?.error
 
                 self.progress = progress
 
                 switch status {
-                case .pending:
+                case .queued:
                     self.progressMessage = "Queued..."
-                case .inProgress:
+                case .running:
                     self.progressMessage = "Exporting video..."
-                case .completed:
+                case .success:
                     self.exportState = .completed
                     self.progress = 1.0
                     self.progressMessage = "Export complete!"
                     self.exportResult = outputURL
                     self.showSuccessAlert = true
                     self.stopProgressMonitoring()
-                case .failed(let jobError):
+                case .failed:
                     self.exportState = .failed
-                    self.progressMessage = "Export failed: \(jobError?.localizedDescription ?? "Unknown error")"
-                    self.errorMessage = jobError?.localizedDescription
+                    self.progressMessage = "Export failed: \(error?.message ?? "Unknown error")"
+                    self.errorMessage = error?.message
+                    self.stopProgressMonitoring()
+                case .canceled:
+                    self.exportState = .failed
+                    self.progressMessage = "Export canceled"
+                    self.errorMessage = "Export was canceled"
                     self.stopProgressMonitoring()
                 }
 
