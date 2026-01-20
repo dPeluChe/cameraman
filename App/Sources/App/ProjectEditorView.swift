@@ -387,7 +387,7 @@ private struct PiPCanvasEditor: View {
                 RoundedRectangle(cornerRadius: max(2, camera.cornerRadius), style: .continuous)
                     .fill(Color.accentColor.opacity(0.6))
                     .frame(width: cameraFrame.width, height: cameraFrame.height)
-                    .position(x: cameraFrame.midX, y: cameraFrame.midY)
+                    .position(x: CGFloat(cameraFrame.minX + cameraFrame.width / 2), y: CGFloat(cameraFrame.minY + cameraFrame.height / 2))
                     .overlay(
                         RoundedRectangle(cornerRadius: max(2, camera.cornerRadius), style: .continuous)
                             .stroke(Color.white.opacity(0.9), lineWidth: 1)

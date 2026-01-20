@@ -8,23 +8,30 @@
 import AVFoundation
 import AVKit
 import CoreGraphics
+import CoreImage
 import EngineKit
 import SwiftUI
+import Combine
 
 @MainActor
 final class PreviewPlayerViewModel: ObservableObject {
-    @Published private(set) var player: AVPlayer?
+    @Published private(set) var previewEngine: PreviewEngine?
     @Published private(set) var aspectRatio: Double = PreviewPlayerViewModel.fallbackAspectRatio
     @Published private(set) var loadError: String?
     @Published private(set) var currentTime: Double = 0
     @Published private(set) var duration: Double = 0
     @Published private(set) var isPlaying: Bool = false
     @Published private(set) var isScrubbing: Bool = false
+    @Published private(set) var currentFrame: CGImage?
     @Published var playbackRate: PlaybackRate = .normal
+    @Published var showOverlays: Bool = true
+    @Published var showLayout: Bool = true
+    @Published var showZoom: Bool = true
+    @Published var showCaptions: Bool = true
 
     private static let fallbackAspectRatio: Double = 16.0 / 9.0
-    private var timeObserverToken: Any?
-    private var timeControlObserver: NSKeyValueObservation?
+    private var updateTimer: Timer?
+    private var cancellables = Set<AnyCancellable>()
 
     enum PlaybackRate: Double, CaseIterable, Identifiable {
         case half = 0.5
@@ -50,27 +57,50 @@ final class PreviewPlayerViewModel: ObservableObject {
 
         aspectRatio = Self.aspectRatio(for: project)
         updateDuration(project.timeline.duration)
-        let sourceURL = projectDirectory.appendingPathComponent(project.sources.screen.path)
+        let sourcePath = projectDirectory.appendingPathComponent(project.sources.screen.path).path
 
-        guard FileManager.default.fileExists(atPath: sourceURL.path) else {
-            detachPlayer()
-            player = nil
+        guard FileManager.default.fileExists(atPath: sourcePath) else {
+            stopUpdateTimer()
+            previewEngine = nil
+            currentFrame = nil
             loadError = "Preview source missing."
             currentTime = 0
             isPlaying = false
             return
         }
 
-        let previewPlayer = AVPlayer(url: sourceURL)
-        previewPlayer.actionAtItemEnd = .pause
-        previewPlayer.pause()
-        attachPlayer(previewPlayer)
-        loadError = nil
+        // Create PreviewEngine with edits enabled
+        let engine = PreviewEngine(
+            configuration: PreviewEngine.Configuration(
+                useProxy: false, // Use full quality for preview
+                hardwareAcceleration: true,
+                zoomEnabled: showZoom
+            )
+        )
+
+        Task {
+            do {
+                try await engine.loadProject(project, projectDirectory: sourcePath)
+                await MainActor.run {
+                    self.previewEngine = engine
+                    self.loadError = nil
+                    self.currentTime = 0
+                    self.updateCurrentFrame()
+                }
+            } catch {
+                await MainActor.run {
+                    self.loadError = error.localizedDescription
+                    self.previewEngine = nil
+                    self.currentFrame = nil
+                }
+            }
+        }
     }
 
     func reset() {
-        detachPlayer()
-        player = nil
+        stopUpdateTimer()
+        previewEngine = nil
+        currentFrame = nil
         aspectRatio = Self.fallbackAspectRatio
         loadError = nil
         currentTime = 0
@@ -82,43 +112,117 @@ final class PreviewPlayerViewModel: ObservableObject {
 
     func setPlaybackRate(_ rate: PlaybackRate) {
         playbackRate = rate
-        guard let player = player else { return }
-        // Apply rate immediately if playing, or just store it for when playback starts
-        if isPlaying {
-            player.rate = Float(rate.rawValue)
+        guard let engine = previewEngine else { return }
+        Task {
+            try? await engine.setPlaybackRate(rate.rawValue)
         }
     }
 
     func togglePlayPause() {
-        guard let player else { return }
-        if isPlaying {
-            player.pause()
-        } else {
-            player.rate = Float(playbackRate.rawValue)
+        guard let engine = previewEngine else { return }
+
+        Task {
+            if isPlaying {
+                try? await engine.pause()
+                await MainActor.run {
+                    self.isPlaying = false
+                    self.stopUpdateTimer()
+                }
+            } else {
+                try? await engine.play()
+                await MainActor.run {
+                    self.isPlaying = true
+                    self.startUpdateTimer()
+                }
+            }
         }
     }
 
     func stopPlayback() {
-        guard let player else {
+        guard let engine = previewEngine else {
             currentTime = 0
             isPlaying = false
             return
         }
-        player.pause()
-        player.seek(to: .zero)
-        currentTime = 0
-        isPlaying = false
+
+        Task {
+            try? await engine.stop()
+            await MainActor.run {
+                self.currentTime = 0
+                self.isPlaying = false
+                self.stopUpdateTimer()
+                self.updateCurrentFrame()
+            }
+        }
     }
 
     func seek(to seconds: Double) {
         let clamped = clampTime(seconds)
         currentTime = clamped
-        guard let player else { return }
-        player.seek(to: CMTime(seconds: clamped, preferredTimescale: 600))
+
+        guard let engine = previewEngine else { return }
+
+        Task {
+            try? await engine.seek(to: clamped)
+            await MainActor.run {
+                self.updateCurrentFrame()
+            }
+        }
     }
 
     func setScrubbing(_ scrubbing: Bool) {
         isScrubbing = scrubbing
+        if !scrubbing {
+            updateCurrentFrame()
+        }
+    }
+
+    private func updateCurrentFrame() {
+        guard let engine = previewEngine, !isScrubbing else { return }
+
+        Task {
+            do {
+                let frame = try await engine.extractFrame(at: currentTime)
+                await MainActor.run {
+                    self.currentFrame = frame
+                }
+            } catch {
+                // Silently fail frame extraction during playback
+                // (frame extraction may fail during rapid updates)
+            }
+        }
+    }
+
+    private func startUpdateTimer() {
+        stopUpdateTimer()
+        updateTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+            guard let self = self, self.isPlaying else { return }
+
+            Task {
+                if let engine = await self.previewEngine {
+                    let session = await engine.getSession()
+                    await MainActor.run {
+                        self.currentTime = session.currentTime
+                        self.updateDuration(session.duration)
+                    }
+
+                    // Update frame at 15fps for smoother performance
+                    if Int(session.currentTime * 15) % 1 == 0 {
+                        self.updateCurrentFrame()
+                    }
+
+                    // Handle playback end
+                    if session.currentTime >= session.duration && session.duration > 0 {
+                        self.stopPlayback()
+                    }
+                }
+            }
+        }
+    }
+
+    private func stopUpdateTimer() {
+        updateTimer?.invalidate()
+        updateTimer = nil
     }
 
     var formattedCurrentTime: String {
@@ -162,42 +266,13 @@ final class PreviewPlayerViewModel: ObservableObject {
         return width / height
     }
 
-    private func attachPlayer(_ player: AVPlayer) {
-        detachPlayer()
-        self.player = player
-        timeControlObserver = player.observe(\.timeControlStatus, options: [.initial, .new]) { [weak self] player, _ in
-            guard let self else { return }
-            Task { @MainActor in
-                self.isPlaying = player.timeControlStatus == .playing
-            }
-        }
-        let interval = CMTime(seconds: 0.1, preferredTimescale: 600)
-        timeObserverToken = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
-            guard let self else { return }
-            Task { @MainActor in
-                if let item = player.currentItem {
-                    let itemDuration = item.duration.seconds
-                    if itemDuration.isFinite, itemDuration > 0 {
-                        self.updateDuration(itemDuration)
-                    }
-                }
-                guard !self.isScrubbing else { return }
-                self.currentTime = time.seconds
-            }
-        }
-    }
-
-    private func detachPlayer() {
-        if let token = timeObserverToken, let player {
-            player.removeTimeObserver(token)
-        }
-        timeObserverToken = nil
-        timeControlObserver = nil
-    }
-
     private func clampTime(_ seconds: Double) -> Double {
         guard duration > 0 else { return max(0, seconds) }
         return min(max(0, seconds), duration)
+    }
+
+    deinit {
+        stopUpdateTimer()
     }
 }
 
@@ -213,9 +288,14 @@ struct PreviewPlayerView: View {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color.black.opacity(0.9))
 
-                if let player = viewModel.player {
-                    PreviewPlayerContainer(player: player)
+                if let frame = viewModel.currentFrame {
+                    Image(decorative: frame, scale: 1.0)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                } else if viewModel.previewEngine != nil {
+                    ProgressView("Loading preview...")
+                        .foregroundStyle(.secondary)
                 } else {
                     Text(viewModel.loadError ?? "Preview unavailable")
                         .foregroundStyle(.secondary)
@@ -224,29 +304,29 @@ struct PreviewPlayerView: View {
             .aspectRatio(CoreGraphics.CGFloat(viewModel.aspectRatio), contentMode: .fit)
             .frame(maxWidth: .infinity)
 
+            // Edit visibility toggles
+            if viewModel.previewEngine != nil {
+                HStack(spacing: 16) {
+                    Toggle("Overlays", isOn: $viewModel.showOverlays)
+                        .toggleStyle(.checkbox)
+                    Toggle("Layout", isOn: $viewModel.showLayout)
+                        .toggleStyle(.checkbox)
+                    Toggle("Zoom", isOn: $viewModel.showZoom)
+                        .toggleStyle(.checkbox)
+                    Toggle("Captions", isOn: $viewModel.showCaptions)
+                        .toggleStyle(.checkbox)
+                }
+                .font(.caption)
+                .padding(.horizontal, 8)
+            }
+
             PlaybackControlsView(viewModel: viewModel)
         }
         .task(id: project?.projectId) {
             viewModel.load(project: project, projectDirectory: projectDirectory)
         }
-    }
-}
-
-private struct PreviewPlayerContainer: NSViewRepresentable {
-    let player: AVPlayer
-
-    func makeNSView(context: Context) -> AVPlayerView {
-        let view = AVPlayerView()
-        view.player = player
-        view.controlsStyle = .none
-        view.videoGravity = .resizeAspect
-        view.updatesNowPlayingInfoCenter = false
-        return view
-    }
-
-    func updateNSView(_ nsView: AVPlayerView, context: Context) {
-        if nsView.player !== player {
-            nsView.player = player
+        .onDisappear {
+            viewModel.stopPlayback()
         }
     }
 }
@@ -260,13 +340,13 @@ private struct PlaybackControlsView: View {
                 Image(systemName: viewModel.isPlaying ? "pause.fill" : "play.fill")
             }
             .buttonStyle(.bordered)
-            .disabled(viewModel.player == nil)
+            .disabled(viewModel.previewEngine == nil)
 
             Button(action: viewModel.stopPlayback) {
                 Image(systemName: "stop.fill")
             }
             .buttonStyle(.bordered)
-            .disabled(viewModel.player == nil)
+            .disabled(viewModel.previewEngine == nil)
 
             Slider(
                 value: Binding(
@@ -278,7 +358,7 @@ private struct PlaybackControlsView: View {
                     viewModel.setScrubbing(isEditing)
                 }
             )
-            .disabled(viewModel.player == nil || viewModel.duration == 0)
+            .disabled(viewModel.previewEngine == nil || viewModel.duration == 0)
 
             Text("\(viewModel.formattedCurrentTime) / \(viewModel.formattedDuration)")
                 .font(.system(.caption, design: .monospaced))
@@ -292,7 +372,7 @@ private struct PlaybackControlsView: View {
             }
             .pickerStyle(.segmented)
             .frame(width: 140)
-            .disabled(viewModel.player == nil)
+            .disabled(viewModel.previewEngine == nil)
         }
         .padding(.horizontal, 8)
     }

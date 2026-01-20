@@ -444,8 +444,8 @@ final class ExportViewModel: ObservableObject {
 
                 if let error = error {
                     self.exportState = .failed
-                    self.progressMessage = "Export failed: \(error.localizedDescription)"
-                    self.errorMessage = error.localizedDescription
+                    self.progressMessage = "Export failed: \(error.message)"
+                    self.errorMessage = error.message
                     self.stopProgressMonitoring()
                 }
             }

@@ -12,7 +12,7 @@ import XCTest
 
 @MainActor
 final class PreviewPlayerViewModelTests: XCTestCase {
-    func testLoadProjectSetsAspectRatioAndPlayer() throws {
+    func testLoadProjectSetsAspectRatioAndEngine() async throws {
         let tempDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("PreviewPlayerViewModelTests_\(UUID().uuidString)", isDirectory: true)
         let sourcesDirectory = tempDirectory.appendingPathComponent("sources", isDirectory: true)
@@ -26,14 +26,17 @@ final class PreviewPlayerViewModelTests: XCTestCase {
 
         viewModel.load(project: project, projectDirectory: tempDirectory)
 
-        XCTAssertNotNil(viewModel.player)
+        // Wait for async load
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+
+        XCTAssertNotNil(viewModel.previewEngine)
         XCTAssertNil(viewModel.loadError)
         XCTAssertEqual(viewModel.aspectRatio, 16.0 / 9.0, accuracy: 0.01)
 
         try? FileManager.default.removeItem(at: tempDirectory)
     }
 
-    func testLoadProjectMissingSourceSetsError() throws {
+    func testLoadProjectMissingSourceSetsError() async throws {
         let tempDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("PreviewPlayerViewModelTests_\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
@@ -43,14 +46,17 @@ final class PreviewPlayerViewModelTests: XCTestCase {
 
         viewModel.load(project: project, projectDirectory: tempDirectory)
 
-        XCTAssertNil(viewModel.player)
+        // Wait for async load
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+
+        XCTAssertNil(viewModel.previewEngine)
         XCTAssertNotNil(viewModel.loadError)
         XCTAssertEqual(viewModel.aspectRatio, 16.0 / 9.0, accuracy: 0.01)
 
         try? FileManager.default.removeItem(at: tempDirectory)
     }
 
-    func testLoadProjectSetsTimelineDuration() throws {
+    func testLoadProjectSetsTimelineDuration() async throws {
         let tempDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("PreviewPlayerViewModelTests_\(UUID().uuidString)", isDirectory: true)
         let sourcesDirectory = tempDirectory.appendingPathComponent("sources", isDirectory: true)
@@ -63,6 +69,9 @@ final class PreviewPlayerViewModelTests: XCTestCase {
         let viewModel = PreviewPlayerViewModel()
 
         viewModel.load(project: project, projectDirectory: tempDirectory)
+
+        // Wait for async load
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
 
         XCTAssertEqual(viewModel.duration, project.timeline.duration, accuracy: 0.01)
 
@@ -84,6 +93,96 @@ final class PreviewPlayerViewModelTests: XCTestCase {
 
         XCTAssertEqual(viewModel.currentTime, 0, accuracy: 0.01)
         XCTAssertFalse(viewModel.isPlaying)
+    }
+
+    func testResetClearsAllState() {
+        let viewModel = PreviewPlayerViewModel()
+
+        viewModel.updateDuration(10)
+        viewModel.seek(to: 5)
+        viewModel.reset()
+
+        XCTAssertNil(viewModel.previewEngine)
+        XCTAssertNil(viewModel.currentFrame)
+        XCTAssertNil(viewModel.loadError)
+        XCTAssertEqual(viewModel.currentTime, 0, accuracy: 0.01)
+        XCTAssertEqual(viewModel.duration, 0, accuracy: 0.01)
+        XCTAssertFalse(viewModel.isPlaying)
+        XCTAssertFalse(viewModel.isScrubbing)
+        XCTAssertEqual(viewModel.playbackRate, .normal)
+    }
+
+    func testToggleVisibilityFlags() {
+        let viewModel = PreviewPlayerViewModel()
+
+        XCTAssertTrue(viewModel.showOverlays)
+        XCTAssertTrue(viewModel.showLayout)
+        XCTAssertTrue(viewModel.showZoom)
+        XCTAssertTrue(viewModel.showCaptions)
+
+        viewModel.showOverlays = false
+        viewModel.showLayout = false
+        viewModel.showZoom = false
+        viewModel.showCaptions = false
+
+        XCTAssertFalse(viewModel.showOverlays)
+        XCTAssertFalse(viewModel.showLayout)
+        XCTAssertFalse(viewModel.showZoom)
+        XCTAssertFalse(viewModel.showCaptions)
+    }
+
+    func testSetScrubbing() {
+        let viewModel = PreviewPlayerViewModel()
+
+        XCTAssertFalse(viewModel.isScrubbing)
+        viewModel.setScrubbing(true)
+        XCTAssertTrue(viewModel.isScrubbing)
+        viewModel.setScrubbing(false)
+        XCTAssertFalse(viewModel.isScrubbing)
+    }
+
+    func testPlaybackRateSelection() {
+        let viewModel = PreviewPlayerViewModel()
+
+        XCTAssertEqual(viewModel.playbackRate, .normal)
+
+        viewModel.setPlaybackRate(.half)
+        XCTAssertEqual(viewModel.playbackRate, .half)
+
+        viewModel.setPlaybackRate(.double)
+        XCTAssertEqual(viewModel.playbackRate, .double)
+
+        viewModel.setPlaybackRate(.normal)
+        XCTAssertEqual(viewModel.playbackRate, .normal)
+    }
+
+    func testClampTime() {
+        let viewModel = PreviewPlayerViewModel()
+
+        viewModel.updateDuration(10)
+
+        viewModel.seek(to: 5)
+        XCTAssertEqual(viewModel.currentTime, 5, accuracy: 0.01)
+
+        viewModel.seek(to: -5)
+        XCTAssertEqual(viewModel.currentTime, 0, accuracy: 0.01)
+
+        viewModel.seek(to: 15)
+        XCTAssertEqual(viewModel.currentTime, 10, accuracy: 0.01)
+    }
+
+    func testAspectRatioForProject() {
+        let project16x9 = makeProject(screenSize: Project.Sources.Size(w: 1920, h: 1080))
+        let ratio16x9 = PreviewPlayerViewModel.aspectRatio(for: project16x9)
+        XCTAssertEqual(ratio16x9, 16.0 / 9.0, accuracy: 0.01)
+
+        let project9x16 = makeProject(screenSize: Project.Sources.Size(w: 1080, h: 1920))
+        let ratio9x16 = PreviewPlayerViewModel.aspectRatio(for: project9x16)
+        XCTAssertEqual(ratio9x16, 9.0 / 16.0, accuracy: 0.01)
+
+        let project1x1 = makeProject(screenSize: Project.Sources.Size(w: 1080, h: 1080))
+        let ratio1x1 = PreviewPlayerViewModel.aspectRatio(for: project1x1)
+        XCTAssertEqual(ratio1x1, 1.0, accuracy: 0.01)
     }
 
     private func makeProject(screenSize: Project.Sources.Size) -> Project {

@@ -251,7 +251,7 @@ struct OverlayEditorView: View {
 
                 Task {
                     _ = await editor.updateOverlay(
-                        projectId: editor.project.id,
+                        projectId: editor.project.projectId,
                         overlayId: overlay.id,
                         transform: Project.Overlay.Transform(
                             x: overlay.transform.x + deltaX,
@@ -275,7 +275,7 @@ struct OverlayEditorView: View {
 
                 Task {
                     _ = await editor.updateOverlay(
-                        projectId: editor.project.id,
+                        projectId: editor.project.projectId,
                         overlayId: overlay.id,
                         transform: Project.Overlay.Transform(
                             x: overlay.transform.x,
@@ -578,7 +578,7 @@ struct OverlayEditorView: View {
 
         Task {
             _ = await editor.deleteOverlay(
-                projectId: editor.project.id,
+                projectId: editor.project.projectId,
                 overlayId: overlayId
             )
             selectedOverlayId = nil
@@ -590,7 +590,7 @@ struct OverlayEditorView: View {
 
         Task {
             _ = await editor.updateOverlay(
-                projectId: editor.project.id,
+                projectId: editor.project.projectId,
                 overlayId: overlayId,
                 style: style
             )
@@ -604,7 +604,7 @@ struct OverlayEditorView: View {
 
         Task {
             _ = await editor.updateOverlay(
-                projectId: editor.project.id,
+                projectId: editor.project.projectId,
                 overlayId: overlayId,
                 start: start
             )
@@ -618,7 +618,7 @@ struct OverlayEditorView: View {
 
         Task {
             _ = await editor.updateOverlay(
-                projectId: editor.project.id,
+                projectId: editor.project.projectId,
                 overlayId: overlayId,
                 end: end
             )
@@ -646,7 +646,7 @@ struct OverlayEditorView: View {
 
         Task {
             _ = await editor.updateOverlay(
-                projectId: editor.project.id,
+                projectId: editor.project.projectId,
                 overlayId: overlayId,
                 animation: animation
             )
@@ -667,7 +667,7 @@ struct OverlayEditorView: View {
 
         Task {
             _ = await editor.updateOverlay(
-                projectId: editor.project.id,
+                projectId: editor.project.projectId,
                 overlayId: overlayId,
                 animation: animation
             )
@@ -688,7 +688,7 @@ struct OverlayEditorView: View {
 
         Task {
             _ = await editor.updateOverlay(
-                projectId: editor.project.id,
+                projectId: editor.project.projectId,
                 overlayId: overlayId,
                 animation: animation
             )
@@ -709,7 +709,7 @@ struct OverlayEditorView: View {
 
         Task {
             _ = await editor.updateOverlay(
-                projectId: editor.project.id,
+                projectId: editor.project.projectId,
                 overlayId: overlayId,
                 animation: animation
             )
@@ -730,7 +730,7 @@ struct OverlayEditorView: View {
 
         Task {
             _ = await editor.updateOverlay(
-                projectId: editor.project.id,
+                projectId: editor.project.projectId,
                 overlayId: overlayId,
                 animation: animation
             )

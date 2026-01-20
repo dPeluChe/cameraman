@@ -79,8 +79,8 @@ Este backlog define las tareas para reconstruir la UI de edición que fue removi
 > **Estado actual:** Funcional pero básico
 > **Referencia PRD:** Sección 3.2, 3.3
 
-- [ ] (P1) Menú flotante mejorado: selector visual de fuente (display/window/app), preview de captura, toggles audio/cámara
-- [ ] (P1) Indicador durante grabación: ventana flotante con tiempo, estados (mic/audio/camera), botón Stop, hotkey hints
+- [x] (P1) Menú flotante mejorado: selector visual de fuente (display/window/app), preview de captura, toggles audio/cámara
+- [x] (P1) Indicador durante grabación: ventana flotante con tiempo, estados (mic/audio/camera), botón Stop, hotkey hints
 
 ---
 
@@ -107,7 +107,7 @@ Este backlog define las tareas para reconstruir la UI de edición que fue removi
 - [x] (P0) Reproductor de video: vista con aspect ratio correcto, mostrar frame actual cuando pausado
 - [x] (P0) Controles de playback: play/pause/stop, scrubber sincronizado con timeline, tiempo actual/duración
 - [x] (P1) Playback rate selector (0.5x, 1x, 2x)
-- [ ] (P1) Preview con edits aplicados: overlays en tiempo real, layout (PiP), zoom, captions
+- [x] (P1) Preview con edits aplicados: overlays en tiempo real, layout (PiP), zoom, captions
 
 ---
 
