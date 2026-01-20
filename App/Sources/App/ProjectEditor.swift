@@ -349,9 +349,160 @@ final class ProjectEditor: ObservableObject {
         return result
     }
 
+    // MARK: - Zoom Controls
+
+    /// Update zoom configuration for a specific segment
+    /// - Parameters:
+    ///   - segmentId: ID of the segment to update
+    ///   - configuration: New zoom configuration
+    /// - Returns: true if successful, false otherwise
+    @discardableResult
+    func updateSegmentZoom(
+        segmentId: String,
+        configuration: Project.Timeline.ZoomConfiguration
+    ) async -> Bool {
+        let previousProject = project
+        var updatedProject = project
+
+        // Find and update the segment
+        guard let index = updatedProject.timeline.segments.firstIndex(where: { $0.id == segmentId }) else {
+            return false
+        }
+
+        updatedProject.timeline.segments[index].zoom = configuration
+        updatedProject.updatedAt = Date()
+
+        await editorModel.setProject(updatedProject)
+        recordUndoSnapshot(previousProject)
+        project = updatedProject
+        return true
+    }
+
+    /// Update zoom configuration for all timeline segments
+    /// - Parameter configuration: New zoom configuration to apply to all segments
+    /// - Returns: true if successful, false otherwise
+    @discardableResult
+    func updateAllSegmentsZoom(configuration: Project.Timeline.ZoomConfiguration) async -> Bool {
+        let previousProject = project
+        var updatedProject = project
+
+        // Update all segments
+        for index in updatedProject.timeline.segments.indices {
+            updatedProject.timeline.segments[index].zoom = configuration
+        }
+
+        updatedProject.updatedAt = Date()
+
+        await editorModel.setProject(updatedProject)
+        recordUndoSnapshot(previousProject)
+        project = updatedProject
+        return true
+    }
+
+    /// Enable or disable zoom for all segments
+    /// - Parameter enabled: Whether to enable zoom
+    /// - Returns: true if successful, false otherwise
+    @discardableResult
+    func setZoomEnabled(_ enabled: Bool) async -> Bool {
+        let configuration: Project.Timeline.ZoomConfiguration
+        if enabled {
+            configuration = .normal // Use normal intensity when enabling
+        } else {
+            configuration = .disabled
+        }
+        return await updateAllSegmentsZoom(configuration: configuration)
+    }
+
+    /// Set zoom intensity for all segments (keeps current enabled state)
+    /// - Parameter intensity: Zoom intensity preset
+    /// - Returns: true if successful, false otherwise
+    @discardableResult
+    func setZoomIntensity(_ intensity: Project.Timeline.ZoomConfiguration.ZoomIntensity) async -> Bool {
+        let previousProject = project
+        var updatedProject = project
+
+        // Update all segments with new intensity
+        for index in updatedProject.timeline.segments.indices {
+            let currentConfig = updatedProject.timeline.segments[index].zoom
+            let shouldEnable = currentConfig?.enabled ?? true // Default to enabled
+
+            updatedProject.timeline.segments[index].zoom = Project.Timeline.ZoomConfiguration(
+                enabled: intensity == .disabled ? false : shouldEnable,
+                intensity: intensity == .disabled ? nil : intensity
+            )
+        }
+
+        updatedProject.updatedAt = Date()
+
+        await editorModel.setProject(updatedProject)
+        recordUndoSnapshot(previousProject)
+        project = updatedProject
+        return true
+    }
+
     private func updateHistoryState() {
         canUndo = !undoStack.isEmpty
         canRedo = !redoStack.isEmpty
+    }
+
+    // MARK: - Testing Helpers
+
+    /// Create a mock ProjectEditor for testing/preview
+    static func mockProject() throws -> ProjectEditor {
+        // Create a mock project with timeline segments
+        let project = Project(
+            schemaVersion: 1,
+            projectId: "mock-project",
+            name: "Mock Project",
+            tags: ["test"],
+            createdAt: Date(),
+            updatedAt: Date(),
+            sources: Project.Sources(
+                syncReference: "screen",
+                screen: Project.Sources.MediaTrack(
+                    path: "/tmp/screen.mov",
+                    fps: 60.0,
+                    size: Project.Sources.Size(w: 1920, h: 1080),
+                    syncOffsetMs: 0,
+                    sha256: "abc123",
+                    sizeBytes: 1024000
+                )
+            ),
+            timeline: Project.Timeline(
+                duration: 60.0,
+                segments: [
+                    Project.Timeline.Segment(
+                        id: "segment-1",
+                        sourceId: "screen",
+                        sourceIn: 0.0,
+                        sourceOut: 30.0,
+                        timelineIn: 0.0,
+                        timelineOut: 30.0,
+                        speed: 1.0,
+                        zoom: .normal
+                    ),
+                    Project.Timeline.Segment(
+                        id: "segment-2",
+                        sourceId: "screen",
+                        sourceIn: 30.0,
+                        sourceOut: 60.0,
+                        timelineIn: 30.0,
+                        timelineOut: 60.0,
+                        speed: 1.0,
+                        zoom: .subtle
+                    )
+                ]
+            ),
+            canvas: Project.Canvas(
+                format: Project.Canvas.Format(aspect: "16:9", w: 1920, h: 1080),
+                background: Project.Canvas.Background(type: "solid", value: "#000000"),
+                layout: CanvasLayout.defaultLayout(for: .fullscreen)
+            ),
+            overlays: [],
+            captions: nil
+        )
+
+        return ProjectEditor(project: project)
     }
 }
 

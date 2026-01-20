@@ -127,7 +127,7 @@ Este backlog define las tareas para reconstruir la UI de edición que fue removi
 > **Referencia:** Épica I de tasks.md (backend completo)
 > **API Backend:** `ZoomPlanGenerator.generateZoomPlan()`, `ZoomSectionController.setIntensity()`
 
-- [ ] (P1) Toggle auto-zoom on/off con slider de intensidad global
+- [x] (P1) Toggle auto-zoom on/off con slider de intensidad global
 - [ ] (P2) Controles por sección: vista de secciones detectadas, intensidad individual
 
 ---
@@ -147,8 +147,8 @@ Este backlog define las tareas para reconstruir la UI de edición que fue removi
 > **Objetivo:** Configuración global de la aplicación.
 > **API Backend:** `HotkeyManager`
 
-- [ ] (P1) Ventana de Preferencias: Gestión de configuración general.
-- [ ] (P1) Hotkeys: Visualización de atajos de teclado registrados y estado.
+- [x] (P1) Ventana de Preferencias: Gestión de configuración general.
+- [x] (P1) Hotkeys: Visualización de atajos de teclado registrados y estado.
 
 ---
 

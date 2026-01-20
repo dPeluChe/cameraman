@@ -25,7 +25,7 @@ public class HotkeyManager {
         case toggleCamera
         case toggleMicrophone
 
-        var description: String {
+        public var description: String {
             switch self {
             case .startRecording: return "Start Recording"
             case .stopRecording: return "Stop Recording"

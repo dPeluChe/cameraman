@@ -73,6 +73,7 @@ struct ProjectEditorView: View {
                     PiPConfigurationView(editor: editor)
                 }
                 BackgroundControlsView(editor: editor)
+                ZoomControlsView(editor: editor)
                 OverlayEditorView(editor: editor, playheadTime: $viewModel.playheadTime)
                 TimelineView(editor: editor, playheadTime: $viewModel.playheadTime)
             } else if viewModel.isLoading {
