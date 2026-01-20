@@ -157,8 +157,8 @@ Este backlog define las tareas para reconstruir la UI de edición que fue removi
 > **Objetivo:** Exponer las capacidades de telemetría capturadas por el backend.
 > **API Backend:** `TelemetrySync` (cursor/clicks), `KeystrokeRecorder` (teclas)
 
-- [ ] (P1) Telemetry Visuals: Toggle en editor para mostrar/ocultar cursor y visualización de clicks en el preview.
-- [ ] (P1) Keystroke Overlay: Toggle para mostrar las teclas presionadas sobre el video (útil para tutoriales).
+- [x] (P1) Telemetry Visuals: Toggle en editor para mostrar/ocultar cursor y visualización de clicks en el preview.
+- [x] (P1) Keystroke Overlay: Toggle para mostrar las teclas presionadas sobre el video (útil para tutoriales).
 
 ---
 

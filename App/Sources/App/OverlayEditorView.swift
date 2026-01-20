@@ -218,7 +218,7 @@ struct OverlayEditorView: View {
 
     // MARK: - Gestures
 
-    private func createOverlayGesture(in size: CGSize) -> some Gesture {
+    private func createOverlayGesture(in size: CoreGraphics.CGSize) -> some Gesture {
         DragGesture(minimumDistance: 0)
             .onChanged { value in
                 if !isCreatingOverlay {
@@ -241,7 +241,7 @@ struct OverlayEditorView: View {
             }
     }
 
-    private func dragGesture(for overlay: Project.Overlay, in size: CGSize) -> some Gesture {
+    private func dragGesture(for overlay: Project.Overlay, in size: CoreGraphics.CGSize) -> some Gesture {
         DragGesture()
             .onChanged { value in
                 guard selectedOverlayId == overlay.id else { return }
@@ -264,7 +264,7 @@ struct OverlayEditorView: View {
             }
     }
 
-    private func resizeGesture(for overlay: Project.Overlay, in size: CGSize) -> some Gesture {
+    private func resizeGesture(for overlay: Project.Overlay, in size: CoreGraphics.CGSize) -> some Gesture {
         DragGesture()
             .onChanged { value in
                 guard selectedOverlayId == overlay.id else { return }
@@ -739,20 +739,20 @@ struct OverlayEditorView: View {
 
     // MARK: - Geometry Helpers
 
-    private func overlayRect(_ overlay: Project.Overlay, in size: CoreFoundation.CGSize) -> CGRect {
+    private func overlayRect(_ overlay: Project.Overlay, in size: CoreFoundation.CGSize) -> CoreGraphics.CGRect {
         let x = overlay.transform.x * size.width
         let y = overlay.transform.y * size.height
         let width = 100 * overlay.transform.scale
         let height = 100 * overlay.transform.scale
 
-        return CGRect(x: x - width / 2, y: y - height / 2, width: width, height: height)
+        return CoreGraphics.CGRect(x: x - width / 2, y: y - height / 2, width: width, height: height)
     }
 
     private func normalizedPoint(_ point: CoreFoundation.CGPoint, in size: CoreFoundation.CGSize) -> CoreFoundation.CGPoint {
         CoreFoundation.CGPoint(x: point.x / size.width, y: point.y / size.height)
     }
 
-    private func overlayAtPoint(_ point: CGPoint, in size: CGSize) -> Project.Overlay? {
+    private func overlayAtPoint(_ point: CoreGraphics.CGPoint, in size: CoreGraphics.CGSize) -> Project.Overlay? {
         for overlay in editor.project.overlays {
             let rect = overlayRect(overlay, in: size)
             if rect.contains(point) {

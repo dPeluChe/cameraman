@@ -28,6 +28,10 @@ final class PreviewPlayerViewModel: ObservableObject {
     @Published var showLayout: Bool = true
     @Published var showZoom: Bool = true
     @Published var showCaptions: Bool = true
+    @Published var showCursor: Bool = false
+    @Published var showClicks: Bool = false
+    @Published var showKeystrokes: Bool = false
+    @Published private(set) var project: Project?
 
     private static let fallbackAspectRatio: Double = 16.0 / 9.0
     private var updateTimer: Timer?
@@ -55,6 +59,7 @@ final class PreviewPlayerViewModel: ObservableObject {
             return
         }
 
+        self.project = project
         aspectRatio = Self.aspectRatio(for: project)
         updateDuration(project.timeline.duration)
         let sourcePath = projectDirectory.appendingPathComponent(project.sources.screen.path).path
@@ -108,6 +113,10 @@ final class PreviewPlayerViewModel: ObservableObject {
         isPlaying = false
         isScrubbing = false
         playbackRate = .normal
+        project = nil
+        showCursor = false
+        showClicks = false
+        showKeystrokes = false
     }
 
     func setPlaybackRate(_ rate: PlaybackRate) {
@@ -293,6 +302,21 @@ struct PreviewPlayerView: View {
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                    // Telemetry overlay
+                    if viewModel.showCursor || viewModel.showClicks || viewModel.showKeystrokes {
+                        GeometryReader { geometry in
+                            TelemetryOverlayView(
+                                project: viewModel.project,
+                                projectDirectory: projectDirectory,
+                                currentTime: viewModel.currentTime,
+                                showCursor: viewModel.showCursor,
+                                showClicks: viewModel.showClicks,
+                                showKeystrokes: viewModel.showKeystrokes,
+                                overlaySize: geometry.size
+                            )
+                        }
+                    }
                 } else if viewModel.previewEngine != nil {
                     ProgressView("Loading preview...")
                         .foregroundStyle(.secondary)
@@ -314,6 +338,12 @@ struct PreviewPlayerView: View {
                     Toggle("Zoom", isOn: $viewModel.showZoom)
                         .toggleStyle(.checkbox)
                     Toggle("Captions", isOn: $viewModel.showCaptions)
+                        .toggleStyle(.checkbox)
+                    Toggle("Cursor", isOn: $viewModel.showCursor)
+                        .toggleStyle(.checkbox)
+                    Toggle("Clicks", isOn: $viewModel.showClicks)
+                        .toggleStyle(.checkbox)
+                    Toggle("Keys", isOn: $viewModel.showKeystrokes)
                         .toggleStyle(.checkbox)
                 }
                 .font(.caption)
