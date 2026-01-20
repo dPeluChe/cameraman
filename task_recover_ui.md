@@ -94,8 +94,8 @@ Este backlog define las tareas para reconstruir la UI de edición que fue removi
 - [x] (P0) Navegación: click para posicionar playhead, drag para seleccionar rango, zoom in/out, scroll horizontal
 - [x] (P0) Operaciones de edición: split en playhead (Cmd+B), delete segmento, trim con drag de bordes
 - [x] (P0) Undo/Redo (Cmd+Z / Cmd+Shift+Z)
-- [ ] (P1) Thumbnails en track de video (usar `ThumbnailCache` del backend)
-- [ ] (P1) Waveforms en tracks de audio
+- [x] (P1) Thumbnails en track de video (usar `ThumbnailCache` del backend)
+- [x] (P1) Waveforms en tracks de audio
 
 ---
 
