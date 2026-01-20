@@ -30,7 +30,7 @@ Este backlog define las tareas para reconstruir la UI de edición que fue removi
 - [x] (P0) Acciones de proyecto: crear nuevo (→ Recording), abrir existente (→ Editor), renombrar, eliminar con confirmación
 - [x] (P0) Editar tags de proyecto (multi-tag)
 - [x] (P1) Búsqueda por nombre y filtro por tags
-- [ ] (P1) Ordenamiento: por fecha, nombre, duración
+- [x] (P1) Ordenamiento: por fecha, nombre, duración
 
 ---
 

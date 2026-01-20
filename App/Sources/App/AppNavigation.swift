@@ -18,6 +18,13 @@ enum ProjectLibraryLayout: String, CaseIterable {
     case grid
 }
 
+enum ProjectSortOption: String, CaseIterable {
+    case dateUpdated = "Date Updated"
+    case name = "Name"
+    case duration = "Duration"
+    case dateCreated = "Date Created"
+}
+
 @MainActor
 final class AppNavigationViewModel: ObservableObject {
     @Published private(set) var projects: [ProjectSummary] = []
@@ -26,6 +33,8 @@ final class AppNavigationViewModel: ObservableObject {
     @Published var libraryLayout: ProjectLibraryLayout = .list
     @Published var searchText: String = ""
     @Published var selectedTagFilter: String? = nil
+    @Published var sortOption: ProjectSortOption = .dateUpdated
+    @Published var sortDirectionAscending: Bool = false
 
     private let library: ProjectLibrary
 
@@ -48,6 +57,39 @@ final class AppNavigationViewModel: ObservableObject {
         if let tagFilter = selectedTagFilter {
             result = result.filter { project in
                 project.tags.contains(tagFilter)
+            }
+        }
+
+        // Sort projects
+        result.sort { lhs, rhs in
+            switch sortOption {
+            case .dateUpdated:
+                let comparison = lhs.updatedAt.compare(rhs.updatedAt)
+                if sortDirectionAscending {
+                    return comparison == .orderedAscending
+                } else {
+                    return comparison == .orderedDescending
+                }
+            case .dateCreated:
+                let comparison = lhs.createdAt.compare(rhs.createdAt)
+                if sortDirectionAscending {
+                    return comparison == .orderedAscending
+                } else {
+                    return comparison == .orderedDescending
+                }
+            case .name:
+                let comparison = lhs.name.localizedCaseInsensitiveCompare(rhs.name)
+                if sortDirectionAscending {
+                    return comparison == .orderedAscending
+                } else {
+                    return comparison == .orderedDescending
+                }
+            case .duration:
+                if sortDirectionAscending {
+                    return lhs.duration < rhs.duration
+                } else {
+                    return lhs.duration > rhs.duration
+                }
             }
         }
 
@@ -152,6 +194,14 @@ final class AppNavigationViewModel: ObservableObject {
     func clearFilters() {
         searchText = ""
         selectedTagFilter = nil
+    }
+
+    func setSortOption(_ option: ProjectSortOption) {
+        sortOption = option
+    }
+
+    func toggleSortDirection() {
+        sortDirectionAscending.toggle()
     }
 }
 
@@ -293,6 +343,62 @@ struct AppNavigation: View {
                     .padding(.vertical, 6)
                     .background(Color.primary.opacity(0.08))
                     .cornerRadius(8)
+
+                    // Sort and filter controls
+                    HStack(spacing: 8) {
+                        // Sort picker
+                        Menu {
+                            ForEach(ProjectSortOption.allCases, id: \.self) { option in
+                                Button {
+                                    viewModel.setSortOption(option)
+                                } label: {
+                                    HStack {
+                                        Text(option.rawValue)
+                                        if viewModel.sortOption == option {
+                                            Image(systemName: "checkmark")
+                                        }
+                                    }
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrow.up.arrow.down")
+                                    .font(.system(size: 12))
+                                Text(viewModel.sortOption.rawValue)
+                                    .font(.system(size: 12))
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.primary.opacity(0.06))
+                            .cornerRadius(6)
+                        }
+                        .menuStyle(.borderlessButton)
+                        .fixedSize()
+
+                        // Sort direction toggle
+                        Button {
+                            viewModel.toggleSortDirection()
+                        } label: {
+                            Image(systemName: viewModel.sortDirectionAscending ? "arrow.up" : "arrow.down")
+                                .font(.system(size: 12))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.primary.opacity(0.06))
+                                .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+
+                        Spacer()
+
+                        // Clear filters button
+                        if !viewModel.searchText.isEmpty || viewModel.selectedTagFilter != nil {
+                            Button("Clear") {
+                                viewModel.clearFilters()
+                            }
+                            .font(.system(size: 11))
+                            .buttonStyle(.plain)
+                        }
+                    }
 
                     // Tag filter
                     if !viewModel.allTags.isEmpty {
