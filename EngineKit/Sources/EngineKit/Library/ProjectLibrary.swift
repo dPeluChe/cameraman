@@ -293,6 +293,20 @@ public actor ProjectLibrary {
         let jobQueue = JobQueue()
         return ExportEngine(jobQueue: jobQueue, projectStore: store)
     }
+
+    /// Create an AIService instance for the project library
+    /// - Returns: Configured AIService
+    public func getAIService() async throws -> AIService {
+        let jobQueue = JobQueue()
+        let service = AIService(jobQueue: jobQueue, projectStore: store)
+        return service
+    }
+
+    /// Get the shared job queue for operations
+    /// - Returns: JobQueue instance
+    public func getJobQueue() async throws -> JobQueue {
+        return JobQueue()
+    }
 }
 
 /// Filter for listing projects

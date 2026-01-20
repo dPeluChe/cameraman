@@ -399,6 +399,29 @@ final class ProjectEditor: ObservableObject {
         return true
     }
 
+    /// Remove zoom configuration for a specific segment (reverts to defaults)
+    /// - Parameter segmentId: ID of the segment to remove configuration from
+    /// - Returns: true if successful, false if segment not found
+    @discardableResult
+    func removeSegmentZoom(segmentId: String) async -> Bool {
+        let previousProject = project
+        var updatedProject = project
+
+        // Find and update the segment
+        guard let index = updatedProject.timeline.segments.firstIndex(where: { $0.id == segmentId }) else {
+            return false
+        }
+
+        // Remove zoom configuration (will use defaults)
+        updatedProject.timeline.segments[index].zoom = nil
+        updatedProject.updatedAt = Date()
+
+        await editorModel.setProject(updatedProject)
+        recordUndoSnapshot(previousProject)
+        project = updatedProject
+        return true
+    }
+
     /// Enable or disable zoom for all segments
     /// - Parameter enabled: Whether to enable zoom
     /// - Returns: true if successful, false otherwise

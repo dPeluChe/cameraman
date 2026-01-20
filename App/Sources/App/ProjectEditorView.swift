@@ -50,6 +50,7 @@ struct ProjectEditorView: View {
     @StateObject private var viewModel: ProjectEditorViewModel
     @State private var showExportModal: Bool = false
     @State private var showTranscriptionModal: Bool = false
+    @State private var showAISuggestionsModal: Bool = false
 
     init(projectSummary: ProjectSummary, library: ProjectLibrary = ProjectLibrary()) {
         self.projectSummary = projectSummary
@@ -94,6 +95,11 @@ struct ProjectEditorView: View {
         .sheet(isPresented: $showTranscriptionModal) {
             if let editor = viewModel.editor {
                 TranscriptionView(editor: editor, playheadTime: $viewModel.playheadTime)
+            }
+        }
+        .sheet(isPresented: $showAISuggestionsModal) {
+            if let editor = viewModel.editor {
+                AISuggestionsView(editor: editor, playheadTime: $viewModel.playheadTime)
             }
         }
         .sheet(isPresented: $showExportModal) {
@@ -142,6 +148,14 @@ struct ProjectEditorView: View {
                     showTranscriptionModal = true
                 } label: {
                     Label("Transcript", systemImage: "text.bubble")
+                }
+                .buttonStyle(.bordered)
+                .disabled(viewModel.editor == nil)
+
+                Button {
+                    showAISuggestionsModal = true
+                } label: {
+                    Label("AI Suggestions", systemImage: "sparkles")
                 }
                 .buttonStyle(.bordered)
                 .disabled(viewModel.editor == nil)

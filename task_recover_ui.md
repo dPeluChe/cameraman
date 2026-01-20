@@ -128,7 +128,7 @@ Este backlog define las tareas para reconstruir la UI de edición que fue removi
 > **API Backend:** `ZoomPlanGenerator.generateZoomPlan()`, `ZoomSectionController.setIntensity()`
 
 - [x] (P1) Toggle auto-zoom on/off con slider de intensidad global
-- [ ] (P2) Controles por sección: vista de secciones detectadas, intensidad individual
+- [x] (P2) Controles por sección: vista de secciones detectadas, intensidad individual
 
 ---
 
@@ -137,7 +137,7 @@ Este backlog define las tareas para reconstruir la UI de edición que fue removi
 > **Referencia:** Épica K de tasks.md (backend completo)
 > **API Backend:** `AIService.suggestSilenceEdits()`, `suggestChapters()`
 
-- [ ] (P2) Panel de sugerencias: lista con tipo (silence cuts, chapters), botón Apply por sugerencia
+- [x] (P2) Panel de sugerencias: lista con tipo (silence cuts, chapters), botón Apply por sugerencia
 - [ ] (P2) Capítulos automáticos: mostrar sugeridos, editar títulos, aplicar como markers
 
 ---

@@ -12,7 +12,6 @@ import EngineKit
 @main
 struct CameramanApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    @State private var showPreferences = false
 
     var body: some Scene {
         // Main window with recording controls
@@ -26,15 +25,13 @@ struct CameramanApp: App {
             // Add Preferences menu item
             CommandGroup(replacing: .appSettings) {
                 Button {
-                    showPreferences = true
+                    // Open preferences window
+                    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
                 } label: {
                     Text("Preferences...")
-                    KeyboardShortcut(KeyEquivalent(","), modifiers: .command)
                 }
+                .keyboardShortcut(",", modifiers: .command)
             }
-        }
-        .sheet(isPresented: $showPreferences) {
-            PreferencesView()
         }
     }
 }

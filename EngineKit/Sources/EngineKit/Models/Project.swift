@@ -270,6 +270,17 @@ public struct Project: Codable, Equatable {
                 }
             }
         }
+
+        /// Initialize a new canvas configuration
+        public init(
+            format: Format,
+            background: Background,
+            layout: Layout
+        ) {
+            self.format = format
+            self.background = background
+            self.layout = layout
+        }
     }
 
     /// Overlay (annotation) model
