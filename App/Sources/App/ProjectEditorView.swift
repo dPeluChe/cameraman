@@ -76,7 +76,9 @@ struct ProjectEditorView: View {
                 BackgroundControlsView(editor: editor)
                 ZoomControlsView(editor: editor)
                 OverlayEditorView(editor: editor, playheadTime: $viewModel.playheadTime)
-                TimelineView(editor: editor, playheadTime: $viewModel.playheadTime)
+                if let projectDirectory = viewModel.projectDirectory {
+                    TimelineView(editor: editor, playheadTime: $viewModel.playheadTime, projectDirectory: projectDirectory)
+                }
             } else if viewModel.isLoading {
                 ProgressView("Loading project timeline...")
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -403,12 +405,10 @@ private struct PiPCanvasEditor: View {
                 canvasWidth: Int(size.width),
                 canvasHeight: Int(size.height)
             )
-            let cameraFrame: CoreFoundation.CGRect
-            if let ekFrame = ekCameraFrame {
-                cameraFrame = CoreFoundation.CGRect(x: CGFloat(ekFrame.x), y: CGFloat(ekFrame.y), width: CGFloat(ekFrame.width), height: CGFloat(ekFrame.height))
-            } else {
-                cameraFrame = CoreFoundation.CGRect(x: 0, y: 0, width: 0, height: 0)
-            }
+            
+            let cameraFrame = ekCameraFrame.map { ekFrame in
+                CGRect(x: CGFloat(ekFrame.minX), y: CGFloat(ekFrame.minY), width: CGFloat(ekFrame.width), height: CGFloat(ekFrame.height))
+            } ?? CGRect.zero
 
             ZStack {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -424,7 +424,7 @@ private struct PiPCanvasEditor: View {
                 RoundedRectangle(cornerRadius: max(2, camera.cornerRadius), style: .continuous)
                     .fill(Color.accentColor.opacity(0.6))
                     .frame(width: cameraFrame.width, height: cameraFrame.height)
-                    .position(x: CGFloat(cameraFrame.minX + cameraFrame.width / 2), y: CGFloat(cameraFrame.minY + cameraFrame.height / 2))
+                    .position(x: cameraFrame.midX, y: cameraFrame.midY)
                     .overlay(
                         RoundedRectangle(cornerRadius: max(2, camera.cornerRadius), style: .continuous)
                             .stroke(Color.white.opacity(0.9), lineWidth: 1)
@@ -444,20 +444,20 @@ private struct PiPCanvasEditor: View {
         .aspectRatio(aspectRatio, contentMode: .fit)
     }
 
-    private func handlePosition(_ handle: PiPHandle, frame: CoreFoundation.CGRect) -> CoreFoundation.CGPoint {
+    private func handlePosition(_ handle: PiPHandle, frame: CGRect) -> CGPoint {
         switch handle {
         case .topLeft:
-            return CoreFoundation.CGPoint(x: frame.minX, y: frame.minY)
+            return CGPoint(x: frame.minX, y: frame.minY)
         case .topRight:
-            return CoreFoundation.CGPoint(x: frame.maxX, y: frame.minY)
+            return CGPoint(x: frame.maxX, y: frame.minY)
         case .bottomLeft:
-            return CoreFoundation.CGPoint(x: frame.minX, y: frame.maxY)
+            return CGPoint(x: frame.minX, y: frame.maxY)
         case .bottomRight:
-            return CoreFoundation.CGPoint(x: frame.maxX, y: frame.maxY)
+            return CGPoint(x: frame.maxX, y: frame.maxY)
         }
     }
 
-    private func moveGesture(in size: CoreGraphics.CGSize) -> some Gesture {
+    private func moveGesture(in size: CGSize) -> some Gesture {
         DragGesture()
             .onChanged { value in
                 let base = dragStartCamera ?? camera
@@ -492,7 +492,7 @@ private struct PiPCanvasEditor: View {
             }
     }
 
-    private func resizeGesture(for handle: PiPHandle, in size: CoreGraphics.CGSize) -> some Gesture {
+    private func resizeGesture(for handle: PiPHandle, in size: CGSize) -> some Gesture {
         DragGesture()
             .onChanged { value in
                 let base = resizeStartCamera ?? camera

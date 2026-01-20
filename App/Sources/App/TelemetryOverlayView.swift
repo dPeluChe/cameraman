@@ -125,7 +125,7 @@ struct TelemetryOverlayView: View {
             }
 
             // Key display
-            if !event.characters.isEmpty {
+            if let chars = event.characters, !chars.isEmpty {
                 Text(displayKey(for: event))
                     .font(.system(size: 14, weight: .bold))
                     .foregroundColor(.white)

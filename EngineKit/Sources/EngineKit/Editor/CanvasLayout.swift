@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CoreGraphics
 
 /// Canvas layout manager for video composition
 /// Supports PiP (Picture-in-Picture) and side-by-side layouts
@@ -617,31 +618,3 @@ public actor CanvasLayout {
     }
 }
 
-/// CGRect for frame calculations (CoreGraphics equivalent)
-public struct CGRect: Sendable {
-    public var x: CGFloat
-    public var y: CGFloat
-    public var width: CGFloat
-    public var height: CGFloat
-
-    public init(x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat) {
-        self.x = x
-        self.y = y
-        self.width = width
-        self.height = height
-    }
-}
-
-/// CGSize for size calculations
-public struct CGSize: Sendable {
-    public var width: CGFloat
-    public var height: CGFloat
-
-    public init(width: CGFloat, height: CGFloat) {
-        self.width = width
-        self.height = height
-    }
-}
-
-/// CGFloat for frame calculations
-public typealias CGFloat = Double

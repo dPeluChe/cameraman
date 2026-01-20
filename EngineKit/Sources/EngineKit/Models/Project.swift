@@ -295,6 +295,25 @@ public struct Project: Codable, Equatable {
         public var style: Style
         public var animation: Animation?
 
+        /// Initialize a new overlay
+        public init(
+            id: UUID,
+            type: OverlayType,
+            start: TimeInterval,
+            end: TimeInterval,
+            transform: Transform,
+            style: Style,
+            animation: Animation?
+        ) {
+            self.id = id
+            self.type = type
+            self.start = start
+            self.end = end
+            self.transform = transform
+            self.style = style
+            self.animation = animation
+        }
+
         /// Overlay types
         public enum OverlayType: String, Codable {
             case arrow

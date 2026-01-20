@@ -124,7 +124,7 @@ struct OverlayEditorView: View {
     // MARK: - Overlay Rendering
 
     @ViewBuilder
-    private func renderOverlay(_ overlay: Project.Overlay, in size: CoreFoundation.CGSize) -> some View {
+    private func renderOverlay(_ overlay: Project.Overlay, in size: CGSize) -> some View {
         let rect = overlayRect(overlay, in: size)
 
         switch overlay.type {
@@ -139,7 +139,7 @@ struct OverlayEditorView: View {
         }
     }
 
-    private func renderArrow(_ overlay: Project.Overlay, in rect: CoreFoundation.CGRect) -> some View {
+    private func renderArrow(_ overlay: Project.Overlay, in rect: CGRect) -> some View {
         let style = overlay.style
 
         return Path { path in
@@ -168,19 +168,19 @@ struct OverlayEditorView: View {
             path.addLine(to: arrowPoint2)
         }
         .stroke(color(from: overlay.style.stroke), lineWidth: style.strokeWidth)
-        .shadow(style.shadow ? 2 : 0)
+        .shadow(color: .black.opacity(0.33), radius: style.shadow ? 2 : 0)
     }
 
-    private func renderRectangle(_ overlay: Project.Overlay, in rect: CoreFoundation.CGRect) -> some View {
+    private func renderRectangle(_ overlay: Project.Overlay, in rect: CGRect) -> some View {
         let style = overlay.style
 
         return RoundedRectangle(cornerRadius: 4, style: .continuous)
             .stroke(color(from: style.stroke), lineWidth: style.strokeWidth)
             .background(style.bg.map { color(from: $0).opacity(0.3) })
-            .shadow(style.shadow ? 2 : 0)
+            .shadow(color: .black.opacity(0.33), radius: style.shadow ? 2 : 0)
     }
 
-    private func renderLine(_ overlay: Project.Overlay, in rect: CoreFoundation.CGRect) -> some View {
+    private func renderLine(_ overlay: Project.Overlay, in rect: CGRect) -> some View {
         let style = overlay.style
 
         return Path { path in
@@ -188,10 +188,10 @@ struct OverlayEditorView: View {
             path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
         }
         .stroke(color(from: style.stroke), lineWidth: style.strokeWidth)
-        .shadow(style.shadow ? 2 : 0)
+        .shadow(color: .black.opacity(0.33), radius: style.shadow ? 2 : 0)
     }
 
-    private func renderText(_ overlay: Project.Overlay, in rect: CoreFoundation.CGRect) -> some View {
+    private func renderText(_ overlay: Project.Overlay, in rect: CGRect) -> some View {
         let style = overlay.style
         let fontName = style.font ?? "Helvetica"
         let fontSize = style.size ?? 24
@@ -202,7 +202,7 @@ struct OverlayEditorView: View {
             .foregroundColor(textColor)
             .frame(width: rect.width, height: rect.height)
             .background(style.bg.map { color(from: $0).opacity(0.5) })
-            .shadow(style.shadow ? 2 : 0)
+            .shadow(color: .black.opacity(0.33), radius: style.shadow ? 2 : 0)
     }
 
     // MARK: - Selection and Handles
@@ -218,7 +218,7 @@ struct OverlayEditorView: View {
 
     // MARK: - Gestures
 
-    private func createOverlayGesture(in size: CoreGraphics.CGSize) -> some Gesture {
+    private func createOverlayGesture(in size: CGSize) -> some Gesture {
         DragGesture(minimumDistance: 0)
             .onChanged { value in
                 if !isCreatingOverlay {
@@ -241,7 +241,7 @@ struct OverlayEditorView: View {
             }
     }
 
-    private func dragGesture(for overlay: Project.Overlay, in size: CoreGraphics.CGSize) -> some Gesture {
+    private func dragGesture(for overlay: Project.Overlay, in size: CGSize) -> some Gesture {
         DragGesture()
             .onChanged { value in
                 guard selectedOverlayId == overlay.id else { return }
@@ -264,7 +264,7 @@ struct OverlayEditorView: View {
             }
     }
 
-    private func resizeGesture(for overlay: Project.Overlay, in size: CoreGraphics.CGSize) -> some Gesture {
+    private func resizeGesture(for overlay: Project.Overlay, in size: CGSize) -> some Gesture {
         DragGesture()
             .onChanged { value in
                 guard selectedOverlayId == overlay.id else { return }
@@ -329,7 +329,7 @@ struct OverlayEditorView: View {
         )
 
         Task {
-            _ = await editor.addOverlay(projectId: editor.project.id, overlay: overlay)
+            _ = await editor.addOverlay(projectId: editor.project.projectId, overlay: overlay)
             selectedOverlayId = overlay.id
         }
     }
@@ -499,7 +499,7 @@ struct OverlayEditorView: View {
                 }
 
                 // Duration controls (only show if animation is selected)
-                if overlay.animation != nil && overlay.animation?.type != .none {
+                if overlay.animation != nil && overlay.animation?.type != Project.Overlay.Animation.AnimationType.none {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Duration")
                             .font(.caption)
@@ -739,20 +739,20 @@ struct OverlayEditorView: View {
 
     // MARK: - Geometry Helpers
 
-    private func overlayRect(_ overlay: Project.Overlay, in size: CoreFoundation.CGSize) -> CoreGraphics.CGRect {
+    private func overlayRect(_ overlay: Project.Overlay, in size: CGSize) -> CGRect {
         let x = overlay.transform.x * size.width
         let y = overlay.transform.y * size.height
         let width = 100 * overlay.transform.scale
         let height = 100 * overlay.transform.scale
 
-        return CoreGraphics.CGRect(x: x - width / 2, y: y - height / 2, width: width, height: height)
+        return CGRect(x: x - width / 2, y: y - height / 2, width: width, height: height)
     }
 
-    private func normalizedPoint(_ point: CoreFoundation.CGPoint, in size: CoreFoundation.CGSize) -> CoreFoundation.CGPoint {
-        CoreFoundation.CGPoint(x: point.x / size.width, y: point.y / size.height)
+    private func normalizedPoint(_ point: CGPoint, in size: CGSize) -> CGPoint {
+        CGPoint(x: point.x / size.width, y: point.y / size.height)
     }
 
-    private func overlayAtPoint(_ point: CoreGraphics.CGPoint, in size: CoreGraphics.CGSize) -> Project.Overlay? {
+    private func overlayAtPoint(_ point: CGPoint, in size: CGSize) -> Project.Overlay? {
         for overlay in editor.project.overlays {
             let rect = overlayRect(overlay, in: size)
             if rect.contains(point) {
