@@ -497,7 +497,7 @@ struct SuggestedChapterRow: View {
 struct FlowLayout: Layout {
     var spacing: Double = 4
 
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CoreFoundation.CGSize {
         let result = FlowResult(
             in: proposal.replacingUnspecifiedDimensions().width,
             subviews: subviews,
@@ -506,7 +506,7 @@ struct FlowLayout: Layout {
         return result.size
     }
 
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+    func placeSubviews(in bounds: CoreFoundation.CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         let result = FlowResult(
             in: bounds.width,
             subviews: subviews,
@@ -518,8 +518,8 @@ struct FlowLayout: Layout {
     }
 
     struct FlowResult {
-        var size: CGSize = .zero
-        var positions: [CGPoint] = []
+        var size: CoreFoundation.CGSize = .zero
+        var positions: [CoreFoundation.CGPoint] = []
 
         init(in maxWidth: Double, subviews: Subviews, spacing: Double) {
             var currentX: Double = 0
@@ -535,12 +535,12 @@ struct FlowLayout: Layout {
                     lineHeight = 0
                 }
 
-                positions.append(CGPoint(x: currentX, y: currentY))
+                positions.append(CoreFoundation.CGPoint(x: currentX, y: currentY))
                 currentX += size.width + spacing
                 lineHeight = max(lineHeight, size.height)
             }
 
-            self.size = CGSize(width: maxWidth, height: currentY + lineHeight)
+            self.size = CoreFoundation.CGSize(width: maxWidth, height: currentY + lineHeight)
         }
     }
 }

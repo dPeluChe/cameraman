@@ -125,7 +125,7 @@ struct TelemetryOverlayView: View {
             }
 
             // Key display
-            if let chars = event.characters {
+            if !event.characters.isEmpty {
                 Text(displayKey(for: event))
                     .font(.system(size: 14, weight: .bold))
                     .foregroundColor(.white)
@@ -251,19 +251,17 @@ struct TelemetryOverlayView: View {
                 timeline: project.timeline
             )
 
-            await MainActor.run {
-                // Separate events by type
-                cursorEvents = result.events.filter { $0.event.type == .move }
-                clickEvents = result.events.filter { $0.event.type == .down || $0.event.type == .up }
+            // Separate events by type
+            cursorEvents = result.events.filter { $0.event.type == .move }
+            clickEvents = result.events.filter { $0.event.type == .down || $0.event.type == .up }
 
-                // Create overlay data for cursor interpolation
-                let timeRange: ClosedRange<TimeInterval> = 0...project.timeline.duration
-                let debugOverlay = await telemetrySync.createDebugOverlay(
-                    syncedEvents: result.events,
-                    timeRange: timeRange
-                )
-                overlayData = debugOverlay
-            }
+            // Create overlay data for cursor interpolation
+            let timeRange: ClosedRange<TimeInterval> = 0...project.timeline.duration
+            let debugOverlay = await telemetrySync.createDebugOverlay(
+                syncedEvents: result.events,
+                timeRange: timeRange
+            )
+            overlayData = debugOverlay
         } catch {
             // Silently fail if telemetry is not available
             print("Failed to load cursor telemetry: \(error.localizedDescription)")

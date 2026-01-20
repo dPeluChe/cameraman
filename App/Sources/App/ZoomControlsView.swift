@@ -540,17 +540,18 @@ private struct SegmentZoomRow: View {
 
 // MARK: - Preview
 
-#Preview("Zoom Controls - Enabled") {
-    let editor = try! ProjectEditor.mockProject()
-    return ZoomControlsView(editor: editor)
-        .frame(width: 350)
-        .padding()
-}
-
-#Preview("Zoom Controls - Disabled") {
-    let editor = try! ProjectEditor.mockProject()
-    // Mock disabled state
-    return ZoomControlsView(editor: editor)
-        .frame(width: 350)
-        .padding()
-}
+// Previews disabled due to lack of mock data support
+// #Preview("Zoom Controls - Enabled") {
+//     let editor = try! ProjectEditor.mockProject()
+//     return ZoomControlsView(editor: editor)
+//         .frame(width: 350)
+//         .padding()
+// }
+//
+// #Preview("Zoom Controls - Disabled") {
+//     let editor = try! ProjectEditor.mockProject()
+//     // Mock disabled state
+//     return ZoomControlsView(editor: editor)
+//         .frame(width: 350)
+//         .padding()
+// }

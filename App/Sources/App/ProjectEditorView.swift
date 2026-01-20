@@ -398,11 +398,17 @@ private struct PiPCanvasEditor: View {
         GeometryReader { proxy in
             let size = proxy.size
             let layout = editor.project.canvas.layout
-            let cameraFrame = CanvasLayout.calculateCameraFrame(
+            let ekCameraFrame = CanvasLayout.calculateCameraFrame(
                 layout: layout,
                 canvasWidth: Int(size.width),
                 canvasHeight: Int(size.height)
-            ) ?? CGRect(x: 0, y: 0, width: 0, height: 0)
+            )
+            let cameraFrame: CoreFoundation.CGRect
+            if let ekFrame = ekCameraFrame {
+                cameraFrame = CoreFoundation.CGRect(x: CGFloat(ekFrame.x), y: CGFloat(ekFrame.y), width: CGFloat(ekFrame.width), height: CGFloat(ekFrame.height))
+            } else {
+                cameraFrame = CoreFoundation.CGRect(x: 0, y: 0, width: 0, height: 0)
+            }
 
             ZStack {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)

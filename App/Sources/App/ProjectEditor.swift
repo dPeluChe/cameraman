@@ -581,67 +581,6 @@ final class ProjectEditor: ObservableObject {
         canUndo = !undoStack.isEmpty
         canRedo = !redoStack.isEmpty
     }
-
-    // MARK: - Testing Helpers
-
-    /// Create a mock ProjectEditor for testing/preview
-    static func mockProject() throws -> ProjectEditor {
-        // Create a mock project with timeline segments
-        let project = Project(
-            schemaVersion: 1,
-            projectId: "mock-project",
-            name: "Mock Project",
-            tags: ["test"],
-            createdAt: Date(),
-            updatedAt: Date(),
-            sources: Project.Sources(
-                syncReference: "screen",
-                screen: Project.Sources.MediaTrack(
-                    path: "/tmp/screen.mov",
-                    fps: 60.0,
-                    size: Project.Sources.Size(w: 1920, h: 1080),
-                    syncOffsetMs: 0,
-                    sha256: "abc123",
-                    sizeBytes: 1024000
-                )
-            ),
-            timeline: Project.Timeline(
-                duration: 60.0,
-                segments: [
-                    Project.Timeline.Segment(
-                        id: "segment-1",
-                        sourceId: "screen",
-                        sourceIn: 0.0,
-                        sourceOut: 30.0,
-                        timelineIn: 0.0,
-                        timelineOut: 30.0,
-                        speed: 1.0,
-                        zoom: .normal
-                    ),
-                    Project.Timeline.Segment(
-                        id: "segment-2",
-                        sourceId: "screen",
-                        sourceIn: 30.0,
-                        sourceOut: 60.0,
-                        timelineIn: 30.0,
-                        timelineOut: 60.0,
-                        speed: 1.0,
-                        zoom: .subtle
-                    )
-                ]
-            ),
-            canvas: Project.Canvas(
-                format: Project.Canvas.Format(aspect: "16:9", w: 1920, h: 1080),
-                background: Project.Canvas.Background(type: "solid", value: "#000000"),
-                layout: CanvasLayout.defaultLayout(for: .fullscreen)
-            ),
-            overlays: [],
-            captions: nil,
-            chapters: []
-        )
-
-        return ProjectEditor(project: project)
-    }
 }
 
 /// Range selection for timeline editing.
