@@ -380,7 +380,7 @@ final class ExportViewModel: ObservableObject {
             // Start export
             progressMessage = "Starting export job..."
             let jobId = try await engine.export(
-                projectId: project.id,
+                projectId: projectSummary.projectId,
                 preset: selectedPreset,
                 options: ExportOptions(
                     burnCaptions: false,
@@ -411,7 +411,7 @@ final class ExportViewModel: ObservableObject {
                 guard let self = self else { return }
 
                 let jobQueue = await engine.getJobQueue()
-                let job = await jobQueue.getJob(id: jobId)
+                let job = await jobQueue.getJob(jobId: jobId)
                 let progress = job?.progress ?? 0
                 let status = job?.status ?? .pending
                 let error = job?.error
@@ -472,6 +472,7 @@ final class ExportViewModel: ObservableObject {
 
 // MARK: - Preview
 
+/*
 #Preview {
     ExportView(
         project: Project(
@@ -491,3 +492,4 @@ final class ExportViewModel: ObservableObject {
         }
     )
 }
+*/

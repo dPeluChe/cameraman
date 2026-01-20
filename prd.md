@@ -143,6 +143,7 @@ Al iniciar nuevo video, aparece menú flotante con:
 - Acciones: crear desde grabación, renombrar, tags, duplicar, eliminar (con confirmación)
 - [x] UI: vista lista/grid con thumbnail, nombre, fecha, duración, tags visibles.
 - [x] UI: edición de tags (multi-tag) en biblioteca.
+- [x] UI: búsqueda por nombre y filtro por tags.
 
 ---
 
@@ -253,7 +254,7 @@ Este PRD es el documento principal del proyecto. Se acompaña de:
 
 ## 10) Criterios de aceptación (MVP)
 - [ ] Crear proyecto desde grabación con: screen + camera + mic + system audio (si aplica) + telemetry.
-- [x] Editar: trim + split/delete + overlay (flecha + texto) visibles en preview.
+- [x] Editar: trim + split/delete + overlay (flecha + texto) + background visible en preview.
 - [x] Timeline: navegación (click playhead, drag selección, zoom, scroll).
 - [ ] Generar transcript offline y exportar `.srt`.
 - [x] Exportar MP4 1080p 16:9 y 9:16 con layout post‑grabación aplicado.

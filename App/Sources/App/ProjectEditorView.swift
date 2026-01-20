@@ -70,6 +70,7 @@ struct ProjectEditorView: View {
                    editor.project.canvas.layout.camera != nil {
                     PiPConfigurationView(editor: editor)
                 }
+                BackgroundControlsView(editor: editor)
                 OverlayEditorView(editor: editor, playheadTime: $viewModel.playheadTime)
                 TimelineView(editor: editor, playheadTime: $viewModel.playheadTime)
             } else if viewModel.isLoading {
@@ -405,16 +406,16 @@ private struct PiPCanvasEditor: View {
         .aspectRatio(aspectRatio, contentMode: .fit)
     }
 
-    private func handlePosition(_ handle: PiPHandle, frame: CGRect) -> CGPoint {
+    private func handlePosition(_ handle: PiPHandle, frame: CoreFoundation.CGRect) -> CoreFoundation.CGPoint {
         switch handle {
         case .topLeft:
-            return CGPoint(x: frame.minX, y: frame.minY)
+            return CoreFoundation.CGPoint(x: frame.minX, y: frame.minY)
         case .topRight:
-            return CGPoint(x: frame.maxX, y: frame.minY)
+            return CoreFoundation.CGPoint(x: frame.maxX, y: frame.minY)
         case .bottomLeft:
-            return CGPoint(x: frame.minX, y: frame.maxY)
+            return CoreFoundation.CGPoint(x: frame.minX, y: frame.maxY)
         case .bottomRight:
-            return CGPoint(x: frame.maxX, y: frame.maxY)
+            return CoreFoundation.CGPoint(x: frame.maxX, y: frame.maxY)
         }
     }
 

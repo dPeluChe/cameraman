@@ -1302,7 +1302,7 @@ public actor ExportEngine {
 // MARK: - Export Preset
 
 /// Export preset configuration
-public struct ExportPreset: Equatable, Sendable {
+public struct ExportPreset: Equatable, Hashable, Sendable {
     /// Preset identifier
     public let id: String
     /// Human-readable name
@@ -1313,7 +1313,7 @@ public struct ExportPreset: Equatable, Sendable {
     public let options: PresetOptions
 
     /// Output configuration
-    public struct OutputConfiguration: Equatable, Sendable {
+    public struct OutputConfiguration: Equatable, Hashable, Sendable {
         public let width: Int
         public let height: Int
         public let fps: Int
@@ -1323,7 +1323,7 @@ public struct ExportPreset: Equatable, Sendable {
     }
 
     /// Preset options
-    public struct PresetOptions: Equatable, Sendable {
+    public struct PresetOptions: Equatable, Hashable, Sendable {
         public let burnCaptions: Bool
         public let includeCursorHighlight: Bool
     }

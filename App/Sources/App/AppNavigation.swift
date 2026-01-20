@@ -24,11 +24,44 @@ final class AppNavigationViewModel: ObservableObject {
     @Published var selectedItem: AppNavigationItem = .recording
     @Published private(set) var loadErrorMessage: String?
     @Published var libraryLayout: ProjectLibraryLayout = .list
+    @Published var searchText: String = ""
+    @Published var selectedTagFilter: String? = nil
 
     private let library: ProjectLibrary
 
     nonisolated init(library: ProjectLibrary = ProjectLibrary()) {
         self.library = library
+    }
+
+    var filteredProjects: [ProjectSummary] {
+        var result = projects
+
+        // Filter by search text (project name)
+        if !searchText.isEmpty {
+            let lowercaseSearch = searchText.lowercased()
+            result = result.filter { project in
+                project.name.lowercased().contains(lowercaseSearch)
+            }
+        }
+
+        // Filter by selected tag
+        if let tagFilter = selectedTagFilter {
+            result = result.filter { project in
+                project.tags.contains(tagFilter)
+            }
+        }
+
+        return result
+    }
+
+    var allTags: [String] {
+        var tags = Set<String>()
+        for project in projects {
+            for tag in project.tags {
+                tags.insert(tag)
+            }
+        }
+        return Array(tags).sorted()
     }
 
     func loadProjects() async {
@@ -110,6 +143,15 @@ final class AppNavigationViewModel: ObservableObject {
 
     func toggleLibraryLayout() {
         libraryLayout = libraryLayout == .list ? .grid : .list
+    }
+
+    func setTagFilter(_ tag: String?) {
+        selectedTagFilter = tag
+    }
+
+    func clearFilters() {
+        searchText = ""
+        selectedTagFilter = nil
     }
 }
 
@@ -224,13 +266,72 @@ struct AppNavigation: View {
             }
 
             Section("Projects") {
-                if viewModel.projects.isEmpty {
-                    Text("No projects yet")
+                // Search and Filter Controls
+                VStack(spacing: 8) {
+                    // Search bar
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(.secondary)
+                            .font(.system(size: 14))
+
+                        TextField("Search projects...", text: $viewModel.searchText)
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 13))
+
+                        if !viewModel.searchText.isEmpty {
+                            Button {
+                                viewModel.searchText = ""
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.secondary)
+                                    .font(.system(size: 14))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .background(Color.primary.opacity(0.08))
+                    .cornerRadius(8)
+
+                    // Tag filter
+                    if !viewModel.allTags.isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 6) {
+                                TagFilterButton(
+                                    title: "All",
+                                    isSelected: viewModel.selectedTagFilter == nil
+                                ) {
+                                    viewModel.setTagFilter(nil)
+                                }
+
+                                ForEach(viewModel.allTags, id: \.self) { tag in
+                                    TagFilterButton(
+                                        title: tag,
+                                        isSelected: viewModel.selectedTagFilter == tag
+                                    ) {
+                                        viewModel.setTagFilter(tag)
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 4)
+                        }
+                    }
+                }
+                .padding(.vertical, 8)
+
+                // Project list or grid
+                if viewModel.filteredProjects.isEmpty {
+                    Text(viewModel.searchText.isEmpty && viewModel.selectedTagFilter == nil
+                         ? "No projects yet"
+                         : "No matching projects")
                         .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.vertical, 20)
                 } else {
                     switch viewModel.libraryLayout {
                     case .list:
-                        ForEach(viewModel.projects) { project in
+                        ForEach(viewModel.filteredProjects) { project in
                             ProjectSummaryRow(project: project)
                                 .tag(AppNavigationItem.project(project.projectId))
                                 .contextMenu {
@@ -239,7 +340,7 @@ struct AppNavigation: View {
                         }
                     case .grid:
                         ProjectGridView(
-                            projects: viewModel.projects,
+                            projects: viewModel.filteredProjects,
                             selectedItem: viewModel.selectedItem,
                             onSelect: { projectId in
                                 viewModel.selectedItem = .project(projectId)
@@ -472,6 +573,27 @@ private enum ProjectSummaryFormatting {
         formatter.timeStyle = .none
         return formatter
     }()
+}
+
+private struct TagFilterButton: View {
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(
+                    isSelected ? Color.accentColor : Color.primary.opacity(0.08)
+                )
+                .foregroundStyle(isSelected ? .white : .primary)
+                .cornerRadius(12)
+        }
+        .buttonStyle(.plain)
+    }
 }
 
 private struct EmptyStateView: View {

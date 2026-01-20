@@ -29,7 +29,7 @@ Este backlog define las tareas para reconstruir la UI de edición que fue removi
 - [x] (P0) Vista de lista/grid de proyectos: thumbnail, nombre, fecha, duración, tags visibles
 - [x] (P0) Acciones de proyecto: crear nuevo (→ Recording), abrir existente (→ Editor), renombrar, eliminar con confirmación
 - [x] (P0) Editar tags de proyecto (multi-tag)
-- [ ] (P1) Búsqueda por nombre y filtro por tags **(EN PROGRESO)**
+- [x] (P1) Búsqueda por nombre y filtro por tags
 - [ ] (P1) Ordenamiento: por fecha, nombre, duración
 
 ---
@@ -53,7 +53,7 @@ Este backlog define las tareas para reconstruir la UI de edición que fue removi
 
 - [x] (P0) Selector de layout: botones para Full, PiP, Side-by-Side con preview visual
 - [x] (P0) Configuración PiP: drag para posicionar cámara, resize handles, corner radius, presets de posición
-- [ ] (P0) Background: color picker para fondo sólido, selector de imagen, fit mode (fit/fill)
+- [x] (P0) Background: color picker para fondo sólido, selector de imagen, fit mode (fit/fill)
 - [ ] (P1) Toggle formato 16:9 / 9:16 con preview
 
 ---

@@ -124,7 +124,7 @@ struct OverlayEditorView: View {
     // MARK: - Overlay Rendering
 
     @ViewBuilder
-    private func renderOverlay(_ overlay: Project.Overlay, in size: CGSize) -> some View {
+    private func renderOverlay(_ overlay: Project.Overlay, in size: CoreFoundation.CGSize) -> some View {
         let rect = overlayRect(overlay, in: size)
 
         switch overlay.type {
@@ -139,7 +139,7 @@ struct OverlayEditorView: View {
         }
     }
 
-    private func renderArrow(_ overlay: Project.Overlay, in rect: CGRect) -> some View {
+    private func renderArrow(_ overlay: Project.Overlay, in rect: CoreFoundation.CGRect) -> some View {
         let style = overlay.style
 
         return Path { path in
@@ -171,7 +171,7 @@ struct OverlayEditorView: View {
         .shadow(style.shadow ? 2 : 0)
     }
 
-    private func renderRectangle(_ overlay: Project.Overlay, in rect: CGRect) -> some View {
+    private func renderRectangle(_ overlay: Project.Overlay, in rect: CoreFoundation.CGRect) -> some View {
         let style = overlay.style
 
         return RoundedRectangle(cornerRadius: 4, style: .continuous)
@@ -180,7 +180,7 @@ struct OverlayEditorView: View {
             .shadow(style.shadow ? 2 : 0)
     }
 
-    private func renderLine(_ overlay: Project.Overlay, in rect: CGRect) -> some View {
+    private func renderLine(_ overlay: Project.Overlay, in rect: CoreFoundation.CGRect) -> some View {
         let style = overlay.style
 
         return Path { path in
@@ -191,7 +191,7 @@ struct OverlayEditorView: View {
         .shadow(style.shadow ? 2 : 0)
     }
 
-    private func renderText(_ overlay: Project.Overlay, in rect: CGRect) -> some View {
+    private func renderText(_ overlay: Project.Overlay, in rect: CoreFoundation.CGRect) -> some View {
         let style = overlay.style
         let fontName = style.font ?? "Helvetica"
         let fontSize = style.size ?? 24
@@ -530,7 +530,7 @@ struct OverlayEditorView: View {
         }
     }
 
-    private func overlayRect(_ overlay: Project.Overlay, in size: CGSize) -> CGRect {
+    private func overlayRect(_ overlay: Project.Overlay, in size: CoreFoundation.CGSize) -> CGRect {
         let x = overlay.transform.x * size.width
         let y = overlay.transform.y * size.height
         let width = 100 * overlay.transform.scale
@@ -539,8 +539,8 @@ struct OverlayEditorView: View {
         return CGRect(x: x - width / 2, y: y - height / 2, width: width, height: height)
     }
 
-    private func normalizedPoint(_ point: CGPoint, in size: CGSize) -> CGPoint {
-        CGPoint(x: point.x / size.width, y: point.y / size.height)
+    private func normalizedPoint(_ point: CoreFoundation.CGPoint, in size: CoreFoundation.CGSize) -> CoreFoundation.CGPoint {
+        CoreFoundation.CGPoint(x: point.x / size.width, y: point.y / size.height)
     }
 
     private func overlayAtPoint(_ point: CGPoint, in size: CGSize) -> Project.Overlay? {

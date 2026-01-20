@@ -208,6 +208,17 @@ public struct Project: Codable, Equatable {
             public let type: String
             public let value: String
             public let fitMode: String? // For image backgrounds: "fit" or "fill"
+
+            /// Initialize a new background configuration
+            public init(
+                type: String,
+                value: String,
+                fitMode: String? = nil
+            ) {
+                self.type = type
+                self.value = value
+                self.fitMode = fitMode
+            }
         }
 
         /// Layout configuration
