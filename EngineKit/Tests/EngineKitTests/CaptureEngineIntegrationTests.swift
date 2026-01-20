@@ -25,6 +25,9 @@ final class CaptureEngineIntegrationTests: XCTestCase {
 
     override func setUp() async throws {
         try await super.setUp()
+        if ProcessInfo.processInfo.environment["CODEX_HEADLESS"] == "1" {
+            throw XCTSkip("Headless environment")
+        }
         captureEngine = CaptureEngine.shared
 
         // Create temporary output directory for integration tests

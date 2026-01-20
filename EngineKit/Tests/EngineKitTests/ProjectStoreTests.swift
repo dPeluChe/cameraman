@@ -98,6 +98,19 @@ final class ProjectStoreTests: XCTestCase {
         }
     }
 
+    func testProjectDirectoryURL_ReturnsExistingDirectory() async throws {
+        // Given
+        let recordingResult = createMockRecordingResult()
+        let projectId = try await sut.createProject(from: recordingResult, name: "Test", tags: [])
+
+        // When
+        let projectDirectory = try await sut.projectDirectoryURL(for: projectId)
+
+        // Then
+        XCTAssertTrue(FileManager.default.fileExists(atPath: projectDirectory.path))
+        XCTAssertEqual(projectDirectory.lastPathComponent, projectId.uuidString)
+    }
+
     // MARK: - Project Update Tests
 
     func testSaveProject_UpdatesUpdatedAt() async throws {

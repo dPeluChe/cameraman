@@ -189,6 +189,18 @@ public actor ProjectStore {
         return project
     }
 
+    /// Resolve the on-disk directory for a project.
+    /// - Parameter projectId: Project identifier
+    /// - Returns: Project directory URL
+    /// - Throws: EngineKitError.projectNotFound if the directory is missing
+    public func projectDirectoryURL(for projectId: ProjectId) throws -> URL {
+        let projectDirectory = baseDirectory.appendingPathComponent(projectId.uuidString, isDirectory: true)
+        guard fileManager.fileExists(atPath: projectDirectory.path) else {
+            throw EngineKitError.projectNotFound(projectId)
+        }
+        return projectDirectory
+    }
+
     /// Save a project
     /// - Parameter project: Project to save
     /// - Throws: EngineKitError if save fails

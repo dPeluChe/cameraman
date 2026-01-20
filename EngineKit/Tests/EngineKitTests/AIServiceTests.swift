@@ -14,13 +14,21 @@ final class AIServiceTests: XCTestCase {
     private var jobQueue: JobQueue!
     private var projectStore: ProjectStore!
     private var testProjectId: ProjectId!
+    private var tempDirectory: URL!
 
     override func setUp() async throws {
         try await super.setUp()
 
         jobQueue = JobQueue()
-        projectStore = ProjectStore()
-        aiService = AIService(jobQueue: jobQueue, projectStore: projectStore)
+        let tempDir = FileManager.default.temporaryDirectory
+        tempDirectory = tempDir.appendingPathComponent("AIServiceTests_\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
+        projectStore = ProjectStore(baseDirectory: tempDirectory)
+        aiService = AIService(
+            jobQueue: jobQueue,
+            projectStore: projectStore,
+            projectDirectoryOverride: tempDirectory
+        )
         testProjectId = UUID()
 
         // Initialize EngineKit
@@ -32,6 +40,10 @@ final class AIServiceTests: XCTestCase {
         jobQueue = nil
         projectStore = nil
         testProjectId = nil
+        if let tempDirectory {
+            try? FileManager.default.removeItem(at: tempDirectory)
+        }
+        tempDirectory = nil
 
         try await super.tearDown()
     }

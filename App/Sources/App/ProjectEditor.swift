@@ -1,0 +1,293 @@
+//
+//  ProjectEditor.swift
+//  App
+//
+//  Created by Ralphy on 2026-01-19.
+//
+
+import Foundation
+import EngineKit
+import SwiftUI
+
+/// UI-friendly wrapper around EditorModel actor.
+@MainActor
+final class ProjectEditor: ObservableObject {
+    private let editorModel: EditorModel
+    @Published private(set) var project: Project
+    @Published private(set) var canUndo = false
+    @Published private(set) var canRedo = false
+
+    private var undoStack: [Project] = []
+    private var redoStack: [Project] = []
+    private let historyLimit = 50
+
+    init(project: Project) {
+        self.project = project
+        self.editorModel = EditorModel(project: project)
+        updateHistoryState()
+    }
+
+    func setProject(_ project: Project) async {
+        await editorModel.setProject(project)
+        self.project = project
+        undoStack.removeAll()
+        redoStack.removeAll()
+        updateHistoryState()
+    }
+
+    func refreshProject() async {
+        project = await editorModel.getProject()
+    }
+
+    func trimIn(segmentId: String, newSourceIn: TimeInterval) async -> EditorResult {
+        let previousProject = project
+        let result = await editorModel.trimIn(segmentId: segmentId, newSourceIn: newSourceIn)
+        updatePublishedProject(from: result, previousProject: previousProject)
+        return result
+    }
+
+    func trimOut(segmentId: String, newSourceOut: TimeInterval) async -> EditorResult {
+        let previousProject = project
+        let result = await editorModel.trimOut(segmentId: segmentId, newSourceOut: newSourceOut)
+        updatePublishedProject(from: result, previousProject: previousProject)
+        return result
+    }
+
+    func split(segmentId: String, at timelineTime: TimeInterval) async -> EditorResult {
+        let previousProject = project
+        let result = await editorModel.split(segmentId: segmentId, at: timelineTime)
+        updatePublishedProject(from: result, previousProject: previousProject)
+        return result
+    }
+
+    func delete(segmentId: String) async -> EditorResult {
+        let previousProject = project
+        let result = await editorModel.delete(segmentId: segmentId)
+        updatePublishedProject(from: result, previousProject: previousProject)
+        return result
+    }
+
+    func deleteRange(from startTime: TimeInterval, to endTime: TimeInterval) async -> EditorResult {
+        let previousProject = project
+        let result = await editorModel.deleteRange(from: startTime, to: endTime)
+        updatePublishedProject(from: result, previousProject: previousProject)
+        return result
+    }
+
+    func undo() async -> Bool {
+        guard let previousProject = undoStack.popLast() else {
+            updateHistoryState()
+            return false
+        }
+
+        redoStack.append(project)
+        await editorModel.setProject(previousProject)
+        project = previousProject
+        updateHistoryState()
+        return true
+    }
+
+    func redo() async -> Bool {
+        guard let nextProject = redoStack.popLast() else {
+            updateHistoryState()
+            return false
+        }
+
+        undoStack.append(project)
+        await editorModel.setProject(nextProject)
+        project = nextProject
+        updateHistoryState()
+        return true
+    }
+
+    @discardableResult
+    func setLayoutPreset(_ preset: CanvasLayout.LayoutPreset) async -> Bool {
+        let hasCamera = project.sources.camera != nil
+        if preset != .fullscreen && !hasCamera {
+            return false
+        }
+
+        let previousProject = project
+        var updatedProject = project
+        updatedProject.canvas.layout = CanvasLayout.defaultLayout(for: preset)
+        if !hasCamera {
+            updatedProject.canvas.layout.camera = nil
+        }
+
+        do {
+            try CanvasLayout.validateLayout(updatedProject.canvas.layout, hasCamera: hasCamera)
+        } catch {
+            return false
+        }
+
+        await editorModel.setProject(updatedProject)
+        recordUndoSnapshot(previousProject)
+        project = updatedProject
+        return true
+    }
+
+    @discardableResult
+    func updateCameraPosition(
+        _ camera: Project.Canvas.Layout.CameraPosition,
+        recordUndoFrom snapshot: Project? = nil
+    ) async -> Bool {
+        let hasCamera = project.sources.camera != nil
+        var updatedProject = project
+        updatedProject.canvas.layout.camera = camera
+
+        do {
+            try CanvasLayout.validateLayout(updatedProject.canvas.layout, hasCamera: hasCamera)
+        } catch {
+            return false
+        }
+
+        await editorModel.setProject(updatedProject)
+        project = updatedProject
+
+        if let snapshot {
+            recordUndoSnapshot(snapshot)
+        }
+
+        return true
+    }
+
+    @discardableResult
+    func setBackgroundType(_ type: CanvasLayout.BackgroundType) async -> Bool {
+        let previousProject = project
+        var updatedProject = project
+        let currentFitMode = CanvasLayout.ImageFitMode(
+            rawValue: project.canvas.background.fitMode ?? CanvasLayout.ImageFitMode.fill.rawValue
+        ) ?? .fill
+        updatedProject.canvas.background = CanvasLayout.defaultBackground(for: type, fitMode: currentFitMode)
+
+        do {
+            try CanvasLayout.validateBackground(updatedProject.canvas.background)
+        } catch {
+            return false
+        }
+
+        await editorModel.setProject(updatedProject)
+        recordUndoSnapshot(previousProject)
+        project = updatedProject
+        return true
+    }
+
+    @discardableResult
+    func updateBackgroundColor(_ hexColor: String) async -> Bool {
+        let previousProject = project
+        var updatedProject = project
+        updatedProject.canvas.background = CanvasLayout.createSolidBackground(hexColor: hexColor)
+
+        do {
+            try CanvasLayout.validateBackground(updatedProject.canvas.background)
+        } catch {
+            return false
+        }
+
+        await editorModel.setProject(updatedProject)
+        recordUndoSnapshot(previousProject)
+        project = updatedProject
+        return true
+    }
+
+    @discardableResult
+    func updateBackgroundImagePath(
+        _ imagePath: String,
+        fitMode: CanvasLayout.ImageFitMode? = nil
+    ) async -> Bool {
+        let previousProject = project
+        let resolvedFitMode = fitMode ?? CanvasLayout.ImageFitMode(
+            rawValue: project.canvas.background.fitMode ?? CanvasLayout.ImageFitMode.fill.rawValue
+        ) ?? .fill
+        var updatedProject = project
+        updatedProject.canvas.background = CanvasLayout.createImageBackground(
+            imagePath: imagePath,
+            fitMode: resolvedFitMode
+        )
+
+        do {
+            try CanvasLayout.validateBackground(updatedProject.canvas.background)
+        } catch {
+            return false
+        }
+
+        await editorModel.setProject(updatedProject)
+        recordUndoSnapshot(previousProject)
+        project = updatedProject
+        return true
+    }
+
+    @discardableResult
+    func updateBackgroundFitMode(_ fitMode: CanvasLayout.ImageFitMode) async -> Bool {
+        guard project.canvas.background.type == CanvasLayout.BackgroundType.image.rawValue else {
+            return false
+        }
+
+        let previousProject = project
+        var updatedProject = project
+        updatedProject.canvas.background = CanvasLayout.createImageBackground(
+            imagePath: project.canvas.background.value,
+            fitMode: fitMode
+        )
+
+        do {
+            try CanvasLayout.validateBackground(updatedProject.canvas.background)
+        } catch {
+            return false
+        }
+
+        await editorModel.setProject(updatedProject)
+        recordUndoSnapshot(previousProject)
+        project = updatedProject
+        return true
+    }
+
+    @discardableResult
+    func updateBackground(_ background: Project.Canvas.Background) async -> Bool {
+        let previousProject = project
+        var updatedProject = project
+        updatedProject.canvas.background = background
+
+        do {
+            try CanvasLayout.validateBackground(updatedProject.canvas.background)
+        } catch {
+            return false
+        }
+
+        await editorModel.setProject(updatedProject)
+        recordUndoSnapshot(previousProject)
+        project = updatedProject
+        return true
+    }
+
+    private func updatePublishedProject(from result: EditorResult, previousProject: Project) {
+        if let updatedProject = result.getProject() {
+            recordUndoSnapshot(previousProject)
+            project = updatedProject
+        }
+    }
+
+    private func recordUndoSnapshot(_ snapshot: Project) {
+        undoStack.append(snapshot)
+        if undoStack.count > historyLimit {
+            undoStack.removeFirst()
+        }
+        redoStack.removeAll()
+        updateHistoryState()
+    }
+
+    private func updateHistoryState() {
+        canUndo = !undoStack.isEmpty
+        canRedo = !redoStack.isEmpty
+    }
+}
+
+/// Range selection for timeline editing.
+struct RangeSelection: Equatable {
+    let startTime: TimeInterval
+    let endTime: TimeInterval
+
+    var duration: TimeInterval {
+        max(0, endTime - startTime)
+    }
+}

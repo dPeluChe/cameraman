@@ -25,14 +25,13 @@ public actor AnimationEngine {
         overlay: Project.Overlay,
         at time: TimeInterval
     ) -> (progress: Double, opacity: Double) {
-        guard let animation = overlay.animation else {
-            // No animation - fully visible throughout
-            return (1.0, 1.0)
-        }
-
-        // Check if time is within overlay range
         guard time >= overlay.start && time <= overlay.end else {
             return (0.0, 0.0)
+        }
+
+        guard let animation = overlay.animation else {
+            // No animation - fully visible within the overlay range
+            return (1.0, 1.0)
         }
 
         let duration = overlay.end - overlay.start

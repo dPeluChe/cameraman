@@ -229,9 +229,10 @@ final class CaptionsManagerTests: XCTestCase {
         XCTAssertNotNil(captionAtStart)
         XCTAssertEqual(captionAtStart?.id, 2)
 
-        // Test at exact end time (should be included)
-        let captionAtEnd = await manager.getCaption(at: 3.2)
+        // Test at exact end time (should move to next caption)
+        let captionAtEnd = await manager.getCaption(at: 6.8)
         XCTAssertNotNil(captionAtEnd)
+        XCTAssertEqual(captionAtEnd?.id, 3)
     }
 
     func testGetCaptionByIndex() async throws {

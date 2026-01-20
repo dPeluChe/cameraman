@@ -417,7 +417,7 @@ public actor CaptionsManager {
         guard isEnabled() else { return nil }
 
         return captions.first { caption in
-            time >= caption.start && time <= caption.end
+            time >= caption.start && time < caption.end
         }
     }
 
@@ -428,7 +428,7 @@ public actor CaptionsManager {
         guard isEnabled() else { return [] }
 
         return captions.filter { caption in
-            time >= caption.start && time <= caption.end
+            time >= caption.start && time < caption.end
         }
     }
 

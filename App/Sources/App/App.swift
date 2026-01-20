@@ -16,12 +16,11 @@ struct CameramanApp: App {
     var body: some Scene {
         // Main window with recording controls
         WindowGroup {
-            RecordingControlView()
-                .frame(minWidth: 300, minHeight: 200)
-                .padding()
+            AppNavigation()
+                .frame(minWidth: 900, minHeight: 600)
         }
         .windowStyle(.hiddenTitleBar)
-        .defaultSize(width: 350, height: 300)
+        .defaultSize(width: 1100, height: 700)
     }
 }
 
@@ -412,6 +411,9 @@ class StatusBarMenu {
     private var updateTimer: Timer?
 
     init() {
+        if isRunningTests {
+            return
+        }
         setupStatusBar()
         setupStatusUpdateTimer()
     }
@@ -439,6 +441,12 @@ class StatusBarMenu {
         updateTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             self?.updateStatus()
         }
+    }
+
+    private var isRunningTests: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil ||
+        ProcessInfo.processInfo.environment["XCTestBundlePath"] != nil ||
+        NSClassFromString("XCTestCase") != nil
     }
 
     @MainActor

@@ -11,11 +11,18 @@ import XCTest
 
 /// Tests for StatusBarMenu functionality
 /// Note: These tests verify the logic without requiring actual UI interactions
+@MainActor
 final class StatusBarMenuTests: XCTestCase {
     var statusBarMenu: StatusBarMenu!
     var viewModel: RecordingControlViewModel!
+    private var isHeadless: Bool {
+        ProcessInfo.processInfo.environment["CODEX_HEADLESS"] == "1"
+    }
 
     override func setUp() async throws {
+        if isHeadless {
+            throw XCTSkip("Status bar tests require a WindowServer-backed session.")
+        }
         try await super.setUp()
         viewModel = RecordingControlViewModel()
         RecordingStateManager.shared.viewModel = viewModel
@@ -132,7 +139,7 @@ final class StatusBarMenuTests: XCTestCase {
         await viewModel.startRecording()
 
         XCTAssertTrue(viewModel.isRecording)
-        XCTAssertNotNil(viewModel.startTime)
+        XCTAssertEqual(viewModel.statusText, "Recording...")
 
         await viewModel.stopRecording()
     }
@@ -146,7 +153,7 @@ final class StatusBarMenuTests: XCTestCase {
         await viewModel.stopRecording()
 
         XCTAssertFalse(viewModel.isRecording)
-        XCTAssertNil(viewModel.startTime)
+        XCTAssertEqual(viewModel.elapsedTime, "00:00")
     }
 
     func testPauseResumeRecordingAction() async throws {
@@ -273,7 +280,7 @@ final class StatusBarMenuTests: XCTestCase {
         await viewModel.stopRecording()
 
         XCTAssertFalse(viewModel.isRecording)
-        XCTAssertNil(viewModel.startTime)
+        XCTAssertEqual(viewModel.elapsedTime, "00:00")
     }
 
     func testPauseRecordingWhenNotRecording() async throws {
@@ -292,12 +299,12 @@ final class StatusBarMenuTests: XCTestCase {
         statusBarMenu = StatusBarMenu()
 
         await viewModel.startRecording()
-        let startTime1 = viewModel.startTime
+        let statusText = viewModel.statusText
 
         // Second call should be ignored (guard clause in startRecording)
         await viewModel.startRecording()
 
-        XCTAssertEqual(viewModel.startTime, startTime1, "Start time should not change on second call")
+        XCTAssertEqual(viewModel.statusText, statusText, "Status text should not change on second call")
 
         await viewModel.stopRecording()
     }

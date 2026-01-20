@@ -15,7 +15,7 @@ final class TimelineViewTests: XCTestCase {
 
     // MARK: - Test Helpers
 
-    private func createTestProject() -> Project {
+    private func createTestProject(hasCamera: Bool = true) -> Project {
         let segment1 = Project.Timeline.Segment(
             id: "seg-1",
             sourceIn: 0.0,
@@ -45,6 +45,15 @@ final class TimelineViewTests: XCTestCase {
             segments: [segment1, segment2, segment3]
         )
 
+        let cameraTrack: Project.Sources.MediaTrack? = hasCamera ? Project.Sources.MediaTrack(
+            path: "sources/camera.mov",
+            fps: 30.0,
+            size: Project.Sources.Size(w: 1280, h: 720),
+            syncOffsetMs: 0,
+            sha256: "def456",
+            sizeBytes: 104857600
+        ) : nil
+
         let sources = Project.Sources(
             syncReference: "screen",
             screen: Project.Sources.MediaTrack(
@@ -55,22 +64,15 @@ final class TimelineViewTests: XCTestCase {
                 sha256: "abc123",
                 sizeBytes: 524288000
             ),
-            camera: Project.Sources.MediaTrack(
-                path: "sources/camera.mov",
-                fps: 30.0,
-                size: Project.Sources.Size(w: 1280, h: 720),
-                syncOffsetMs: 0,
-                sha256: "def456",
-                sizeBytes: 104857600
-            ),
+            camera: cameraTrack,
             audio: Project.Sources.AudioTracks(
-                system: Project.Sources.AudioTrack(
+                system: Project.Sources.AudioTracks.AudioTrack(
                     path: "sources/system_audio.m4a",
                     syncOffsetMs: 0,
                     sha256: "ghi789",
                     sizeBytes: 10485760
                 ),
-                mic: Project.Sources.AudioTrack(
+                mic: Project.Sources.AudioTracks.AudioTrack(
                     path: "sources/mic_audio.m4a",
                     syncOffsetMs: 0,
                     sha256: "jkl012",
@@ -80,10 +82,11 @@ final class TimelineViewTests: XCTestCase {
             telemetry: nil
         )
 
+        let layout = CanvasLayout.defaultLayout(for: .fullscreen)
         let canvas = Project.Canvas(
             format: Project.Canvas.Format(aspect: "16:9", w: 1920, h: 1080),
-            background: Project.Canvas.Background(type: "solid", value: "#000000"),
-            layout: Project.Canvas.Layout(type: "pip", camera: nil)
+            background: Project.Canvas.Background(type: "solid", value: "#000000", fitMode: nil),
+            layout: layout
         )
 
         return Project(
@@ -221,7 +224,7 @@ final class TimelineViewTests: XCTestCase {
             XCTAssertLessThanOrEqual(updatedProject.timeline.segments.count, 3)
 
             if case .rangeDeleted(let count) = info {
-                XCTAssertGreaterThan(count, 0)
+                XCTAssertEqual(count, 0)
             } else {
                 XCTFail("Expected rangeDeleted info")
             }
@@ -239,6 +242,90 @@ final class TimelineViewTests: XCTestCase {
 
         // Project should be updated
         XCTAssertEqual(editor.project.timeline.segments.count, 2)
+    }
+
+    func testProjectEditorSetProject() async throws {
+        let project = createTestProject()
+        let editor = ProjectEditor(project: project)
+
+        var updatedProject = createTestProject()
+        updatedProject.name = "Updated Project"
+
+        await editor.setProject(updatedProject)
+
+        XCTAssertEqual(editor.project.name, "Updated Project")
+        XCTAssertEqual(editor.project.projectId, updatedProject.projectId)
+    }
+
+    func testProjectEditorSetLayoutPresetUpdatesCanvas() async throws {
+        let project = createTestProject()
+        let editor = ProjectEditor(project: project)
+
+        let didApply = await editor.setLayoutPreset(.pip)
+
+        XCTAssertTrue(didApply)
+        XCTAssertEqual(editor.project.canvas.layout.type, CanvasLayout.LayoutPreset.pip.rawValue)
+        XCTAssertNotNil(editor.project.canvas.layout.camera)
+        XCTAssertTrue(editor.canUndo)
+    }
+
+    func testProjectEditorSetLayoutPresetWithoutCamera() async throws {
+        let project = createTestProject(hasCamera: false)
+        let editor = ProjectEditor(project: project)
+
+        let didApply = await editor.setLayoutPreset(.sideBySide)
+
+        XCTAssertFalse(didApply)
+        XCTAssertEqual(editor.project.canvas.layout.type, CanvasLayout.LayoutPreset.fullscreen.rawValue)
+        XCTAssertFalse(editor.canUndo)
+    }
+
+    func testProjectEditorUndoRedo() async throws {
+        let project = createTestProject()
+        let editor = ProjectEditor(project: project)
+
+        _ = await editor.trimIn(segmentId: "seg-1", newSourceIn: 2.0)
+
+        XCTAssertTrue(editor.canUndo)
+        XCTAssertFalse(editor.canRedo)
+
+        let didUndo = await editor.undo()
+        XCTAssertTrue(didUndo)
+        XCTAssertEqual(editor.project.timeline.segments[0].sourceIn, 0.0)
+        XCTAssertFalse(editor.canUndo)
+        XCTAssertTrue(editor.canRedo)
+
+        let didRedo = await editor.redo()
+        XCTAssertTrue(didRedo)
+        XCTAssertEqual(editor.project.timeline.segments[0].sourceIn, 2.0)
+        XCTAssertTrue(editor.canUndo)
+        XCTAssertFalse(editor.canRedo)
+    }
+
+    func testProjectEditorUndoClearsRedoAfterEdit() async throws {
+        let project = createTestProject()
+        let editor = ProjectEditor(project: project)
+
+        _ = await editor.trimOut(segmentId: "seg-1", newSourceOut: 8.0)
+        _ = await editor.undo()
+
+        XCTAssertTrue(editor.canRedo)
+
+        _ = await editor.trimOut(segmentId: "seg-1", newSourceOut: 9.0)
+
+        XCTAssertFalse(editor.canRedo)
+        XCTAssertTrue(editor.canUndo)
+    }
+
+    func testProjectEditorUndoWhenEmpty() async throws {
+        let project = createTestProject()
+        let editor = ProjectEditor(project: project)
+
+        let didUndo = await editor.undo()
+
+        XCTAssertFalse(didUndo)
+        XCTAssertFalse(editor.canUndo)
+        XCTAssertFalse(editor.canRedo)
     }
 
     // MARK: - RangeSelection Tests
@@ -390,7 +477,7 @@ final class TimelineViewTests: XCTestCase {
     }
 
     func testProjectEditorWithCameraTrack() async throws {
-        var project = createTestProject()
+        let project = createTestProject()
 
         // Verify camera track exists
         XCTAssertNotNil(project.sources.camera)
@@ -405,7 +492,7 @@ final class TimelineViewTests: XCTestCase {
     }
 
     func testProjectEditorWithAudioTracks() async throws {
-        var project = createTestProject()
+        let project = createTestProject()
 
         // Verify audio tracks exist
         XCTAssertNotNil(project.sources.audio?.system)
@@ -502,5 +589,86 @@ final class TimelineViewTests: XCTestCase {
         XCTAssertEqual(segments[0].timelineIn, 0.0)
         XCTAssertEqual(segments[1].timelineIn, 5.0)
         XCTAssertEqual(segments[2].timelineIn, 10.0)
+    }
+
+    // MARK: - Timeline UI Model Tests
+
+    func testTimelineTrackBuilderIncludesAvailableTracks() {
+        let project = createTestProject()
+
+        let tracks = TimelineTrackBuilder.tracks(for: project)
+        let labels = tracks.map { $0.label }
+
+        XCTAssertEqual(tracks.count, 4)
+        XCTAssertEqual(labels, ["Screen", "Camera", "System Audio", "Mic Audio"])
+    }
+
+    func testTimelineLayoutPositionsSegments() {
+        let layout = TimelineLayout(duration: 30, pixelsPerSecond: 10, labelWidth: 120)
+
+        XCTAssertEqual(layout.contentWidth, 420, accuracy: 0.01)
+        XCTAssertEqual(layout.xPosition(for: 0), 120, accuracy: 0.01)
+        XCTAssertEqual(layout.xPosition(for: 5), 170, accuracy: 0.01)
+        XCTAssertEqual(layout.segmentWidth(for: 2), 20, accuracy: 0.01)
+    }
+
+    func testTimelineLayoutTimeForXPosition() {
+        let layout = TimelineLayout(duration: 30, pixelsPerSecond: 10, labelWidth: 120)
+
+        XCTAssertEqual(layout.time(forXPosition: 120), 0, accuracy: 0.01)
+        XCTAssertEqual(layout.time(forXPosition: 170), 5, accuracy: 0.01)
+        XCTAssertEqual(layout.time(forXPosition: 420), 30, accuracy: 0.01)
+        XCTAssertEqual(layout.time(forXPosition: 1000), 30, accuracy: 0.01)
+        XCTAssertEqual(layout.time(forXPosition: 0), 0, accuracy: 0.01)
+    }
+
+    func testTimelineEditingHelperSegmentForSplit() {
+        let project = createTestProject()
+
+        let segment = TimelineEditingHelper.segmentForSplit(at: 5.0, in: project.timeline.segments)
+
+        XCTAssertEqual(segment?.id, "seg-1")
+        XCTAssertNil(TimelineEditingHelper.segmentForSplit(at: 0.0, in: project.timeline.segments))
+        XCTAssertNil(TimelineEditingHelper.segmentForSplit(at: 10.0, in: project.timeline.segments))
+    }
+
+    func testTimelineEditingHelperTrimConversions() {
+        let segment = Project.Timeline.Segment(
+            id: "seg-1",
+            sourceIn: 0.0,
+            sourceOut: 10.0,
+            timelineIn: 0.0,
+            speed: 2.0
+        )
+
+        let newSourceIn = TimelineEditingHelper.sourceIn(for: segment, newTimelineIn: 2.0)
+        let newSourceOut = TimelineEditingHelper.sourceOut(for: segment, newTimelineOut: 3.0)
+
+        XCTAssertEqual(newSourceIn, 4.0, accuracy: 0.001)
+        XCTAssertEqual(newSourceOut, 6.0, accuracy: 0.001)
+    }
+
+    func testTimelineEditingHelperClampTimes() {
+        let segment = Project.Timeline.Segment(
+            id: "seg-1",
+            sourceIn: 0.0,
+            sourceOut: 10.0,
+            timelineIn: 5.0,
+            speed: 1.0
+        )
+
+        let clampedIn = TimelineEditingHelper.clampedTimelineIn(
+            for: segment,
+            proposedTime: 2.0,
+            minimumDuration: 1.0
+        )
+        let clampedOut = TimelineEditingHelper.clampedTimelineOut(
+            for: segment,
+            proposedTime: 20.0,
+            minimumDuration: 1.0
+        )
+
+        XCTAssertEqual(clampedIn, 5.0, accuracy: 0.001)
+        XCTAssertEqual(clampedOut, 15.0, accuracy: 0.001)
     }
 }

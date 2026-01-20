@@ -76,6 +76,13 @@ public actor ProjectLibrary {
         return Array(Set(allTags)).sorted()
     }
 
+    /// Resolve the on-disk directory for a project.
+    /// - Parameter projectId: Project identifier
+    /// - Returns: Project directory URL
+    public func getProjectDirectory(projectId: ProjectId) async throws -> URL {
+        try await store.projectDirectoryURL(for: projectId)
+    }
+
     /// Search projects by text with advanced options
     /// - Parameters:
     ///   - searchText: Search query

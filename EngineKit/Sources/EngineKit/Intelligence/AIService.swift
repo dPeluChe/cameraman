@@ -24,6 +24,8 @@ public actor AIService {
     private let projectStore: ProjectStore
     /// File manager for file operations
     private let fileManager = FileManager.default
+    /// Optional override for project directory base (useful for tests)
+    private let projectDirectoryOverride: URL?
 
     /// AI provider configuration
     private var provider: AIProvider?
@@ -32,9 +34,14 @@ public actor AIService {
     /// - Parameters:
     ///   - jobQueue: JobQueue for managing AI jobs
     ///   - projectStore: ProjectStore for reading/writing projects
-    public init(jobQueue: JobQueue, projectStore: ProjectStore) {
+    public init(
+        jobQueue: JobQueue,
+        projectStore: ProjectStore,
+        projectDirectoryOverride: URL? = nil
+    ) {
         self.jobQueue = jobQueue
         self.projectStore = projectStore
+        self.projectDirectoryOverride = projectDirectoryOverride
     }
 
     /// Configure a cloud AI provider (optional)
@@ -705,6 +712,9 @@ public actor AIService {
     // MARK: - File Helpers
 
     private func getProjectDirectory(for projectId: ProjectId) -> URL {
+        if let baseDirectory = projectDirectoryOverride {
+            return baseDirectory.appendingPathComponent(projectId.uuidString)
+        }
         let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         let projectsDir = appSupport.appendingPathComponent("ProjectStudio/Projects")
         return projectsDir.appendingPathComponent(projectId.uuidString)

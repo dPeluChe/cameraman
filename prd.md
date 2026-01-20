@@ -141,6 +141,8 @@ Al iniciar nuevo video, aparece menú flotante con:
   - **Tags** (multi‑tag)
   - Thumbnail / duración
 - Acciones: crear desde grabación, renombrar, tags, duplicar, eliminar (con confirmación)
+- [x] UI: vista lista/grid con thumbnail, nombre, fecha, duración, tags visibles.
+- [x] UI: edición de tags (multi-tag) en biblioteca.
 
 ---
 
@@ -152,7 +154,7 @@ Al iniciar nuevo video, aparece menú flotante con:
 - Speed presets (opcional v1.1)
 
 **Layouts post‑grabación**
-- Presets: PiP, side‑by‑side
+- [x] Presets: PiP, side‑by‑side
 - Posición/escala cámara en canvas
 - Background: color sólido / imagen (v1), blur (v1.1)
 - Formatos: 16:9 y 9:16
@@ -213,7 +215,8 @@ Al iniciar nuevo video, aparece menú flotante con:
 - Tracks separadas + telemetría
 
 ### Fase 2 — Editor MVP
-- Timeline: trim/split/delete
+- [x] Timeline: trim/split/delete
+- [x] Undo/Redo (Cmd+Z / Cmd+Shift+Z)
 - Layout presets + backgrounds
 - Overlays básicos
 
@@ -249,10 +252,14 @@ Este PRD es el documento principal del proyecto. Se acompaña de:
 ---
 
 ## 10) Criterios de aceptación (MVP)
-- Crear proyecto desde grabación con: screen + camera + mic + system audio (si aplica) + telemetry.
-- Editar: trim + split/delete + overlay (flecha + texto) visibles en preview.
-- Generar transcript offline y exportar `.srt`.
-- Exportar MP4 1080p 16:9 y 9:16 con layout post‑grabación aplicado.
-- Biblioteca muestra proyectos con **nombre**, **tags** y **última actualización** correctamente.
+- [ ] Crear proyecto desde grabación con: screen + camera + mic + system audio (si aplica) + telemetry.
+- [ ] Editar: trim + split/delete + overlay (flecha + texto) visibles en preview.
+- [x] Timeline: navegación (click playhead, drag selección, zoom, scroll).
+- [ ] Generar transcript offline y exportar `.srt`.
+- [ ] Exportar MP4 1080p 16:9 y 9:16 con layout post‑grabación aplicado.
+- [x] Biblioteca muestra proyectos con **nombre**, **tags** y **última actualización** correctamente.
+- [x] Timeline básico con tracks (screen/camera/audio) y playhead visible.
+- [x] Preview: reproductor de video con aspect ratio correcto y frame visible al pausar.
+- [x] Preview: controles play/pause/stop con scrubber y tiempo actual.
 
 ---
