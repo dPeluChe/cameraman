@@ -15,6 +15,7 @@ struct AISuggestionsView: View {
     @Binding var playheadTime: TimeInterval
 
     @StateObject private var viewModel = AISuggestionsViewModel()
+    @State private var showChapterManagement = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -25,6 +26,13 @@ struct AISuggestionsView: View {
                     .font(.headline)
 
                 Spacer()
+
+                if hasChapterSuggestions {
+                    Button("Manage Chapters") {
+                        showChapterManagement = true
+                    }
+                    .buttonStyle(.bordered)
+                }
 
                 Button("Close") {
                     dismiss()
@@ -52,6 +60,13 @@ struct AISuggestionsView: View {
             Task {
                 await viewModel.loadSuggestions(for: editor.project.projectId)
             }
+        }
+        .sheet(isPresented: $showChapterManagement) {
+            ChapterManagementView(
+                editor: editor,
+                playheadTime: $playheadTime,
+                suggestions: $viewModel.suggestions
+            )
         }
     }
 
@@ -225,16 +240,35 @@ struct AISuggestionsView: View {
     }
 
     private func applyChapterCreation(_ suggestion: Suggestion) async {
-        // Chapter markers would be stored in project metadata
-        // For now, we'll just log the chapter creation
-        print("Creating chapter: \(suggestion.title)")
+        // Extract metadata from suggestion
+        let title = suggestion.metadata("title", as: String.self) ?? "Untitled Chapter"
+        let summary = suggestion.metadata("summary", as: String.self)
+        let keywords = suggestion.metadata("keywords", as: [String].self) ?? []
+
+        // Create chapter
+        let chapter = Project.Chapter(
+            title: title,
+            startTime: suggestion.timelineIn,
+            endTime: suggestion.timelineOut,
+            summary: summary,
+            keywords: keywords
+        )
+
+        // Add to project via ProjectEditor
+        _ = await editor.addChapter(chapter)
+    }
+
+    // MARK: - Computed Properties
+
+    private var hasChapterSuggestions: Bool {
+        !viewModel.suggestions.filter { $0.type == .createChapter }.isEmpty
     }
 }
 
 /// View model for AI Suggestions
 @MainActor
 final class AISuggestionsViewModel: ObservableObject {
-    @Published private(set) var suggestions: [Suggestion] = []
+    @Published var suggestions: [Suggestion] = []
     @Published private(set) var isLoading = false
     @Published private(set) var loadingMessage = ""
     @Published private(set) var errorMessage: String?

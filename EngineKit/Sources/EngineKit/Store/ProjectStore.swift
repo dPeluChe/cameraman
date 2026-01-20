@@ -155,7 +155,8 @@ public actor ProjectStore {
                 )
             ),
             overlays: [],
-            captions: nil
+            captions: nil,
+            chapters: []
         )
 
         // Save project.json

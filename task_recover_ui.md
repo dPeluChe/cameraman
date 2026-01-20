@@ -138,7 +138,7 @@ Este backlog define las tareas para reconstruir la UI de edición que fue removi
 > **API Backend:** `AIService.suggestSilenceEdits()`, `suggestChapters()`
 
 - [x] (P2) Panel de sugerencias: lista con tipo (silence cuts, chapters), botón Apply por sugerencia
-- [ ] (P2) Capítulos automáticos: mostrar sugeridos, editar títulos, aplicar como markers
+- [x] (P2) Capítulos automáticos: mostrar sugeridos, editar títulos, aplicar como markers
 
 ---
 

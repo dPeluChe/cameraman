@@ -375,7 +375,8 @@ public actor EditorModel {
             timeline: project.timeline,
             canvas: project.canvas,
             overlays: project.overlays,
-            captions: project.captions
+            captions: project.captions,
+            chapters: project.chapters
         )
 
         return .success(project)
@@ -408,7 +409,8 @@ public actor EditorModel {
             timeline: project.timeline,
             canvas: project.canvas,
             overlays: project.overlays,
-            captions: project.captions
+            captions: project.captions,
+            chapters: project.chapters
         )
 
         return .success(project)

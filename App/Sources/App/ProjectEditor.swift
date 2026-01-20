@@ -349,6 +349,120 @@ final class ProjectEditor: ObservableObject {
         return result
     }
 
+    // MARK: - Chapter Management
+
+    /// Add a chapter marker to the project
+    /// - Parameter chapter: Chapter to add
+    /// - Returns: true if successful, false otherwise
+    @discardableResult
+    func addChapter(_ chapter: Project.Chapter) async -> Bool {
+        let previousProject = project
+        var updatedProject = project
+
+        // Add chapter maintaining chronological order
+        updatedProject.chapters.append(chapter)
+        updatedProject.chapters.sort { $0.startTime < $1.startTime }
+        updatedProject.updatedAt = Date()
+
+        await editorModel.setProject(updatedProject)
+        recordUndoSnapshot(previousProject)
+        project = updatedProject
+        return true
+    }
+
+    /// Update an existing chapter
+    /// - Parameters:
+    ///   - chapterId: ID of chapter to update
+    ///   - title: New title (optional)
+    ///   - summary: New summary (optional)
+    ///   - keywords: New keywords (optional)
+    /// - Returns: true if successful, false otherwise
+    @discardableResult
+    func updateChapter(
+        chapterId: UUID,
+        title: String? = nil,
+        summary: String? = nil,
+        keywords: [String]? = nil
+    ) async -> Bool {
+        let previousProject = project
+        var updatedProject = project
+
+        // Find and update the chapter
+        guard let index = updatedProject.chapters.firstIndex(where: { $0.id == chapterId }) else {
+            return false
+        }
+
+        // Update fields if provided
+        if let title = title {
+            updatedProject.chapters[index].title = title
+        }
+        if let summary = summary {
+            updatedProject.chapters[index].summary = summary
+        }
+        if let keywords = keywords {
+            updatedProject.chapters[index].keywords = keywords
+        }
+        updatedProject.updatedAt = Date()
+
+        await editorModel.setProject(updatedProject)
+        recordUndoSnapshot(previousProject)
+        project = updatedProject
+        return true
+    }
+
+    /// Delete a chapter from the project
+    /// - Parameter chapterId: ID of chapter to delete
+    /// - Returns: true if successful, false otherwise
+    @discardableResult
+    func deleteChapter(chapterId: UUID) async -> Bool {
+        let previousProject = project
+        var updatedProject = project
+
+        // Find and remove the chapter
+        guard let index = updatedProject.chapters.firstIndex(where: { $0.id == chapterId }) else {
+            return false
+        }
+
+        updatedProject.chapters.remove(at: index)
+        updatedProject.updatedAt = Date()
+
+        await editorModel.setProject(updatedProject)
+        recordUndoSnapshot(previousProject)
+        project = updatedProject
+        return true
+    }
+
+    /// Apply AI-suggested chapters to the project
+    /// - Parameter suggestions: Array of chapter suggestions from AI
+    /// - Returns: Number of chapters added
+    @discardableResult
+    func applyChapterSuggestions(from suggestions: [Suggestion]) async -> Int {
+        var addedCount = 0
+
+        for suggestion in suggestions where suggestion.type == .createChapter {
+            // Extract chapter metadata from suggestion
+            let title = suggestion.metadata("title", as: String.self) ?? "Untitled Chapter"
+            let summary = suggestion.metadata("summary", as: String.self)
+            let keywords = suggestion.metadata("keywords", as: [String].self) ?? []
+
+            // Create chapter
+            let chapter = Project.Chapter(
+                title: title,
+                startTime: suggestion.timelineIn,
+                endTime: suggestion.timelineOut,
+                summary: summary,
+                keywords: keywords
+            )
+
+            // Add to project
+            if await addChapter(chapter) {
+                addedCount += 1
+            }
+        }
+
+        return addedCount
+    }
+
     // MARK: - Zoom Controls
 
     /// Update zoom configuration for a specific segment
@@ -522,7 +636,8 @@ final class ProjectEditor: ObservableObject {
                 layout: CanvasLayout.defaultLayout(for: .fullscreen)
             ),
             overlays: [],
-            captions: nil
+            captions: nil,
+            chapters: []
         )
 
         return ProjectEditor(project: project)
