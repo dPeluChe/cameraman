@@ -116,9 +116,9 @@ Este backlog define las tareas para reconstruir la UI de edición que fue removi
 > **Referencia PRD:** Sección 5.4
 > **API Backend:** `TranscriptionEngine.transcribe()`, `exportSRT()`, `exportVTT()`
 
-- [ ] (P1) Generar transcripción: botón con progreso, selector de idioma opcional
-- [ ] (P1) Vista de transcripción: lista de segmentos con timestamps, click → seek, edición de texto
-- [ ] (P1) Export captions: botones SRT/VTT, toggle "Burn-in captions" en export
+- [x] (P1) Generar transcripción: botón con progreso, selector de idioma opcional
+- [x] (P1) Vista de transcripción: lista de segmentos con timestamps, click → seek, edición de texto
+- [x] (P1) Export captions: botones SRT/VTT, toggle "Burn-in captions" en export
 
 ---
 

@@ -49,6 +49,7 @@ struct ProjectEditorView: View {
 
     @StateObject private var viewModel: ProjectEditorViewModel
     @State private var showExportModal: Bool = false
+    @State private var showTranscriptionModal: Bool = false
 
     init(projectSummary: ProjectSummary, library: ProjectLibrary = ProjectLibrary()) {
         self.projectSummary = projectSummary
@@ -88,6 +89,11 @@ struct ProjectEditorView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .task {
             await viewModel.loadProject()
+        }
+        .sheet(isPresented: $showTranscriptionModal) {
+            if let editor = viewModel.editor {
+                TranscriptionView(editor: editor, playheadTime: $viewModel.playheadTime)
+            }
         }
         .sheet(isPresented: $showExportModal) {
             if let editor = viewModel.editor,
@@ -130,13 +136,23 @@ struct ProjectEditorView: View {
 
             Spacer()
 
-            Button {
-                showExportModal = true
-            } label: {
-                Label("Export", systemImage: "square.and.arrow.up")
+            HStack(spacing: 12) {
+                Button {
+                    showTranscriptionModal = true
+                } label: {
+                    Label("Transcript", systemImage: "text.bubble")
+                }
+                .buttonStyle(.bordered)
+                .disabled(viewModel.editor == nil)
+
+                Button {
+                    showExportModal = true
+                } label: {
+                    Label("Export", systemImage: "square.and.arrow.up")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(viewModel.editor == nil)
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(viewModel.editor == nil)
         }
     }
 
