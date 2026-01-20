@@ -7,6 +7,7 @@
 
 import SwiftUI
 import EngineKit
+import CoreGraphics
 
 @MainActor
 final class ProjectEditorViewModel: ObservableObject {
@@ -68,6 +69,7 @@ struct ProjectEditorView: View {
                    editor.project.canvas.layout.camera != nil {
                     PiPConfigurationView(editor: editor)
                 }
+                OverlayEditorView(editor: editor, playheadTime: $viewModel.playheadTime)
                 TimelineView(editor: editor, playheadTime: $viewModel.playheadTime)
             } else if viewModel.isLoading {
                 ProgressView("Loading project timeline...")
@@ -289,13 +291,8 @@ private struct PiPConfigurationView: View {
                                 value: Binding(
                                     get: { camera.cornerRadius },
                                     set: { newValue in
-                                        let updated = Project.Canvas.Layout.CameraPosition(
-                                            x: camera.x,
-                                            y: camera.y,
-                                            w: camera.w,
-                                            h: camera.h,
-                                            cornerRadius: newValue
-                                        )
+                                        var updated = camera
+                                        updated.cornerRadius = newValue
                                         Task {
                                             _ = await editor.updateCameraPosition(updated)
                                         }

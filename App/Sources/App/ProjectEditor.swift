@@ -276,6 +276,58 @@ final class ProjectEditor: ObservableObject {
         updateHistoryState()
     }
 
+    // MARK: - Overlay Operations
+
+    func addOverlay(projectId: ProjectId, overlay: Project.Overlay) async -> EditorResult {
+        let previousProject = project
+        var result: EditorResult?
+
+        // Directly add to project since EditorModel doesn't have addOverlay
+        var updatedProject = project
+        updatedProject.overlays.append(overlay)
+
+        await editorModel.setProject(updatedProject)
+        recordUndoSnapshot(previousProject)
+        project = updatedProject
+
+        return .success(project)
+    }
+
+    func updateOverlay(
+        projectId: ProjectId,
+        overlayId: UUID,
+        transform: Project.Overlay.Transform? = nil,
+        style: Project.Overlay.Style? = nil,
+        start: TimeInterval? = nil,
+        end: TimeInterval? = nil
+    ) async -> EditorResult {
+        let previousProject = project
+
+        let result = await editorModel.updateOverlay(
+            projectId: projectId,
+            overlayId: overlayId,
+            transform: transform,
+            style: style,
+            start: start,
+            end: end
+        )
+
+        updatePublishedProject(from: result, previousProject: previousProject)
+        return result
+    }
+
+    func deleteOverlay(projectId: ProjectId, overlayId: UUID) async -> EditorResult {
+        let previousProject = project
+
+        let result = await editorModel.deleteOverlay(
+            projectId: projectId,
+            overlayId: overlayId
+        )
+
+        updatePublishedProject(from: result, previousProject: previousProject)
+        return result
+    }
+
     private func updateHistoryState() {
         canUndo = !undoStack.isEmpty
         canRedo = !redoStack.isEmpty

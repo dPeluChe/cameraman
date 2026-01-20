@@ -253,7 +253,7 @@ Este PRD es el documento principal del proyecto. Se acompaña de:
 
 ## 10) Criterios de aceptación (MVP)
 - [ ] Crear proyecto desde grabación con: screen + camera + mic + system audio (si aplica) + telemetry.
-- [ ] Editar: trim + split/delete + overlay (flecha + texto) visibles en preview.
+- [x] Editar: trim + split/delete + overlay (flecha + texto) visibles en preview.
 - [x] Timeline: navegación (click playhead, drag selección, zoom, scroll).
 - [ ] Generar transcript offline y exportar `.srt`.
 - [ ] Exportar MP4 1080p 16:9 y 9:16 con layout post‑grabación aplicado.

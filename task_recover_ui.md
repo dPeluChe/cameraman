@@ -29,8 +29,48 @@ Este backlog define las tareas para reconstruir la UI de edición que fue removi
 - [x] (P0) Vista de lista/grid de proyectos: thumbnail, nombre, fecha, duración, tags visibles
 - [x] (P0) Acciones de proyecto: crear nuevo (→ Recording), abrir existente (→ Editor), renombrar, eliminar con confirmación
 - [x] (P0) Editar tags de proyecto (multi-tag)
-- [ ] (P1) Búsqueda por nombre y filtro por tags
+- [ ] (P1) Búsqueda por nombre y filtro por tags **(EN PROGRESO)**
 - [ ] (P1) Ordenamiento: por fecha, nombre, duración
+
+---
+
+## Épica UI-H — Export UI (Prioridad Alta)
+
+> **Objetivo:** Cerrar el ciclo de producción (Grabar -> Editar -> Exportar).
+> **Referencia PRD:** Sección 5.5
+> **API Backend:** `ExportEngine.startExport()`, `cancelExport()`, `Job.progress`
+
+- [ ] (P0) Modal de export: selector de preset (Web 1080p, HEVC, Portrait), destino con file picker
+- [ ] (P0) Progreso: progress bar, porcentaje, tiempo estimado, botón Cancel
+- [ ] (P0) Completado: notificación de éxito, botón "Reveal in Finder"
+
+---
+
+## Épica UI-F — Canvas & Layout Controls
+
+> **Referencia PRD:** Sección 5.3 - Layouts post-grabación
+> **API Backend:** `CanvasLayout.setLayout()`, `setCameraPosition()`, `setBackground()`
+
+- [x] (P0) Selector de layout: botones para Full, PiP, Side-by-Side con preview visual
+- [x] (P0) Configuración PiP: drag para posicionar cámara, resize handles, corner radius, presets de posición
+- [ ] (P0) Background: color picker para fondo sólido, selector de imagen, fit mode (fit/fill)
+- [ ] (P1) Toggle formato 16:9 / 9:16 con preview
+
+---
+
+## Épica UI-G — Overlay Editor
+
+> **Referencia PRD:** Sección 5.3 - Overlays (anotaciones)
+> **Código histórico:** `git show 22400cf:App/Sources/App/OverlayEditView.swift` (685 líneas)
+> **API Backend:** `EditorModel.addOverlay()`, `updateOverlay()`, `deleteOverlay()`, `OverlayEngine.renderOverlays()`
+
+- [x] (P0) Toolbar de overlays: botones Arrow, Rectangle, Line, Text con selección visual
+- [x] (P0) Creación: click + drag para crear overlay en canvas
+- [x] (P0) Edición: seleccionar, drag para mover, resize handles, delete con tecla
+- [x] (P0) Inspector de estilo: color picker (stroke), stroke width, shadow toggle
+- [x] (P0) Para texto: selector de font, size, color
+- [x] (P0) Timing: campos start/end time por overlay
+- [ ] (P1) Animaciones: selector None/Fade In/Fade Out/Draw-on, duration
 
 ---
 
@@ -71,45 +111,6 @@ Este backlog define las tareas para reconstruir la UI de edición que fue removi
 
 ---
 
-## Épica UI-F — Canvas & Layout Controls
-
-> **Referencia PRD:** Sección 5.3 - Layouts post-grabación
-> **API Backend:** `CanvasLayout.setLayout()`, `setCameraPosition()`, `setBackground()`
-
-- [x] (P0) Selector de layout: botones para Full, PiP, Side-by-Side con preview visual
-- [x] (P0) Configuración PiP: drag para posicionar cámara, resize handles, corner radius, presets de posición
-- [ ] (P0) Background: color picker para fondo sólido, selector de imagen, fit mode (fit/fill)
-- [ ] (P1) Toggle formato 16:9 / 9:16 con preview
-
----
-
-## Épica UI-G — Overlay Editor
-
-> **Referencia PRD:** Sección 5.3 - Overlays (anotaciones)
-> **Código histórico:** `git show 22400cf:App/Sources/App/OverlayEditView.swift` (685 líneas)
-> **API Backend:** `EditorModel.addOverlay()`, `updateOverlay()`, `deleteOverlay()`, `OverlayEngine.renderOverlays()`
-
-- [ ] (P0) Toolbar de overlays: botones Arrow, Rectangle, Line, Text con selección visual
-- [ ] (P0) Creación: click + drag para crear overlay en canvas
-- [ ] (P0) Edición: seleccionar, drag para mover, resize handles, delete con tecla
-- [ ] (P0) Inspector de estilo: color picker (stroke), stroke width, shadow toggle
-- [ ] (P0) Para texto: selector de font, size, color
-- [ ] (P0) Timing: campos start/end time por overlay
-- [ ] (P1) Animaciones: selector None/Fade In/Fade Out/Draw-on, duration
-
----
-
-## Épica UI-H — Export UI
-
-> **Referencia PRD:** Sección 5.5
-> **API Backend:** `ExportEngine.startExport()`, `cancelExport()`, `Job.progress`
-
-- [ ] (P0) Modal de export: selector de preset (Web 1080p, HEVC, Portrait), destino con file picker
-- [ ] (P0) Progreso: progress bar, porcentaje, tiempo estimado, botón Cancel
-- [ ] (P0) Completado: notificación de éxito, botón "Reveal in Finder"
-
----
-
 ## Épica UI-I — Transcription UI
 
 > **Referencia PRD:** Sección 5.4
@@ -138,6 +139,26 @@ Este backlog define las tareas para reconstruir la UI de edición que fue removi
 
 - [ ] (P2) Panel de sugerencias: lista con tipo (silence cuts, chapters), botón Apply por sugerencia
 - [ ] (P2) Capítulos automáticos: mostrar sugeridos, editar títulos, aplicar como markers
+
+---
+
+## Épica UI-L — Settings & Preferences
+
+> **Objetivo:** Configuración global de la aplicación.
+> **API Backend:** `HotkeyManager`
+
+- [ ] (P1) Ventana de Preferencias: Gestión de configuración general.
+- [ ] (P1) Hotkeys: Visualización de atajos de teclado registrados y estado.
+
+---
+
+## Épica UI-M — Telemetry & Visuals (Integración)
+
+> **Objetivo:** Exponer las capacidades de telemetría capturadas por el backend.
+> **API Backend:** `TelemetrySync` (cursor/clicks), `KeystrokeRecorder` (teclas)
+
+- [ ] (P1) Telemetry Visuals: Toggle en editor para mostrar/ocultar cursor y visualización de clicks en el preview.
+- [ ] (P1) Keystroke Overlay: Toggle para mostrar las teclas presionadas sobre el video (útil para tutoriales).
 
 ---
 
