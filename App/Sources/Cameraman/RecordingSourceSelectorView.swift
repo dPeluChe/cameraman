@@ -119,6 +119,14 @@ struct RecordingSourceSelectorView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
+                    
+                    Button("Check Again") {
+                        Task {
+                            await viewModel.loadSources(for: viewModel.selectedTab)
+                        }
+                    }
+                    .buttonStyle(.link)
+                    .padding(.top, 4)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color.black.opacity(0.5))
@@ -399,21 +407,29 @@ class SourceSelectorViewModel: ObservableObject {
         previewImage = nil
         permissionDenied = false
 
-        // Check permission first
-        let status = await permissionManager.checkScreenRecordingPermission()
-        if status != .authorized {
-            permissionDenied = true
-            errorMessage = "Screen recording permission is required to list sources."
-            return
-        }
-
+        // Only check permissions strictly for Window/App tabs or if we want to be proactive.
+        // For Display tab, we can use NSScreen which doesn't require permission to LIST (though it does to CAPTURE).
+        // Allowing the list to load confirms the app is working.
+        
         do {
             switch tab {
             case .display:
+                // NSScreen based - should always work
                 displaySources = try await sourceSelector.listDisplays()
+                
+                // Optional: Check permission in background to warn user, but don't block list
+                let status = await permissionManager.checkScreenRecordingPermission()
+                if status != .authorized {
+                    print("⚠️ Screen recording permission missing, capture will fail")
+                    // We could show a warning banner instead of full block
+                }
+                
             case .window:
+                // SCShareableContent based - will throw if denied
                 windowSources = try await sourceSelector.listWindows()
+                
             case .application:
+                // SCShareableContent based - will throw if denied
                 applicationSources = try await sourceSelector.listApplications()
             }
         } catch {
@@ -422,7 +438,14 @@ class SourceSelectorViewModel: ObservableObject {
                 permissionDenied = true
                 errorMessage = "Screen recording permission denied."
             } else {
-                errorMessage = "Failed to load sources: \(error.localizedDescription)"
+                // Check for general SCStream errors that imply permission issues
+                let nsError = error as NSError
+                if nsError.domain.contains("SCStreamError") && nsError.code == -3801 {
+                    permissionDenied = true
+                    errorMessage = "Screen recording permission denied."
+                } else {
+                    errorMessage = "Failed to load sources: \(error.localizedDescription)"
+                }
             }
             print("❌ Error loading sources: \(error)")
         }

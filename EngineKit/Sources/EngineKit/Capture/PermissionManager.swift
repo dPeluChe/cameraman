@@ -109,18 +109,16 @@ public actor PermissionManager {
     /// Check screen recording permission status
     /// - Returns: Permission status for screen recording
     public func checkScreenRecordingPermission() async -> PermissionStatus {
-        // Try to access shareable content to check permission
+        // Since CGPreflightScreenCaptureAccess and CGRequestScreenCaptureAccess are deprecated in macOS 15,
+        // and SCShareableContent throws an error if permission is denied,
+        // we'll rely on SCShareableContent.excludingDesktopWindows.
+        
         do {
-            _ = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
+            // This call will fail if permission is denied
+            _ = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
             return .authorized
         } catch {
-            // Check if it's a TCC permission denied error
-            if let nsError = error as NSError?,
-               nsError.domain.contains("SCStreamErrorDomain"),
-               nsError.code == -3801 {
-                return .denied
-            }
-            // If it's another error, might be not determined or other issue
+            print("⚠️ Permission Check Failed: \(error)")
             return .denied
         }
     }
