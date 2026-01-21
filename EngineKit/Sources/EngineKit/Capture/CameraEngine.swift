@@ -80,6 +80,8 @@ public actor CameraEngine {
         private var videoOutput: AVCaptureMovieFileOutput?
         private var assetWriter: AVAssetWriter?
         private var assetWriterInput: AVAssetWriterInput?
+        private var outputURL: URL?
+        private var sampleBufferDelegate: AnyObject?
 
         internal init(id: UUID = UUID()) {
             self.id = id
@@ -96,6 +98,14 @@ public actor CameraEngine {
         internal func setAssetWriter(_ writer: AVAssetWriter, input: AVAssetWriterInput) {
             self.assetWriter = writer
             self.assetWriterInput = input
+        }
+
+        internal func setOutputURL(_ url: URL) {
+            self.outputURL = url
+        }
+
+        internal func setSampleBufferDelegate(_ delegate: AnyObject) {
+            self.sampleBufferDelegate = delegate
         }
 
         internal func markStarted(at time: Date) {
@@ -120,6 +130,7 @@ public actor CameraEngine {
         internal func getVideoOutput() -> AVCaptureMovieFileOutput? { videoOutput }
         internal func getAssetWriter() -> AVAssetWriter? { assetWriter }
         internal func getAssetWriterInput() -> AVAssetWriterInput? { assetWriterInput }
+        internal func getOutputURL() -> URL? { outputURL }
     }
 
     /// Errors that can occur during camera capture
@@ -320,15 +331,22 @@ public actor CameraEngine {
 
         let assetWriterInput = assetWriter.inputs.first!
         session.setAssetWriter(assetWriter, input: assetWriterInput)
+        session.setOutputURL(outputURL)
 
         // Setup video data output for pixel buffer delivery
         let videoDataOutput = AVCaptureVideoDataOutput()
+
+        // IMPORTANT: AVCaptureVideoDataOutput does NOT retain its delegate.
+        // We must keep a strong reference alive for the duration of the session.
+        let sampleDelegate = CameraSampleBufferDelegate(
+            assetWriterInput: assetWriterInput,
+            sessionStartTime: Date(),
+            syncOffsetMs: config.syncOffsetMs
+        )
+        session.setSampleBufferDelegate(sampleDelegate)
+
         videoDataOutput.setSampleBufferDelegate(
-            CameraSampleBufferDelegate(
-                assetWriterInput: assetWriterInput,
-                sessionStartTime: Date(),
-                syncOffsetMs: config.syncOffsetMs
-            ),
+            sampleDelegate,
             queue: DispatchQueue(label: "com.enginekit.camera.samplebuffer")
         )
         videoDataOutput.videoSettings = [
@@ -379,16 +397,18 @@ public actor CameraEngine {
         }
 
         // Finalize writer
-        if let assetWriter = session.getAssetWriter() {
+        if let assetWriterInput = session.getAssetWriterInput() {
+            assetWriterInput.markAsFinished()
+        }
+
+        if let assetWriter = session.getAssetWriter(), assetWriter.status == .writing {
             await assetWriter.finishWriting()
         }
 
         // Get output path
-        let outputPath = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent("recordings")
-            .appendingPathComponent(session.id.uuidString)
-
-        let cameraVideoPath = outputPath.appendingPathComponent("camera.mov")
+        guard let cameraVideoPath = session.getOutputURL() else {
+            throw CameraError.recordingNotStarted
+        }
 
         let result = RecordingResult(
             session: session,
@@ -447,6 +467,11 @@ public actor CameraEngine {
             at: outputURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
+
+        // Remove existing file if present (AVAssetWriter fails if file exists)
+        if FileManager.default.fileExists(atPath: outputURL.path) {
+            try FileManager.default.removeItem(at: outputURL)
+        }
 
         let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mov)
 

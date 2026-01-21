@@ -155,7 +155,7 @@ struct ExportView: View {
                 Text(errorMessage)
             }
         }
-        .onChange(of: viewModel.exportResult) { newValue in
+        .onChange(of: viewModel.exportResult) { _, newValue in
             if newValue != nil {
                 dismiss()
                 onExportComplete(newValue)

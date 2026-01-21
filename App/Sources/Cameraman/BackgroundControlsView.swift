@@ -134,7 +134,7 @@ struct BackgroundControlsView: View {
         .onAppear {
             updateSelectedColor()
         }
-        .onChange(of: background.value) { newValue in
+        .onChange(of: background.value) { _, _ in
             updateSelectedColor()
         }
     }

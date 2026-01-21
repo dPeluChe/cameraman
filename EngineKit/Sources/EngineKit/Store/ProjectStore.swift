@@ -111,12 +111,8 @@ public actor ProjectStore {
         // Create initial project
         let now = Date()
         let project = Project(
-            schemaVersion: currentSchemaVersion,
             projectId: projectId,
             name: name ?? "Untitled Recording",
-            tags: tags ?? [],
-            createdAt: now,
-            updatedAt: now,
             sources: Project.Sources(
                 syncReference: "screen",
                 screen: Project.Sources.MediaTrack(
@@ -155,8 +151,12 @@ public actor ProjectStore {
                 )
             ),
             overlays: [],
+            chapters: [],
             captions: nil,
-            chapters: []
+            tags: tags ?? [],
+            schemaVersion: currentSchemaVersion,
+            createdAt: now,
+            updatedAt: now
         )
 
         // Save project.json

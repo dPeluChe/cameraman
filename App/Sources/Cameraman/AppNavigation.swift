@@ -209,6 +209,7 @@ final class AppNavigationViewModel: ObservableObject {
 @MainActor
 struct AppNavigation: View {
     @StateObject private var viewModel: AppNavigationViewModel
+    @Environment(\.openWindow) private var openWindow
     @State private var renameCandidate: ProjectSummary?
     @State private var deleteCandidate: ProjectSummary?
     @State private var renameText = ""
@@ -220,100 +221,126 @@ struct AppNavigation: View {
     }
 
     var body: some View {
+        splitView
+            .task {
+                await viewModel.loadProjects()
+            }
+            .toolbar {
+                toolbarContent
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .openRecordingWindow)) { _ in
+                openWindow(id: "recording-controls")
+            }
+            // Removed onAppear auto-open to prevent double windows
+    }
+
+    private var splitView: some View {
+        projectAlerts(for: splitViewBase)
+    }
+
+    private var splitViewBase: some View {
         NavigationSplitView {
             sidebar
         } detail: {
             detail
         }
-        .task {
-            await viewModel.loadProjects()
-        }
-        .toolbar {
-            ToolbarItem(placement: .automatic) {
-                Button {
+    }
+
+    private func projectAlerts(for view: some View) -> some View {
+        view
+            .alert("Rename Project", isPresented: renameAlertBinding, presenting: renameCandidate) { project in
+                TextField("Project name", text: $renameText)
+
+                Button("Save") {
                     Task {
-                        await viewModel.loadProjects()
+                        await viewModel.renameProject(projectId: project.projectId, to: renameText)
                     }
-                } label: {
-                    Label("Refresh", systemImage: "arrow.clockwise")
                 }
-            }
+                .disabled(renameText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
-            ToolbarItem(placement: .automatic) {
-                Button {
-                    viewModel.selectedItem = .recording
-                } label: {
-                    Label("New Project", systemImage: "plus")
+                Button("Cancel", role: .cancel) {}
+            } message: { _ in
+                Text("Enter a new name for the project.")
+            }
+            .alert("Edit Tags", isPresented: tagsAlertBinding, presenting: tagsCandidate) { project in
+                TextField("Tags (comma separated)", text: $tagsText)
+
+                Button("Save") {
+                    Task {
+                        let tags = AppNavigationViewModel.parseTagsInput(tagsText)
+                        await viewModel.setTags(projectId: project.projectId, tags: tags)
+                    }
                 }
-            }
 
-            ToolbarItem(placement: .automatic) {
-                Button {
-                    viewModel.toggleLibraryLayout()
-                } label: {
-                    Label(
-                        viewModel.libraryLayout == .list ? "Grid View" : "List View",
-                        systemImage: viewModel.libraryLayout == .list ? "square.grid.2x2" : "list.bullet"
-                    )
+                Button("Cancel", role: .cancel) {}
+            } message: { _ in
+                Text("Add tags separated by commas. Leave empty to clear tags.")
+            }
+            .alert("Delete Project", isPresented: deleteAlertBinding, presenting: deleteCandidate) { project in
+                Button("Delete", role: .destructive) {
+                    Task {
+                        await viewModel.deleteProject(projectId: project.projectId)
+                    }
                 }
+                Button("Cancel", role: .cancel) {}
+            } message: { project in
+                Text("This will permanently delete \"\(project.name)\".")
             }
-        }
-        .alert("Rename Project", isPresented: renameAlertBinding, presenting: renameCandidate) { project in
-            TextField("Project name", text: $renameText)
+            .alert("Project Library Error", isPresented: Binding(get: {
+                viewModel.loadErrorMessage != nil
+            }, set: { newValue in
+                if !newValue {
+                    viewModel.clearError()
+                }
+            })) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(viewModel.loadErrorMessage ?? "Unknown error.")
+            }
+    }
 
-            Button("Save") {
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .automatic) {
+            Button {
                 Task {
-                    await viewModel.renameProject(projectId: project.projectId, to: renameText)
+                    await viewModel.loadProjects()
                 }
+            } label: {
+                Label("Refresh", systemImage: "arrow.clockwise")
             }
-            .disabled(renameText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-            Button("Cancel", role: .cancel) {}
-        } message: { _ in
-            Text("Enter a new name for the project.")
         }
-        .alert("Edit Tags", isPresented: tagsAlertBinding, presenting: tagsCandidate) { project in
-            TextField("Tags (comma separated)", text: $tagsText)
 
-            Button("Save") {
-                Task {
-                    let tags = AppNavigationViewModel.parseTagsInput(tagsText)
-                    await viewModel.setTags(projectId: project.projectId, tags: tags)
-                }
+        ToolbarItem(placement: .automatic) {
+            Button {
+                openWindow(id: "recording-controls")
+            } label: {
+                Label("New Project", systemImage: "plus")
             }
+        }
 
-            Button("Cancel", role: .cancel) {}
-        } message: { _ in
-            Text("Add tags separated by commas. Leave empty to clear tags.")
-        }
-        .alert("Delete Project", isPresented: deleteAlertBinding, presenting: deleteCandidate) { project in
-            Button("Delete", role: .destructive) {
-                Task {
-                    await viewModel.deleteProject(projectId: project.projectId)
-                }
+        ToolbarItem(placement: .automatic) {
+            Button {
+                viewModel.toggleLibraryLayout()
+            } label: {
+                Label(
+                    viewModel.libraryLayout == .list ? "Grid View" : "List View",
+                    systemImage: viewModel.libraryLayout == .list ? "square.grid.2x2" : "list.bullet"
+                )
             }
-            Button("Cancel", role: .cancel) {}
-        } message: { project in
-            Text("This will permanently delete \"\(project.name)\".")
-        }
-        .alert("Project Library Error", isPresented: Binding(get: {
-            viewModel.loadErrorMessage != nil
-        }, set: { newValue in
-            if !newValue {
-                viewModel.clearError()
-            }
-        })) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(viewModel.loadErrorMessage ?? "Unknown error.")
         }
     }
 
     private var sidebar: some View {
         List(selection: $viewModel.selectedItem) {
             Section("Capture") {
-                Label("New Recording", systemImage: "record.circle")
-                    .tag(AppNavigationItem.recording)
+                Button {
+                    openWindow(id: "recording-controls")
+                } label: {
+                    Label("New Recording", systemImage: "record.circle")
+                }
+                .buttonStyle(.plain)
+                .listRowBackground(Color.clear)
             }
 
             Section("Projects") {
@@ -469,9 +496,15 @@ struct AppNavigation: View {
     private var detail: some View {
         switch viewModel.selectedItem {
         case .recording:
-            RecordingControlView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.black.opacity(0.9))
+            EmptyStateView(message: "Start a new recording from the toolbar or sidebar.")
+                .overlay {
+                    Button("Open Recording Controls") {
+                        openWindow(id: "recording-controls")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .padding(.top, 100) // Push below the icon/text
+                }
         case .project(let projectId):
             Group {
                 if let project = viewModel.project(for: projectId) {

@@ -16,6 +16,11 @@ import EngineKit
 struct RecordingSourceSelectorView: View {
     @StateObject private var viewModel = SourceSelectorViewModel()
     @Binding var selectedSource: CaptureSource
+    
+    init(selectedSource: Binding<CaptureSource>) {
+        self._selectedSource = selectedSource
+        // Note: SwiftUI may call init multiple times during view lifecycle - this is normal
+    }
 
     enum CaptureSource {
         case display(SourceSelector.DisplaySource)
@@ -37,7 +42,7 @@ struct RecordingSourceSelectorView: View {
                 Text("Application").tag(SourceSelectorViewModel.SourceTab.application)
             }
             .pickerStyle(.segmented)
-            .onChange(of: viewModel.selectedTab) { newTab in
+            .onChange(of: viewModel.selectedTab) { _, newTab in
                 Task {
                     await viewModel.loadSources(for: newTab)
                 }
@@ -459,36 +464,113 @@ class SourceSelectorViewModel: ObservableObject {
     }
 
     func capturePreview(display: SourceSelector.DisplaySource) async {
-        await captureScreenshot(displayID: display.id)
+        // Show highlight on the actual display
+        await MainActor.run {
+            DisplayHighlighter.shared.toggleHighlight(displayID: display.id)
+        }
+        
+        // Use a generic system icon as fallback for the UI thumbnail
+        self.previewImage = NSImage(systemSymbolName: "display", accessibilityDescription: "Display Preview")
     }
 
     func capturePreview(window: SourceSelector.WindowSource) async {
-        // For windows, we'd need to use CGWindowListCreateImage or similar
-        // This is a simplified placeholder
-        await captureScreenshot(windowID: window.id)
+        // CGWindowListCreateImage is unavailable in recent macOS SDKs
+        self.previewImage = NSImage(systemSymbolName: "macwindow", accessibilityDescription: "Window Preview")
     }
 
     private func captureScreenshot(displayID: String? = nil, windowID: String? = nil) async {
-        // Use CGDisplayCreateImage or CGWindowListCreateImage
-        // Use ScreenCaptureKit for preview (CGDisplayCreateImage is deprecated)
-        if displayID != nil {
-            Task {
-                do {
-                    let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-                    guard let display = content.displays.first else { return }
-                    
-                    let config = SCStreamConfiguration()
-                    config.width = 320
-                    config.height = 180
-                    config.minimumFrameInterval = CMTime(value: 1, timescale: 1)
-                    
-                    let _ = SCContentFilter(display: display, excludingWindows: [])
-                    // TODO: Implement actual screenshot capture when needed
-                    // For now, just skip preview image
-                } catch {
-                    print("Failed to capture preview: \(error)")
+        // Deprecated helper, functionality moved to specific methods
+    }
+}
+
+// MARK: - Display Highlighter
+
+@MainActor
+class DisplayHighlighter {
+    static let shared = DisplayHighlighter()
+    private var highlightWindow: NSWindow?
+    private var currentDisplayID: String?
+    private var cleanupTask: Task<Void, Never>?
+    
+    private init() {}
+    
+    func toggleHighlight(displayID: String) {
+        // If highlighting same display, stop it (toggle off)
+        if currentDisplayID == displayID {
+            stopHighlight()
+            return
+        }
+        
+        // Stop current
+        stopHighlight()
+        
+        guard let screen = NSScreen.screens.first(where: {
+            guard let id = $0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else { return false }
+            return String(id.uint32Value) == displayID
+        }) else {
+            print("Could not find screen for ID: \(displayID)")
+            return
+        }
+        
+        // Create new window with safer settings
+        let window = NSWindow(
+            contentRect: screen.frame,
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false,
+            screen: screen  // Explicitly set screen
+        )
+        
+        window.backgroundColor = .clear
+        window.isOpaque = false
+        window.hasShadow = false
+        window.level = .statusBar  // Use statusBar level instead of floating for better stability
+        window.ignoresMouseEvents = true
+        window.collectionBehavior = [.canJoinAllSpaces, .transient, .ignoresCycle, .stationary]
+        window.isReleasedWhenClosed = false  // Prevent premature deallocation
+        
+        let view = NSBox(frame: NSRect(origin: .zero, size: screen.frame.size))
+        view.boxType = .custom
+        view.isTransparent = true
+        view.fillColor = .clear
+        
+        view.wantsLayer = true
+        view.layer?.borderWidth = 20 // Thicker border for visibility
+        view.layer?.borderColor = NSColor.red.cgColor
+        
+        window.contentView = view
+        
+        window.setFrame(screen.frame, display: true)
+        // Order front without making key to avoid stealing focus/crash
+        window.orderFrontRegardless()  // Use orderFrontRegardless for better reliability
+        
+        highlightWindow = window
+        currentDisplayID = displayID
+        
+        // Auto-remove after 3 seconds
+        cleanupTask = Task {
+            try? await Task.sleep(nanoseconds: 3 * 1_000_000_000)
+            if !Task.isCancelled {
+                await MainActor.run {
+                    self.stopHighlight()
                 }
             }
         }
+    }
+    
+    func stopHighlight() {
+        cleanupTask?.cancel()
+        cleanupTask = nil
+        
+        if let window = highlightWindow {
+            // Safer cleanup: orderOut first, then close
+            window.orderOut(nil)
+            // Small delay before closing to prevent crashes
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                window.close()
+            }
+            highlightWindow = nil
+        }
+        currentDisplayID = nil
     }
 }

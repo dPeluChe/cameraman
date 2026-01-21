@@ -8,6 +8,7 @@
 
 import SwiftUI
 import AppKit
+import Combine
 import EngineKit
 
 /// Professional menu bar manager for recording status

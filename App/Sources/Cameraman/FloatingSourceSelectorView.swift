@@ -15,6 +15,11 @@ struct FloatingSourceSelectorView: View {
     @StateObject private var viewModel = SourceSelectorViewModel()
     @Environment(\.dismiss) private var dismiss
     let onSourceSelected: (RecordingSourceSelectorView.CaptureSource) -> Void
+    
+    init(onSourceSelected: @escaping (RecordingSourceSelectorView.CaptureSource) -> Void) {
+        self.onSourceSelected = onSourceSelected
+        print("[WINDOW] 🟡 FloatingSourceSelectorView init")
+    }
 
     var body: some View {
         VStack(spacing: 0) {

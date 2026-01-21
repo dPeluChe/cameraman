@@ -74,7 +74,7 @@ struct ZoomControlsView: View {
             // Zoom toggle
             HStack {
                 Toggle("Enable Auto-Zoom", isOn: $isEnabled)
-                    .onChange(of: isEnabled) { newValue in
+                    .onChange(of: isEnabled) { _, newValue in
                         Task {
                             await updateZoomEnabled(newValue)
                         }
@@ -451,7 +451,7 @@ private struct SegmentZoomRow: View {
                 Toggle("", isOn: $isEnabled)
                     .toggleStyle(.switch)
                     .labelsHidden()
-                    .onChange(of: isEnabled) { newValue in
+                    .onChange(of: isEnabled) { _, newValue in
                         Task {
                             await updateSegmentEnabled(newValue)
                         }
@@ -472,7 +472,7 @@ private struct SegmentZoomRow: View {
                         Text("Aggressive").tag(2.0)
                     }
                     .pickerStyle(.segmented)
-                    .onChange(of: intensity) { newValue in
+                    .onChange(of: intensity) { _, _ in
                         Task {
                             await updateSegmentIntensity()
                         }

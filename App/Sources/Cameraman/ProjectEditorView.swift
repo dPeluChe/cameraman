@@ -408,8 +408,8 @@ private struct PiPCanvasEditor: View {
             )
             
             let cameraFrame = ekCameraFrame.map { ekFrame in
-                CGRect(x: CGFloat(ekFrame.minX), y: CGFloat(ekFrame.minY), width: CGFloat(ekFrame.width), height: CGFloat(ekFrame.height))
-            } ?? CGRect.zero
+                CoreGraphics.CGRect(x: CGFloat(ekFrame.minX), y: CGFloat(ekFrame.minY), width: CGFloat(ekFrame.width), height: CGFloat(ekFrame.height))
+            } ?? CoreGraphics.CGRect.zero
 
             ZStack {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -445,7 +445,7 @@ private struct PiPCanvasEditor: View {
         .aspectRatio(aspectRatio, contentMode: .fit)
     }
 
-    private func handlePosition(_ handle: PiPHandle, frame: CGRect) -> CGPoint {
+    private func handlePosition(_ handle: PiPHandle, frame: CoreGraphics.CGRect) -> CGPoint {
         switch handle {
         case .topLeft:
             return CGPoint(x: frame.minX, y: frame.minY)

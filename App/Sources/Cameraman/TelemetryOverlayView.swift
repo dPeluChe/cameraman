@@ -46,12 +46,12 @@ struct TelemetryOverlayView: View {
             }
         }
         .onAppear {
-            Task {
+            Task { @MainActor in
                 await loadTelemetryData()
             }
         }
-        .onChange(of: project?.projectId) { _ in
-            Task {
+        .onChange(of: project?.projectId) { _, _ in
+            Task { @MainActor in
                 await loadTelemetryData()
             }
         }
@@ -252,8 +252,8 @@ struct TelemetryOverlayView: View {
             )
 
             // Separate events by type
-            cursorEvents = result.events.filter { $0.event.type == .move }
-            clickEvents = result.events.filter { $0.event.type == .down || $0.event.type == .up }
+            let cursors = result.events.filter { $0.event.type == .move }
+            let clicks = result.events.filter { $0.event.type == .down || $0.event.type == .up }
 
             // Create overlay data for cursor interpolation
             let timeRange: ClosedRange<TimeInterval> = 0...project.timeline.duration
@@ -261,7 +261,12 @@ struct TelemetryOverlayView: View {
                 syncedEvents: result.events,
                 timeRange: timeRange
             )
-            overlayData = debugOverlay
+            
+            await MainActor.run {
+                self.cursorEvents = cursors
+                self.clickEvents = clicks
+                self.overlayData = debugOverlay
+            }
         } catch {
             // Silently fail if telemetry is not available
             print("Failed to load cursor telemetry: \(error.localizedDescription)")

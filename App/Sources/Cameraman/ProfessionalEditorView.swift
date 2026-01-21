@@ -372,16 +372,7 @@ struct ProfessionalEditorView: View {
 
     @ViewBuilder
     private var tabContent: some View {
-        switch 0 { // Currently always showing layers
-        case 0:
-            layersContent
-        case 1:
-            effectsContent
-        case 2:
-            layoutContent
-        default:
-            EmptyView()
-        }
+        layersContent
     }
 
     private var layersContent: some View {

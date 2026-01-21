@@ -98,7 +98,12 @@ public actor CaptureEngine {
         private var audioOutput: AVAssetWriter?
         private var videoInput: AVAssetWriterInput?
         private var audioInput: AVAssetWriterInput?
+        private var pixelBufferAdaptor: AVAssetWriterInputPixelBufferAdaptor?
         private var sessionStartTime: CMTime?
+        private var firstVideoTimestamp: CMTime?
+        private var firstAudioTimestamp: CMTime?
+        private var videoOutputURL: URL?
+        private var audioOutputURL: URL?
 
         internal init(id: UUID = UUID()) {
             self.id = id
@@ -108,14 +113,17 @@ public actor CaptureEngine {
             self.outputStream = stream
         }
 
-        internal func setVideoWriter(_ writer: AVAssetWriter, input: AVAssetWriterInput) {
+        internal func setVideoWriter(_ writer: AVAssetWriter, input: AVAssetWriterInput, adaptor: AVAssetWriterInputPixelBufferAdaptor) {
             self.videoOutput = writer
             self.videoInput = input
+            self.pixelBufferAdaptor = adaptor
+            self.videoOutputURL = writer.outputURL
         }
 
         internal func setAudioWriter(_ writer: AVAssetWriter, input: AVAssetWriterInput) {
             self.audioOutput = writer
             self.audioInput = input
+            self.audioOutputURL = writer.outputURL
         }
 
         internal func markStarted(at time: Date) {
@@ -141,8 +149,15 @@ public actor CaptureEngine {
         internal func getAudioWriter() -> AVAssetWriter? { audioOutput }
         internal func getVideoInput() -> AVAssetWriterInput? { videoInput }
         internal func getAudioInput() -> AVAssetWriterInput? { audioInput }
+        internal func getPixelBufferAdaptor() -> AVAssetWriterInputPixelBufferAdaptor? { pixelBufferAdaptor }
         internal func getSessionStartTime() -> CMTime? { sessionStartTime }
+        internal func getFirstVideoTimestamp() -> CMTime? { firstVideoTimestamp }
+        internal func setFirstVideoTimestamp(_ timestamp: CMTime) { firstVideoTimestamp = timestamp }
+        internal func getFirstAudioTimestamp() -> CMTime? { firstAudioTimestamp }
+        internal func setFirstAudioTimestamp(_ timestamp: CMTime) { firstAudioTimestamp = timestamp }
         internal func getStream() -> SCStream? { outputStream }
+        internal func getVideoOutputURL() -> URL? { videoOutputURL }
+        internal func getAudioOutputURL() -> URL? { audioOutputURL }
     }
 
     /// Errors that can occur during capture
@@ -214,8 +229,14 @@ public actor CaptureEngine {
 
     private let sourceSelector = SourceSelector.shared
     private let permissionManager = PermissionManager.shared
-
+    
     private var streamDelegate: StreamDelegate?
+    private var videoStreamOutput: CaptureStreamOutput?
+    private var audioStreamOutput: CaptureStreamOutput?
+    
+    // Debug counters
+    private var videoFrameCount = 0
+    private var audioFrameCount = 0
 
     // MARK: - Initialization
 
@@ -258,17 +279,20 @@ public actor CaptureEngine {
         let (streamConfig, filter) = try await setupStreamConfiguration(config)
 
         // Create asset writers
-        let screenVideoURL = outputURL.appendingPathComponent("screen.mov")
-        let systemAudioURL = config.captureSystemAudio ? outputURL.appendingPathComponent("system_audio.m4a") : nil
+        // Note: outputURL is already the full path to screen.mov (passed from Recorder.swift)
+        // We need to derive the base directory for system_audio.m4a
+        let screenVideoURL = outputURL
+        let baseDirectory = outputURL.deletingLastPathComponent()
+        let systemAudioURL = config.captureSystemAudio ? baseDirectory.appendingPathComponent("system_audio.m4a") : nil
 
-        let videoWriter = try await createVideoWriter(
+        let (videoWriter, pixelBufferAdaptor) = try await createVideoWriter(
             outputURL: screenVideoURL,
             width: config.display?.width ?? 1920,
             height: config.display?.height ?? 1080,
             frameRate: config.frameRate
         )
 
-        session.setVideoWriter(videoWriter, input: videoWriter.inputs.first!)
+        session.setVideoWriter(videoWriter, input: videoWriter.inputs.first!, adaptor: pixelBufferAdaptor)
 
         if config.captureSystemAudio, let audioURL = systemAudioURL {
             let audioWriter = try await createAudioWriter(outputURL: audioURL)
@@ -281,6 +305,11 @@ public actor CaptureEngine {
 
         // Start recording
         session.markStarted(at: Date())
+        
+        // Reset frame counters
+        videoFrameCount = 0
+        audioFrameCount = 0
+        print("[DEBUG] Frame counters reset")
 
         // Start timer for duration tracking
         startDurationTimer(for: session)
@@ -300,34 +329,77 @@ public actor CaptureEngine {
             throw CaptureError.recordingNotStarted
         }
 
+        // Mark as stopped IMMEDIATELY to prevent double calls
         session.markStopped()
 
+        print("[DEBUG] Stopping stream...")
         // Stop stream
         if let stream = session.getStream() {
             try? await stream.stopCapture()
         }
+        print("[DEBUG] Stream stopped")
 
-        // Finalize writers
-        if let videoWriter = session.getVideoWriter() {
+        print("[DEBUG] Finalizing video writer...")
+        // Mark inputs as finished BEFORE finalizing writers
+        if let videoInput = session.getVideoInput() {
+            videoInput.markAsFinished()
+        }
+        if let audioInput = session.getAudioInput() {
+            audioInput.markAsFinished()
+        }
+        
+        // Finalize writers - Check status first to avoid double finalization
+        if let videoWriter = session.getVideoWriter(), videoWriter.status == .writing {
             await videoWriter.finishWriting()
+            print("[DEBUG] Video writer status: \(videoWriter.status.rawValue)")
+            if let error = videoWriter.error {
+                print("[ERROR] Video writer error: \(error.localizedDescription)")
+            }
+        } else if let videoWriter = session.getVideoWriter() {
+            print("[DEBUG] Video writer already finalized with status: \(videoWriter.status.rawValue)")
         }
 
-        if let audioWriter = session.getAudioWriter() {
+        print("[DEBUG] Finalizing audio writer...")
+        if let audioWriter = session.getAudioWriter(), audioWriter.status == .writing {
             await audioWriter.finishWriting()
+            print("[DEBUG] Audio writer status: \(audioWriter.status.rawValue)")
+            if let error = audioWriter.error {
+                print("[ERROR] Audio writer error: \(error.localizedDescription)")
+            }
+        } else if let audioWriter = session.getAudioWriter() {
+            print("[DEBUG] Audio writer already finalized with status: \(audioWriter.status.rawValue)")
+        }
+        
+        // Print frame statistics
+        print("[DEBUG] Total video frames: \(videoFrameCount)")
+        print("[DEBUG] Total audio frames: \(audioFrameCount)")
+
+        // Get output paths from session (these are the real paths where files were created)
+        guard let screenVideoPath = session.getVideoOutputURL() else {
+            throw CaptureError.recordingNotStarted
         }
 
-        // Get output paths
-        let outputPath = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent("recordings")
-            .appendingPathComponent(session.id.uuidString)
-
-        let screenVideoPath = outputPath.appendingPathComponent("screen.mov")
-        let systemAudioPath = outputPath.appendingPathComponent("system_audio.m4a")
+        print("[DEBUG] Video output path: \(screenVideoPath.path)")
+        
+        // Check if file exists
+        let fileExists = FileManager.default.fileExists(atPath: screenVideoPath.path)
+        print("[DEBUG] Video file exists: \(fileExists)")
+        
+        if fileExists {
+            do {
+                let attributes = try FileManager.default.attributesOfItem(atPath: screenVideoPath.path)
+                if let fileSize = attributes[.size] as? NSNumber {
+                    print("[DEBUG] Video file size: \(fileSize.int64Value) bytes")
+                }
+            } catch {
+                print("[ERROR] Failed to get file attributes: \(error)")
+            }
+        }
 
         let result = RecordingResult(
             session: session,
             screenVideoPath: screenVideoPath,
-            systemAudioPath: session.getAudioWriter() != nil ? systemAudioPath : nil,
+            systemAudioPath: session.getAudioOutputURL(),
             duration: session.duration,
             startTime: session.startTime ?? Date(),
             endTime: Date()
@@ -501,8 +573,28 @@ public actor CaptureEngine {
                 await self.handleSampleBuffer(sampleBuffer)
             }
         }
-        try stream.addStreamOutput(videoOutput, type: SCStreamOutputType(rawValue: 0)!, sampleHandlerQueue: sampleQueue)
+        
+        // Retain output to prevent deallocation
+        self.videoStreamOutput = videoOutput
+        
+        try stream.addStreamOutput(videoOutput, type: .screen, sampleHandlerQueue: sampleQueue)
         print("[DEBUG] Added video stream output")
+        
+        // Add audio stream output if enabled
+        if configuration.capturesAudio {
+            let audioOutput = CaptureStreamOutput { [weak self] sampleBuffer, _ in
+                Task { [weak self] in
+                    guard let self else { return }
+                    await self.handleSampleBuffer(sampleBuffer)
+                }
+            }
+            
+            // Retain audio output to prevent deallocation
+            self.audioStreamOutput = audioOutput
+            
+            try stream.addStreamOutput(audioOutput, type: .audio, sampleHandlerQueue: sampleQueue)
+            print("[DEBUG] Added audio stream output")
+        }
 
         print("[DEBUG] Starting capture...")
         try await stream.startCapture()
@@ -516,12 +608,17 @@ public actor CaptureEngine {
         width: Int,
         height: Int,
         frameRate: Int
-    ) async throws -> AVAssetWriter {
+    ) async throws -> (writer: AVAssetWriter, adaptor: AVAssetWriterInputPixelBufferAdaptor) {
         // Create directory if needed
         try FileManager.default.createDirectory(
             at: outputURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
+        
+        // Remove existing file if present (AVAssetWriter fails if file exists)
+        if FileManager.default.fileExists(atPath: outputURL.path) {
+            try FileManager.default.removeItem(at: outputURL)
+        }
 
         let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mov)
 
@@ -530,7 +627,7 @@ public actor CaptureEngine {
             AVVideoWidthKey: width,
             AVVideoHeightKey: height,
             AVVideoCompressionPropertiesKey: [
-                AVVideoAverageBitRateKey: width * height * 5, // 5 Mbps per 1080p
+                AVVideoAverageBitRateKey: width * height * 5,
                 AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
                 AVVideoExpectedSourceFrameRateKey: frameRate
             ]
@@ -542,14 +639,30 @@ public actor CaptureEngine {
         )
         writerInput.expectsMediaDataInRealTime = true
 
+        // Create pixel buffer adaptor for SCStream's CVPixelBuffer output
+        let sourcePixelBufferAttributes: [String: Any] = [
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+            kCVPixelBufferWidthKey as String: width,
+            kCVPixelBufferHeightKey as String: height
+        ]
+        
+        let adaptor = AVAssetWriterInputPixelBufferAdaptor(
+            assetWriterInput: writerInput,
+            sourcePixelBufferAttributes: sourcePixelBufferAttributes
+        )
+
         if writer.canAdd(writerInput) {
             writer.add(writerInput)
         }
 
-        writer.startWriting()
-        writer.startSession(atSourceTime: .zero)
+        guard writer.startWriting() else {
+            print("[ERROR] Failed to start writing: \(writer.error?.localizedDescription ?? "unknown")")
+            throw CaptureError.failedToCreateAssetWriter(underlying: writer.error ?? NSError(domain: "CaptureEngine", code: -1))
+        }
+        
+        print("[DEBUG] Video writer started successfully at: \(outputURL.path)")
 
-        return writer
+        return (writer, adaptor)
     }
 
     private func createAudioWriter(outputURL: URL) async throws -> AVAssetWriter {
@@ -573,7 +686,8 @@ public actor CaptureEngine {
         }
 
         writer.startWriting()
-        writer.startSession(atSourceTime: .zero)
+        // Don't start session here - will start with first audio frame's timestamp
+        // to match SCStream's absolute timestamps
 
         return writer
     }
@@ -590,20 +704,109 @@ public actor CaptureEngine {
 
         switch mediaType {
         case kCMMediaType_Video:
-            if let videoInput = session.getVideoInput(),
-               videoInput.isReadyForMoreMediaData {
-                videoInput.append(sampleBuffer)
+            videoFrameCount += 1
+            if videoFrameCount % 60 == 1 { // Log every 60 frames (~1 second at 60fps)
+                print("[DEBUG] Video frames received: \(videoFrameCount)")
+            }
+
+            guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+                if videoFrameCount < 10 {
+                    print("[WARN] No pixel buffer in video sample at frame \(videoFrameCount)")
+                }
+                return
+            }
+
+            let presentationTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+
+            if session.getFirstVideoTimestamp() == nil {
+                session.setFirstVideoTimestamp(presentationTime)
+                if let writer = session.getVideoWriter() {
+                    writer.startSession(atSourceTime: .zero)
+                    print("[DEBUG] Video session started")
+                }
+            }
+
+            guard let firstTimestamp = session.getFirstVideoTimestamp() else { return }
+            let relativeTime = CMTimeSubtract(presentationTime, firstTimestamp)
+
+            if let adaptor = session.getPixelBufferAdaptor(),
+               adaptor.assetWriterInput.isReadyForMoreMediaData {
+                let success = adaptor.append(pixelBuffer, withPresentationTime: relativeTime)
+                if !success, let writer = session.getVideoWriter() {
+                    print("[ERROR] Failed to append video frame \(videoFrameCount). Writer status: \(writer.status.rawValue), error: \(writer.error?.localizedDescription ?? "none")")
+                }
+            } else {
+                if videoFrameCount < 10 {
+                    print("[WARN] Video input not ready for more data at frame \(videoFrameCount)")
+                }
             }
 
         case kCMMediaType_Audio:
+            audioFrameCount += 1
+            if audioFrameCount % 100 == 1 {
+                print("[DEBUG] Audio frames received: \(audioFrameCount)")
+            }
+
+            let presentationTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+
+            if session.getFirstAudioTimestamp() == nil {
+                session.setFirstAudioTimestamp(presentationTime)
+                if let writer = session.getAudioWriter() {
+                    writer.startSession(atSourceTime: .zero)
+                    print("[DEBUG] Audio session started")
+                }
+            }
+
+            guard let firstAudioTimestamp = session.getFirstAudioTimestamp() else { return }
+
+            let sampleCount = CMSampleBufferGetNumSamples(sampleBuffer)
+            var neededTimingEntryCount = 0
+            var timingInfos = Array(
+                repeating: CMSampleTimingInfo(duration: .invalid, presentationTimeStamp: .invalid, decodeTimeStamp: .invalid),
+                count: sampleCount
+            )
+            CMSampleBufferGetSampleTimingInfoArray(
+                sampleBuffer,
+                entryCount: sampleCount,
+                arrayToFill: &timingInfos,
+                entriesNeededOut: &neededTimingEntryCount
+            )
+            if neededTimingEntryCount > 0 {
+                for i in 0..<neededTimingEntryCount {
+                    timingInfos[i].presentationTimeStamp = CMTimeSubtract(timingInfos[i].presentationTimeStamp, firstAudioTimestamp)
+                    if timingInfos[i].decodeTimeStamp.isValid {
+                        timingInfos[i].decodeTimeStamp = CMTimeSubtract(timingInfos[i].decodeTimeStamp, firstAudioTimestamp)
+                    }
+                }
+            }
+
+            var adjustedSampleBuffer: CMSampleBuffer?
+            let copyStatus = CMSampleBufferCreateCopyWithNewTiming(
+                allocator: kCFAllocatorDefault,
+                sampleBuffer: sampleBuffer,
+                sampleTimingEntryCount: neededTimingEntryCount,
+                sampleTimingArray: timingInfos,
+                sampleBufferOut: &adjustedSampleBuffer
+            )
+            guard copyStatus == noErr, let adjustedSampleBuffer else {
+                if audioFrameCount < 10 {
+                    print("[ERROR] Failed to retime audio sample buffer: \(copyStatus)")
+                }
+                return
+            }
+
             if let audioInput = session.getAudioInput(),
                audioInput.isReadyForMoreMediaData {
-                audioInput.append(sampleBuffer)
+                let success = audioInput.append(adjustedSampleBuffer)
+                if !success, let writer = session.getAudioWriter() {
+                    print("[ERROR] Failed to append audio frame \(audioFrameCount). Writer status: \(writer.status.rawValue), error: \(writer.error?.localizedDescription ?? "none")")
+                }
             }
 
         default:
             break
         }
+
     }
 
     private func startDurationTimer(for session: RecordingSession) {

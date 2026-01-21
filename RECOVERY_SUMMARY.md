@@ -43,7 +43,7 @@ Investigué y encontré que estos archivos tenían **incompatibilidades graves**
 
 ### Lo que FUNCIONA ahora:
 - ✅ **EngineKit compila perfectamente** (swift build exitoso)
-- ✅ **App compila con solo warnings menores**
+- ✅ **App compila (warnings deprecados atendidos)**
 - ✅ **Funcionalidad de grabación REAL**:
   - Captura de pantalla
   - Captura de cámara
@@ -51,7 +51,7 @@ Investigué y encontré que estos archivos tenían **incompatibilidades graves**
   - Permisos funcionales
   - Hotkeys globales
   - Status bar menu
-  - Guarda archivos en `~/Documents/Recordings/`
+  - Guarda archivos en `~/Library/Containers/com.dpeluchestudios.CameramanApp/Data/Documents/Recordings/`
 - ✅ **Todos los tests actuales funcionan**
 - ✅ **AIService** y funcionalidad de IA
 - ✅ **CrashReporter** y logging

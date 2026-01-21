@@ -365,18 +365,18 @@ public actor EditorModel {
 
         // Update project timestamp
         project = Project(
-            schemaVersion: project.schemaVersion,
             projectId: project.projectId,
             name: project.name,
-            tags: project.tags,
-            createdAt: project.createdAt,
-            updatedAt: Date(),
             sources: project.sources,
             timeline: project.timeline,
             canvas: project.canvas,
             overlays: project.overlays,
+            chapters: project.chapters,
             captions: project.captions,
-            chapters: project.chapters
+            tags: project.tags,
+            schemaVersion: project.schemaVersion,
+            createdAt: project.createdAt,
+            updatedAt: Date()
         )
 
         return .success(project)
@@ -399,18 +399,18 @@ public actor EditorModel {
 
         // Update project timestamp
         project = Project(
-            schemaVersion: project.schemaVersion,
             projectId: project.projectId,
             name: project.name,
-            tags: project.tags,
-            createdAt: project.createdAt,
-            updatedAt: Date(),
             sources: project.sources,
             timeline: project.timeline,
             canvas: project.canvas,
             overlays: project.overlays,
+            chapters: project.chapters,
             captions: project.captions,
-            chapters: project.chapters
+            tags: project.tags,
+            schemaVersion: project.schemaVersion,
+            createdAt: project.createdAt,
+            updatedAt: Date()
         )
 
         return .success(project)

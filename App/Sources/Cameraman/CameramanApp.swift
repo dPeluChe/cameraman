@@ -33,7 +33,48 @@ struct CameramanApp: App {
                 }
                 .keyboardShortcut(",", modifiers: .command)
             }
+            
+            // Add Recording menu commands
+            CommandGroup(replacing: .newItem) {
+                Button("New Recording") {
+                    // Open recording controls window
+                    NSApp.sendAction(Selector(("showRecordingControlsWindow:")), to: nil, from: nil)
+                }
+                .keyboardShortcut("n", modifiers: .command)
+            }
         }
+
+        // Recording Controls Window (Standalone)
+        WindowGroup(id: "recording-controls") {
+            RecordingControlView()
+                .background(VisualEffectView(material: .hudWindow, blendingMode: .behindWindow))
+                .onAppear {
+                    // Ensure window is properly sized and positioned
+                    NSApp.windows.first { $0.title == "recording-controls" }?.center()
+                }
+        }
+        .windowResizability(.contentSize)
+        .windowStyle(.hiddenTitleBar)
+        .handlesExternalEvents(matching: Set(arrayLiteral: "recording-controls")) // Only open on explicit request
+    }
+}
+
+/// Helper for visual effects
+struct VisualEffectView: NSViewRepresentable {
+    let material: NSVisualEffectView.Material
+    let blendingMode: NSVisualEffectView.BlendingMode
+
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = material
+        view.blendingMode = blendingMode
+        view.state = .active
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        nsView.material = material
+        nsView.blendingMode = blendingMode
     }
 }
 
@@ -74,41 +115,45 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NotificationCenter.default.addObserver(forName: .startRecording, object: nil, queue: .main) { [weak self] _ in
             guard let self = self else { return }
             Task { @MainActor in
-                await self.handleHotkeyAction(.startRecording)
+                self.handleHotkeyAction(.startRecording)
             }
         }
 
         NotificationCenter.default.addObserver(forName: .stopRecording, object: nil, queue: .main) { [weak self] _ in
             guard let self = self else { return }
             Task { @MainActor in
-                await self.handleHotkeyAction(.stopRecording)
+                self.handleHotkeyAction(.stopRecording)
             }
         }
 
         NotificationCenter.default.addObserver(forName: .pauseResumeRecording, object: nil, queue: .main) { [weak self] _ in
             guard let self = self else { return }
             Task { @MainActor in
-                await self.handleHotkeyAction(.pauseResumeRecording)
+                self.handleHotkeyAction(.pauseResumeRecording)
             }
         }
 
         NotificationCenter.default.addObserver(forName: .toggleCamera, object: nil, queue: .main) { [weak self] _ in
             guard let self = self else { return }
             Task { @MainActor in
-                await self.handleHotkeyAction(.toggleCamera)
+                self.handleHotkeyAction(.toggleCamera)
             }
         }
 
         NotificationCenter.default.addObserver(forName: .toggleMicrophone, object: nil, queue: .main) { [weak self] _ in
             guard let self = self else { return }
             Task { @MainActor in
-                await self.handleHotkeyAction(.toggleMicrophone)
+                self.handleHotkeyAction(.toggleMicrophone)
             }
         }
 
         NotificationCenter.default.addObserver(forName: .toggleSystemAudio, object: nil, queue: .main) { [weak self] _ in
             // Handle system audio toggle (no hotkey action for now)
             self?.handleSystemAudioToggle()
+        }
+
+        NotificationCenter.default.addObserver(forName: .showRecordingControls, object: nil, queue: .main) { [weak self] _ in
+            self?.showRecordingControls()
         }
     }
 
@@ -117,11 +162,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             guard let viewModel = RecordingStateManager.shared.viewModel else { return }
             viewModel.includeSystemAudio.toggle()
             professionalMenuBar?.includeSystemAudio = viewModel.includeSystemAudio
-        }
-    }
-
-        NotificationCenter.default.addObserver(forName: .showRecordingControls, object: nil, queue: .main) { [weak self] _ in
-            self?.showRecordingControls()
         }
     }
 
@@ -191,15 +231,34 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showRecordingControls() {
-        // Bring main window to front
-        NSApp.activate(ignoringOtherApps: true)
-        for window in NSApp.windows {
-            if window.title == "CameramanApp" || window.title.isEmpty {
-                window.makeKeyAndOrderFront(nil)
-                break
-            }
-        }
+        // Use SwiftUI environment action via notification/callback bridge if possible,
+        // but since we are in AppDelegate, we might need to rely on URL scheme or similar
+        // if we want to use openWindow.
+        // Alternatively, finding the scene is hard.
+        
+        // For now, let's post a notification that AppNavigation might listen to,
+        // OR rely on the Menu Bar Extra opening it.
+        
+        // Better: Try to open via NSWorkspace URL if we define a scheme, 
+        // OR simply activate the app and let the user click "New Recording".
+        
+        // Actually, since we added a WindowGroup with id "recording-controls",
+        // we can try to open it using the environment from a view context.
+        // But AppDelegate doesn't have that.
+        
+        // Workaround: Send action to the responder chain
+        NSApp.sendAction(#selector(AppDelegate.openRecordingWindow), to: nil, from: nil)
     }
+    
+    @objc func openRecordingWindow() {
+        // This selector is targeted by the menu item, but we need to actually open the SwiftUI window.
+        // We need a bridge. A common pattern is to have a hidden view in the App struct reacting to this.
+        NotificationCenter.default.post(name: .openRecordingWindow, object: nil)
+    }
+}
+
+extension Notification.Name {
+    static let openRecordingWindow = Notification.Name("openRecordingWindow")
 }
 
 /// Recording control UI
@@ -245,14 +304,29 @@ struct RecordingControlView: View {
                 // Status
                 HStack {
                     Circle()
-                        .fill(viewModel.isRecording ? Color.red : Color.gray)
+                        .fill(viewModel.isRecording ? Color.red : (viewModel.statusText.contains("denied") ? Color.orange : Color.gray))
                         .frame(width: 8, height: 8)
 
                     Text(viewModel.statusText)
                         .font(.system(size: 12))
-                        .foregroundColor(.white)
+                        .foregroundColor(viewModel.statusText.contains("denied") ? .orange : .white)
+                        .lineLimit(1)
 
                     Spacer()
+                    
+                    // Permission fix button
+                    if viewModel.statusText.contains("denied") {
+                        Button("Fix") {
+                            Task {
+                                // Open Privacy & Security settings
+                                let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera")!
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
+                        .font(.caption)
+                        .buttonStyle(.borderedProminent)
+                        .tint(.orange)
+                    }
 
                     if viewModel.isRecording {
                         Text(viewModel.elapsedTime)
@@ -340,6 +414,93 @@ struct RecordingControlView: View {
     }
 }
 
+// MARK: - Recording Indicator Window
+
+/// Floating window that shows "REC" indicator during recording
+@MainActor
+class RecordingIndicatorWindow {
+    private var window: NSWindow?
+    private var blinkTimer: Timer?
+    
+    func show() {
+        guard let mainScreen = NSScreen.main else { return }
+        
+        // Create a small window in the top-right corner
+        let windowWidth: CGFloat = 100
+        let windowHeight: CGFloat = 40
+        let padding: CGFloat = 20
+        
+        let windowFrame = NSRect(
+            x: mainScreen.frame.maxX - windowWidth - padding,
+            y: mainScreen.frame.maxY - windowHeight - padding,
+            width: windowWidth,
+            height: windowHeight
+        )
+        
+        let window = NSWindow(
+            contentRect: windowFrame,
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        
+        window.backgroundColor = .clear
+        window.isOpaque = false
+        window.hasShadow = false
+        window.level = .statusBar
+        window.ignoresMouseEvents = true
+        window.collectionBehavior = [.canJoinAllSpaces, .stationary]
+        window.isReleasedWhenClosed = false
+        
+        // Create content view with "REC" label
+        let containerView = NSView(frame: NSRect(x: 0, y: 0, width: windowWidth, height: windowHeight))
+        
+        // Background
+        let backgroundBox = NSBox(frame: containerView.bounds)
+        backgroundBox.boxType = .custom
+        backgroundBox.isTransparent = true
+        backgroundBox.fillColor = NSColor.red.withAlphaComponent(0.9)
+        backgroundBox.cornerRadius = 8
+        containerView.addSubview(backgroundBox)
+        
+        // "REC" label
+        let label = NSTextField(frame: containerView.bounds)
+        label.stringValue = "● REC"
+        label.isEditable = false
+        label.isBordered = false
+        label.backgroundColor = .clear
+        label.textColor = .white
+        label.font = NSFont.systemFont(ofSize: 16, weight: .bold)
+        label.alignment = .center
+        containerView.addSubview(label)
+        
+        window.contentView = containerView
+        window.orderFrontRegardless()
+        
+        self.window = window
+        
+        // Start blinking animation
+        var isVisible = true
+        blinkTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            isVisible.toggle()
+            Task { @MainActor in
+                self?.window?.alphaValue = isVisible ? 1.0 : 0.5
+            }
+        }
+    }
+    
+    func hide() {
+        blinkTimer?.invalidate()
+        blinkTimer = nil
+        
+        if let window = window {
+            window.orderOut(nil)
+            window.close()
+            self.window = nil
+        }
+    }
+}
+
 /// View model for recording controls
 @MainActor
 class RecordingControlViewModel: ObservableObject {
@@ -350,11 +511,13 @@ class RecordingControlViewModel: ObservableObject {
     @Published var includeCamera = true
     @Published var includeMicrophone = false
     @Published var includeSystemAudio = true
+    @Published var lastRecordingURL: URL?
     
     private var selectedConfig: CaptureEngine.CaptureConfiguration?
 
     private var timer: Timer?
     private var recordingSession: Recorder.RecordingSession?
+    private var recordingIndicator: RecordingIndicatorWindow?
     
     func configureSource(_ source: RecordingSourceSelectorView.CaptureSource) async {
         // Convert UI selection to CaptureConfiguration
@@ -367,7 +530,7 @@ class RecordingControlViewModel: ObservableObject {
                 application: nil,
                 captureSystemAudio: includeSystemAudio,
                 frameRate: 60,
-                pixelFormat: kCVPixelFormatType_32ARGB
+                pixelFormat: kCVPixelFormatType_32BGRA
             )
             statusText = "Selected: \(displaySource.name)"
             
@@ -379,7 +542,7 @@ class RecordingControlViewModel: ObservableObject {
                 application: nil,
                 captureSystemAudio: includeSystemAudio,
                 frameRate: 60,
-                pixelFormat: kCVPixelFormatType_32ARGB
+                pixelFormat: kCVPixelFormatType_32BGRA
             )
             statusText = "Selected: \(windowSource.title)"
             
@@ -391,54 +554,81 @@ class RecordingControlViewModel: ObservableObject {
                 application: appSource,
                 captureSystemAudio: includeSystemAudio,
                 frameRate: 60,
-                pixelFormat: kCVPixelFormatType_32ARGB
+                pixelFormat: kCVPixelFormatType_32BGRA
             )
             statusText = "Selected: \(appSource.name)"
         }
     }
 
     func startRecording() async {
-        guard !isRecording else { return }
+        print("[DEBUG-REC] startRecording() called")
+        guard !isRecording else {
+            print("[DEBUG-REC] Already recording, ignoring start request")
+            return
+        }
         
         guard let config = selectedConfig else {
+            print("[DEBUG-REC] No configuration selected")
             statusText = "Please select a source first"
             return
         }
 
+        print("[DEBUG-REC] Configuration selected: \(config)")
         statusText = "Requesting permissions..."
         do {
+            var includeCameraForSession = includeCamera
+            var includeMicrophoneForSession = includeMicrophone
+
             // Check permissions first
+            print("[DEBUG-REC] Requesting screen permission...")
             let permissionManager = PermissionManager.shared
             let screenPermission = await permissionManager.requestScreenRecordingPermission()
+            print("[DEBUG-REC] Screen permission result: \(screenPermission)")
             guard screenPermission == .authorized else {
+                print("[DEBUG-REC] Screen permission denied")
                 statusText = "Screen recording permission denied"
                 return
             }
 
-            if includeCamera {
+            if includeCameraForSession {
+                print("[DEBUG-REC] Requesting camera permission...")
                 let cameraPermission = await permissionManager.requestCameraPermission()
-                guard cameraPermission == .authorized else {
-                    statusText = "Camera permission denied"
-                    return
+                print("[DEBUG-REC] Camera permission result: \(cameraPermission)")
+                
+                if cameraPermission != .authorized {
+                    print("[DEBUG-REC] Camera permission denied. Disabling camera but continuing recording.")
+                    // Don't abort, just disable camera for this session
+                    includeCameraForSession = false
+                    // Update status to warn user
+                    statusText = "Camera denied - Recording Screen Only"
+                    // Continue...
                 }
             }
 
-            if includeMicrophone {
+            if includeMicrophoneForSession {
+                print("[DEBUG-REC] Requesting microphone permission...")
                 let micPermission = await permissionManager.requestMicrophonePermission()
-                guard micPermission == .authorized else {
-                    statusText = "Microphone permission denied"
-                    return
+                print("[DEBUG-REC] Microphone permission result: \(micPermission)")
+                
+                if micPermission != .authorized {
+                    print("[DEBUG-REC] Microphone permission denied. Disabling mic but continuing recording.")
+                    includeMicrophoneForSession = false
+                    statusText = "Mic denied - Recording Screen Only"
                 }
             }
 
             statusText = "Starting recording..."
+            print("[DEBUG-REC] Permissions OK. Preparing output URL...")
 
-            // Create output URL
+            // Create output URL (directory for all recording files)
             let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             let recordingsPath = documentsPath.appendingPathComponent("Recordings")
             try FileManager.default.createDirectory(at: recordingsPath, withIntermediateDirectories: true)
             let timestamp = ISO8601DateFormatter().string(from: Date())
-            let outputURL = recordingsPath.appendingPathComponent("recording_\(timestamp).mov")
+            // NOTE: outputURL is a DIRECTORY, not a file. Recorder will create screen.mov, camera.mov, etc. inside it
+            let outputURL = recordingsPath.appendingPathComponent("recording_\(timestamp)")
+            try FileManager.default.createDirectory(at: outputURL, withIntermediateDirectories: true)
+            print("[DEBUG-REC] Output directory: \(outputURL.path)")
 
             // Recreate config with current system audio setting
             let screenConfig = CaptureEngine.CaptureConfiguration(
@@ -453,7 +643,7 @@ class RecordingControlViewModel: ObservableObject {
 
             // Create camera configuration if needed
             var cameraConfig: CameraEngine.CameraConfiguration?
-            if includeCamera {
+            if includeCameraForSession {
                 cameraConfig = CameraEngine.CameraConfiguration(
                     deviceID: nil, // Use default camera
                     resolutionPreset: .hd1080,
@@ -467,15 +657,17 @@ class RecordingControlViewModel: ObservableObject {
             let config = Recorder.RecordingConfiguration(
                 screenConfig: screenConfig,
                 cameraConfig: cameraConfig,
-                captureMicAudio: includeMicrophone
+                captureMicAudio: includeMicrophoneForSession
             )
 
             // Start recording
+            print("[DEBUG-REC] Calling Recorder.shared.startRecording...")
             let recorder = Recorder.shared
             recordingSession = try await recorder.startRecording(
                 config: config,
                 outputURL: outputURL
             )
+            print("[DEBUG-REC] Recorder started successfully. Session: \(String(describing: recordingSession))")
 
             // Start timer
             timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
@@ -486,10 +678,22 @@ class RecordingControlViewModel: ObservableObject {
 
             statusText = "Recording..."
             isRecording = true
+            
+            // Show recording indicator
+            recordingIndicator = RecordingIndicatorWindow()
+            recordingIndicator?.show()
+            print("📹 Recording indicator shown")
 
         } catch {
             statusText = "Error: \(error.localizedDescription)"
-            print("❌ Failed to start recording: \(error)")
+            print("❌ [DEBUG-REC] Failed to start recording: \(error)")
+            dump(error)
+            
+            // Clean up state
+            isRecording = false
+            recordingSession = nil
+            timer?.invalidate()
+            timer = nil
         }
     }
 
@@ -506,9 +710,13 @@ class RecordingControlViewModel: ObservableObject {
             let recorder = Recorder.shared
             let result = try await recorder.stopRecording(session: session)
 
+            lastRecordingURL = result.screenVideoPath
             statusText = "Saved: \(result.screenVideoPath.lastPathComponent)"
             print("✅ Recording saved to: \(result.screenVideoPath)")
             print("   Duration: \(result.duration)s")
+            
+            // Auto-reveal in Finder
+            NSWorkspace.shared.activateFileViewerSelecting([result.screenVideoPath])
             if let cameraPath = result.cameraVideoPath {
                 print("   Camera: \(cameraPath.lastPathComponent)")
             }
@@ -524,6 +732,11 @@ class RecordingControlViewModel: ObservableObject {
         isPaused = false
         elapsedTime = "00:00"
         recordingSession = nil
+        
+        // Hide recording indicator
+        recordingIndicator?.hide()
+        recordingIndicator = nil
+        print("📹 Recording indicator hidden")
     }
 
     func pauseResumeRecording() async {
@@ -552,6 +765,20 @@ class RecordingControlViewModel: ObservableObject {
             let seconds = Int(elapsed) % 60
             elapsedTime = String(format: "%02d:%02d", minutes, seconds)
         }
+    }
+    
+    func showLastRecordingInFinder() {
+        guard let url = lastRecordingURL else {
+            print("No recording to show")
+            return
+        }
+        NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
+    
+    func openRecordingsFolder() {
+        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let recordingsPath = documentsPath.appendingPathComponent("Recordings")
+        NSWorkspace.shared.open(recordingsPath)
     }
 }
 

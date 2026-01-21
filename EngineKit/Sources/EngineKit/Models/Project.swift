@@ -34,6 +34,34 @@ public struct Project: Codable, Equatable {
     /// Chapter markers for video navigation
     public var chapters: [Chapter]
 
+    public init(
+        projectId: ProjectId,
+        name: String,
+        sources: Sources,
+        timeline: Timeline,
+        canvas: Canvas,
+        overlays: [Overlay] = [],
+        chapters: [Chapter] = [],
+        captions: Captions? = nil,
+        tags: [String] = [],
+        schemaVersion: Int = 1,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date()
+    ) {
+        self.projectId = projectId
+        self.name = name
+        self.sources = sources
+        self.timeline = timeline
+        self.canvas = canvas
+        self.overlays = overlays
+        self.chapters = chapters
+        self.captions = captions
+        self.tags = tags
+        self.schemaVersion = schemaVersion
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+
     /// Source media tracks
     public struct Sources: Codable, Equatable {
         /// Which track is the sync reference
@@ -46,6 +74,20 @@ public struct Project: Codable, Equatable {
         public var audio: AudioTracks?
         /// Telemetry data
         public var telemetry: TelemetryTracks?
+
+        public init(
+            syncReference: String = "screen",
+            screen: MediaTrack,
+            camera: MediaTrack? = nil,
+            audio: AudioTracks? = nil,
+            telemetry: TelemetryTracks? = nil
+        ) {
+            self.syncReference = syncReference
+            self.screen = screen
+            self.camera = camera
+            self.audio = audio
+            self.telemetry = telemetry
+        }
 
         /// Media track information
         public struct MediaTrack: Codable, Equatable {
@@ -61,12 +103,33 @@ public struct Project: Codable, Equatable {
             public let sha256: String
             /// File size in bytes
             public let sizeBytes: UInt64
+
+            public init(
+                path: String,
+                fps: Double,
+                size: Size,
+                syncOffsetMs: Int = 0,
+                sha256: String = "",
+                sizeBytes: UInt64 = 0
+            ) {
+                self.path = path
+                self.fps = fps
+                self.size = size
+                self.syncOffsetMs = syncOffsetMs
+                self.sha256 = sha256
+                self.sizeBytes = sizeBytes
+            }
         }
 
         /// Dimensions
         public struct Size: Codable, Equatable {
             public let w: Int
             public let h: Int
+
+            public init(w: Int, h: Int) {
+                self.w = w
+                self.h = h
+            }
         }
 
         /// Audio tracks
@@ -76,11 +139,28 @@ public struct Project: Codable, Equatable {
             /// Microphone audio
             public var mic: AudioTrack?
 
+            public init(system: AudioTrack? = nil, mic: AudioTrack? = nil) {
+                self.system = system
+                self.mic = mic
+            }
+
             public struct AudioTrack: Codable, Equatable {
                 public let path: String
                 public var syncOffsetMs: Int
                 public let sha256: String
                 public let sizeBytes: UInt64
+
+                public init(
+                    path: String,
+                    syncOffsetMs: Int = 0,
+                    sha256: String = "",
+                    sizeBytes: UInt64 = 0
+                ) {
+                    self.path = path
+                    self.syncOffsetMs = syncOffsetMs
+                    self.sha256 = sha256
+                    self.sizeBytes = sizeBytes
+                }
             }
         }
 
@@ -89,8 +169,17 @@ public struct Project: Codable, Equatable {
             public let cursor: TelemetryTrack?
             public let keys: TelemetryTrack?
 
+            public init(cursor: TelemetryTrack? = nil, keys: TelemetryTrack? = nil) {
+                self.cursor = cursor
+                self.keys = keys
+            }
+
             public struct TelemetryTrack: Codable, Equatable {
                 public let path: String
+
+                public init(path: String) {
+                    self.path = path
+                }
             }
         }
     }
@@ -101,6 +190,11 @@ public struct Project: Codable, Equatable {
         public let duration: TimeInterval
         /// Timeline segments (non-destructive edits)
         public var segments: [Segment]
+
+        public init(duration: TimeInterval, segments: [Segment]) {
+            self.duration = duration
+            self.segments = segments
+        }
 
         /// A segment represents a portion of source media on the timeline
         public struct Segment: Codable, Equatable, Identifiable {
@@ -115,6 +209,22 @@ public struct Project: Codable, Equatable {
             public var speed: Double
             /// Zoom configuration for this segment (optional, overrides project defaults)
             public var zoom: ZoomConfiguration?
+
+            public init(
+                id: String = UUID().uuidString,
+                sourceIn: TimeInterval,
+                sourceOut: TimeInterval,
+                timelineIn: TimeInterval,
+                speed: Double = 1.0,
+                zoom: ZoomConfiguration? = nil
+            ) {
+                self.id = id
+                self.sourceIn = sourceIn
+                self.sourceOut = sourceOut
+                self.timelineIn = timelineIn
+                self.speed = speed
+                self.zoom = zoom
+            }
         }
 
         /// Zoom configuration for a timeline segment

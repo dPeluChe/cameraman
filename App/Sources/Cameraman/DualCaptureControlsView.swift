@@ -8,6 +8,7 @@
 
 import SwiftUI
 import AVFoundation
+import Combine
 import EngineKit
 
 /// Professional dual-capture controls for screen + camera
@@ -472,8 +473,15 @@ class DualCaptureViewModel: ObservableObject {
 
     private func loadDefaultDevices() {
         // Find default camera using AVCaptureDevice.DiscoverySession
+        let cameraDeviceTypes: [AVCaptureDevice.DeviceType]
+        if #available(macOS 14.0, *) {
+            cameraDeviceTypes = [.builtInWideAngleCamera, .external]
+        } else {
+            cameraDeviceTypes = [.builtInWideAngleCamera, .externalUnknown]
+        }
+
         let videoDevices = AVCaptureDevice.DiscoverySession(
-            deviceTypes: [.builtInWideAngleCamera, .externalUnknown],
+            deviceTypes: cameraDeviceTypes,
             mediaType: .video,
             position: .unspecified
         ).devices
@@ -483,8 +491,15 @@ class DualCaptureViewModel: ObservableObject {
         }
 
         // Find default microphone using AVCaptureDevice.DiscoverySession
+        let microphoneDeviceTypes: [AVCaptureDevice.DeviceType]
+        if #available(macOS 14.0, *) {
+            microphoneDeviceTypes = [.microphone]
+        } else {
+            microphoneDeviceTypes = [.builtInMicrophone]
+        }
+
         let audioDevices = AVCaptureDevice.DiscoverySession(
-            deviceTypes: [.builtInMicrophone],
+            deviceTypes: microphoneDeviceTypes,
             mediaType: .audio,
             position: .unspecified
         ).devices
@@ -564,13 +579,24 @@ struct CameraSelectorView: View {
     @Environment(\.dismiss) private var dismiss
 
     private var videoDevices: [AVCaptureDevice] {
-        AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInWideAngleCamera, .externalUnknown], mediaType: .video, position: .unspecified).devices
+        let deviceTypes: [AVCaptureDevice.DeviceType]
+        if #available(macOS 14.0, *) {
+            deviceTypes = [.builtInWideAngleCamera, .external]
+        } else {
+            deviceTypes = [.builtInWideAngleCamera, .externalUnknown]
+        }
+        
+        return AVCaptureDevice.DiscoverySession(
+            deviceTypes: deviceTypes,
+            mediaType: .video,
+            position: .unspecified
+        ).devices
     }
 
     var body: some View {
         VStack(spacing: 0) {
             List {
-                ForEach(videoDevices, id: \.uniqueID) { device in
+                ForEach(videoDevices, id: \.uniqueID) { (device: AVCaptureDevice) in
                     Button {
                         selectedDevice = device
                         dismiss()
@@ -582,9 +608,6 @@ struct CameraSelectorView: View {
                             VStack(alignment: .leading) {
                                 Text(device.localizedName)
                                     .font(.body)
-                                Text("\(device.resolutionWidth ?? 0)×\(device.resolutionHeight ?? 0)")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
                             }
                             Spacer()
                             if selectedDevice?.uniqueID == device.uniqueID {
@@ -624,13 +647,24 @@ struct MicrophoneSelectorView: View {
     @Environment(\.dismiss) private var dismiss
 
     private var audioDevices: [AVCaptureDevice] {
-        AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInMicrophone], mediaType: .audio, position: .unspecified).devices
+        let deviceTypes: [AVCaptureDevice.DeviceType]
+        if #available(macOS 14.0, *) {
+            deviceTypes = [.microphone]
+        } else {
+            deviceTypes = [.builtInMicrophone]
+        }
+        
+        return AVCaptureDevice.DiscoverySession(
+            deviceTypes: deviceTypes,
+            mediaType: .audio,
+            position: .unspecified
+        ).devices
     }
 
     var body: some View {
         VStack(spacing: 0) {
             List {
-                ForEach(audioDevices, id: \.uniqueID) { device in
+                ForEach(audioDevices, id: \.uniqueID) { (device: AVCaptureDevice) in
                     Button {
                         selectedDevice = device
                         dismiss()

@@ -418,7 +418,7 @@ struct TimelineView: View {
             .background(Color.primary.opacity(0.03))
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
-        .onChange(of: projectDirectory) { newValue in
+        .onChange(of: projectDirectory) { _, newValue in
             if let path = newValue?.path {
                 initializeThumbnailCache(projectDirectory: path)
             }

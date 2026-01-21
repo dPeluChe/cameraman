@@ -10,6 +10,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Language:** Swift 5.9+
 - **Architecture:** EngineKit (Swift Package) + SwiftUI App
 
+## Entry Points
+
+- **Xcode app project:** `CameramanApp/CameramanApp.xcodeproj` (scheme: `CameramanApp`)
+- **EngineKit package:** `EngineKit/` (Swift Package)
+
 ## Build & Test Commands
 
 All commands run from the `EngineKit/` directory:
@@ -24,6 +29,27 @@ swift test                       # Run all tests
 swift test --filter <TestClass>  # Run specific test class
 swift test --parallel            # Run tests in parallel
 ```
+
+## Recording Output
+
+When running the sandboxed app, recordings are saved under the app container:
+
+`~/Library/Containers/com.dpeluchestudios.CameramanApp/Data/Documents/Recordings/recording_<ISO8601>/`
+
+The recording produces separate track files:
+
+- `screen.mov`
+- `camera.mov`
+- `system_audio.m4a`
+- `mic_audio.m4a`
+
+## Permissions / Entitlements
+
+Because App Sandbox is enabled, camera and microphone access require entitlements:
+
+- `CameramanApp/CameramanApp.entitlements`
+  - `com.apple.security.device.camera`
+  - `com.apple.security.device.audio-input`
 
 ## Architecture
 
