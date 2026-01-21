@@ -5,6 +5,7 @@
 //  Created by Ralphy on 2026-01-20.
 //
 
+import Combine
 import SwiftUI
 import EngineKit
 import UniformTypeIdentifiers

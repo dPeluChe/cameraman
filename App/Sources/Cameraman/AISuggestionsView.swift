@@ -6,6 +6,7 @@
 //  Épica UI-K, P2 Task 1: AI Suggestions Panel
 //
 
+import Combine
 import SwiftUI
 import EngineKit
 

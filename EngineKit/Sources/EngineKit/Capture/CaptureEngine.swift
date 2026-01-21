@@ -9,6 +9,36 @@ import Foundation
 import ScreenCaptureKit
 import AVFoundation
 
+/// Delegate for handling SCStream events
+private class StreamDelegate: NSObject, SCStreamDelegate {
+    private let onSampleBuffer: (CMSampleBuffer, SCStreamOutputType) -> Void
+
+    init(onSampleBuffer: @escaping (CMSampleBuffer, SCStreamOutputType) -> Void) {
+        self.onSampleBuffer = onSampleBuffer
+    }
+
+    func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
+        onSampleBuffer(sampleBuffer, type)
+    }
+
+    func stream(_ stream: SCStream, didStopWithError error: Error) {
+        print("[ERROR] Stream stopped with error: \(error.localizedDescription)")
+    }
+}
+
+/// Custom SCStreamOutput for handling samples
+private class CaptureStreamOutput: NSObject, SCStreamOutput {
+    private let onSample: (CMSampleBuffer, SCStreamOutputType) -> Void
+
+    init(onSample: @escaping (CMSampleBuffer, SCStreamOutputType) -> Void) {
+        self.onSample = onSample
+    }
+
+    func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
+        onSample(sampleBuffer, type)
+    }
+}
+
 /// CaptureEngine manages screen and audio recording using ScreenCaptureKit
 public actor CaptureEngine {
     // MARK: - Types
@@ -184,6 +214,8 @@ public actor CaptureEngine {
 
     private let sourceSelector = SourceSelector.shared
     private let permissionManager = PermissionManager.shared
+
+    private var streamDelegate: StreamDelegate?
 
     // MARK: - Initialization
 
@@ -381,18 +413,31 @@ public actor CaptureEngine {
 
         switch config.sourceType {
         case .display:
-            // Get available displays
-            let displays = try await sourceSelector.listDisplays()
-            guard let targetDisplay = displays.first(where: { $0.id == config.display?.id }) else {
+            let shareableContent = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
+
+            print("[DEBUG] Available SCDisplay count: \(shareableContent.displays.count)")
+            for (index, display) in shareableContent.displays.enumerated() {
+                print("[DEBUG] SCDisplay[\(index)]: id=\(display.displayID), width=\(display.width), height=\(display.height)")
+            }
+
+            guard let scDisplay: SCDisplay = {
+                if let targetID = config.display?.id {
+                    print("[DEBUG] Looking for display with config id: \(targetID)")
+                    if let cgTargetID = UInt32(targetID) {
+                        print("[DEBUG] Converted to CGDisplayID: \(cgTargetID)")
+                        return shareableContent.displays.first(where: { $0.displayID == cgTargetID })
+                    } else {
+                        print("[DEBUG] Failed to convert ID to UInt32")
+                    }
+                }
+                print("[DEBUG] Using first available display as fallback")
+                return shareableContent.displays.first
+            }() else {
                 throw CaptureError.noSourceSelected
             }
 
-            // Create filter for entire display
-            let shareableContent = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
-            contentFilter = SCContentFilter(display: shareableContent.displays.first(where: { display in
-                // Match display by some criteria
-                return true
-            })!, excludingWindows: [])
+            print("[DEBUG] Selected SCDisplay: id=\(scDisplay.displayID)")
+            contentFilter = SCContentFilter(display: scDisplay, excludingWindows: [])
 
         case .window:
             let windows = try await sourceSelector.listWindows()
@@ -441,11 +486,27 @@ public actor CaptureEngine {
         configuration: SCStreamConfiguration,
         filter: SCContentFilter
     ) async throws -> SCStream {
-        // Create stream
-        let stream = SCStream(filter: filter, configuration: configuration, delegate: nil)
+        print("[DEBUG] Creating SCStream...")
 
-        // Start stream
+        let stream = SCStream(filter: filter, configuration: configuration, delegate: nil)
+        print("[DEBUG] SCStream created successfully")
+
+        // Create a queue for sample handling
+        let sampleQueue = DispatchQueue(label: "com.cameraman.samplequeue")
+
+        // Add video stream output
+        let videoOutput = CaptureStreamOutput { [weak self] sampleBuffer, _ in
+            Task { [weak self] in
+                guard let self else { return }
+                await self.handleSampleBuffer(sampleBuffer)
+            }
+        }
+        try stream.addStreamOutput(videoOutput, type: SCStreamOutputType(rawValue: 0)!, sampleHandlerQueue: sampleQueue)
+        print("[DEBUG] Added video stream output")
+
+        print("[DEBUG] Starting capture...")
         try await stream.startCapture()
+        print("[DEBUG] Capture started successfully")
 
         return stream
     }

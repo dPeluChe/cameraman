@@ -5,6 +5,7 @@
 //  Created by Ralphy on 2026-01-19.
 //
 
+import Combine
 import SwiftUI
 import EngineKit
 
@@ -39,14 +40,21 @@ struct CameramanApp: App {
 /// App delegate for managing lifecycle and hotkeys
 class AppDelegate: NSObject, NSApplicationDelegate {
     var statusBarMenu: StatusBarMenu?
+    var professionalMenuBar: ProfessionalMenuBarManager?
     var hotkeyManager: HotkeyManager?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Setup hotkeys
         setupHotkeys()
 
-        // Create status bar menu
+        // Create status bar menu (legacy, can be removed later)
         statusBarMenu = StatusBarMenu()
+
+        // Create professional menu bar manager
+        professionalMenuBar = ProfessionalMenuBarManager.shared
+
+        // Setup notification observers
+        setupNotifications()
 
         // Note: Floating panel removed - using WindowGroup instead
     }
@@ -59,6 +67,62 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         // Cleanup
         hotkeyManager?.unregisterAllHotkeys()
+    }
+
+    private func setupNotifications() {
+        // Register notification observers for menu bar actions
+        NotificationCenter.default.addObserver(forName: .startRecording, object: nil, queue: .main) { [weak self] _ in
+            guard let self = self else { return }
+            Task { @MainActor in
+                await self.handleHotkeyAction(.startRecording)
+            }
+        }
+
+        NotificationCenter.default.addObserver(forName: .stopRecording, object: nil, queue: .main) { [weak self] _ in
+            guard let self = self else { return }
+            Task { @MainActor in
+                await self.handleHotkeyAction(.stopRecording)
+            }
+        }
+
+        NotificationCenter.default.addObserver(forName: .pauseResumeRecording, object: nil, queue: .main) { [weak self] _ in
+            guard let self = self else { return }
+            Task { @MainActor in
+                await self.handleHotkeyAction(.pauseResumeRecording)
+            }
+        }
+
+        NotificationCenter.default.addObserver(forName: .toggleCamera, object: nil, queue: .main) { [weak self] _ in
+            guard let self = self else { return }
+            Task { @MainActor in
+                await self.handleHotkeyAction(.toggleCamera)
+            }
+        }
+
+        NotificationCenter.default.addObserver(forName: .toggleMicrophone, object: nil, queue: .main) { [weak self] _ in
+            guard let self = self else { return }
+            Task { @MainActor in
+                await self.handleHotkeyAction(.toggleMicrophone)
+            }
+        }
+
+        NotificationCenter.default.addObserver(forName: .toggleSystemAudio, object: nil, queue: .main) { [weak self] _ in
+            // Handle system audio toggle (no hotkey action for now)
+            self?.handleSystemAudioToggle()
+        }
+    }
+
+    private func handleSystemAudioToggle() {
+        Task { @MainActor in
+            guard let viewModel = RecordingStateManager.shared.viewModel else { return }
+            viewModel.includeSystemAudio.toggle()
+            professionalMenuBar?.includeSystemAudio = viewModel.includeSystemAudio
+        }
+    }
+
+        NotificationCenter.default.addObserver(forName: .showRecordingControls, object: nil, queue: .main) { [weak self] _ in
+            self?.showRecordingControls()
+        }
     }
 
     private func setupHotkeys() {
@@ -89,6 +153,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             case .startRecording:
                 if !viewModel.isRecording {
                     await viewModel.startRecording()
+                    professionalMenuBar?.isRecording = true
                     print("▶️ Started recording via hotkey")
                 } else {
                     print("⚠️ Recording already in progress")
@@ -97,6 +162,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             case .stopRecording:
                 if viewModel.isRecording {
                     await viewModel.stopRecording()
+                    professionalMenuBar?.isRecording = false
                     print("⏹️ Stopped recording via hotkey")
                 } else {
                     print("⚠️ No recording in progress")
@@ -105,6 +171,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             case .pauseResumeRecording:
                 if viewModel.isRecording {
                     await viewModel.pauseResumeRecording()
+                    professionalMenuBar?.isPaused = viewModel.isPaused
                     print(viewModel.isPaused ? "⏸️ Paused recording via hotkey" : "▶️ Resumed recording via hotkey")
                 } else {
                     print("⚠️ No recording in progress")
@@ -112,11 +179,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
             case .toggleCamera:
                 viewModel.includeCamera.toggle()
+                professionalMenuBar?.includeCamera = viewModel.includeCamera
                 print("📷 Camera toggled: \(viewModel.includeCamera ? "enabled" : "disabled")")
 
             case .toggleMicrophone:
                 viewModel.includeMicrophone.toggle()
+                professionalMenuBar?.includeMicrophone = viewModel.includeMicrophone
                 print("🎤 Microphone toggled: \(viewModel.includeMicrophone ? "enabled" : "disabled")")
+            }
+        }
+    }
+
+    private func showRecordingControls() {
+        // Bring main window to front
+        NSApp.activate(ignoringOtherApps: true)
+        for window in NSApp.windows {
+            if window.title == "CameramanApp" || window.title.isEmpty {
+                window.makeKeyAndOrderFront(nil)
+                break
             }
         }
     }
@@ -516,8 +596,11 @@ class StatusBarMenu {
     private func setupStatusUpdateTimer() {
         // Update status bar every second to reflect recording state
         updateTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.updateStatus()
+            Task { [weak self] in
+                guard let self else { return }
+                await MainActor.run {
+                    self.updateStatus()
+                }
             }
         }
     }

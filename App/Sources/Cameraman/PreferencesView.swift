@@ -6,6 +6,7 @@
 //  Épica UI-L — Settings & Preferences (P1)
 //
 
+import Combine
 import SwiftUI
 import EngineKit
 

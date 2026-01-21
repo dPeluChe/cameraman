@@ -6,6 +6,7 @@
 //  Épica UI-C — Recording UI (Mejoras)
 //
 
+import Combine
 import SwiftUI
 import EngineKit
 
@@ -283,8 +284,11 @@ class EnhancedRecordingViewModel: ObservableObject {
 
         // Start timer
         timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.updateElapsedTime()
+            Task { [weak self] in
+                guard let self else { return }
+                await MainActor.run {
+                    self.updateElapsedTime()
+                }
             }
         }
 
