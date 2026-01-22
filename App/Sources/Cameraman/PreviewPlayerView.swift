@@ -62,7 +62,13 @@ final class PreviewPlayerViewModel: ObservableObject {
         self.project = project
         aspectRatio = Self.aspectRatio(for: project)
         updateDuration(project.timeline.duration)
-        let sourcePath = projectDirectory.appendingPathComponent(project.sources.screen.path).path
+        
+        guard let sources = project.primarySources else {
+            reset()
+            return
+        }
+        
+        let sourcePath = projectDirectory.appendingPathComponent(sources.screen.path).path
 
         guard FileManager.default.fileExists(atPath: sourcePath) else {
             stopUpdateTimer()
@@ -85,7 +91,7 @@ final class PreviewPlayerViewModel: ObservableObject {
 
         Task {
             do {
-                try await engine.loadProject(project, projectDirectory: sourcePath)
+                try await engine.loadProject(project, projectDirectory: projectDirectory.path)
                 await MainActor.run {
                     self.previewEngine = engine
                     self.loadError = nil

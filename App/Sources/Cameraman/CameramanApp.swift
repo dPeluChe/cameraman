@@ -418,9 +418,10 @@ struct RecordingControlView: View {
 
 /// Floating window that shows "REC" indicator during recording
 @MainActor
-class RecordingIndicatorWindow {
+class RecordingIndicatorWindow: NSObject {
     private var window: NSWindow?
     private var blinkTimer: Timer?
+    private var isVisible = true
     
     func show() {
         guard let mainScreen = NSScreen.main else { return }
@@ -480,13 +481,13 @@ class RecordingIndicatorWindow {
         self.window = window
         
         // Start blinking animation
-        var isVisible = true
-        blinkTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            isVisible.toggle()
-            Task { @MainActor in
-                self?.window?.alphaValue = isVisible ? 1.0 : 0.5
-            }
-        }
+        isVisible = true
+        blinkTimer = Timer.scheduledTimer(timeInterval: 1.0, target: self, selector: #selector(handleBlinkTimer(_:)), userInfo: nil, repeats: true)
+    }
+
+    @objc private func handleBlinkTimer(_ timer: Timer) {
+        isVisible.toggle()
+        window?.alphaValue = isVisible ? 1.0 : 0.5
     }
     
     func hide() {
@@ -504,6 +505,9 @@ class RecordingIndicatorWindow {
 /// View model for recording controls
 @MainActor
 class RecordingControlViewModel: ObservableObject {
+    // Set to true to enable verbose recording logs
+    private let debugLoggingEnabled = false
+
     @Published var isRecording = false
     @Published var isPaused = false
     @Published var elapsedTime = "00:00"
@@ -518,6 +522,12 @@ class RecordingControlViewModel: ObservableObject {
     private var timer: Timer?
     private var recordingSession: Recorder.RecordingSession?
     private var recordingIndicator: RecordingIndicatorWindow?
+    
+    private func log(_ message: String) {
+        if debugLoggingEnabled {
+            print("[DEBUG-REC] \(message)")
+        }
+    }
     
     func configureSource(_ source: RecordingSourceSelectorView.CaptureSource) async {
         // Convert UI selection to CaptureConfiguration
@@ -561,42 +571,42 @@ class RecordingControlViewModel: ObservableObject {
     }
 
     func startRecording() async {
-        print("[DEBUG-REC] startRecording() called")
+        log("startRecording() called")
         guard !isRecording else {
-            print("[DEBUG-REC] Already recording, ignoring start request")
+            log("Already recording, ignoring start request")
             return
         }
         
         guard let config = selectedConfig else {
-            print("[DEBUG-REC] No configuration selected")
+            log("No configuration selected")
             statusText = "Please select a source first"
             return
         }
 
-        print("[DEBUG-REC] Configuration selected: \(config)")
+        log("Configuration selected: \(config)")
         statusText = "Requesting permissions..."
         do {
             var includeCameraForSession = includeCamera
             var includeMicrophoneForSession = includeMicrophone
 
             // Check permissions first
-            print("[DEBUG-REC] Requesting screen permission...")
+            log("Requesting screen permission...")
             let permissionManager = PermissionManager.shared
             let screenPermission = await permissionManager.requestScreenRecordingPermission()
-            print("[DEBUG-REC] Screen permission result: \(screenPermission)")
+            log("Screen permission result: \(screenPermission)")
             guard screenPermission == .authorized else {
-                print("[DEBUG-REC] Screen permission denied")
+                log("Screen permission denied")
                 statusText = "Screen recording permission denied"
                 return
             }
 
             if includeCameraForSession {
-                print("[DEBUG-REC] Requesting camera permission...")
+                log("Requesting camera permission...")
                 let cameraPermission = await permissionManager.requestCameraPermission()
-                print("[DEBUG-REC] Camera permission result: \(cameraPermission)")
+                log("Camera permission result: \(cameraPermission)")
                 
                 if cameraPermission != .authorized {
-                    print("[DEBUG-REC] Camera permission denied. Disabling camera but continuing recording.")
+                    log("Camera permission denied. Disabling camera but continuing recording.")
                     // Don't abort, just disable camera for this session
                     includeCameraForSession = false
                     // Update status to warn user
@@ -606,19 +616,19 @@ class RecordingControlViewModel: ObservableObject {
             }
 
             if includeMicrophoneForSession {
-                print("[DEBUG-REC] Requesting microphone permission...")
+                log("Requesting microphone permission...")
                 let micPermission = await permissionManager.requestMicrophonePermission()
-                print("[DEBUG-REC] Microphone permission result: \(micPermission)")
+                log("Microphone permission result: \(micPermission)")
                 
                 if micPermission != .authorized {
-                    print("[DEBUG-REC] Microphone permission denied. Disabling mic but continuing recording.")
+                    log("Microphone permission denied. Disabling mic but continuing recording.")
                     includeMicrophoneForSession = false
                     statusText = "Mic denied - Recording Screen Only"
                 }
             }
 
             statusText = "Starting recording..."
-            print("[DEBUG-REC] Permissions OK. Preparing output URL...")
+            log("Permissions OK. Preparing output URL...")
 
             // Create output URL (directory for all recording files)
             let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -628,7 +638,7 @@ class RecordingControlViewModel: ObservableObject {
             // NOTE: outputURL is a DIRECTORY, not a file. Recorder will create screen.mov, camera.mov, etc. inside it
             let outputURL = recordingsPath.appendingPathComponent("recording_\(timestamp)")
             try FileManager.default.createDirectory(at: outputURL, withIntermediateDirectories: true)
-            print("[DEBUG-REC] Output directory: \(outputURL.path)")
+            log("Output directory: \(outputURL.path)")
 
             // Recreate config with current system audio setting
             let screenConfig = CaptureEngine.CaptureConfiguration(
@@ -661,13 +671,13 @@ class RecordingControlViewModel: ObservableObject {
             )
 
             // Start recording
-            print("[DEBUG-REC] Calling Recorder.shared.startRecording...")
+            log("Calling Recorder.shared.startRecording...")
             let recorder = Recorder.shared
             recordingSession = try await recorder.startRecording(
                 config: config,
                 outputURL: outputURL
             )
-            print("[DEBUG-REC] Recorder started successfully. Session: \(String(describing: recordingSession))")
+            log("Recorder started successfully. Session: \(String(describing: recordingSession))")
 
             // Start timer
             timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
@@ -682,12 +692,12 @@ class RecordingControlViewModel: ObservableObject {
             // Show recording indicator
             recordingIndicator = RecordingIndicatorWindow()
             recordingIndicator?.show()
-            print("📹 Recording indicator shown")
+            if debugLoggingEnabled { print("📹 Recording indicator shown") }
 
         } catch {
             statusText = "Error: \(error.localizedDescription)"
-            print("❌ [DEBUG-REC] Failed to start recording: \(error)")
-            dump(error)
+            log("Failed to start recording: \(error)")
+            if debugLoggingEnabled { dump(error) }
             
             // Clean up state
             isRecording = false
@@ -714,9 +724,17 @@ class RecordingControlViewModel: ObservableObject {
             statusText = "Saved: \(result.screenVideoPath.lastPathComponent)"
             print("✅ Recording saved to: \(result.screenVideoPath)")
             print("   Duration: \(result.duration)s")
-            
+
+            let library = ProjectLibrary()
+            let projectId = try await library.createProject(from: result)
+            let projectDirectory = try await library.getProjectDirectory(projectId: projectId)
+
             // Auto-reveal in Finder
-            NSWorkspace.shared.activateFileViewerSelecting([result.screenVideoPath])
+            NSWorkspace.shared.activateFileViewerSelecting([projectDirectory])
+
+            // Open the editor for the newly created project
+            NotificationCenter.default.post(name: .openProject, object: projectId)
+
             if let cameraPath = result.cameraVideoPath {
                 print("   Camera: \(cameraPath.lastPathComponent)")
             }

@@ -9,6 +9,10 @@ import Combine
 import SwiftUI
 import EngineKit
 
+extension Notification.Name {
+    static let openProject = Notification.Name("openProject")
+}
+
 enum AppNavigationItem: Hashable {
     case recording
     case project(ProjectId)
@@ -115,7 +119,8 @@ final class AppNavigationViewModel: ObservableObject {
 
             if case let .project(projectId) = selectedItem,
                !loadedProjects.contains(where: { $0.projectId == projectId }) {
-                selectedItem = .recording
+                // Commented out to prevent flickering during load or if project list is initially empty
+                // selectedItem = .recording
             }
         } catch {
             loadErrorMessage = error.localizedDescription
@@ -223,6 +228,7 @@ struct AppNavigation: View {
     var body: some View {
         splitView
             .task {
+                await Task.yield()
                 await viewModel.loadProjects()
             }
             .toolbar {
@@ -230,6 +236,14 @@ struct AppNavigation: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: .openRecordingWindow)) { _ in
                 openWindow(id: "recording-controls")
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .openProject)) { notification in
+                guard let projectId = notification.object as? ProjectId else { return }
+                Task { @MainActor in
+                    await Task.yield()
+                    await viewModel.loadProjects()
+                    viewModel.selectedItem = .project(projectId)
+                }
             }
             // Removed onAppear auto-open to prevent double windows
     }

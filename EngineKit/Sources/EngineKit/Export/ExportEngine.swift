@@ -251,6 +251,7 @@ public actor ExportEngine {
     ) async {
         let startTime = Date()
         logger.debug("Starting GIF export performance for job: \(jobId.uuidString)")
+        let sources = project.primarySources!
 
         do {
             let projectDirectory = getProjectDirectory(for: projectId)
@@ -282,9 +283,9 @@ public actor ExportEngine {
             // Stage 2: Load and validate source assets (0.1 - 0.2)
             try await checkCancellation(jobId: jobId)
             await updateExportStage(jobId: jobId, stage: .assetLoading, progress: 0.1)
-            logger.debug("Loading screen asset from: \(project.sources.screen.path)")
+            logger.debug("Loading screen asset from: \(project.primarySources!.screen.path)")
 
-            let screenAsset = AVAsset(url: projectDirectory.appendingPathComponent(project.sources.screen.path))
+            let screenAsset = AVAsset(url: projectDirectory.appendingPathComponent(project.primarySources!.screen.path))
 
             // Verify screen asset is readable
             let isScreenReadable = try await screenAsset.load(.isReadable)
@@ -598,9 +599,24 @@ public actor ExportEngine {
     ) async {
         let startTime = Date()
         logger.debug("Starting export performance for job: \(jobId.uuidString)")
+        
+        // Ensure we have at least some sources to work with for global settings (like resolution)
+        guard let primarySources = project.primarySources else {
+            let error = ExportError.mediaFileNotFound("No sources found in project")
+            logExportError(jobId: jobId, error: error, stage: .validation)
+            let jobError = Job.JobError(
+                code: "EXPORT_FAILED",
+                message: error.localizedDescription,
+                details: ["original_error": .string(String(describing: error))],
+                recoverable: false
+            )
+            await jobQueue.failJob(jobId: jobId, error: jobError)
+            await cleanupExport(jobId: jobId)
+            return
+        }
 
         do {
-            let projectDirectory = getProjectDirectory(for: projectId)
+            let projectDirectory = try await projectStore.projectDirectoryURL(for: projectId)
             let outputDirectory = projectDirectory.appendingPathComponent("renders", isDirectory: true)
 
             // Create renders directory if it doesn't exist
@@ -609,7 +625,7 @@ public actor ExportEngine {
 
             // Generate output filename with timestamp
             let timestamp = ISO8601DateFormatter().string(from: Date())
-            let outputFilename = "export_\(timestamp).mp4"
+            let outputFilename = options.outputFilename ?? "export_\(timestamp).mp4"
             let outputURL = outputDirectory.appendingPathComponent(outputFilename)
 
             logger.info("Output file: \(outputFilename)")
@@ -623,17 +639,21 @@ public actor ExportEngine {
             // Stage 2: Load and validate source assets (0.1 - 0.2)
             try await checkCancellation(jobId: jobId)
             await updateExportStage(jobId: jobId, stage: .assetLoading, progress: 0.1)
-            logger.debug("Loading screen asset from: \(project.sources.screen.path)")
-
-            let screenAsset = AVAsset(url: projectDirectory.appendingPathComponent(project.sources.screen.path))
-
-            // Verify screen asset is readable
-            let isScreenReadable = try await screenAsset.load(.isReadable)
+            
+            // Asset cache to avoid reloading the same file multiple times
+            var assetCache: [String: AVAsset] = [:]
+            
+            // Pre-load primary screen asset to verify readability and get tracks
+            let primaryScreenPath = primarySources.screen.path
+            let primaryScreenAsset = AVAsset(url: projectDirectory.appendingPathComponent(primaryScreenPath))
+            assetCache[primaryScreenPath] = primaryScreenAsset
+            
+            let isScreenReadable = try await primaryScreenAsset.load(.isReadable)
             guard isScreenReadable else {
-                logger.error("Screen asset is not readable")
+                logger.error("Primary screen asset is not readable")
                 throw ExportError.assetNotReadable("screen")
             }
-            logger.debug("Screen asset loaded successfully")
+            logger.debug("Primary screen asset loaded successfully")
 
             // Check for cancellation after asset loading
             try await checkCancellation(jobId: jobId)
@@ -654,18 +674,35 @@ public actor ExportEngine {
             }
 
             var currentTime = CMTime.zero
-            let videoAssetTracks = try await screenAsset.loadTracks(withMediaType: .video)
-
-            guard let sourceVideoTrack = videoAssetTracks.first else {
-                logger.error("No video track found in source asset")
-                throw ExportError.noVideoTrack
-            }
-
+            
             logger.debug("Applying \(project.timeline.segments.count) timeline segments")
 
             // Apply timeline segments (trims, cuts, speed)
             for (index, segment) in project.timeline.segments.enumerated() {
                 try await checkCancellation(jobId: jobId)
+                
+                // Resolve sources for this segment
+                guard let segmentSources = resolveSources(for: segment.takeId, in: project) else {
+                    logger.warning("Could not resolve sources for segment \(segment.id), skipping")
+                    continue
+                }
+                
+                let sourcePath = segmentSources.screen.path
+                let asset: AVAsset
+                
+                if let cached = assetCache[sourcePath] {
+                    asset = cached
+                } else {
+                    let assetURL = projectDirectory.appendingPathComponent(sourcePath)
+                    asset = AVAsset(url: assetURL)
+                    assetCache[sourcePath] = asset
+                }
+                
+                let videoAssetTracks = try await asset.loadTracks(withMediaType: .video)
+                guard let sourceVideoTrack = videoAssetTracks.first else {
+                    logger.warning("No video track found in source asset for segment \(segment.id), skipping")
+                    continue
+                }
 
                 let startTime = CMTime(seconds: segment.sourceIn, preferredTimescale: 600)
                 let duration = CMTime(seconds: segment.sourceOut - segment.sourceIn, preferredTimescale: 600)
@@ -685,13 +722,13 @@ public actor ExportEngine {
             }
 
             // Build audio track if available
-            var audioAsset: AVAsset?
             var audioTrack: AVMutableCompositionTrack?
 
-            if let audioPath = project.sources.audio?.system?.path {
+            // TODO: Enhance audio support for multi-take (currently using primary system audio)
+            if let audioPath = primarySources.audio?.system?.path {
                 logger.debug("Loading system audio from: \(audioPath)")
-                audioAsset = AVAsset(url: projectDirectory.appendingPathComponent(audioPath))
-                let audioAssetTracks = try await audioAsset!.loadTracks(withMediaType: .audio)
+                let audioAsset = AVAsset(url: projectDirectory.appendingPathComponent(audioPath))
+                let audioAssetTracks = try await audioAsset.loadTracks(withMediaType: .audio)
 
                 if let sourceAudioTrack = audioAssetTracks.first {
                     audioTrack = composition.addMutableTrack(
@@ -742,12 +779,13 @@ public actor ExportEngine {
             let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: videoTrack)
 
             // Apply downscale from native resolution to output resolution
+            // NOTE: We assume all clips have the same resolution as primary sources for now
             let sourceSize = CoreFoundation.CGSize(
-                width: CGFloat(project.sources.screen.size.w),
-                height: CGFloat(project.sources.screen.size.h)
+                width: CGFloat(primarySources.screen.size.w),
+                height: CGFloat(primarySources.screen.size.h)
             )
 
-            logger.debug("Source size: \(project.sources.screen.size.w)x\(project.sources.screen.size.h)")
+            logger.debug("Source size: \(primarySources.screen.size.w)x\(primarySources.screen.size.h)")
 
             let transform = calculateDownscaleTransform(
                 from: sourceSize,
@@ -1091,47 +1129,190 @@ public actor ExportEngine {
 
         return lines.joined(separator: "\n") as NSString
     }
-
     /// Validate that all source files exist
     private func validateSourceFiles(for project: Project, projectId: ProjectId) async throws {
-        let projectDirectory = getProjectDirectory(for: projectId)
-        logger.debug("Validating source files in: \(projectDirectory.path)")
-
-        // Check screen file
-        let screenPath = projectDirectory.appendingPathComponent(project.sources.screen.path)
-        guard fileManager.fileExists(atPath: screenPath.path) else {
-            logger.error("Screen file not found: \(project.sources.screen.path)")
-            throw ExportError.sourceFileNotFound(project.sources.screen.path)
-        }
-        logger.debug("Screen file validated: \(project.sources.screen.path)")
-
-        // Check camera file if present
-        if let camera = project.sources.camera {
-            let cameraPath = projectDirectory.appendingPathComponent(camera.path)
-            guard fileManager.fileExists(atPath: cameraPath.path) else {
-                logger.error("Camera file not found: \(camera.path)")
-                throw ExportError.sourceFileNotFound(camera.path)
+        let projectDirectory = try await projectStore.projectDirectoryURL(for: projectId)
+        
+        // 1. Validate primary sources if they exist (legacy projects)
+        if let sources = project.sources {
+            let screenURL = projectDirectory.appendingPathComponent(sources.screen.path)
+            guard fileManager.fileExists(atPath: screenURL.path) else {
+                throw ExportError.mediaFileNotFound(sources.screen.path)
             }
-            logger.debug("Camera file validated: \(camera.path)")
-        }
-
-        // Check audio files if present
-        if let audio = project.sources.audio {
-            if let systemAudio = audio.system {
-                let systemAudioPath = projectDirectory.appendingPathComponent(systemAudio.path)
-                guard fileManager.fileExists(atPath: systemAudioPath.path) else {
-                    logger.error("System audio file not found: \(systemAudio.path)")
-                    throw ExportError.sourceFileNotFound(systemAudio.path)
+            
+            if let camera = sources.camera {
+                let cameraURL = projectDirectory.appendingPathComponent(camera.path)
+                guard fileManager.fileExists(atPath: cameraURL.path) else {
+                    throw ExportError.mediaFileNotFound(camera.path)
                 }
-                logger.debug("System audio file validated: \(systemAudio.path)")
+            }
+            
+            if let systemAudio = sources.audio?.system {
+                let audioURL = projectDirectory.appendingPathComponent(systemAudio.path)
+                guard fileManager.fileExists(atPath: audioURL.path) else {
+                    throw ExportError.mediaFileNotFound(systemAudio.path)
+                }
+            }
+            
+            if let micAudio = sources.audio?.mic {
+                let micURL = projectDirectory.appendingPathComponent(micAudio.path)
+                guard fileManager.fileExists(atPath: micURL.path) else {
+                    throw ExportError.mediaFileNotFound(micAudio.path)
+                }
+            }
+        }
+        
+        // 2. Validate sources for all takes used in the timeline
+        let usedTakeIds = Set(project.timeline.segments.compactMap { $0.takeId })
+        for takeId in usedTakeIds {
+            guard let take = project.takes.first(where: { $0.id == takeId }) else {
+                logger.warning("Segment references missing takeId: \(takeId)")
+                continue
+            }
+            
+            let sources = take.sources
+            let screenURL = projectDirectory.appendingPathComponent(sources.screen.path)
+    let textX = xPos - textSize.width / 2.0
+    let textY = yPos - textSize.height
+    textLayer.frame = CoreFoundation.CGRect(x: textX, y: textY, width: textSize.width, height: textSize.height)
+
+    // Create fade-in and fade-out animations
+    textLayer.opacity = 0.0
+
+    // Fade in animation
+    let fadeIn = CABasicAnimation(keyPath: "opacity")
+    fadeIn.fromValue = 0.0
+    fadeIn.toValue = 1.0
+    fadeIn.duration = 0.2 // 200ms fade-in
+    fadeIn.beginTime = startTime.seconds
+    fadeIn.fillMode = .forwards
+
+    // Fade out animation
+    let fadeOut = CABasicAnimation(keyPath: "opacity")
+    fadeOut.fromValue = 1.0
+    fadeOut.toValue = 0.0
+    fadeOut.duration = 0.2 // 200ms fade-out
+    fadeOut.beginTime = endTime.seconds - 0.2
+    fadeOut.fillMode = .forwards
+
+    // Add animations
+    textLayer.add(fadeIn, forKey: "fadeIn_\(caption.id)")
+    textLayer.add(fadeOut, forKey: "fadeOut_\(caption.id)")
+
+    // Set final opacity for after animations
+    DispatchQueue.main.asyncAfter(deadline: .now() + endTime.seconds) {
+        textLayer.opacity = 0.0
+    }
+
+    captionLayer.addSublayer(textLayer)
+}
+
+// Create animation tool
+let animationTool = AVVideoCompositionCoreAnimationTool(
+    postProcessingAsVideoLayer: videoLayer,
+    in: parentLayer
+)
+
+logger.debug("Caption layer created with \(captions.count) captions")
+
+return animationTool
+}
+
+/// Wrap text to fit within max width
+private func wrapText(_ text: String, font: NSFont, maxWidth: CGFloat) -> NSString {
+    let paragraphStyle = NSMutableParagraphStyle()
+    paragraphStyle.lineBreakMode = .byWordWrapping
+
+    let attributes: [NSAttributedString.Key: Any] = [
+        .font: font,
+        .paragraphStyle: paragraphStyle
+    ]
+
+    let attributedString = NSAttributedString(string: text, attributes: attributes)
+    let framesetter = CTFramesetterCreateWithAttributedString(attributedString)
+
+    var currentRange = CFRange(location: 0, length: attributedString.length)
+    var lines: [String] = []
+
+    while currentRange.length > 0 {
+        let suggestedSize = CTFramesetterSuggestFrameSizeWithConstraints(
+            framesetter,
+            currentRange,
+            nil,
+            CoreFoundation.CGSize(width: maxWidth, height: CGFloat.greatestFiniteMagnitude),
+            nil
+        )
+
+        let path = CGPath(rect: CoreFoundation.CGRect(origin: .zero, size: suggestedSize), transform: nil)
+        let frame = CTFramesetterCreateFrame(framesetter, currentRange, path, nil)
+
+        let lineRange = CTFrameGetVisibleStringRange(frame)
+        let nsRange = NSRange(location: lineRange.location, length: lineRange.length)
+        let lineText = attributedString.attributedSubstring(from: nsRange).string
+        lines.append(lineText)
+
+        currentRange.location += lineRange.length
+        currentRange.length -= lineRange.length
+    }
+
+    return lines.joined(separator: "\n") as NSString
+}
+
+/// Validate that all source files exist
+private func validateSourceFiles(for project: Project, projectId: ProjectId) async throws {
+    let projectDirectory = try await projectStore.projectDirectoryURL(for: projectId)
+    
+    // 1. Validate primary sources if they exist (legacy projects)
+    if let sources = project.sources {
+        let screenURL = projectDirectory.appendingPathComponent(sources.screen.path)
+        guard fileManager.fileExists(atPath: screenURL.path) else {
+            throw ExportError.mediaFileNotFound(sources.screen.path)
+        }
+        
+        if let camera = sources.camera {
+            let cameraURL = projectDirectory.appendingPathComponent(camera.path)
+            guard fileManager.fileExists(atPath: cameraURL.path) else {
+                throw ExportError.mediaFileNotFound(camera.path)
+        renderSize: CoreFoundation.CGSize,
+        compositionDuration: CMTime,
+        preset: ExportPreset,
+        outputURL: URL
+    ) async throws {
+        // ... (other code remains the same)
+
+        // Resolve sources for each segment
+        let segments = project.timeline.segments
+        var sourceAssets: [AVAsset] = []
+        for segment in segments {
+            guard let sources = resolveSources(for: segment.takeId, in: project) else {
+                throw ExportError.mediaFileNotFound("No sources found for segment")
             }
 
-            if let micAudio = audio.mic {
-                let micAudioPath = projectDirectory.appendingPathComponent(micAudio.path)
-                guard fileManager.fileExists(atPath: micAudioPath.path) else {
-                    logger.error("Mic audio file not found: \(micAudio.path)")
-                    throw ExportError.sourceFileNotFound(micAudio.path)
-                }
+            // Load source asset
+            let screenURL = try await projectStore.projectDirectoryURL(for: projectId).appendingPathComponent(sources.screen.path)
+            let asset = AVAsset(url: screenURL)
+            sourceAssets.append(asset)
+        }
+
+        // ... (other code remains the same)
+    }
+
+    /// Perform GIF export
+    private func performGIFExport(
+        for project: Project,
+        projectId: ProjectId,
+        renderSize: CoreFoundation.CGSize,
+        compositionDuration: CMTime,
+        preset: ExportPreset,
+        outputURL: URL
+    ) async throws {
+        // TODO: Update GIF export to support multi-take projects
+        // For now, just use the primary sources
+        guard let sources = project.primarySources else {
+            throw ExportError.mediaFileNotFound("No sources found in project")
+        }
+
+        // ... (other code remains the same)
                 logger.debug("Mic audio file validated: \(micAudio.path)")
             }
         }
@@ -1496,6 +1677,7 @@ public struct GIFExportOptions: Equatable, Sendable {
 /// Export engine errors
 public enum ExportError: Error, Equatable, Sendable {
     case noSegments
+    case missingSourceFile(String)
     case sourceFileNotFound(String)
     case assetNotReadable(String)
     case compositionFailed(String)
@@ -1510,6 +1692,8 @@ public enum ExportError: Error, Equatable, Sendable {
         switch self {
         case .noSegments:
             return "Project has no timeline segments to export"
+        case .missingSourceFile(let message):
+            return "Missing source file: \(message)"
         case .sourceFileNotFound(let path):
             return "Source file not found: \(path)"
         case .assetNotReadable(let asset):

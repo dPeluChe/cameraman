@@ -436,16 +436,21 @@ public actor ProxyGenerator {
         // Determine which tracks need proxies
         var tracksToProcess: [(type: String, sourcePath: String, outputPath: String)] = []
 
+        guard let sources = project.primarySources else {
+            // No sources to process
+            return [:]
+        }
+
         // Screen track
         let screenProxyPath = (proxiesDirectory as NSString).appendingPathComponent("screen_proxy.mov")
         tracksToProcess.append((
             type: "screen",
-            sourcePath: (projectDirectory as NSString).appendingPathComponent(project.sources.screen.path),
+            sourcePath: (projectDirectory as NSString).appendingPathComponent(sources.screen.path),
             outputPath: screenProxyPath
         ))
 
         // Camera track (if present)
-        if let camera = project.sources.camera {
+        if let camera = sources.camera {
             let cameraProxyPath = (proxiesDirectory as NSString).appendingPathComponent("camera_proxy.mov")
             tracksToProcess.append((
                 type: "camera",

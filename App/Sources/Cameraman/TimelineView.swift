@@ -61,15 +61,15 @@ enum TimelineTrackBuilder {
             TimelineTrack(kind: .screen, segments: project.timeline.segments)
         ]
 
-        if project.sources.camera != nil {
+        if project.primarySources?.camera != nil {
             tracks.append(TimelineTrack(kind: .camera, segments: project.timeline.segments))
         }
 
-        if project.sources.audio?.system != nil {
+        if project.primarySources?.audio?.system != nil {
             tracks.append(TimelineTrack(kind: .systemAudio, segments: project.timeline.segments))
         }
 
-        if project.sources.audio?.mic != nil {
+        if project.primarySources?.audio?.mic != nil {
             tracks.append(TimelineTrack(kind: .micAudio, segments: project.timeline.segments))
         }
 
@@ -211,7 +211,7 @@ struct TimelineView: View {
         var newWaveforms: [String: [Float]] = [:]
 
         // Generate waveform for system audio if present
-        if let audio = project.sources.audio, let systemAudio = audio.system {
+        if let audio = project.primarySources?.audio, let systemAudio = audio.system {
             do {
                 let cachedWaveform = try await cache.getWaveform(for: systemAudio.path)
                 newWaveforms[systemAudio.path] = cachedWaveform.samples
@@ -222,7 +222,7 @@ struct TimelineView: View {
         }
 
         // Generate waveform for mic audio if present
-        if let audio = project.sources.audio, let micAudio = audio.mic {
+        if let audio = project.primarySources?.audio, let micAudio = audio.mic {
             do {
                 let cachedWaveform = try await cache.getWaveform(for: micAudio.path)
                 newWaveforms[micAudio.path] = cachedWaveform.samples
@@ -242,9 +242,9 @@ struct TimelineView: View {
 
         switch trackKind {
         case .systemAudio:
-            trackPath = project.sources.audio?.system?.path
+            trackPath = project.primarySources?.audio?.system?.path
         case .micAudio:
-            trackPath = project.sources.audio?.mic?.path
+            trackPath = project.primarySources?.audio?.mic?.path
         default:
             trackPath = nil
         }

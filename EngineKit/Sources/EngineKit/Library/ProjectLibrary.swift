@@ -274,6 +274,10 @@ public actor ProjectLibrary {
         try await store.deleteProject(projectId: projectId)
     }
 
+    public func createProject(from recordingResult: Recorder.RecordingResult, name: String? = nil, tags: [String]? = nil) async throws -> ProjectId {
+        try await store.createProject(from: recordingResult, name: name, tags: tags)
+    }
+
     /// Get a project by ID
     /// - Parameter projectId: Project ID
     /// - Returns: The project

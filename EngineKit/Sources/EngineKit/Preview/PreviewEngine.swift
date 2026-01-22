@@ -24,6 +24,9 @@ public actor PreviewEngine {
     /// AVPlayer for video playback
     private var player: AVPlayer?
 
+    /// Current composition being played
+    private var composition: AVComposition?
+
     /// Current playback state
     private var playbackState: PlaybackState = .stopped
 
@@ -173,11 +176,15 @@ public actor PreviewEngine {
         guard !project.timeline.segments.isEmpty else {
             throw PreviewError.noSegments
         }
+        
+        guard let sources = project.primarySources else {
+            throw PreviewError.playbackFailed("No sources found in project")
+        }
 
         // Verify screen media file exists
         // In a real implementation, we would check file existence here
         // For testing, we'll just store the project
-        _ = project.sources.screen.path
+        _ = sources.screen.path
 
         self.project = project
         self.projectDirectory = projectDirectory
@@ -353,48 +360,82 @@ public actor PreviewEngine {
 
     // MARK: - Private Helpers
 
+    /// Resolve sources for a specific take ID, falling back to primary sources
+    private func resolveSources(for takeId: UUID?) -> Project.Sources? {
+        if let takeId = takeId, let take = project?.takes.first(where: { $0.id == takeId }) {
+            return take.sources
+        }
+        return project?.primarySources
+    }
+
     /// Create AVPlayer with composition that applies edits
     private func createPlayerWithEdits() async throws {
         guard let project = project else {
             throw PreviewError.noProjectLoaded
         }
+        
+        // Use primary sources for initial validation, but we'll load per-segment sources later
+        guard project.primarySources != nil else {
+            throw PreviewError.playbackFailed("No sources found")
+        }
 
         // Create AVMutableComposition with segments
         let composition = AVMutableComposition()
-
-        // Add screen track
-        let screenAsset = AVAsset(url: URL(fileURLWithPath: project.sources.screen.path))
-        _ = screenAsset // Suppress unused warning for now
-
-        // Load screen asset tracks
-        let screenAssetTracks = try await screenAsset.loadTracks(withMediaType: .video)
-        guard let screenTrack = screenAssetTracks.first else {
-            throw PreviewError.playbackFailed("No video track found in screen recording")
-        }
-
+        
         // Add composition track for screen
         let compositionVideoTrack = composition.addMutableTrack(
             withMediaType: .video,
             preferredTrackID: kCMPersistentTrackID_Invalid
         )
-
+        
         guard let videoTrack = compositionVideoTrack else {
             throw PreviewError.playbackFailed("Failed to create composition video track")
         }
 
         var insertTime = CMTime.zero
-
+        
+        // Cache for loaded assets to avoid reloading the same file multiple times
+        var assetCache: [String: AVAsset] = [:]
+        
         // Apply segments (trims, cuts, speed changes)
         for segment in project.timeline.segments {
+            // Resolve sources for this segment
+            guard let sources = resolveSources(for: segment.takeId) else {
+                // If we can't resolve sources, we skip this segment or insert black gap?
+                // For now, skipping, but keeping time alignment might require inserting empty time.
+                continue 
+            }
+            
+            let sourcePath = sources.screen.path
+            
+            // Load asset (cached)
+            let asset: AVAsset
+            if let cached = assetCache[sourcePath] {
+                asset = cached
+            } else {
+                let assetURL: URL
+                if let projectDir = projectDirectory {
+                     assetURL = URL(fileURLWithPath: projectDir).appendingPathComponent(sourcePath)
+                } else {
+                     assetURL = URL(fileURLWithPath: sourcePath)
+                }
+                asset = AVAsset(url: assetURL)
+                assetCache[sourcePath] = asset
+            }
+            
+            // Load screen asset tracks
+            let screenAssetTracks = try await asset.loadTracks(withMediaType: .video)
+            guard let screenTrack = screenAssetTracks.first else {
+                // Skip if no video track
+                continue
+            }
+            
             let startTime = CMTime(seconds: segment.sourceIn, preferredTimescale: 600)
             let endTime = CMTime(seconds: segment.sourceOut, preferredTimescale: 600)
             let duration = CMTimeSubtract(endTime, startTime)
 
             // Time range in source
             let timeRange = CMTimeRange(start: startTime, duration: duration)
-
-            // Insert at current timeline position
-            _ = CMTimeRange(start: insertTime, duration: duration)
 
             try videoTrack.insertTimeRange(
                 timeRange,
@@ -410,8 +451,8 @@ public actor PreviewEngine {
             insertTime = CMTimeAdd(insertTime, segmentDuration)
         }
 
-        // Handle camera track if present
-        if project.sources.camera != nil {
+        // Handle camera track if present (Simplified for now - assumes primary take camera or needs complexity)
+        if project.primarySources?.camera != nil {
             // Add camera as separate track for PiP/side-by-side
             // This is a simplified version - full implementation would position camera based on canvas layout
         }
@@ -422,6 +463,7 @@ public actor PreviewEngine {
             AVPlayerItem(asset: composition)
         }
         self.player = AVPlayer(playerItem: playerItem)
+        self.composition = composition
 
         // Add time observer for current time tracking
         // Note: In a real implementation, we would add a periodic time observer here
@@ -464,16 +506,20 @@ public actor PreviewEngine {
         guard let project = project else {
             throw PreviewError.noProjectLoaded
         }
+        
+        guard let asset = self.composition else {
+            throw PreviewError.playbackFailed("Composition not ready")
+        }
 
         guard time >= 0 && time <= project.timeline.duration else {
             throw PreviewError.invalidTime(time)
         }
 
-        let asset = AVAsset(url: URL(fileURLWithPath: project.sources.screen.path))
-        _ = asset // Suppress unused warning for now
-
         let assetImageGenerator = AVAssetImageGenerator(asset: asset)
         assetImageGenerator.appliesPreferredTrackTransform = true
+        // Set tolerance to zero for precise frame extraction
+        assetImageGenerator.requestedTimeToleranceBefore = .zero
+        assetImageGenerator.requestedTimeToleranceAfter = .zero
 
         let cmTime = CMTime(seconds: time, preferredTimescale: 600)
         let image = try assetImageGenerator.copyCGImage(at: cmTime, actualTime: nil)
@@ -496,16 +542,17 @@ public actor PreviewEngine {
         startTime: TimeInterval,
         endTime: TimeInterval
     ) async throws -> [(TimeInterval, CGImage)] {
-        guard let project = project else {
+        guard project != nil else {
             throw PreviewError.noProjectLoaded
+        }
+        
+        guard let asset = self.composition else {
+            throw PreviewError.playbackFailed("Composition not ready")
         }
 
         guard count > 0 else {
             throw PreviewError.playbackFailed("Invalid thumbnail count: \(count)")
         }
-
-        let asset = AVAsset(url: URL(fileURLWithPath: project.sources.screen.path))
-        _ = asset // Suppress unused warning for now
 
         let assetImageGenerator = AVAssetImageGenerator(asset: asset)
         assetImageGenerator.appliesPreferredTrackTransform = true
@@ -518,8 +565,15 @@ public actor PreviewEngine {
         for i in 0..<count {
             let time = startTime + (Double(i) * interval)
             let cmTime = CMTime(seconds: time, preferredTimescale: 600)
-            let image = try assetImageGenerator.copyCGImage(at: cmTime, actualTime: nil)
-            thumbnails.append((time, image))
+            
+            // Use tolerance for faster thumbnail generation
+            do {
+                let image = try assetImageGenerator.copyCGImage(at: cmTime, actualTime: nil)
+                thumbnails.append((time, image))
+            } catch {
+                // Skip failed thumbnails or retry
+                print("Failed to generate thumbnail at \(time): \(error)")
+            }
         }
 
         return thumbnails

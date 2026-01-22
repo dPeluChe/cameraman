@@ -149,11 +149,11 @@ public actor TranscriptionEngine {
     /// Get the audio path for transcription (prefer mic, fallback to system audio)
     private func getAudioPath(for project: Project) -> String? {
         // Prefer microphone audio if available
-        if let micPath = project.sources.audio?.mic?.path {
+        if let micPath = project.primarySources?.audio?.mic?.path {
             return micPath
         }
         // Fallback to system audio
-        if let systemPath = project.sources.audio?.system?.path {
+        if let systemPath = project.primarySources?.audio?.system?.path {
             return systemPath
         }
         return nil

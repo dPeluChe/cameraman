@@ -402,16 +402,20 @@ public actor ThumbnailCache {
         guard configuration.enableWaveformCache else {
             return 0
         }
+        
+        guard let sources = project.primarySources else {
+            return 0
+        }
 
         var trackPaths: [String] = []
 
         // Add system audio track
-        if let audio = project.sources.audio, let systemAudio = audio.system {
+        if let audio = sources.audio, let systemAudio = audio.system {
             trackPaths.append(systemAudio.path)
         }
 
         // Add mic audio track
-        if let audio = project.sources.audio, let micAudio = audio.mic {
+        if let audio = sources.audio, let micAudio = audio.mic {
             trackPaths.append(micAudio.path)
         }
 
@@ -503,7 +507,11 @@ public actor ThumbnailCache {
 
     /// Generate a thumbnail at a specific time
     private func generateThumbnail(at time: TimeInterval, for project: Project) async throws -> CachedThumbnail {
-        let screenPath = project.sources.screen.path
+        guard let sources = project.primarySources else {
+            throw CacheError.mediaFileNotFound("No sources found")
+        }
+        
+        let screenPath = sources.screen.path
 
         // Check if file exists
         guard FileManager.default.fileExists(atPath: screenPath) else {

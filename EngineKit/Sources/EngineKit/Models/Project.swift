@@ -21,8 +21,10 @@ public struct Project: Codable, Equatable {
     public let createdAt: Date
     /// Last update timestamp
     public var updatedAt: Date
-    /// Source media information
-    public var sources: Sources
+    /// Source media information (Legacy/Migration)
+    public var sources: Sources?
+    /// Collection of takes (V2)
+    public var takes: [Take]
     /// Timeline editing model
     public var timeline: Timeline
     /// Canvas layout configuration
@@ -34,10 +36,16 @@ public struct Project: Codable, Equatable {
     /// Chapter markers for video navigation
     public var chapters: [Chapter]
 
+    /// Helper to access sources from V1 (legacy) or V2 (first take)
+    public var primarySources: Sources? {
+        sources ?? takes.first?.sources
+    }
+
     public init(
         projectId: ProjectId,
         name: String,
-        sources: Sources,
+        sources: Sources? = nil,
+        takes: [Take] = [],
         timeline: Timeline,
         canvas: Canvas,
         overlays: [Overlay] = [],
@@ -51,6 +59,7 @@ public struct Project: Codable, Equatable {
         self.projectId = projectId
         self.name = name
         self.sources = sources
+        self.takes = takes
         self.timeline = timeline
         self.canvas = canvas
         self.overlays = overlays
@@ -60,6 +69,26 @@ public struct Project: Codable, Equatable {
         self.schemaVersion = schemaVersion
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+    }
+
+    /// A Take represents a single recording session containing multiple media sources (screen, camera, mic, etc.)
+    public struct Take: Codable, Equatable, Identifiable {
+        public let id: UUID
+        public var name: String
+        public let createdAt: Date
+        public var sources: Sources
+        
+        public init(
+            id: UUID = UUID(),
+            name: String,
+            createdAt: Date = Date(),
+            sources: Sources
+        ) {
+            self.id = id
+            self.name = name
+            self.createdAt = createdAt
+            self.sources = sources
+        }
     }
 
     /// Source media tracks
@@ -199,6 +228,8 @@ public struct Project: Codable, Equatable {
         /// A segment represents a portion of source media on the timeline
         public struct Segment: Codable, Equatable, Identifiable {
             public let id: String
+            /// ID of the take this segment refers to (if nil, assumes the first/legacy take)
+            public var takeId: UUID?
             /// Start time in source (seconds)
             public var sourceIn: TimeInterval
             /// End time in source (seconds)
@@ -212,6 +243,7 @@ public struct Project: Codable, Equatable {
 
             public init(
                 id: String = UUID().uuidString,
+                takeId: UUID? = nil,
                 sourceIn: TimeInterval,
                 sourceOut: TimeInterval,
                 timelineIn: TimeInterval,
@@ -219,6 +251,7 @@ public struct Project: Codable, Equatable {
                 zoom: ZoomConfiguration? = nil
             ) {
                 self.id = id
+                self.takeId = takeId
                 self.sourceIn = sourceIn
                 self.sourceOut = sourceOut
                 self.timelineIn = timelineIn

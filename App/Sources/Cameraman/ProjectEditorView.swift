@@ -5,10 +5,12 @@
 //  Created by Ralphy on 2026-01-21.
 //
 
-import Combine
 import SwiftUI
 import EngineKit
+import Combine
 import CoreGraphics
+
+// MARK: - ViewModel
 
 @MainActor
 final class ProjectEditorViewModel: ObservableObject {
@@ -45,13 +47,24 @@ final class ProjectEditorViewModel: ObservableObject {
     }
 }
 
+// MARK: - Main View
+
+/// Main Project Editor View (Refactored 3-column layout)
 struct ProjectEditorView: View {
     let projectSummary: ProjectSummary
 
     @StateObject private var viewModel: ProjectEditorViewModel
-    @State private var showExportModal: Bool = false
-    @State private var showTranscriptionModal: Bool = false
-    @State private var showAISuggestionsModal: Bool = false
+    @State private var showExportModal = false
+    @State private var showTranscriptionModal = false
+    
+    // UI State for DisclosureGroups
+    @State private var isLayoutExpanded = true
+    @State private var isFormatExpanded = true
+    @State private var isCameraExpanded = true
+    @State private var isBackgroundExpanded = false
+    @State private var isZoomExpanded = false
+    @State private var isOverlaysExpanded = false
+    @State private var isExportExpanded = true
 
     init(projectSummary: ProjectSummary, library: ProjectLibrary = ProjectLibrary()) {
         self.projectSummary = projectSummary
@@ -59,51 +72,51 @@ struct ProjectEditorView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            header
-
-            Divider()
-
-            PreviewPlayerView(project: viewModel.editor?.project, projectDirectory: viewModel.projectDirectory)
-
-            if let editor = viewModel.editor {
-                LayoutSelectorView(editor: editor)
-                FormatToggleView(editor: editor)
-                if editor.project.canvas.layout.type == CanvasLayout.LayoutPreset.pip.rawValue,
-                   editor.project.sources.camera != nil,
-                   editor.project.canvas.layout.camera != nil {
-                    PiPConfigurationView(editor: editor)
+        GeometryReader { geometry in
+            HSplitView {
+                // Left panel - Project/Assets
+                if let editor = viewModel.editor {
+                    LeftPanel(editor: editor)
+                        .frame(minWidth: 200, idealWidth: 250, maxWidth: 300)
+                } else {
+                    Color(NSColor.controlBackgroundColor)
+                        .frame(minWidth: 200, maxWidth: 300)
                 }
-                BackgroundControlsView(editor: editor)
-                ZoomControlsView(editor: editor)
-                OverlayEditorView(editor: editor, playheadTime: $viewModel.playheadTime)
-                if let projectDirectory = viewModel.projectDirectory {
-                    TimelineView(editor: editor, playheadTime: $viewModel.playheadTime, projectDirectory: projectDirectory)
+
+                // Center - Preview & Timeline
+                CenterPanel(
+                    viewModel: viewModel,
+                    showExportModal: $showExportModal,
+                    showTranscriptionModal: $showTranscriptionModal
+                )
+                .frame(minWidth: 400)
+
+                // Right panel - Inspector
+                if let editor = viewModel.editor {
+                    RightPanel(
+                        editor: editor,
+                        isLayoutExpanded: $isLayoutExpanded,
+                        isFormatExpanded: $isFormatExpanded,
+                        isCameraExpanded: $isCameraExpanded,
+                        isBackgroundExpanded: $isBackgroundExpanded,
+                        isZoomExpanded: $isZoomExpanded,
+                        isOverlaysExpanded: $isOverlaysExpanded,
+                        isExportExpanded: $isExportExpanded,
+                        showExportModal: $showExportModal
+                    )
+                    .frame(minWidth: 280, idealWidth: 320, maxWidth: 400)
+                } else {
+                     Color(NSColor.controlBackgroundColor)
+                        .frame(minWidth: 280, maxWidth: 400)
                 }
-            } else if viewModel.isLoading {
-                ProgressView("Loading project timeline...")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                Text(viewModel.loadError ?? "Unable to load the project.")
-                    .foregroundStyle(.secondary)
             }
-
-            Spacer()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Color(NSColor.windowBackgroundColor))
         .task {
+            // Yield to avoid view update issues
+            await Task.yield()
             await viewModel.loadProject()
-        }
-        .sheet(isPresented: $showTranscriptionModal) {
-            if let editor = viewModel.editor {
-                TranscriptionView(editor: editor, playheadTime: $viewModel.playheadTime)
-            }
-        }
-        .sheet(isPresented: $showAISuggestionsModal) {
-            if let editor = viewModel.editor {
-                AISuggestionsView(editor: editor, playheadTime: $viewModel.playheadTime)
-            }
         }
         .sheet(isPresented: $showExportModal) {
             if let editor = viewModel.editor,
@@ -111,83 +124,252 @@ struct ProjectEditorView: View {
                 ExportView(
                     project: editor.project,
                     projectDirectory: projectDirectory,
-                    onExportComplete: { url in
+                    onExportComplete: { _ in
                         showExportModal = false
-                        if let url = url {
-                            NSWorkspace.shared.activateFileViewerSelecting([url])
-                        }
                     },
                     onCancel: {
                         showExportModal = false
                     }
                 )
+            } else {
+                ProgressView()
+                    .frame(width: 560, height: 400)
             }
         }
-    }
-
-    private var header: some View {
-        HStack(alignment: .top, spacing: 20) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(projectSummary.name)
-                    .font(.largeTitle)
-
-                HStack(spacing: 12) {
-                    Label(ProjectEditorView.durationText(for: projectSummary.duration), systemImage: "clock")
-                    Label(ProjectEditorView.dateText(for: projectSummary.updatedAt), systemImage: "calendar")
-                }
-                .foregroundStyle(.secondary)
-
-                if !projectSummary.tags.isEmpty {
-                    Text("Tags: \(projectSummary.tags.joined(separator: ", "))")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Spacer()
-
-            HStack(spacing: 12) {
-                Button {
-                    showTranscriptionModal = true
-                } label: {
-                    Label("Transcript", systemImage: "text.bubble")
-                }
-                .buttonStyle(.bordered)
-                .disabled(viewModel.editor == nil)
-
-                Button {
-                    showAISuggestionsModal = true
-                } label: {
-                    Label("AI Suggestions", systemImage: "sparkles")
-                }
-                .buttonStyle(.bordered)
-                .disabled(viewModel.editor == nil)
-
-                Button {
-                    showExportModal = true
-                } label: {
-                    Label("Export", systemImage: "square.and.arrow.up")
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(viewModel.editor == nil)
+        .sheet(isPresented: $showTranscriptionModal) {
+            if let editor = viewModel.editor {
+                TranscriptionView(editor: editor, playheadTime: $viewModel.playheadTime)
+            } else {
+                ProgressView()
+                    .frame(width: 560, height: 400)
             }
         }
-    }
-
-    private static func durationText(for duration: TimeInterval) -> String {
-        let totalSeconds = Int(duration)
-        let minutes = totalSeconds / 60
-        let seconds = totalSeconds % 60
-        return String(format: "%02d:%02d", minutes, seconds)
-    }
-
-    private static func dateText(for date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
     }
 }
+
+// MARK: - Left Panel (Assets)
+private struct LeftPanel: View {
+    @ObservedObject var editor: ProjectEditor
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            Text("Project Assets")
+                .font(.headline)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
+            
+            Divider()
+            
+            List {
+                Section("Sources") {
+                    AssetRow(icon: "display", title: "Screen Recording", subtitle: "Main")
+                    if editor.project.primarySources?.camera != nil {
+                        AssetRow(icon: "video.fill", title: "Camera Feed", subtitle: "1080p")
+                    }
+                    if editor.project.primarySources?.audio != nil {
+                        AssetRow(icon: "mic.fill", title: "Microphone", subtitle: "Audio Track")
+                        AssetRow(icon: "speaker.wave.2.fill", title: "System Audio", subtitle: "Audio Track")
+                    }
+                }
+                
+                Section("Layers") {
+                     ForEach(editor.project.timeline.segments) { segment in
+                         AssetRow(icon: "film", title: "Segment \(segment.id.prefix(4))", subtitle: "\(String(format: "%.1f", segment.sourceOut - segment.sourceIn))s")
+                     }
+                }
+            }
+            .listStyle(.sidebar)
+        }
+        .background(Color(NSColor.controlBackgroundColor))
+    }
+}
+
+private struct AssetRow: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    
+    var body: some View {
+        HStack {
+            Image(systemName: icon)
+                .foregroundStyle(.secondary)
+                .frame(width: 20)
+            
+            VStack(alignment: .leading) {
+                Text(title)
+                    .font(.body)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+}
+
+// MARK: - Center Panel (Workspace)
+private struct CenterPanel: View {
+    @ObservedObject var viewModel: ProjectEditorViewModel
+    @Binding var showExportModal: Bool
+    @Binding var showTranscriptionModal: Bool
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Preview area
+            ZStack {
+                Color.black
+                
+                if let editor = viewModel.editor {
+                    PreviewPlayerView(
+                        project: editor.project,
+                        projectDirectory: viewModel.projectDirectory
+                    )
+                } else if viewModel.isLoading {
+                    ProgressView()
+                }
+            }
+            .frame(maxHeight: .infinity)
+            
+            Divider()
+            
+            // Timeline
+            if let editor = viewModel.editor {
+                TimelineView(
+                    editor: editor,
+                    playheadTime: $viewModel.playheadTime,
+                    projectDirectory: viewModel.projectDirectory
+                )
+                .frame(height: 300)
+            } else {
+                 Color(NSColor.controlBackgroundColor)
+                    .frame(height: 300)
+            }
+        }
+    }
+}
+
+// MARK: - Right Panel (Inspector)
+private struct RightPanel: View {
+    @ObservedObject var editor: ProjectEditor
+    
+    // Binding states for expansion
+    @Binding var isLayoutExpanded: Bool
+    @Binding var isFormatExpanded: Bool
+    @Binding var isCameraExpanded: Bool
+    @Binding var isBackgroundExpanded: Bool
+    @Binding var isZoomExpanded: Bool
+    @Binding var isOverlaysExpanded: Bool
+    @Binding var isExportExpanded: Bool
+    @Binding var showExportModal: Bool
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                // Header
+                Text("Configuration")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                
+                Divider()
+                
+                VStack(spacing: 0) {
+                    // Layout Group
+                    ConfigGroup(title: "Layout", isExpanded: $isLayoutExpanded) {
+                        LayoutSelectorView(editor: editor)
+                    }
+                    
+                    Divider()
+                    
+                    // Format Group
+                    ConfigGroup(title: "Format", isExpanded: $isFormatExpanded) {
+                        FormatToggleView(editor: editor)
+                    }
+                    
+                    if editor.project.canvas.layout.camera != nil {
+                        Divider()
+                        
+                        // Camera Group
+                        ConfigGroup(title: "Camera", isExpanded: $isCameraExpanded) {
+                            PiPConfigurationView(editor: editor)
+                        }
+                    }
+                    
+                    Divider()
+                    
+                    // Background Group
+                    ConfigGroup(title: "Background", isExpanded: $isBackgroundExpanded) {
+                        BackgroundControlsView(editor: editor)
+                    }
+                    
+                    Divider()
+                    
+                    // Auto-Zoom Group
+                    ConfigGroup(title: "Auto-Zoom", isExpanded: $isZoomExpanded) {
+                         ZoomControlsView(editor: editor)
+                    }
+                    
+                    Divider()
+                    
+                    // Overlays Group
+                    ConfigGroup(title: "Overlays", isExpanded: $isOverlaysExpanded) {
+                        // Using a playhead constant here since we are just configuring overlay logic, 
+                        // but ideally OverlayEditorView needs the binding if it scrubs.
+                        // For the inspector, we mostly want the list/add buttons.
+                        // We can pass .constant(0) if it's just for property editing, 
+                        // or rewire if needed.
+                        OverlayEditorView(editor: editor, playheadTime: .constant(0))
+                    }
+                    
+                    Divider()
+                    
+                    // Export Section (Always visible or in a group)
+                    ConfigGroup(title: "Export", isExpanded: $isExportExpanded) {
+                        Button {
+                            showExportModal = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "square.and.arrow.up")
+                                Text("Export Video...")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .padding(.top, 8)
+                    }
+                }
+            }
+            .padding(.bottom, 40)
+        }
+        .background(Color(NSColor.controlBackgroundColor))
+    }
+}
+
+private struct ConfigGroup<Content: View>: View {
+    let title: String
+    @Binding var isExpanded: Bool
+    let content: () -> Content
+    
+    var body: some View {
+        DisclosureGroup(isExpanded: $isExpanded) {
+            content()
+                .padding(.top, 12)
+                .padding(.bottom, 16)
+        } label: {
+            Text(title)
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 12)
+    }
+}
+
+// MARK: - Components
+
+// --- LayoutSelectorView ---
 
 private struct LayoutSelectorView: View {
     @ObservedObject var editor: ProjectEditor
@@ -196,9 +378,6 @@ private struct LayoutSelectorView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Layout")
-                .font(.headline)
-
             HStack(spacing: 12) {
                 ForEach(presets, id: \.self) { preset in
                     LayoutPresetButton(
@@ -220,7 +399,7 @@ private struct LayoutSelectorView: View {
     }
 
     private func isPresetEnabled(_ preset: CanvasLayout.LayoutPreset) -> Bool {
-        preset == .fullscreen || editor.project.sources.camera != nil
+        preset == .fullscreen || editor.project.primarySources?.camera != nil
     }
 }
 
@@ -311,6 +490,83 @@ private struct LayoutPreview: View {
     }
 }
 
+// --- FormatToggleView ---
+
+private struct FormatToggleView: View {
+    @ObservedObject var editor: ProjectEditor
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                FormatButton(
+                    title: "16:9",
+                    icon: "rectangle.ratio.16.to.9",
+                    isSelected: isAspect(.landscape16_9)
+                ) {
+                    setAspect(.landscape16_9)
+                }
+
+                FormatButton(
+                    title: "9:16",
+                    icon: "rectangle.ratio.9.to.16",
+                    isSelected: isAspect(.portrait9_16)
+                ) {
+                    setAspect(.portrait9_16)
+                }
+
+                FormatButton(
+                    title: "1:1",
+                    icon: "square",
+                    isSelected: isAspect(.square1_1)
+                ) {
+                    setAspect(.square1_1)
+                }
+            }
+        }
+    }
+
+    private func isAspect(_ ratio: CanvasLayout.AspectRatio) -> Bool {
+        return editor.project.canvas.format.aspect == ratio.rawValue
+    }
+
+    private func setAspect(_ ratio: CanvasLayout.AspectRatio) {
+        Task {
+            _ = await editor.setFormat(ratio)
+        }
+    }
+}
+
+private struct FormatButton: View {
+    let title: String
+    let icon: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.title2)
+                Text(title)
+                    .font(.caption)
+            }
+            .frame(width: 80, height: 64)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isSelected ? Color.accentColor.opacity(0.15) : Color.primary.opacity(0.05))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(isSelected ? Color.accentColor : Color.primary.opacity(0.1), lineWidth: isSelected ? 2 : 1)
+            )
+            .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// --- PiPConfigurationView ---
+
 private struct PiPConfigurationView: View {
     @ObservedObject var editor: ProjectEditor
     @State private var cornerSnapshot: Project?
@@ -321,9 +577,6 @@ private struct PiPConfigurationView: View {
             let aspectRatio = Double(format.w) / Double(format.h)
 
             VStack(alignment: .leading, spacing: 12) {
-                Text("PiP Camera")
-                    .font(.headline)
-
                 HStack(alignment: .top, spacing: 16) {
                     PiPCanvasEditor(
                         editor: editor,

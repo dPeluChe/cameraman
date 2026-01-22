@@ -40,7 +40,7 @@ struct ZoomControlsView: View {
         VStack(alignment: .leading, spacing: 16) {
             // Header
             HStack {
-                Label("Auto-Zoom", systemImage: "magnifyingglass.plus")
+                Label("Auto-Zoom", systemImage: "magnifyingglass")
                     .font(.headline)
                     .foregroundColor(.primary)
 

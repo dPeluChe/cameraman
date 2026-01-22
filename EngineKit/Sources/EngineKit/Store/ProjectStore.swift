@@ -18,7 +18,7 @@ public actor ProjectStore {
     private let logger = Logger(subsystem: "com.projectstudio.enginekit", category: "ProjectStore")
 
     /// Current schema version
-    private let currentSchemaVersion = 1
+    private let currentSchemaVersion = 2
 
     /// Initialize a new ProjectStore
     /// - Parameter baseDirectory: Base directory for projects (defaults to Application Support)
@@ -36,7 +36,7 @@ public actor ProjectStore {
         // Create base directory if it doesn't exist
         do {
             try fileManager.createDirectory(at: self.baseDirectory, withIntermediateDirectories: true)
-            logger.info("ProjectStore initialized with base directory: \(self.baseDirectory.path)")
+            logger.debug("ProjectStore initialized with base directory: \(self.baseDirectory.path)")
         } catch {
             logger.error("Failed to create base directory: \(error.localizedDescription)")
             reportError(error, context: "ProjectStore.init")
@@ -110,31 +110,42 @@ public actor ProjectStore {
 
         // Create initial project
         let now = Date()
+        let sources = Project.Sources(
+            syncReference: "screen",
+            screen: Project.Sources.MediaTrack(
+                path: "sources/screen.mov",
+                fps: 60.0,
+                size: Project.Sources.Size(w: 2880, h: 1800),
+                syncOffsetMs: 0,
+                sha256: "placeholder",
+                sizeBytes: 0
+            ),
+            camera: camera,
+            audio: audio,
+            telemetry: Project.Sources.TelemetryTracks(
+                cursor: Project.Sources.TelemetryTracks.TelemetryTrack(path: "telemetry/cursor.jsonl"),
+                keys: nil
+            )
+        )
+        
+        let takeId = UUID()
+        let take = Project.Take(
+            id: takeId,
+            name: "Take 1",
+            createdAt: now,
+            sources: sources
+        )
+
         let project = Project(
             projectId: projectId,
             name: name ?? "Untitled Recording",
-            sources: Project.Sources(
-                syncReference: "screen",
-                screen: Project.Sources.MediaTrack(
-                    path: "sources/screen.mov",
-                    fps: 60.0,
-                    size: Project.Sources.Size(w: 2880, h: 1800),
-                    syncOffsetMs: 0,
-                    sha256: "placeholder",
-                    sizeBytes: 0
-                ),
-                camera: camera,
-                audio: audio,
-                telemetry: Project.Sources.TelemetryTracks(
-                    cursor: Project.Sources.TelemetryTracks.TelemetryTrack(path: "telemetry/cursor.jsonl"),
-                    keys: nil
-                )
-            ),
+            takes: [take],
             timeline: Project.Timeline(
                 duration: recordingResult.duration,
                 segments: [
                     Project.Timeline.Segment(
                         id: UUID().uuidString,
+                        takeId: takeId,
                         sourceIn: 0,
                         sourceOut: recordingResult.duration,
                         timelineIn: 0,
@@ -160,6 +171,120 @@ public actor ProjectStore {
         )
 
         // Save project.json
+        try await saveProject(project)
+
+        return projectId
+    }
+
+    public func createProject(from recordingResult: Recorder.RecordingResult, name: String?, tags: [String]?) async throws -> ProjectId {
+        let projectId = ProjectId()
+        let projectDirectory = baseDirectory.appendingPathComponent(projectId.uuidString, isDirectory: true)
+
+        try createProjectDirectoryStructure(at: projectDirectory)
+
+        let sourcesPath = projectDirectory.appendingPathComponent("sources", isDirectory: true)
+        let screenPath = sourcesPath.appendingPathComponent("screen.mov")
+        try fileManager.moveItem(at: recordingResult.screenVideoPath, to: screenPath)
+
+        var camera: Project.Sources.MediaTrack?
+        if let cameraVideoPath = recordingResult.cameraVideoPath {
+            let destCameraPath = sourcesPath.appendingPathComponent("camera.mov")
+            try fileManager.moveItem(at: cameraVideoPath, to: destCameraPath)
+            camera = Project.Sources.MediaTrack(
+                path: "sources/camera.mov",
+                fps: 30.0,
+                size: Project.Sources.Size(w: 1280, h: 720),
+                syncOffsetMs: Int(recordingResult.syncMetadata.cameraSyncOffsetMs),
+                sha256: "placeholder",
+                sizeBytes: 0
+            )
+        }
+
+        var audio: Project.Sources.AudioTracks?
+        if let systemAudioPath = recordingResult.systemAudioPath {
+            let destSystemAudioPath = sourcesPath.appendingPathComponent("system_audio.m4a")
+            try fileManager.moveItem(at: systemAudioPath, to: destSystemAudioPath)
+            let systemAudioTrack = Project.Sources.AudioTracks.AudioTrack(
+                path: "sources/system_audio.m4a",
+                syncOffsetMs: Int(recordingResult.syncMetadata.systemAudioSyncOffsetMs),
+                sha256: "placeholder",
+                sizeBytes: 0
+            )
+
+            var micAudioTrack: Project.Sources.AudioTracks.AudioTrack?
+            if let micAudioPath = recordingResult.micAudioPath {
+                let destMicAudioPath = sourcesPath.appendingPathComponent("mic_audio.m4a")
+                try fileManager.moveItem(at: micAudioPath, to: destMicAudioPath)
+                micAudioTrack = Project.Sources.AudioTracks.AudioTrack(
+                    path: "sources/mic_audio.m4a",
+                    syncOffsetMs: Int(recordingResult.syncMetadata.micAudioSyncOffsetMs),
+                    sha256: "placeholder",
+                    sizeBytes: 0
+                )
+            }
+
+            audio = Project.Sources.AudioTracks(system: systemAudioTrack, mic: micAudioTrack)
+        }
+
+        let now = Date()
+        
+        let sources = Project.Sources(
+            syncReference: "screen",
+            screen: Project.Sources.MediaTrack(
+                path: "sources/screen.mov",
+                fps: 60.0,
+                size: Project.Sources.Size(w: 2880, h: 1800),
+                syncOffsetMs: 0,
+                sha256: "placeholder",
+                sizeBytes: 0
+            ),
+            camera: camera,
+            audio: audio,
+            telemetry: nil
+        )
+        
+        let takeId = UUID()
+        let take = Project.Take(
+            id: takeId,
+            name: "Take 1",
+            createdAt: now,
+            sources: sources
+        )
+
+        let project = Project(
+            projectId: projectId,
+            name: name ?? "Untitled Recording",
+            takes: [take],
+            timeline: Project.Timeline(
+                duration: recordingResult.duration,
+                segments: [
+                    Project.Timeline.Segment(
+                        id: UUID().uuidString,
+                        takeId: takeId,
+                        sourceIn: 0,
+                        sourceOut: recordingResult.duration,
+                        timelineIn: 0,
+                        speed: 1.0
+                    )
+                ]
+            ),
+            canvas: Project.Canvas(
+                format: Project.Canvas.Format(aspect: "16:9", w: 1920, h: 1080),
+                background: Project.Canvas.Background(type: "solid", value: "#0B0B0D", fitMode: nil),
+                layout: Project.Canvas.Layout(
+                    type: "pip",
+                    camera: Project.Canvas.Layout.CameraPosition(x: 0.74, y: 0.72, w: 0.22, h: 0.22, cornerRadius: 18)
+                )
+            ),
+            overlays: [],
+            chapters: [],
+            captions: nil,
+            tags: tags ?? [],
+            schemaVersion: currentSchemaVersion,
+            createdAt: now,
+            updatedAt: now
+        )
+
         try await saveProject(project)
 
         return projectId

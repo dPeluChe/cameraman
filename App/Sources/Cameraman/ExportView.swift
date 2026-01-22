@@ -484,8 +484,7 @@ final class ExportViewModel: ObservableObject {
         project: Project(
             name: "Test Project",
             canvas: CanvasLayout(),
-            timeline: Project.Timeline(segments: []),
-            sources: Project.Sources(),
+            timeline: Project.Timeline(duration: 0, segments: []),
             createdAt: Date(),
             updatedAt: Date()
         ),

@@ -103,7 +103,7 @@ final class ProjectEditor: ObservableObject {
 
     @discardableResult
     func setLayoutPreset(_ preset: CanvasLayout.LayoutPreset) async -> Bool {
-        let hasCamera = project.sources.camera != nil
+        let hasCamera = project.primarySources?.camera != nil
         if preset != .fullscreen && !hasCamera {
             return false
         }
@@ -132,7 +132,7 @@ final class ProjectEditor: ObservableObject {
         _ camera: Project.Canvas.Layout.CameraPosition,
         recordUndoFrom snapshot: Project? = nil
     ) async -> Bool {
-        let hasCamera = project.sources.camera != nil
+        let hasCamera = project.primarySources?.camera != nil
         var updatedProject = project
         updatedProject.canvas.layout.camera = camera
 

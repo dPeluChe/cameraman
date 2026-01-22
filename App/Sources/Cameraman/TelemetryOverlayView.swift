@@ -186,10 +186,17 @@ struct TelemetryOverlayView: View {
     }
 
     private func normalizePosition(x: Int, y: Int, in size: CoreGraphics.CGSize) -> CoreGraphics.CGPoint {
-        // Assume source is 1920x1080 for now
-        // In production, this should use project.sources.screen.size
-        let sourceWidth: CoreGraphics.CGFloat = 1920
-        let sourceHeight: CoreGraphics.CGFloat = 1080
+        // Use project screen size if available, otherwise default to 1920x1080
+        let sourceWidth: CoreGraphics.CGFloat
+        let sourceHeight: CoreGraphics.CGFloat
+
+        if let screenSize = project?.primarySources?.screen.size {
+            sourceWidth = CoreGraphics.CGFloat(screenSize.w)
+            sourceHeight = CoreGraphics.CGFloat(screenSize.h)
+        } else {
+            sourceWidth = 1920
+            sourceHeight = 1080
+        }
 
         let normalizedX = (CoreGraphics.CGFloat(x) / sourceWidth) * size.width
         let normalizedY = (CoreGraphics.CGFloat(y) / sourceHeight) * size.height
@@ -227,7 +234,7 @@ struct TelemetryOverlayView: View {
         }
 
         // Load cursor telemetry
-        if let cursorTrack = project.sources.telemetry?.cursor {
+        if let cursorTrack = project.primarySources?.telemetry?.cursor {
             await loadCursorTelemetry(
                 from: projectDirectory.appendingPathComponent(cursorTrack.path),
                 project: project
@@ -235,7 +242,7 @@ struct TelemetryOverlayView: View {
         }
 
         // Load keystroke telemetry
-        if let keysTrack = project.sources.telemetry?.keys {
+        if let keysTrack = project.primarySources?.telemetry?.keys {
             await loadKeystrokeTelemetry(
                 from: projectDirectory.appendingPathComponent(keysTrack.path)
             )

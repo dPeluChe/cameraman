@@ -722,10 +722,10 @@ public actor AIService {
 
     private func getAudioPath(for project: Project) -> String? {
         // Prefer mic audio, fall back to system audio
-        if let micPath = project.sources.audio?.mic?.path {
+        if let micPath = project.primarySources?.audio?.mic?.path {
             return micPath
         }
-        return project.sources.audio?.system?.path
+        return project.primarySources?.audio?.system?.path
     }
 
     private func getTranscriptPath(for projectId: ProjectId) -> URL {
