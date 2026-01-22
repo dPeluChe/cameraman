@@ -8,6 +8,7 @@
 import SwiftUI
 import EngineKit
 import CoreGraphics
+import AVFoundation
 
 typealias TimelineScalar = CoreGraphics.CGFloat
 
@@ -413,6 +414,9 @@ struct TimelineView: View {
                             dragStartTime = nil
                         }
                 )
+                .onDrop(of: [.text], isTargeted: nil) { providers, location in
+                    handleDrop(providers: providers, location: location, layout: layout)
+                }
             }
             .frame(maxWidth: .infinity)
             .background(Color.primary.opacity(0.03))
@@ -480,6 +484,48 @@ struct TimelineView: View {
                 playheadTime = min(playheadTime, editor.project.timeline.duration)
             }
         }
+    }
+
+    private func handleDrop(providers: [NSItemProvider], location: CGPoint, layout: TimelineLayout) -> Bool {
+        guard let provider = providers.first else { return false }
+        
+        // We expect a UUID string for the take ID
+        if provider.canLoadObject(ofClass: NSString.self) {
+            _ = provider.loadObject(ofClass: NSString.self) { idString, error in
+                guard let uuidString = idString as? String,
+                      let takeId = UUID(uuidString: uuidString) else { return }
+                
+                Task { @MainActor in
+                    guard let take = self.editor.project.takes.first(where: { $0.id == takeId }) else { return }
+                    
+                    // Calculate drop time
+                    let dropTime = layout.time(forXPosition: location.x)
+                    
+                    // Default fallback duration
+                    var duration: TimeInterval = 10.0
+                    
+                    // Try to get actual duration from file
+                    if let projectDir = self.projectDirectory {
+                        let videoPath = projectDir.appendingPathComponent(take.sources.screen.path)
+                        let asset = AVURLAsset(url: videoPath)
+                        if let assetDuration = try? await asset.load(.duration) {
+                            duration = assetDuration.seconds
+                        }
+                    }
+                    
+                    // Add segment
+                    _ = await self.editor.addSegment(
+                        takeId: takeId,
+                        sourceIn: 0,
+                        sourceOut: duration,
+                        timelineIn: dropTime
+                    )
+                }
+            }
+            return true
+        }
+        
+        return false
     }
 
     private func applyTrim(

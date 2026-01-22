@@ -69,7 +69,7 @@ struct TelemetryControlsView: View {
     @ViewBuilder
     private var telemetryInfoView: some View {
         VStack(alignment: .leading, spacing: 4) {
-            if viewModel.project?.sources.telemetry?.cursor != nil {
+            if let sources = viewModel.project?.sources, sources.telemetry?.cursor != nil {
                 HStack {
                     Image(systemName: "cursorarrow")
                         .foregroundStyle(.blue)
@@ -77,7 +77,7 @@ struct TelemetryControlsView: View {
                 }
             }
 
-            if viewModel.project?.sources.telemetry?.keys != nil {
+            if let sources = viewModel.project?.sources, sources.telemetry?.keys != nil {
                 HStack {
                     Image(systemName: "keyboard")
                         .foregroundStyle(.green)
@@ -89,8 +89,10 @@ struct TelemetryControlsView: View {
 
     private var hasTelemetryData: Bool {
         let project = viewModel.project
-        return project?.sources.telemetry?.cursor != nil ||
-               project?.sources.telemetry?.keys != nil
+        if let sources = project?.sources {
+            return sources.telemetry?.cursor != nil || sources.telemetry?.keys != nil
+        }
+        return false
     }
 }
 

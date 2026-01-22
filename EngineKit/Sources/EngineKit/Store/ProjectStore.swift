@@ -183,72 +183,16 @@ public actor ProjectStore {
         try createProjectDirectoryStructure(at: projectDirectory)
 
         let sourcesPath = projectDirectory.appendingPathComponent("sources", isDirectory: true)
-        let screenPath = sourcesPath.appendingPathComponent("screen.mov")
-        try fileManager.moveItem(at: recordingResult.screenVideoPath, to: screenPath)
-
-        var camera: Project.Sources.MediaTrack?
-        if let cameraVideoPath = recordingResult.cameraVideoPath {
-            let destCameraPath = sourcesPath.appendingPathComponent("camera.mov")
-            try fileManager.moveItem(at: cameraVideoPath, to: destCameraPath)
-            camera = Project.Sources.MediaTrack(
-                path: "sources/camera.mov",
-                fps: 30.0,
-                size: Project.Sources.Size(w: 1280, h: 720),
-                syncOffsetMs: Int(recordingResult.syncMetadata.cameraSyncOffsetMs),
-                sha256: "placeholder",
-                sizeBytes: 0
-            )
-        }
-
-        var audio: Project.Sources.AudioTracks?
-        if let systemAudioPath = recordingResult.systemAudioPath {
-            let destSystemAudioPath = sourcesPath.appendingPathComponent("system_audio.m4a")
-            try fileManager.moveItem(at: systemAudioPath, to: destSystemAudioPath)
-            let systemAudioTrack = Project.Sources.AudioTracks.AudioTrack(
-                path: "sources/system_audio.m4a",
-                syncOffsetMs: Int(recordingResult.syncMetadata.systemAudioSyncOffsetMs),
-                sha256: "placeholder",
-                sizeBytes: 0
-            )
-
-            var micAudioTrack: Project.Sources.AudioTracks.AudioTrack?
-            if let micAudioPath = recordingResult.micAudioPath {
-                let destMicAudioPath = sourcesPath.appendingPathComponent("mic_audio.m4a")
-                try fileManager.moveItem(at: micAudioPath, to: destMicAudioPath)
-                micAudioTrack = Project.Sources.AudioTracks.AudioTrack(
-                    path: "sources/mic_audio.m4a",
-                    syncOffsetMs: Int(recordingResult.syncMetadata.micAudioSyncOffsetMs),
-                    sha256: "placeholder",
-                    sizeBytes: 0
-                )
-            }
-
-            audio = Project.Sources.AudioTracks(system: systemAudioTrack, mic: micAudioTrack)
-        }
+        let takeId = UUID()
+        let takeSources = try moveRecordingFiles(recordingResult, to: sourcesPath, takeId: takeId)
 
         let now = Date()
         
-        let sources = Project.Sources(
-            syncReference: "screen",
-            screen: Project.Sources.MediaTrack(
-                path: "sources/screen.mov",
-                fps: 60.0,
-                size: Project.Sources.Size(w: 2880, h: 1800),
-                syncOffsetMs: 0,
-                sha256: "placeholder",
-                sizeBytes: 0
-            ),
-            camera: camera,
-            audio: audio,
-            telemetry: nil
-        )
-        
-        let takeId = UUID()
         let take = Project.Take(
             id: takeId,
             name: "Take 1",
             createdAt: now,
-            sources: sources
+            sources: takeSources
         )
 
         let project = Project(
@@ -288,6 +232,105 @@ public actor ProjectStore {
         try await saveProject(project)
 
         return projectId
+    }
+
+    /// Add a new take to an existing project
+    /// - Parameters:
+    ///   - projectId: Project to add take to
+    ///   - recordingResult: Result from recording session
+    /// - Returns: The added Take
+    /// - Throws: EngineKitError if add fails
+    public func addTake(projectId: ProjectId, recordingResult: Recorder.RecordingResult) async throws -> Project.Take {
+        var project = try await loadProject(projectId: projectId)
+        let projectDirectory = try projectDirectoryURL(for: projectId)
+        let sourcesPath = projectDirectory.appendingPathComponent("sources", isDirectory: true)
+        
+        let takeId = UUID()
+        let takeSources = try moveRecordingFiles(recordingResult, to: sourcesPath, takeId: takeId)
+        
+        let takeNumber = project.takes.count + 1
+        let take = Project.Take(
+            id: takeId,
+            name: "Take \(takeNumber)",
+            createdAt: Date(),
+            sources: takeSources
+        )
+        
+        project.takes.append(take)
+        
+        // Optionally append to timeline? For now we just add the take to the pool.
+        // User will drag it to timeline.
+        
+        try await saveProject(project)
+        return take
+    }
+
+    private func moveRecordingFiles(_ result: Recorder.RecordingResult, to sourcesPath: URL, takeId: UUID) throws -> Project.Sources {
+        // Use takeId prefix to avoid collisions
+        let prefix = takeId.uuidString.prefix(8)
+        let screenFilename = "\(prefix)_screen.mov"
+        let screenPath = sourcesPath.appendingPathComponent(screenFilename)
+        
+        try fileManager.moveItem(at: result.screenVideoPath, to: screenPath)
+
+        var camera: Project.Sources.MediaTrack?
+        if let cameraVideoPath = result.cameraVideoPath {
+            let cameraFilename = "\(prefix)_camera.mov"
+            let destCameraPath = sourcesPath.appendingPathComponent(cameraFilename)
+            try fileManager.moveItem(at: cameraVideoPath, to: destCameraPath)
+            camera = Project.Sources.MediaTrack(
+                path: "sources/\(cameraFilename)",
+                fps: 30.0,
+                size: Project.Sources.Size(w: 1280, h: 720),
+                syncOffsetMs: Int(result.syncMetadata.cameraSyncOffsetMs),
+                sha256: "placeholder",
+                sizeBytes: 0
+            )
+        }
+
+        var audio: Project.Sources.AudioTracks?
+        if let systemAudioPath = result.systemAudioPath {
+            let sysAudioFilename = "\(prefix)_system_audio.m4a"
+            let destSystemAudioPath = sourcesPath.appendingPathComponent(sysAudioFilename)
+            try fileManager.moveItem(at: systemAudioPath, to: destSystemAudioPath)
+            
+            let systemAudioTrack = Project.Sources.AudioTracks.AudioTrack(
+                path: "sources/\(sysAudioFilename)",
+                syncOffsetMs: Int(result.syncMetadata.systemAudioSyncOffsetMs),
+                sha256: "placeholder",
+                sizeBytes: 0
+            )
+
+            var micAudioTrack: Project.Sources.AudioTracks.AudioTrack?
+            if let micAudioPath = result.micAudioPath {
+                let micAudioFilename = "\(prefix)_mic_audio.m4a"
+                let destMicAudioPath = sourcesPath.appendingPathComponent(micAudioFilename)
+                try fileManager.moveItem(at: micAudioPath, to: destMicAudioPath)
+                micAudioTrack = Project.Sources.AudioTracks.AudioTrack(
+                    path: "sources/\(micAudioFilename)",
+                    syncOffsetMs: Int(result.syncMetadata.micAudioSyncOffsetMs),
+                    sha256: "placeholder",
+                    sizeBytes: 0
+                )
+            }
+
+            audio = Project.Sources.AudioTracks(system: systemAudioTrack, mic: micAudioTrack)
+        }
+
+        return Project.Sources(
+            syncReference: "screen",
+            screen: Project.Sources.MediaTrack(
+                path: "sources/\(screenFilename)",
+                fps: 60.0,
+                size: Project.Sources.Size(w: 2880, h: 1800),
+                syncOffsetMs: 0,
+                sha256: "placeholder",
+                sizeBytes: 0
+            ),
+            camera: camera,
+            audio: audio,
+            telemetry: nil
+        )
     }
 
     /// Load a project by ID

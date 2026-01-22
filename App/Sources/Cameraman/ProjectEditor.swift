@@ -61,6 +61,18 @@ final class ProjectEditor: ObservableObject {
         return result
     }
 
+    func addSegment(takeId: UUID, sourceIn: TimeInterval, sourceOut: TimeInterval, timelineIn: TimeInterval) async -> EditorResult {
+        let previousProject = project
+        let result = await editorModel.addSegment(
+            takeId: takeId,
+            sourceIn: sourceIn,
+            sourceOut: sourceOut,
+            timelineIn: timelineIn
+        )
+        updatePublishedProject(from: result, previousProject: previousProject)
+        return result
+    }
+
     func delete(segmentId: String) async -> EditorResult {
         let previousProject = project
         let result = await editorModel.delete(segmentId: segmentId)

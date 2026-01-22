@@ -155,6 +155,40 @@ public actor EditorModel {
         return .successWithInfo(project, .splitCreated(newSegmentId: secondSegment.id))
     }
 
+    /// Add a new segment to the timeline
+    /// - Parameters:
+    ///   - takeId: The ID of the take to add
+    ///   - sourceIn: Start time in the source
+    ///   - sourceOut: End time in the source
+    ///   - timelineIn: Start time on the timeline
+    /// - Returns: Result indicating success or failure
+    public func addSegment(
+        takeId: UUID,
+        sourceIn: TimeInterval,
+        sourceOut: TimeInterval,
+        timelineIn: TimeInterval
+    ) async -> EditorResult {
+        // Verify take exists
+        guard project.takes.contains(where: { $0.id == takeId }) else {
+            return .failure(.takeNotFound(takeId.uuidString))
+        }
+
+        let newSegment = Project.Timeline.Segment(
+            takeId: takeId,
+            sourceIn: sourceIn,
+            sourceOut: sourceOut,
+            timelineIn: timelineIn
+        )
+
+        project.timeline.segments.append(newSegment)
+        // Sort segments by timeline position
+        project.timeline.segments.sort { $0.timelineIn < $1.timelineIn }
+
+        recalculateTimelineDuration()
+
+        return .successWithInfo(project, .segmentAdded(segmentId: newSegment.id))
+    }
+
     /// Delete a segment from the timeline
     /// - Parameter segmentId: The ID of the segment to delete
     /// - Returns: Result indicating success or failure
@@ -444,11 +478,13 @@ public enum EditorResult: Equatable {
 public enum EditorResultInfo: Equatable {
     case splitCreated(newSegmentId: String)
     case rangeDeleted(count: Int)
+    case segmentAdded(segmentId: String)
 }
 
 /// Errors that can occur during editing operations
 public enum EditorError: Error, Equatable {
     case segmentNotFound(String)
+    case takeNotFound(String)
     case invalidTrimTime(sourceIn: TimeInterval, sourceOut: TimeInterval, reason: String)
     case invalidSplitTime(segmentId: String, timelineIn: TimeInterval, timelineOut: TimeInterval, requestedTime: TimeInterval)
     case invalidRange(start: TimeInterval, end: TimeInterval)
@@ -460,6 +496,8 @@ public enum EditorError: Error, Equatable {
         switch self {
         case .segmentNotFound(let id):
             return "Segment with ID '\(id)' not found"
+        case .takeNotFound(let id):
+            return "Take with ID '\(id)' not found in project"
         case .invalidTrimTime(let sourceIn, let sourceOut, let reason):
             return "Invalid trim: sourceIn=\(sourceIn)s, sourceOut=\(sourceOut)s - \(reason)"
         case .invalidSplitTime(let id, let timelineIn, let timelineOut, let requestedTime):

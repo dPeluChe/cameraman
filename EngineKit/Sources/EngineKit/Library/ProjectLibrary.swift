@@ -278,6 +278,15 @@ public actor ProjectLibrary {
         try await store.createProject(from: recordingResult, name: name, tags: tags)
     }
 
+    /// Add a new take to an existing project
+    /// - Parameters:
+    ///   - projectId: Project to add take to
+    ///   - recordingResult: Result from recording session
+    /// - Returns: The added Take
+    public func addTake(projectId: ProjectId, recordingResult: Recorder.RecordingResult) async throws -> Project.Take {
+        try await store.addTake(projectId: projectId, recordingResult: recordingResult)
+    }
+
     /// Get a project by ID
     /// - Parameter projectId: Project ID
     /// - Returns: The project

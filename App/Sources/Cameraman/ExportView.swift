@@ -9,6 +9,7 @@ import Combine
 import SwiftUI
 import EngineKit
 import UniformTypeIdentifiers
+import AppKit
 
 // MARK: - Export View (Modal)
 
@@ -26,7 +27,7 @@ struct ExportView: View {
         self.projectDirectory = projectDirectory
         self.onExportComplete = onExportComplete
         self.onCancel = onCancel
-        _viewModel = StateObject(wrappedValue: ExportViewModel(project: project))
+        _viewModel = StateObject(wrappedValue: ExportViewModel(project: project, projectDirectory: projectDirectory))
     }
 
     var body: some View {
@@ -45,6 +46,11 @@ struct ExportView: View {
         .onAppear {
             viewModel.setupExportEngine()
         }
+        .onChange(of: viewModel.showSavePanel) { _, shouldShow in
+            if shouldShow {
+                viewModel.saveExportToFile()
+            }
+        }
     }
 
     private var header: some View {
@@ -61,13 +67,22 @@ struct ExportView: View {
                 }
                 .buttonStyle(.bordered)
             } else {
-                Button("Cancel Export") {
-                    Task {
-                        await viewModel.cancelExport()
+                if viewModel.exportState == .completed || viewModel.exportState == .failed {
+                    Button("Done") {
+                        dismiss()
+                        onCancel()
                     }
+                    .buttonStyle(.bordered)
+                } else {
+                    Button("Cancel Export") {
+                        Task {
+                            await viewModel.cancelExport()
+                            dismiss()
+                            onCancel()
+                        }
+                    }
+                    .buttonStyle(.bordered)
                 }
-                .buttonStyle(.bordered)
-                .disabled(viewModel.exportState == .completed || viewModel.exportState == .failed)
             }
         }
         .padding(.horizontal, 20)
@@ -155,12 +170,6 @@ struct ExportView: View {
                 Text(errorMessage)
             }
         }
-        .onChange(of: viewModel.exportResult) { _, newValue in
-            if newValue != nil {
-                dismiss()
-                onExportComplete(newValue)
-            }
-        }
     }
 
     // MARK: - Progress Content
@@ -209,6 +218,15 @@ struct ExportView: View {
                 .foregroundStyle(.secondary)
             }
 
+            if let tempURL = viewModel.temporaryExportURL, viewModel.exportState == .completed {
+                Button("Play Video (Temporary)") {
+                    print("🎬 [ExportView] Opening temporary file: \(tempURL.path)")
+                    NSWorkspace.shared.open(tempURL)
+                }
+                .font(.caption)
+                .buttonStyle(.bordered)
+            }
+
             Spacer()
         }
         .padding(40)
@@ -243,8 +261,11 @@ final class ExportViewModel: ObservableObject {
     @Published var errorMessage: String? = nil
     @Published var exportResult: URL? = nil
     @Published var showSuccessAlert: Bool = false
+    @Published var showSavePanel: Bool = false
+    @Published var temporaryExportURL: URL? = nil
 
     private let project: Project
+    private let projectDirectory: URL
     private var exportEngine: ExportEngine?
     private var exportJobId: JobId?
     private var exportStartTime: Date?
@@ -346,8 +367,9 @@ final class ExportViewModel: ObservableObject {
         }
     }
 
-    init(project: Project) {
+    init(project: Project, projectDirectory: URL) {
         self.project = project
+        self.projectDirectory = projectDirectory
         self.outputFilename = project.name.isEmpty ? "Untitled" : project.name
         self.outputURL = FileManager.default.urls(for: .moviesDirectory, in: .userDomainMask).first ?? FileManager.default.homeDirectoryForCurrentUser
     }
@@ -371,7 +393,6 @@ final class ExportViewModel: ObservableObject {
             let finalFilename = outputFilename.hasSuffix(".\(fileExtension)")
                 ? outputFilename
                 : "\(outputFilename).\(fileExtension)"
-            let finalURL = outputURL.deletingLastPathComponent().appendingPathComponent(finalFilename)
 
             // Initialize export engine
             let library = ProjectLibrary()
@@ -397,7 +418,7 @@ final class ExportViewModel: ObservableObject {
             self.exportState = .exporting
 
             // Start progress monitoring
-            startProgressMonitoring(jobId: jobId, engine: engine, outputURL: finalURL)
+            startProgressMonitoring(jobId: jobId, engine: engine, filename: finalFilename)
 
         } catch {
             exportState = .failed
@@ -406,7 +427,9 @@ final class ExportViewModel: ObservableObject {
         }
     }
 
-    private func startProgressMonitoring(jobId: JobId, engine: ExportEngine, outputURL: URL) {
+    private func startProgressMonitoring(jobId: JobId, engine: ExportEngine, filename: String) {
+        print("🎬 [ExportViewModel] startProgressMonitoring called with filename: \(filename)")
+
         progressUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self = self else { return }
@@ -425,11 +448,25 @@ final class ExportViewModel: ObservableObject {
                 case .running:
                     self.progressMessage = "Exporting video..."
                 case .success:
+                    // Calculate actual temporary file path inside project directory
+                    let tempPath = self.projectDirectory
+                        .appendingPathComponent("renders", isDirectory: true)
+                        .appendingPathComponent(filename)
+
+                    print("🎬 [ExportViewModel] Export success, temporary path: \(tempPath.path)")
                     self.exportState = .completed
                     self.progress = 1.0
                     self.progressMessage = "Export complete!"
-                    self.exportResult = outputURL
-                    self.showSuccessAlert = true
+                    self.temporaryExportURL = tempPath
+                    self.exportResult = nil
+
+                    // Delay showing save panel to allow UI to update
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s delay
+                        self.showSavePanel = true
+                        print("🎬 [ExportViewModel] Show save panel after delay")
+                    }
+
                     self.stopProgressMonitoring()
                 case .failed:
                     self.exportState = .failed
@@ -456,6 +493,58 @@ final class ExportViewModel: ObservableObject {
     private func stopProgressMonitoring() {
         progressUpdateTimer?.invalidate()
         progressUpdateTimer = nil
+    }
+
+    func saveExportToFile() {
+        guard let tempURL = temporaryExportURL else {
+            errorMessage = "No exported file to save"
+            return
+        }
+
+        print("🎬 [ExportView] saveExportToFile called")
+        print("🎬 [ExportView] Temporary export URL: \(tempURL.path)")
+        print("🎬 [ExportView] Output filename: \(outputFilename)")
+
+        let savePanel = NSSavePanel()
+        savePanel.title = "Save Exported Video"
+        savePanel.nameFieldStringValue = outputFilename
+
+        savePanel.begin { response in
+            print("🎬 [ExportView] Save panel response: \(response.rawValue)")
+
+            guard response == .OK, let destinationURL = savePanel.url else {
+                print("🎬 [ExportView] Save panel cancelled or no URL selected")
+                if response == .cancel {
+                    print("🎬 [ExportView] User cancelled save panel")
+                }
+                return
+            }
+
+            print("🎬 [ExportView] Destination URL: \(destinationURL.path)")
+
+            // Ensure .mp4 extension if missing
+            let finalDestinationURL = destinationURL.pathExtension.isEmpty
+                ? destinationURL.appendingPathExtension("mp4")
+                : destinationURL
+
+            print("🎬 [ExportView] Final Destination URL: \(finalDestinationURL.path)")
+
+            do {
+                let fileManager = FileManager.default
+                print("🎬 [ExportView] Copying file from \(tempURL.path) to \(finalDestinationURL.path)")
+
+                // Copy file from sandbox to user-selected location
+                try fileManager.copyItem(at: tempURL, to: finalDestinationURL)
+                print("🎬 [ExportView] File copied successfully")
+
+                self.exportResult = finalDestinationURL
+                self.showSuccessAlert = true
+                print("🎬 [ExportView] Success alert shown")
+            } catch {
+                print("🎬 [ExportView] ERROR: Failed to save file: \(error.localizedDescription)")
+                self.errorMessage = "Failed to save file: \(error.localizedDescription)"
+            }
+        }
     }
 
     func cancelExport() async {
