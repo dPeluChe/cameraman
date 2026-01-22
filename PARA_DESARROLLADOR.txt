@@ -1,0 +1,201 @@
+═══════════════════════════════════════════════════════════════
+                    CAMERAMAN - PROYECTO PARA DESARROLLADOR
+═══════════════════════════════════════════════════════════════
+
+📋 INFORMACIÓN BÁSICA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Nombre: Cameraman (Project Studio)
+• Versión Actual: 0.2.0 (22 de enero, 2026)
+• Stack: Swift, SwiftUI, AVFoundation, ScreenCaptureKit
+• Tipo: App nativa macOS - Screen Recorder & Editor
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎬 ¿QUÉ ES EL PROYECTO?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Cameraman es una aplicación macOS nativa para grabar y editar pantalla 
+con las siguientes características principales:
+
+✅ Grabación de pantalla con ScreenCaptureKit
+✅ Grabación simultánea de cámara (overlay)
+✅ Audio del sistema y micrófono
+✅ Editor de timeline visual
+✅ Sistema de export en múltiples formatos (MP4, GIF)
+✅ Sistema de zoom automático (keyframes)
+✅ App sandboxed con almacenamiento local
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🏗️ ARQUITECTURA DEL PROYECTO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• App/              → Capa de UI (SwiftUI)
+• EngineKit/         → Motor central y lógica de negocio
+  • Export/         → Sistema de export
+  • Capture/        → Sistema de grabación
+  • Preview/        → Sistema de preview
+  • Zoom/           → Generador de zoom
+  • Intelligence/   → Servicios AI
+• CameramanApp/     → Configuración Xcode
+
+Tecnologías clave:
+• Swift 5.x + SwiftUI
+• AVFoundation + ScreenCaptureKit
+• async/await + Combine
+• MVVM Architecture
+• App Sandbox
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📊 ESTADO ACTUAL (v0.2.0)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ IMPLEMENTADO:
+
+Sistema de Grabación:
+- Screen recording con ScreenCaptureKit
+- Audio del sistema
+- Overlay de cámara
+- Micrófono
+- Tracks separados (screen.mov, system_audio.m4a, etc.)
+- State management con Combine
+- Hotkeys para controles
+- Window de indicador de grabación
+
+Sistema de Editor:
+- Timeline visual con drag-and-drop
+- Operaciones de trim y cut
+- Controles de zoom en timeline
+- Gestión de proyectos
+- Soporte multi-take
+
+Sistema de Export (COMPLETO):
+- 4 presets de export (Web 1080p, High 1080p, Portrait, GIF)
+- Progreso detallado en etapas
+- NSSavePanel para ubicación del usuario
+- Archivos temporales en sandbox
+- Botón de play para preview
+- Manejo de errores detallado
+
+Sistema de Preview:
+- Preview en tiempo real
+- Extracción de frames
+- Render con zoom
+
+AI Integration (Foundation):
+- Arquitectura de servicio AI
+- Job queue
+- Procesamiento local
+
+⚠️ ISSUES CONOCIDOS:
+- Videos exportados con barras negras (aspect ratio)
+- Warnings no críticos en recording startup
+- Algunos exports se pausan al 90%
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 SETUP DE DESARROLLO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Requisitos:
+• macOS 14.0+ (para ScreenCaptureKit)
+• Xcode 15.0+
+• Swift 5.9+
+
+Instrucciones:
+1. Abrir CameramanApp/CameramanApp.xcodeproj
+2. Scheme: CameramanApp
+3. Destination: My Mac
+4. Build and Run (Cmd+R)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔑 INFORMACIÓN CRÍTICA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📦 SANDBOX CONFIGURATION:
+La app corre con App Sandbox habilitado. Esto afecta:
+• Acceso a archivos - Solo container de sandbox + ubicaciones del usuario
+• Cámara/mic - Requieren entitlements
+• Export - Debe usar NSSavePanel para consentimiento del usuario
+
+Entitlements (CameramanApp.entitlements):
+• com.apple.security.app-sandbox
+• com.apple.security.device.camera
+• com.apple.security.device.audio-input
+• com.apple.security.files.user-selected.read-write
+• com.apple.security.files.downloads.read-write
+
+📁 FILE PATHS:
+• Recordings: ~/Library/Containers/com.dpeluchestudios.CameramanApp/...
+• Projects: ~/Library/Containers/.../ProjectStudio/Projects/
+• Exports: Temporales en sandbox, luego ubicación del usuario
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 TAREAS PRIORITARIAS (PRÓXIMA FASE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔴 ALTA PRIORIDAD:
+
+1. 🔧 FIX ASPECT RATIO / BLACK BARS
+   • Problem: Videos exportados con barras negras
+   • Files: ExportTransformUtils.swift, VideoExportSession.swift
+   • Approach: Verificar calculateDownscaleTransform y fitMode
+
+2. 🔧 MEJORAR EXPORT RELIABILITY
+   • Problem: Exports se pausan al 90%
+   • Files: VideoExportSession.swift (export progress)
+   • Approach: Timeout handling, error recovery
+
+3. 🔧 FIX TIMELINE PERFORMANCE
+   • Problem: Timeline lag con muchos segments
+   • Files: TimelineView.swift, EditorModel.swift
+   • Approach: Virtual scrolling, lazy loading
+
+🟡 MEDIA PRIORIDAD:
+
+4. 🎨 AGREGAR CAPTION SUPPORT
+   • Feature: Burn captions en exported video
+   • Files: VideoExportSession.swift (caption layer)
+   • Status: Implementado pero necesita parsing SRT
+
+5. 🔍 IMPLEMENTAR ZOOM KEYFRAME SYSTEM
+   • Feature: Auto-zoom basado en cursor
+   • Files: ZoomPlanGenerator.swift, ZoomTypes.swift
+   • Approach: Algoritmo de zoom, easing, UI
+
+6. 🎞️ OPTIMIZAR GIF EXPORT
+   • Feature: Mejorar calidad y tamaño de GIF
+   • Files: GIFExportSession.swift
+   • Approach: Frame optimization, palette reduction
+
+🟢 BAJA PRIORIDAD:
+
+7. 💾 EXPORT PROGRESS PERSISTENCE
+   • Feature: Reanudar exports interrumpidos
+
+8. ✨ MEJORAR UI/UX
+   • Features: Custom presets, history, shortcuts, dark mode
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📚 DOCUMENTACIÓN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• README.md          → Project overview y build instructions
+• CHANGELOG.md       → Version history y cambios
+• DEV_ONBOARDING.md  → Guía completa de onboarding
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🤝 PARA EMPEZAR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Leer DEV_ONBOARDING.md (completo)
+2. Empezar con ExportEngine.swift y ProjectEditorView.swift
+3. Entender el data model: Project.swift
+4. Correr la app: Probar grabar y exportar
+5. Revisar logs: Export usa 🎬 emoji prefix
+6. Preguntar: El codebase usa Combine y async/await extensivamente
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                        Última actualización: 22 de enero, 2026
+                            Versión: 0.2.0
+═══════════════════════════════════════════════════════════════
