@@ -92,6 +92,17 @@ extension Project {
                     self.cornerRadius = cornerRadius
                     self.maskShape = maskShape
                 }
+
+                /// Custom decoder to handle old projects without maskShape field
+                public init(from decoder: Decoder) throws {
+                    let container = try decoder.container(keyedBy: CodingKeys.self)
+                    x = try container.decode(Double.self, forKey: .x)
+                    y = try container.decode(Double.self, forKey: .y)
+                    w = try container.decode(Double.self, forKey: .w)
+                    h = try container.decode(Double.self, forKey: .h)
+                    cornerRadius = try container.decodeIfPresent(Double.self, forKey: .cornerRadius) ?? 0
+                    maskShape = try container.decodeIfPresent(PiPMaskShape.self, forKey: .maskShape) ?? .roundedRect
+                }
             }
         }
 
