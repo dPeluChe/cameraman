@@ -158,7 +158,7 @@ public actor ProjectStore {
                 background: Project.Canvas.Background(type: "solid", value: "#0B0B0D", fitMode: nil),
                 layout: Project.Canvas.Layout(
                     type: "pip",
-                    camera: Project.Canvas.Layout.CameraPosition(x: 0.74, y: 0.72, w: 0.22, h: 0.22, cornerRadius: 18)
+                    camera: Project.Canvas.Layout.CameraPosition(x: 0.72, y: 0.74, w: 0.26, h: 0.22, cornerRadius: 12)
                 )
             ),
             overlays: [],
@@ -217,7 +217,7 @@ public actor ProjectStore {
                 background: Project.Canvas.Background(type: "solid", value: "#0B0B0D", fitMode: nil),
                 layout: Project.Canvas.Layout(
                     type: "pip",
-                    camera: Project.Canvas.Layout.CameraPosition(x: 0.74, y: 0.72, w: 0.22, h: 0.22, cornerRadius: 18)
+                    camera: Project.Canvas.Layout.CameraPosition(x: 0.72, y: 0.74, w: 0.26, h: 0.22, cornerRadius: 12)
                 )
             ),
             overlays: [],

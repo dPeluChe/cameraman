@@ -171,6 +171,11 @@ final class PreviewPlayerViewModel: ObservableObject {
             player.pause()
             isPlaying = false
         } else {
+            // If at end of video, restart from beginning
+            if duration > 0 && currentTime >= duration - 0.1 {
+                player.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
+                currentTime = 0
+            }
             player.rate = Float(playbackRate.rawValue)
             isPlaying = true
         }
