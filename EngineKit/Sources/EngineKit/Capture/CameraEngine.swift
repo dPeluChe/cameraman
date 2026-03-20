@@ -357,7 +357,7 @@ private class CameraSampleBufferDelegate: NSObject, AVCaptureVideoDataOutputSamp
             firstPresentationTime = presentationTime
             // Re-start session at this timestamp so all frames are relative
             assetWriter.startSession(atSourceTime: presentationTime)
-            logger.debug("[CAMERA-DEBUG] First frame PTS: \(presentationTime.seconds)s")
+            logger.debug("Camera first frame PTS: \(presentationTime.seconds)s")
         }
 
         // Append original sample buffer directly — timestamps are already valid
@@ -367,10 +367,10 @@ private class CameraSampleBufferDelegate: NSObject, AVCaptureVideoDataOutputSamp
         if success {
             frameCount += 1
             if frameCount % 30 == 1 {
-                logger.debug("[CAMERA-DEBUG] Frames written: \(self.frameCount), PTS: \(presentationTime.seconds)s")
+                logger.debug("Camera frames written: \(self.frameCount)")
             }
         } else if frameCount < 5 {
-            logger.error("[CAMERA-DEBUG] Append failed at frame \(self.frameCount), writer status: \(self.assetWriter.status.rawValue), error: \(self.assetWriter.error?.localizedDescription ?? "none")")
+            logger.error("Camera append failed at frame \(self.frameCount), writer status: \(self.assetWriter.status.rawValue), error: \(self.assetWriter.error?.localizedDescription ?? "none")")
         }
     }
 }

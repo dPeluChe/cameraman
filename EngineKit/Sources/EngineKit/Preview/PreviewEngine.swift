@@ -214,30 +214,52 @@ public actor PreviewEngine {
     /// Update the project and rebuild the composition (for live preview of edits)
     /// Call this when canvas layout, format, camera position, or timeline changes
     public func updateProject(_ project: Project) async throws {
-        let wasPlaying = playbackState == .playing
-        let savedTime = currentTime
+        let oldFormat = self.project?.canvas.format
+        let oldSegmentCount = self.project?.timeline.segments.count
 
-        // Pause current playback
-        player?.pause()
-
-        // Update project
         self.project = project
 
-        // Rebuild composition with new settings
-        try await createPlayerWithEdits()
+        let formatChanged = oldFormat != project.canvas.format
+        let segmentsChanged = oldSegmentCount != project.timeline.segments.count
 
-        // Restore playback position
-        if savedTime > 0 {
-            let cmTime = CMTime(seconds: savedTime, preferredTimescale: 600)
-            await player?.seek(to: cmTime, toleranceBefore: .zero, toleranceAfter: .zero)
-            currentTime = savedTime
+        if formatChanged || segmentsChanged {
+            // Full rebuild needed (different tracks or render size)
+            let wasPlaying = playbackState == .playing
+            let savedTime = currentTime
+
+            player?.pause()
+            try await createPlayerWithEdits()
+
+            if savedTime > 0 {
+                let cmTime = CMTime(seconds: savedTime, preferredTimescale: 600)
+                await player?.seek(to: cmTime, toleranceBefore: .zero, toleranceAfter: .zero)
+                currentTime = savedTime
+            }
+
+            if wasPlaying {
+                player?.play()
+                playbackState = .playing
+            }
+        } else {
+            // Light update: only rebuild videoComposition (layout/camera/background)
+            try await rebuildVideoComposition()
+        }
+    }
+
+    /// Rebuild only the videoComposition without recreating tracks/player
+    /// Used for fast PiP position, camera size, and background changes
+    private func rebuildVideoComposition() async throws {
+        guard let project = project,
+              let player = player,
+              let currentItem = player.currentItem,
+              let composition = self.composition as? AVMutableComposition else {
+            return
         }
 
-        // Resume if was playing
-        if wasPlaying {
-            player?.play()
-            playbackState = .playing
-        }
+        let videoComposition = buildVideoComposition(for: project, composition: composition)
+        self.videoCompositionConfig = videoComposition
+
+        currentItem.videoComposition = videoComposition
     }
 
     /// Unload the current project

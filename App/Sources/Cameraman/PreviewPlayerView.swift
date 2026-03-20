@@ -84,7 +84,7 @@ struct PreviewPlayerView: View {
         .task(id: editor.project.projectId) {
             viewModel.load(project: editor.project, projectDirectory: projectDirectory)
         }
-        .onReceive(editor.objectWillChange.throttle(for: .milliseconds(200), scheduler: RunLoop.main, latest: true)) { _ in
+        .onReceive(editor.objectWillChange.debounce(for: .milliseconds(500), scheduler: RunLoop.main)) { _ in
             guard viewModel.previewEngine != nil else { return }
             viewModel.refreshPreview(with: editor.project)
         }

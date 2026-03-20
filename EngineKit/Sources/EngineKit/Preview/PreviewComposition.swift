@@ -9,6 +9,84 @@ import Foundation
 import AVFoundation
 
 extension PreviewEngine {
+    /// Build an AVMutableVideoComposition with screen + camera layer transforms
+    /// Reusable for both initial creation and live updates
+    func buildVideoComposition(for project: Project, composition: AVComposition) -> AVMutableVideoComposition {
+        let videoComposition = AVMutableVideoComposition()
+
+        let renderSize = CoreFoundation.CGSize(
+            width: CGFloat(project.canvas.format.w),
+            height: CGFloat(project.canvas.format.h)
+        )
+        videoComposition.renderSize = renderSize
+        videoComposition.frameDuration = CMTime(value: 1, timescale: 60)
+
+        let instruction = AVMutableVideoCompositionInstruction()
+        instruction.timeRange = CMTimeRangeMake(start: .zero, duration: composition.duration)
+
+        // Find video tracks in composition
+        let videoTracks = composition.tracks(withMediaType: .video)
+        guard let screenTrack = videoTracks.first else {
+            videoComposition.instructions = [instruction]
+            return videoComposition
+        }
+
+        // Screen layer instruction
+        let screenLayerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: screenTrack)
+        let screenSize = screenTrack.naturalSize
+        let screenSourceSize = CoreFoundation.CGSize(
+            width: screenSize.width > 0 ? screenSize.width : 1920,
+            height: screenSize.height > 0 ? screenSize.height : 1080
+        )
+
+        let scaleX = renderSize.width / screenSourceSize.width
+        let scaleY = renderSize.height / screenSourceSize.height
+        let scale = min(scaleX, scaleY)
+        let offsetX = (renderSize.width - screenSourceSize.width * scale) / 2
+        let offsetY = (renderSize.height - screenSourceSize.height * scale) / 2
+
+        var screenTransform = CGAffineTransform.identity
+        screenTransform = screenTransform.translatedBy(x: offsetX, y: offsetY)
+        screenTransform = screenTransform.scaledBy(x: scale, y: scale)
+        screenLayerInstruction.setTransform(screenTransform, at: .zero)
+
+        // Camera layer instruction (if second video track exists)
+        if videoTracks.count > 1, let cameraPosition = project.canvas.layout.camera {
+            let cameraTrack = videoTracks[1]
+            let cameraLayerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: cameraTrack)
+
+            let camNaturalSize = cameraTrack.naturalSize
+            let cameraSourceSize = CoreFoundation.CGSize(
+                width: camNaturalSize.width > 0 ? camNaturalSize.width : 1280,
+                height: camNaturalSize.height > 0 ? camNaturalSize.height : 720
+            )
+
+            let cameraW = cameraPosition.w * renderSize.width
+            let cameraH = cameraPosition.h * renderSize.height
+            let camScaleX = cameraW / cameraSourceSize.width
+            let camScaleY = cameraH / cameraSourceSize.height
+            let camScale = min(camScaleX, camScaleY)
+
+            let camScaledW = cameraSourceSize.width * camScale
+            let camScaledH = cameraSourceSize.height * camScale
+            let camX = cameraPosition.x * renderSize.width + (cameraW - camScaledW) / 2
+            let camY = cameraPosition.y * renderSize.height + (cameraH - camScaledH) / 2
+
+            var cameraTransform = CGAffineTransform.identity
+            cameraTransform = cameraTransform.translatedBy(x: camX, y: camY)
+            cameraTransform = cameraTransform.scaledBy(x: camScale, y: camScale)
+            cameraLayerInstruction.setTransform(cameraTransform, at: .zero)
+
+            // Camera on top
+            instruction.layerInstructions = [cameraLayerInstruction, screenLayerInstruction]
+        } else {
+            instruction.layerInstructions = [screenLayerInstruction]
+        }
+
+        videoComposition.instructions = [instruction]
+        return videoComposition
+    }
+
     /// Resolve sources for a specific take ID, falling back to primary sources
     func resolveSources(for takeId: UUID?) -> Project.Sources? {
         if let takeId = takeId, let take = project?.takes.first(where: { $0.id == takeId }) {
@@ -66,94 +144,7 @@ extension PreviewEngine {
 
         let composition = result.composition
 
-        // Build video composition for layout/transforms
-        let videoComposition = AVMutableVideoComposition()
-
-        let renderSize = CoreFoundation.CGSize(
-            width: CGFloat(project.canvas.format.w),
-            height: CGFloat(project.canvas.format.h)
-        )
-        videoComposition.renderSize = renderSize
-        videoComposition.frameDuration = CMTime(value: 1, timescale: 60)
-
-        // Create instruction
-        let instruction = AVMutableVideoCompositionInstruction()
-        instruction.timeRange = CMTimeRangeMake(start: .zero, duration: composition.duration)
-
-        // Screen layer instruction — scale to fill canvas
-        let screenLayerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: result.videoTrack)
-
-        // Use actual track dimensions for correct transform
-        let screenTrackSize = result.videoTrack.naturalSize
-        let screenSourceSize = CoreFoundation.CGSize(
-            width: screenTrackSize.width > 0 ? screenTrackSize.width : CGFloat(project.primarySources?.screen.size.w ?? 1920),
-            height: screenTrackSize.height > 0 ? screenTrackSize.height : CGFloat(project.primarySources?.screen.size.h ?? 1080)
-        )
-        logger.debug("[PREVIEW-DEBUG] Screen actual size: \(Int(screenSourceSize.width))x\(Int(screenSourceSize.height))")
-
-        let scaleX = renderSize.width / screenSourceSize.width
-        let scaleY = renderSize.height / screenSourceSize.height
-        let scale = min(scaleX, scaleY)
-
-        let scaledWidth = screenSourceSize.width * scale
-        let scaledHeight = screenSourceSize.height * scale
-
-        let offsetX = (renderSize.width - scaledWidth) / 2
-        let offsetY = (renderSize.height - scaledHeight) / 2
-
-        var screenTransform = CGAffineTransform.identity
-        screenTransform = screenTransform.translatedBy(x: offsetX, y: offsetY)
-        screenTransform = screenTransform.scaledBy(x: scale, y: scale)
-
-        screenLayerInstruction.setTransform(screenTransform, at: .zero)
-
-        // Camera layer instruction if camera track exists
-        if let cameraTrack = result.cameraTrack, let cameraPosition = project.canvas.layout.camera {
-            let cameraLayerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: cameraTrack)
-
-            // Use actual track dimensions (not project metadata which may be wrong)
-            let trackSize = cameraTrack.naturalSize
-            let cameraSourceSize = CoreFoundation.CGSize(
-                width: trackSize.width > 0 ? trackSize.width : CGFloat(project.primarySources?.camera?.size.w ?? 1280),
-                height: trackSize.height > 0 ? trackSize.height : CGFloat(project.primarySources?.camera?.size.h ?? 720)
-            )
-            logger.debug("[PREVIEW-DEBUG] Camera actual size: \(Int(cameraSourceSize.width))x\(Int(cameraSourceSize.height))")
-
-            let cameraX = cameraPosition.x * renderSize.width
-            let cameraY = cameraPosition.y * renderSize.height
-            let cameraW = cameraPosition.w * renderSize.width
-            let cameraH = cameraPosition.h * renderSize.height
-
-            let camScaleX = cameraW / cameraSourceSize.width
-            let camScaleY = cameraH / cameraSourceSize.height
-            let camScale = min(camScaleX, camScaleY)
-
-            let camScaledWidth = cameraSourceSize.width * camScale
-            let camScaledHeight = cameraSourceSize.height * camScale
-
-            let camOffsetX = cameraX + (cameraW - camScaledWidth) / 2
-            let camOffsetY = cameraY + (cameraH - camScaledHeight) / 2
-
-            var cameraTransform = CGAffineTransform.identity
-            cameraTransform = cameraTransform.translatedBy(x: camOffsetX, y: camOffsetY)
-            cameraTransform = cameraTransform.scaledBy(x: camScale, y: camScale)
-
-            cameraLayerInstruction.setTransform(cameraTransform, at: .zero)
-
-            // Camera first = on top (frontmost in AVFoundation layer order)
-            instruction.layerInstructions = [cameraLayerInstruction, screenLayerInstruction]
-        } else {
-            instruction.layerInstructions = [screenLayerInstruction]
-        }
-
-        videoComposition.instructions = [instruction]
-
-        logger.debug("[PREVIEW-DEBUG] Video composition: \(instruction.layerInstructions.count) layers, render=\(Int(renderSize.width))x\(Int(renderSize.height))")
-        if result.cameraTrack != nil {
-            logger.debug("[PREVIEW-DEBUG] Camera track present, PiP position: x=\(project.canvas.layout.camera?.x ?? -1), y=\(project.canvas.layout.camera?.y ?? -1), w=\(project.canvas.layout.camera?.w ?? -1), h=\(project.canvas.layout.camera?.h ?? -1)")
-        } else {
-            logger.debug("[PREVIEW-DEBUG] No camera track in composition")
-        }
+        let videoComposition = buildVideoComposition(for: project, composition: composition)
 
         // Create player item
         let playerItem = await MainActor.run {

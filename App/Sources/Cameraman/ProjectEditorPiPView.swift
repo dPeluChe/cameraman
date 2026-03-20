@@ -164,7 +164,6 @@ struct PiPCanvasEditor: View {
                     deltaX: Double(value.translation.width / size.width),
                     deltaY: Double(value.translation.height / size.height)
                 )
-                print("[PIP-DEBUG] Drag: x=\(updated.x), y=\(updated.y), w=\(updated.w), h=\(updated.h)")
                 Task {
                     _ = await editor.updateCameraPosition(updated)
                 }

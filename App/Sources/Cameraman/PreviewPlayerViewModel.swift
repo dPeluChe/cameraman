@@ -120,11 +120,7 @@ final class PreviewPlayerViewModel: ObservableObject {
 
     /// Rebuild the preview composition when project settings change
     func refreshPreview(with project: Project) {
-        guard let engine = previewEngine else {
-            print("[PREVIEW-DEBUG] refreshPreview: no engine")
-            return
-        }
-        print("[PREVIEW-DEBUG] refreshPreview: camera=\(project.canvas.layout.camera?.x ?? -1),\(project.canvas.layout.camera?.y ?? -1) format=\(project.canvas.format.aspect)")
+        guard let engine = previewEngine else { return }
 
         self.project = project
         aspectRatio = Self.aspectRatio(for: project)

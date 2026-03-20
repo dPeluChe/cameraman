@@ -40,11 +40,6 @@ extension PreviewEngine {
         let cmTime = CMTime(seconds: time, preferredTimescale: 600)
         let image = try assetImageGenerator.copyCGImage(at: cmTime, actualTime: nil)
 
-        // Log frame info for debugging (only first frame)
-        if time < 0.1 {
-            logger.debug("[FRAME-DEBUG] Extracted frame: \(image.width)x\(image.height), hasVideoComp=\(self.videoCompositionConfig != nil)")
-        }
-
         // Render overlays on the frame
         let imageWithOverlays = try await renderOverlays(on: image, at: time, project: project)
 
