@@ -118,6 +118,11 @@ Use `EngineKitError` enum with context (file paths, timestamps, drift amounts). 
 
 ## Related Documentation
 
-- `prd.md` - Product requirements, user flows, MVP scope
-- `tech-spec.md` - API contracts, data schemas, sync strategy
-- `tasks.md` - Development backlog organized by épicas (A-L)
+All docs live in `Docs/`:
+
+- `Docs/prd.md` - Product requirements, user flows, MVP scope
+- `Docs/tech-spec.md` - API contracts, data schemas, sync strategy
+- `Docs/TASK_TODO.md` - Pending features and improvements
+- `Docs/TASK_COMPLETED/` - Completed work by month (2601.md, 2603.md)
+- `Docs/CHANGELOG.md` - Version changelog
+- `Docs/Archived/` - Historical docs (recovery summaries, validation reports)
