@@ -105,7 +105,9 @@ extension PreviewEngine {
                 let camScaledW = camSourceSize.width * camScale
                 let camScaledH = camSourceSize.height * camScale
                 let camX = cameraPosition.x * renderSize.width + (cameraW - camScaledW) / 2
-                let camY = cameraPosition.y * renderSize.height + (cameraH - camScaledH) / 2
+                // Flip Y axis: SwiftUI y=0 is top, AVFoundation y=0 is bottom
+                let camYFlipped = (1.0 - cameraPosition.y - cameraPosition.h)
+                let camY = camYFlipped * renderSize.height + (cameraH - camScaledH) / 2
 
                 var cameraTransform = CGAffineTransform.identity
                 cameraTransform = cameraTransform.translatedBy(x: camX, y: camY)

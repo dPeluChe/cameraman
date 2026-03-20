@@ -115,29 +115,27 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
            let cameraBuffer = request.sourceFrame(byTrackID: camTrackID),
            let cameraTransform = instruction.cameraTransform {
 
-            var cameraImage = CIImage(cvPixelBuffer: cameraBuffer)
+            let cameraImage = CIImage(cvPixelBuffer: cameraBuffer)
                 .transformed(by: cameraTransform)
 
-            // Apply mask to camera
-            if instruction.maskShape != .none, let cameraRect = instruction.cameraRect {
-                let pixelRect = CGRect(
-                    x: cameraRect.origin.x * renderSize.width,
-                    y: cameraRect.origin.y * renderSize.height,
-                    width: cameraRect.width * renderSize.width,
-                    height: cameraRect.height * renderSize.height
-                )
+            // Get the actual extent of the transformed camera image
+            let camExtent = cameraImage.extent.intersection(CGRect(origin: .zero, size: renderSize))
 
-                cameraImage = applyMask(
+            // Apply mask to camera
+            if instruction.maskShape != .none && !camExtent.isEmpty {
+                let maskedCamera = applyMask(
                     to: cameraImage,
                     shape: instruction.maskShape,
-                    rect: pixelRect,
+                    rect: camExtent,
                     cornerRadius: instruction.cornerRadius,
                     renderSize: renderSize
                 )
+                finalImage = maskedCamera.composited(over: finalImage)
+            } else {
+                // No mask — composite directly
+                let croppedCamera = cameraImage.cropped(to: CGRect(origin: .zero, size: renderSize))
+                finalImage = croppedCamera.composited(over: finalImage)
             }
-
-            // Composite camera on top of screen
-            finalImage = cameraImage.composited(over: finalImage)
         }
 
         // Render to output buffer

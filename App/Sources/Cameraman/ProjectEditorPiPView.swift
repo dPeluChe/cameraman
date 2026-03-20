@@ -49,8 +49,9 @@ struct PiPConfigurationView: View {
                     Text("Shape")
                         .font(.subheadline)
 
-                    HStack(spacing: 6) {
+                    HStack(spacing: 3) {
                         ForEach(PiPMaskShape.allCases, id: \.self) { shape in
+                            let isSelected = camera.maskShape == shape
                             Button {
                                 var updated = camera
                                 updated.maskShape = shape
@@ -58,12 +59,23 @@ struct PiPConfigurationView: View {
                                     _ = await editor.updateCameraPosition(updated, recordUndoFrom: editor.project)
                                 }
                             } label: {
-                                Image(systemName: shapeIcon(shape))
-                                    .frame(width: 28, height: 28)
+                                VStack(spacing: 2) {
+                                    Image(systemName: shapeIcon(shape))
+                                        .font(.system(size: 12))
+                                    Text(shapeLabel(shape))
+                                        .font(.system(size: 8))
+                                }
+                                .frame(width: 44, height: 32)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 5)
+                                        .fill(isSelected ? Color.accentColor.opacity(0.2) : Color.primary.opacity(0.05))
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 5)
+                                        .stroke(isSelected ? Color.accentColor : Color.primary.opacity(0.1), lineWidth: isSelected ? 1.5 : 0.5)
+                                )
                             }
-                            .buttonStyle(.bordered)
-                            .tint(camera.maskShape == shape ? .accentColor : .secondary)
-                            .controlSize(.small)
+                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -105,8 +117,17 @@ struct PiPConfigurationView: View {
         switch shape {
         case .none: return "rectangle"
         case .circle: return "circle"
-        case .roundedRect: return "rectangle.roundedtop"
+        case .roundedRect: return "squareshape"
         case .capsule: return "capsule"
+        }
+    }
+
+    private func shapeLabel(_ shape: PiPMaskShape) -> String {
+        switch shape {
+        case .none: return "Rect"
+        case .circle: return "Circle"
+        case .roundedRect: return "Round"
+        case .capsule: return "Pill"
         }
     }
 }
@@ -146,14 +167,7 @@ struct PiPCanvasEditor: View {
                     .fill(Color.primary.opacity(0.12))
                     .padding(6)
 
-                RoundedRectangle(cornerRadius: max(2, camera.cornerRadius), style: .continuous)
-                    .fill(Color.accentColor.opacity(0.6))
-                    .frame(width: cameraFrame.width, height: cameraFrame.height)
-                    .position(x: cameraFrame.midX, y: cameraFrame.midY)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: max(2, camera.cornerRadius), style: .continuous)
-                            .stroke(Color.white.opacity(0.9), lineWidth: 1)
-                    )
+                cameraShapeView(frame: cameraFrame)
                     .gesture(moveGesture(in: size))
 
                 ForEach(PiPHandle.allCases, id: \.self) { handle in
@@ -167,6 +181,25 @@ struct PiPCanvasEditor: View {
             }
         }
         .aspectRatio(aspectRatio, contentMode: .fit)
+    }
+
+    @ViewBuilder
+    private func cameraShapeView(frame: CoreGraphics.CGRect) -> some View {
+        let shape = cameraShape
+        shape
+            .fill(Color.accentColor.opacity(0.6))
+            .frame(width: frame.width, height: frame.height)
+            .position(x: frame.midX, y: frame.midY)
+            .overlay(
+                shape
+                    .stroke(Color.white.opacity(0.9), lineWidth: 1)
+                    .frame(width: frame.width, height: frame.height)
+                    .position(x: frame.midX, y: frame.midY)
+            )
+    }
+
+    private var cameraShape: some Shape {
+        CameraPreviewShape(maskShape: camera.maskShape, cornerRadius: camera.cornerRadius)
     }
 
     private func handlePosition(_ handle: PiPHandle, frame: CoreGraphics.CGRect) -> CGPoint {
@@ -254,3 +287,33 @@ struct PiPCanvasEditor: View {
             }
     }
 }
+
+// MARK: - Camera Preview Shape
+
+struct CameraPreviewShape: Shape {
+    let maskShape: PiPMaskShape
+    let cornerRadius: Double
+
+    func path(in rect: CGRect) -> Path {
+        switch maskShape {
+        case .none:
+            return Path(rect)
+        case .circle:
+            let diameter = min(rect.width, rect.height)
+            let circleRect = CGRect(
+                x: rect.midX - diameter / 2,
+                y: rect.midY - diameter / 2,
+                width: diameter,
+                height: diameter
+            )
+            return Path(ellipseIn: circleRect)
+        case .roundedRect:
+            let radius = min(CGFloat(cornerRadius), min(rect.width, rect.height) / 2)
+            return Path(roundedRect: rect, cornerRadius: radius)
+        case .capsule:
+            let radius = min(rect.width, rect.height) / 2
+            return Path(roundedRect: rect, cornerRadius: radius)
+        }
+    }
+}
+
