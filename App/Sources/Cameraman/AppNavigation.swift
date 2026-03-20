@@ -321,8 +321,16 @@ struct AppNavigation: View {
             Group {
                 if let project = viewModel.project(for: projectId) {
                     ProjectEditorView(projectSummary: project)
+                        .id(projectId)
+                        .onAppear {
+                            print("[NAV-DEBUG] Opened project: \(project.name) id=\(projectId)")
+                        }
                 } else {
-                    EmptyStateView(message: "Select a project to start editing.")
+                    ProgressView("Loading project...")
+                        .onAppear {
+                            print("[NAV-DEBUG] Project not found for id=\(projectId), reloading...")
+                            Task { await viewModel.loadProjects() }
+                        }
                 }
             }
         }
