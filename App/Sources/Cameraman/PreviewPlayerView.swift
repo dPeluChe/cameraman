@@ -13,6 +13,10 @@ import EngineKit
 import SwiftUI
 import Combine
 
+extension Notification.Name {
+    static let togglePlayPause = Notification.Name("togglePlayPause")
+}
+
 struct PreviewPlayerView: View {
     @ObservedObject var editor: ProjectEditor
     let projectDirectory: URL?
@@ -22,17 +26,16 @@ struct PreviewPlayerView: View {
     private var project: Project? { editor.project }
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 8) {
+            // Video preview area
             ZStack {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color.black.opacity(0.9))
 
-                // Native AVPlayerLayer for fluid playback
                 if let avPlayer = viewModel.avPlayer {
                     AVPlayerLayerView(player: avPlayer)
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-                    // Telemetry overlay on top of the player
                     if viewModel.showCursor || viewModel.showClicks || viewModel.showKeystrokes {
                         GeometryReader { geometry in
                             TelemetryOverlayView(
@@ -57,28 +60,7 @@ struct PreviewPlayerView: View {
             .aspectRatio(CoreGraphics.CGFloat(viewModel.aspectRatio), contentMode: .fit)
             .frame(maxWidth: .infinity)
 
-            // Edit visibility toggles
-            if viewModel.previewEngine != nil {
-                HStack(spacing: 16) {
-                    Toggle("Overlays", isOn: $viewModel.showOverlays)
-                        .toggleStyle(.checkbox)
-                    Toggle("Layout", isOn: $viewModel.showLayout)
-                        .toggleStyle(.checkbox)
-                    Toggle("Zoom", isOn: $viewModel.showZoom)
-                        .toggleStyle(.checkbox)
-                    Toggle("Captions", isOn: $viewModel.showCaptions)
-                        .toggleStyle(.checkbox)
-                    Toggle("Cursor", isOn: $viewModel.showCursor)
-                        .toggleStyle(.checkbox)
-                    Toggle("Clicks", isOn: $viewModel.showClicks)
-                        .toggleStyle(.checkbox)
-                    Toggle("Keys", isOn: $viewModel.showKeystrokes)
-                        .toggleStyle(.checkbox)
-                }
-                .font(.caption)
-                .padding(.horizontal, 8)
-            }
-
+            // Playback controls
             PlaybackControlsView(viewModel: viewModel)
         }
         .task(id: editor.project.projectId) {
@@ -93,12 +75,13 @@ struct PreviewPlayerView: View {
         .onDisappear {
             viewModel.stopPlayback()
         }
-        .focusable()
-        .onKeyPress(.space) {
+        .onReceive(NotificationCenter.default.publisher(for: .togglePlayPause)) { _ in
             viewModel.togglePlayPause()
-            return .handled
         }
     }
+
+    /// Expose viewModel for parent views (e.g., Space bar shortcut)
+    var playerViewModel: PreviewPlayerViewModel { viewModel }
 }
 
 private struct PlaybackControlsView: View {

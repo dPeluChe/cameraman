@@ -31,7 +31,6 @@ extension PreviewEngine {
             return videoComposition
         }
 
-        // Screen layer instruction
         let screenLayerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: screenTrack)
         let screenSize = screenTrack.naturalSize
         let screenSourceSize = CoreFoundation.CGSize(
@@ -39,48 +38,85 @@ extension PreviewEngine {
             height: screenSize.height > 0 ? screenSize.height : 1080
         )
 
-        let scaleX = renderSize.width / screenSourceSize.width
-        let scaleY = renderSize.height / screenSourceSize.height
-        let scale = min(scaleX, scaleY)
-        let offsetX = (renderSize.width - screenSourceSize.width * scale) / 2
-        let offsetY = (renderSize.height - screenSourceSize.height * scale) / 2
+        let layoutType = project.canvas.layout.type
+        let hasCameraTrack = videoTracks.count > 1
 
-        var screenTransform = CGAffineTransform.identity
-        screenTransform = screenTransform.translatedBy(x: offsetX, y: offsetY)
-        screenTransform = screenTransform.scaledBy(x: scale, y: scale)
-        screenLayerInstruction.setTransform(screenTransform, at: .zero)
+        if layoutType == "sideBySide" && hasCameraTrack {
+            // Side-by-Side: screen on left 50%, camera on right 50%
+            let halfWidth = renderSize.width / 2
 
-        // Camera layer instruction (if second video track exists)
-        if videoTracks.count > 1, let cameraPosition = project.canvas.layout.camera {
+            // Screen fills left half
+            let screenScale = min(halfWidth / screenSourceSize.width, renderSize.height / screenSourceSize.height)
+            let screenScaledW = screenSourceSize.width * screenScale
+            let screenScaledH = screenSourceSize.height * screenScale
+            let screenOffX = (halfWidth - screenScaledW) / 2
+            let screenOffY = (renderSize.height - screenScaledH) / 2
+
+            var screenTransform = CGAffineTransform.identity
+            screenTransform = screenTransform.translatedBy(x: screenOffX, y: screenOffY)
+            screenTransform = screenTransform.scaledBy(x: screenScale, y: screenScale)
+            screenLayerInstruction.setTransform(screenTransform, at: .zero)
+
+            // Camera fills right half
             let cameraTrack = videoTracks[1]
             let cameraLayerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: cameraTrack)
-
-            let camNaturalSize = cameraTrack.naturalSize
-            let cameraSourceSize = CoreFoundation.CGSize(
-                width: camNaturalSize.width > 0 ? camNaturalSize.width : 1280,
-                height: camNaturalSize.height > 0 ? camNaturalSize.height : 720
+            let camNatural = cameraTrack.naturalSize
+            let camSourceSize = CoreFoundation.CGSize(
+                width: camNatural.width > 0 ? camNatural.width : 1280,
+                height: camNatural.height > 0 ? camNatural.height : 720
             )
 
-            let cameraW = cameraPosition.w * renderSize.width
-            let cameraH = cameraPosition.h * renderSize.height
-            let camScaleX = cameraW / cameraSourceSize.width
-            let camScaleY = cameraH / cameraSourceSize.height
-            let camScale = min(camScaleX, camScaleY)
-
-            let camScaledW = cameraSourceSize.width * camScale
-            let camScaledH = cameraSourceSize.height * camScale
-            let camX = cameraPosition.x * renderSize.width + (cameraW - camScaledW) / 2
-            let camY = cameraPosition.y * renderSize.height + (cameraH - camScaledH) / 2
+            let camScale = min(halfWidth / camSourceSize.width, renderSize.height / camSourceSize.height)
+            let camScaledW = camSourceSize.width * camScale
+            let camScaledH = camSourceSize.height * camScale
+            let camOffX = halfWidth + (halfWidth - camScaledW) / 2
+            let camOffY = (renderSize.height - camScaledH) / 2
 
             var cameraTransform = CGAffineTransform.identity
-            cameraTransform = cameraTransform.translatedBy(x: camX, y: camY)
+            cameraTransform = cameraTransform.translatedBy(x: camOffX, y: camOffY)
             cameraTransform = cameraTransform.scaledBy(x: camScale, y: camScale)
             cameraLayerInstruction.setTransform(cameraTransform, at: .zero)
 
-            // Camera on top
             instruction.layerInstructions = [cameraLayerInstruction, screenLayerInstruction]
+
         } else {
-            instruction.layerInstructions = [screenLayerInstruction]
+            // Default / PiP / Fullscreen: screen fills canvas
+            let scale = min(renderSize.width / screenSourceSize.width, renderSize.height / screenSourceSize.height)
+            let offsetX = (renderSize.width - screenSourceSize.width * scale) / 2
+            let offsetY = (renderSize.height - screenSourceSize.height * scale) / 2
+
+            var screenTransform = CGAffineTransform.identity
+            screenTransform = screenTransform.translatedBy(x: offsetX, y: offsetY)
+            screenTransform = screenTransform.scaledBy(x: scale, y: scale)
+            screenLayerInstruction.setTransform(screenTransform, at: .zero)
+
+            // PiP camera overlay
+            if hasCameraTrack, let cameraPosition = project.canvas.layout.camera {
+                let cameraTrack = videoTracks[1]
+                let cameraLayerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: cameraTrack)
+                let camNatural = cameraTrack.naturalSize
+                let camSourceSize = CoreFoundation.CGSize(
+                    width: camNatural.width > 0 ? camNatural.width : 1280,
+                    height: camNatural.height > 0 ? camNatural.height : 720
+                )
+
+                let cameraW = cameraPosition.w * renderSize.width
+                let cameraH = cameraPosition.h * renderSize.height
+                let camScale = min(cameraW / camSourceSize.width, cameraH / camSourceSize.height)
+                let camScaledW = camSourceSize.width * camScale
+                let camScaledH = camSourceSize.height * camScale
+                let camX = cameraPosition.x * renderSize.width + (cameraW - camScaledW) / 2
+                let camY = cameraPosition.y * renderSize.height + (cameraH - camScaledH) / 2
+
+                var cameraTransform = CGAffineTransform.identity
+                cameraTransform = cameraTransform.translatedBy(x: camX, y: camY)
+                cameraTransform = cameraTransform.scaledBy(x: camScale, y: camScale)
+                cameraLayerInstruction.setTransform(cameraTransform, at: .zero)
+
+                instruction.layerInstructions = [cameraLayerInstruction, screenLayerInstruction]
+            } else {
+                instruction.layerInstructions = [screenLayerInstruction]
+            }
         }
 
         videoComposition.instructions = [instruction]
