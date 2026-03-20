@@ -9,27 +9,37 @@
 
 > Actualizado: 2026-03-20 final de sesion.
 
-- [x] ~~**Camera PiP no visible en preview**~~ RESUELTO: AVAssetImageGenerator necesitaba videoComposition asignada + camera writer reescrito con timestamps nativos.
+- [x] ~~**Camera PiP no visible en preview**~~ RESUELTO
+- [x] ~~**Preview playback lento**~~ RESUELTO: AVPlayerLayer nativo
+- [x] ~~**ProjectLibrary instancias multiples**~~ RESUELTO: singleton
+- [x] ~~**Camera PiP detras del screen**~~ RESUELTO: Z-order de layer instructions
+- [x] ~~**Camera PiP no se mueve con drag**~~ RESUELTO: onReceive objectWillChange
+- [x] ~~**Dimensiones de camara hardcoded**~~ RESUELTO: usar naturalSize del track
 
-- [ ] **Preview playback lento (frame-by-frame en vez de video fluido):**
-    - PreviewPlayerViewModel usa `extractFrame()` (CGImage estaticas) en vez de AVPlayerLayer.
-    - El timer de 30fps genera frames una a una via AVAssetImageGenerator — muy lento.
-    - **Solucion recomendada:** Reemplazar el CGImage approach con un `AVPlayerView`/`AVPlayerLayer` nativo de SwiftUI que renderiza la composicion en tiempo real. El AVPlayer ya existe en PreviewEngine.
+### Pendientes de esta sesion:
+
+- [ ] **Corner radius / mascara circular para camara PiP:**
+    - AVFoundation no soporta corner radius en layer instructions nativamente.
+    - Opciones: (a) Custom AVVideoCompositing para aplicar mascara por frame, (b) SwiftUI overlay mask encima del AVPlayerView, (c) CoreImage filter en custom compositor.
+    - El usuario quiere formas variadas: circulo, estrella, recuadro redondeado.
+
+- [ ] **Layout Side-by-Side no funciona:**
+    - El preset "Side-by-Side" debe mostrar screen y camara a 50/50.
+    - Actualmente solo cambia el tipo pero no ajusta los transforms correctamente.
+
+- [ ] **Export no incluye cambios de PiP:**
+    - Al exportar, el PiP no refleja la posicion/tamano editados.
+    - VideoExportSession lee del project pero puede no tener los cambios guardados.
+
+- [ ] **Preview se detiene al actualizar PiP:**
+    - Al mover la camara, el rebuild de composicion pausa el playback.
+    - Necesita: no pausar durante drag, solo rebuild al soltar (onEnded).
 
 - [ ] **Track mute toggles no afectan playback:**
-    - Los toggles cambian opacidad visual en timeline pero no modifican la composicion AVPlayer.
-    - Necesita: reconstruir composicion cuando cambia mute state, o usar AVMutableAudioMix para audio mute.
+    - Toggles solo visuales. Necesita: AVMutableAudioMix para mute por track.
 
-- [ ] **Cursor/click overlays no visibles en preview:**
-    - PreviewRenderer tiene logica de overlays pero no esta conectado al player view.
-    - Necesita: integrar overlay rendering como capa sobre el AVPlayerLayer.
-
-- [ ] **"Publishing changes from within view updates" repetitivo:**
-    - ProjectLibrary() se instancia multiples veces (cada ViewModel crea uno nuevo).
-    - Necesita: singleton compartido o inyeccion de dependencias.
-
-- [ ] **Ventana de recording-controls puede abrirse multiples veces:**
-    - Cambiado de WindowGroup a Window pero necesita verificar que funcione en todas las rutas de apertura.
+- [ ] **"Publishing changes from within view updates" sigue apareciendo:**
+    - Singleton redujo la frecuencia pero sigue en algunos flows.
 
 ---
 
