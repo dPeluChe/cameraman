@@ -170,10 +170,13 @@ extension ExportEngine {
 
                 let cameraLayerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: cameraTrack)
 
+                // Use actual track dimensions for correct transform calculation
+                let trackSize = cameraTrack.naturalSize
                 let cameraSourceSize = CoreFoundation.CGSize(
-                    width: CGFloat(primarySources.camera?.size.w ?? 0),
-                    height: CGFloat(primarySources.camera?.size.h ?? 0)
+                    width: trackSize.width > 0 ? trackSize.width : CGFloat(primarySources.camera?.size.w ?? 1280),
+                    height: trackSize.height > 0 ? trackSize.height : CGFloat(primarySources.camera?.size.h ?? 720)
                 )
+                logger.debug("Camera actual size: \(Int(cameraSourceSize.width))x\(Int(cameraSourceSize.height))")
 
                 let cameraTransform = calculateCameraOverlayTransform(
                     cameraPosition: cameraPosition,

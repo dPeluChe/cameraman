@@ -83,10 +83,13 @@ extension PreviewEngine {
         // Screen layer instruction — scale to fill canvas
         let screenLayerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: result.videoTrack)
 
+        // Use actual track dimensions for correct transform
+        let screenTrackSize = result.videoTrack.naturalSize
         let screenSourceSize = CoreFoundation.CGSize(
-            width: CGFloat(project.primarySources?.screen.size.w ?? 0),
-            height: CGFloat(project.primarySources?.screen.size.h ?? 0)
+            width: screenTrackSize.width > 0 ? screenTrackSize.width : CGFloat(project.primarySources?.screen.size.w ?? 1920),
+            height: screenTrackSize.height > 0 ? screenTrackSize.height : CGFloat(project.primarySources?.screen.size.h ?? 1080)
         )
+        logger.debug("[PREVIEW-DEBUG] Screen actual size: \(Int(screenSourceSize.width))x\(Int(screenSourceSize.height))")
 
         let scaleX = renderSize.width / screenSourceSize.width
         let scaleY = renderSize.height / screenSourceSize.height
@@ -108,10 +111,13 @@ extension PreviewEngine {
         if let cameraTrack = result.cameraTrack, let cameraPosition = project.canvas.layout.camera {
             let cameraLayerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: cameraTrack)
 
+            // Use actual track dimensions (not project metadata which may be wrong)
+            let trackSize = cameraTrack.naturalSize
             let cameraSourceSize = CoreFoundation.CGSize(
-                width: CGFloat(project.primarySources?.camera?.size.w ?? 0),
-                height: CGFloat(project.primarySources?.camera?.size.h ?? 0)
+                width: trackSize.width > 0 ? trackSize.width : CGFloat(project.primarySources?.camera?.size.w ?? 1280),
+                height: trackSize.height > 0 ? trackSize.height : CGFloat(project.primarySources?.camera?.size.h ?? 720)
             )
+            logger.debug("[PREVIEW-DEBUG] Camera actual size: \(Int(cameraSourceSize.width))x\(Int(cameraSourceSize.height))")
 
             let cameraX = cameraPosition.x * renderSize.width
             let cameraY = cameraPosition.y * renderSize.height
