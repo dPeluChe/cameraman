@@ -38,7 +38,8 @@ struct PiPLayoutHelper {
             y: y,
             w: camera.w,
             h: camera.h,
-            cornerRadius: camera.cornerRadius
+            cornerRadius: camera.cornerRadius,
+            maskShape: camera.maskShape
         )
     }
 
@@ -82,7 +83,8 @@ struct PiPLayoutHelper {
             y: clamp(y, min: 0, max: 1 - h),
             w: w,
             h: h,
-            cornerRadius: camera.cornerRadius
+            cornerRadius: camera.cornerRadius,
+            maskShape: camera.maskShape
         )
     }
 
@@ -115,7 +117,8 @@ struct PiPLayoutHelper {
             y: clamp(y, min: 0, max: 1 - camera.h),
             w: camera.w,
             h: camera.h,
-            cornerRadius: camera.cornerRadius
+            cornerRadius: camera.cornerRadius,
+            maskShape: camera.maskShape
         )
     }
 
