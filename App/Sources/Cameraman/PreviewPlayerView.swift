@@ -84,14 +84,16 @@ struct PreviewPlayerView: View {
         .task(id: editor.project.projectId) {
             viewModel.load(project: editor.project, projectDirectory: projectDirectory)
         }
-        .onReceive(editor.objectWillChange.debounce(for: .milliseconds(500), scheduler: RunLoop.main)) { _ in
-            guard viewModel.previewEngine != nil else { return }
+        .onReceive(editor.objectWillChange.debounce(for: .milliseconds(500), scheduler: RunLoop.main)) { [weak viewModel] _ in
+            guard let viewModel = viewModel,
+                  viewModel.previewEngine != nil,
+                  viewModel.project?.projectId == editor.project.projectId else { return }
             viewModel.refreshPreview(with: editor.project)
         }
         .onDisappear {
             viewModel.stopPlayback()
         }
-        .keyboardShortcut(.space, modifiers: [])
+        .focusable()
         .onKeyPress(.space) {
             viewModel.togglePlayPause()
             return .handled
