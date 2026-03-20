@@ -5,23 +5,20 @@
 
 ---
 
-## 0. Bugs Criticos de Integracion UI-Engine (Prioridad Inmediata)
+## 0. Bugs e Integracion UI-Engine (Prioridad Inmediata)
 
-> Descubiertos durante testing 2026-03-20. Requieren debugging profundo con Xcode breakpoints.
+> Actualizado: 2026-03-20 final de sesion.
 
-- [ ] **Camera PiP no visible en preview:**
-    - Camera track carga exitosamente (`Camera segment 1: OK`), 2 layer instructions creadas.
-    - El video de camara no se renderiza en el preview (PiP invisible).
-    - Probable: transform del camera layer instruction incorrecto (posicion/escala).
-    - Debugging: verificar `cameraLayerInstruction.setTransform()` values vs render size.
+- [x] ~~**Camera PiP no visible en preview**~~ RESUELTO: AVAssetImageGenerator necesitaba videoComposition asignada + camera writer reescrito con timestamps nativos.
+
+- [ ] **Preview playback lento (frame-by-frame en vez de video fluido):**
+    - PreviewPlayerViewModel usa `extractFrame()` (CGImage estaticas) en vez de AVPlayerLayer.
+    - El timer de 30fps genera frames una a una via AVAssetImageGenerator — muy lento.
+    - **Solucion recomendada:** Reemplazar el CGImage approach con un `AVPlayerView`/`AVPlayerLayer` nativo de SwiftUI que renderiza la composicion en tiempo real. El AVPlayer ya existe en PreviewEngine.
 
 - [ ] **Track mute toggles no afectan playback:**
     - Los toggles cambian opacidad visual en timeline pero no modifican la composicion AVPlayer.
     - Necesita: reconstruir composicion cuando cambia mute state, o usar AVMutableAudioMix para audio mute.
-
-- [ ] **Player controls lentos (play/pause/seek):**
-    - El actor isolation de PreviewEngine causa delays.
-    - Necesita: evaluar si AVPlayer debe vivir en @MainActor wrapper en vez de actor.
 
 - [ ] **Cursor/click overlays no visibles en preview:**
     - PreviewRenderer tiene logica de overlays pero no esta conectado al player view.
@@ -30,6 +27,9 @@
 - [ ] **"Publishing changes from within view updates" repetitivo:**
     - ProjectLibrary() se instancia multiples veces (cada ViewModel crea uno nuevo).
     - Necesita: singleton compartido o inyeccion de dependencias.
+
+- [ ] **Ventana de recording-controls puede abrirse multiples veces:**
+    - Cambiado de WindowGroup a Window pero necesita verificar que funcione en todas las rutas de apertura.
 
 ---
 
