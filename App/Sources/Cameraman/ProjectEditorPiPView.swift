@@ -19,63 +19,60 @@ struct PiPConfigurationView: View {
             let aspectRatio = Double(format.w) / Double(format.h)
 
             VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .top, spacing: 16) {
-                    PiPCanvasEditor(
-                        editor: editor,
-                        camera: camera,
-                        aspectRatio: aspectRatio
-                    )
-                    .frame(width: 260)
+                PiPCanvasEditor(
+                    editor: editor,
+                    camera: camera,
+                    aspectRatio: aspectRatio
+                )
+                .frame(maxWidth: .infinity)
+                .frame(height: 140)
 
-                    VStack(alignment: .leading, spacing: 16) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Presets")
-                                .font(.subheadline)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Presets")
+                        .font(.subheadline)
 
-                            HStack(spacing: 8) {
-                                ForEach(PiPPreset.allCases, id: \.self) { preset in
-                                    Button(preset.rawValue) {
-                                        let updated = PiPLayoutHelper.presetPosition(preset, camera: camera)
-                                        Task {
-                                            _ = await editor.updateCameraPosition(updated, recordUndoFrom: editor.project)
-                                        }
-                                    }
-                                    .buttonStyle(.bordered)
+                    HStack(spacing: 6) {
+                        ForEach(PiPPreset.allCases, id: \.self) { preset in
+                            Button(preset.rawValue) {
+                                let updated = PiPLayoutHelper.presetPosition(preset, camera: camera)
+                                Task {
+                                    _ = await editor.updateCameraPosition(updated, recordUndoFrom: editor.project)
                                 }
                             }
-                        }
-
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Corner Radius")
-                                .font(.subheadline)
-
-                            Slider(
-                                value: Binding(
-                                    get: { camera.cornerRadius },
-                                    set: { newValue in
-                                        var updated = camera
-                                        updated.cornerRadius = newValue
-                                        Task {
-                                            _ = await editor.updateCameraPosition(updated)
-                                        }
-                                    }
-                                ),
-                                in: 0...40,
-                                onEditingChanged: { isEditing in
-                                    if isEditing {
-                                        cornerSnapshot = editor.project
-                                    } else if let snapshot = cornerSnapshot,
-                                              let currentCamera = editor.project.canvas.layout.camera {
-                                        Task {
-                                            _ = await editor.updateCameraPosition(currentCamera, recordUndoFrom: snapshot)
-                                        }
-                                        cornerSnapshot = nil
-                                    }
-                                }
-                            )
-                            .frame(maxWidth: 180)
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
                         }
                     }
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Corner Radius")
+                        .font(.subheadline)
+
+                    Slider(
+                        value: Binding(
+                            get: { camera.cornerRadius },
+                            set: { newValue in
+                                var updated = camera
+                                updated.cornerRadius = newValue
+                                Task {
+                                    _ = await editor.updateCameraPosition(updated)
+                                }
+                            }
+                        ),
+                        in: 0...40,
+                        onEditingChanged: { isEditing in
+                            if isEditing {
+                                cornerSnapshot = editor.project
+                            } else if let snapshot = cornerSnapshot,
+                                      let currentCamera = editor.project.canvas.layout.camera {
+                                Task {
+                                    _ = await editor.updateCameraPosition(currentCamera, recordUndoFrom: snapshot)
+                                }
+                                cornerSnapshot = nil
+                            }
+                        }
+                    )
                 }
             }
         }

@@ -119,7 +119,8 @@ struct ProjectEditorView: View {
                         isExportExpanded: $isExportExpanded,
                         showExportModal: $showExportModal
                     )
-                    .frame(minWidth: 280, idealWidth: 320, maxWidth: 400)
+                    .frame(minWidth: 260, idealWidth: 280, maxWidth: 360)
+                    .clipped()
                 } else {
                      Color(NSColor.controlBackgroundColor)
                         .frame(minWidth: 280, maxWidth: 400)

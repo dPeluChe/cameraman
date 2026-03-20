@@ -50,15 +50,16 @@ struct LayoutPresetButton: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 8) {
+            VStack(spacing: 4) {
                 LayoutPreview(preset: preset)
-                    .frame(width: 92, height: 56)
+                    .frame(width: 56, height: 36)
 
                 Text(label)
-                    .font(.subheadline)
+                    .font(.caption)
+                    .lineLimit(1)
             }
-            .padding(10)
-            .frame(minWidth: 110)
+            .padding(6)
+            .frame(minWidth: 72)
             .background(backgroundShape.fill(Color.primary.opacity(isSelected ? 0.12 : 0.04)))
             .overlay(
                 backgroundShape.stroke(
@@ -183,13 +184,13 @@ struct FormatButton: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 8) {
+            VStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.title2)
+                    .font(.title3)
                 Text(title)
                     .font(.caption)
             }
-            .frame(width: 80, height: 64)
+            .frame(width: 68, height: 52)
             .background(
                 RoundedRectangle(cornerRadius: 8)
                     .fill(isSelected ? Color.accentColor.opacity(0.15) : Color.primary.opacity(0.05))

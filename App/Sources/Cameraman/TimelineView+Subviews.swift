@@ -18,6 +18,7 @@ struct TimelineTrackRow: View {
     let height: TimelineScalar
     let selectedSegmentId: String?
     let isInteractive: Bool
+    let isMuted: Bool
     let showThumbnails: Bool
     let thumbnails: [TimeInterval: NSImage]
     let showWaveforms: Bool
@@ -25,17 +26,28 @@ struct TimelineTrackRow: View {
     let onSelectSegment: (Project.Timeline.Segment) -> Void
     let onTrimDragChanged: (Project.Timeline.Segment, TimelineTrimEdge, TimelineScalar) -> Void
     let onTrimDragEnded: (Project.Timeline.Segment, TimelineTrimEdge, TimelineScalar) -> Void
+    let onToggleMute: () -> Void
 
     var body: some View {
         ZStack(alignment: .leading) {
             RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .fill(Color.primary.opacity(0.06))
 
-            Text(track.label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(width: layout.labelWidth - 12, alignment: .leading)
-                .padding(.leading, 8)
+            HStack(spacing: 4) {
+                Button(action: onToggleMute) {
+                    Image(systemName: isMuted ? "eye.slash" : "eye")
+                        .font(.caption2)
+                        .foregroundStyle(isMuted ? .tertiary : .secondary)
+                }
+                .buttonStyle(.plain)
+                .frame(width: 16)
+
+                Text(track.label)
+                    .font(.caption)
+                    .foregroundStyle(isMuted ? .tertiary : .secondary)
+            }
+            .frame(width: layout.labelWidth - 12, alignment: .leading)
+            .padding(.leading, 6)
 
             ForEach(track.segments) { segment in
                 let isSelected = segment.id == selectedSegmentId
@@ -104,6 +116,7 @@ struct TimelineTrackRow: View {
                         guard isInteractive else { return }
                         onSelectSegment(segment)
                     }
+                    .opacity(isMuted ? 0.3 : 1.0)
                     .offset(x: xPosition)
             }
         }

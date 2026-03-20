@@ -39,6 +39,9 @@ struct TimelineView: View {
     @State private var waveforms: [String: [Float]] = [:]
     @State private var showWaveforms: Bool = true
 
+    // Track mute state
+    @State private var mutedTracks: Set<TimelineTrackKind> = []
+
     private var project: Project { editor.project }
 
     // MARK: - Thumbnail Management
@@ -246,6 +249,7 @@ struct TimelineView: View {
                                 height: trackHeight,
                                 selectedSegmentId: selectedSegmentId,
                                 isInteractive: track.kind == .screen,
+                                isMuted: mutedTracks.contains(track.kind),
                                 showThumbnails: showThumbnails && track.kind == .screen,
                                 thumbnails: thumbnails,
                                 showWaveforms: showWaveforms && (track.kind == .systemAudio || track.kind == .micAudio),
@@ -265,6 +269,13 @@ struct TimelineView: View {
                                         deltaX: deltaX,
                                         layout: layout
                                     )
+                                },
+                                onToggleMute: {
+                                    if mutedTracks.contains(track.kind) {
+                                        mutedTracks.remove(track.kind)
+                                    } else {
+                                        mutedTracks.insert(track.kind)
+                                    }
                                 }
                             )
                                 .frame(width: layout.contentWidth, alignment: .leading)
