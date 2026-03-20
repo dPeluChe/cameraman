@@ -7,6 +7,7 @@
 //
 
 import AppKit
+import Combine
 import EngineKit
 import SwiftUI
 
