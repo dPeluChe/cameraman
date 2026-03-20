@@ -27,7 +27,10 @@ final class ProjectEditorViewModel: ObservableObject {
     init(projectId: ProjectId, library: ProjectLibrary = ProjectLibrary()) {
         self.projectId = projectId
         self.library = library
-        setupObservers()
+        // Defer observer setup to avoid "Publishing changes from within view updates"
+        Task { @MainActor [weak self] in
+            self?.setupObservers()
+        }
     }
 
     private func setupObservers() {
