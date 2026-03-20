@@ -211,6 +211,35 @@ public actor PreviewEngine {
         try await createPlayerWithEdits()
     }
 
+    /// Update the project and rebuild the composition (for live preview of edits)
+    /// Call this when canvas layout, format, camera position, or timeline changes
+    public func updateProject(_ project: Project) async throws {
+        let wasPlaying = playbackState == .playing
+        let savedTime = currentTime
+
+        // Pause current playback
+        player?.pause()
+
+        // Update project
+        self.project = project
+
+        // Rebuild composition with new settings
+        try await createPlayerWithEdits()
+
+        // Restore playback position
+        if savedTime > 0 {
+            let cmTime = CMTime(seconds: savedTime, preferredTimescale: 600)
+            await player?.seek(to: cmTime, toleranceBefore: .zero, toleranceAfter: .zero)
+            currentTime = savedTime
+        }
+
+        // Resume if was playing
+        if wasPlaying {
+            player?.play()
+            playbackState = .playing
+        }
+    }
+
     /// Unload the current project
     public func unloadProject() {
         self.project = nil

@@ -118,6 +118,34 @@ final class PreviewPlayerViewModel: ObservableObject {
         }
     }
 
+    /// Rebuild the preview composition when project settings change
+    /// (layout, format, camera position, timeline edits)
+    func refreshPreview(with project: Project) {
+        guard let engine = previewEngine else { return }
+
+        self.project = project
+        aspectRatio = Self.aspectRatio(for: project)
+        updateDuration(project.timeline.duration)
+
+        Task {
+            do {
+                try await engine.updateProject(project)
+                let player = await engine.player
+
+                await MainActor.run {
+                    // Update player reference (may have changed after rebuild)
+                    if self.avPlayer !== player {
+                        self.removePlayerObservers()
+                        self.avPlayer = player
+                        self.setupPlayerObservers()
+                    }
+                }
+            } catch {
+                print("[PREVIEW-DEBUG] Failed to refresh preview: \(error.localizedDescription)")
+            }
+        }
+    }
+
     func reset() {
         removePlayerObservers()
         avPlayer?.pause()

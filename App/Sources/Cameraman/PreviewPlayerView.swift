@@ -82,6 +82,11 @@ struct PreviewPlayerView: View {
         .task(id: project?.projectId) {
             viewModel.load(project: project, projectDirectory: projectDirectory)
         }
+        .onChange(of: project) { _, newProject in
+            // Rebuild composition when project settings change (layout, format, camera, timeline)
+            guard let newProject, viewModel.previewEngine != nil else { return }
+            viewModel.refreshPreview(with: newProject)
+        }
         .onDisappear {
             viewModel.stopPlayback()
         }
