@@ -188,7 +188,7 @@ extension ExportEngine {
 
         } catch {
             // Log error with stage information
-            let currentStage = exportStages[jobId]?.last ?? .validation
+            let currentStage = exportStages[jobId] ?? .validation
             logExportError(jobId: jobId, error: error, stage: currentStage)
 
             // Fail job with error

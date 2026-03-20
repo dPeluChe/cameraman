@@ -7,11 +7,16 @@
 
 import Foundation
 import AVFoundation
+import os.log
 
 /// Preview engine for playing back video with edits applied
 /// Supports seek, play, pause, and applies trims/cuts/layouts from project
 /// Also supports proxy generation for smooth preview of large files
 public actor PreviewEngine {
+    /// Structured logging
+    let logger = Logger(subsystem: "com.projectstudio.enginekit", category: "PreviewEngine")
+    /// File manager for file operations
+    let fileManager = FileManager.default
     /// The project being previewed
     var project: Project?
 
@@ -309,6 +314,11 @@ public actor PreviewEngine {
 
     // MARK: - Time Observation
 
+    /// Update current time from observer (actor-isolated)
+    private func updateCurrentTime(_ time: TimeInterval) {
+        self.currentTime = time
+    }
+
     /// Start periodic time observation for tracking current time
     private func startPeriodicTimeObservation() {
         guard let player = player else { return }
@@ -319,7 +329,9 @@ public actor PreviewEngine {
         let interval = CMTime(seconds: 0.1, preferredTimescale: 600)
         timeObserverToken = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
             guard let self = self else { return }
-            self.currentTime = time.seconds
+            Task {
+                await self.updateCurrentTime(time.seconds)
+            }
         }
     }
 

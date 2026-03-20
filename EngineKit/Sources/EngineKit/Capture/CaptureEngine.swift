@@ -8,9 +8,11 @@
 import Foundation
 import ScreenCaptureKit
 import AVFoundation
+import os.log
 
 /// CaptureEngine manages screen and audio recording using ScreenCaptureKit
 public actor CaptureEngine {
+    let logger = Logger(subsystem: "com.projectstudio.enginekit", category: "CaptureEngine")
     // MARK: - Types
 
     /// Configuration for capturing a specific source
@@ -279,7 +281,7 @@ public actor CaptureEngine {
         // Reset frame counters
         videoFrameCount = 0
         audioFrameCount = 0
-        print("[DEBUG] Frame counters reset")
+        logger.debug("Frame counters reset")
 
         // Start timer for duration tracking
         startDurationTimer(for: session)
@@ -302,14 +304,14 @@ public actor CaptureEngine {
         // Mark as stopped IMMEDIATELY to prevent double calls
         session.markStopped()
 
-        print("[DEBUG] Stopping stream...")
+        logger.debug("Stopping stream...")
         // Stop stream
         if let stream = session.getStream() {
             try? await stream.stopCapture()
         }
-        print("[DEBUG] Stream stopped")
+        logger.debug("Stream stopped")
 
-        print("[DEBUG] Finalizing video writer...")
+        logger.debug("Finalizing video writer...")
         // Mark inputs as finished BEFORE finalizing writers
         if let videoInput = session.getVideoInput() {
             videoInput.markAsFinished()
@@ -321,48 +323,48 @@ public actor CaptureEngine {
         // Finalize writers - Check status first to avoid double finalization
         if let videoWriter = session.getVideoWriter(), videoWriter.status == .writing {
             await videoWriter.finishWriting()
-            print("[DEBUG] Video writer status: \(videoWriter.status.rawValue)")
+            logger.debug("Video writer status: \(videoWriter.status.rawValue)")
             if let error = videoWriter.error {
-                print("[ERROR] Video writer error: \(error.localizedDescription)")
+                logger.error("Video writer error: \(error.localizedDescription)")
             }
         } else if let videoWriter = session.getVideoWriter() {
-            print("[DEBUG] Video writer already finalized with status: \(videoWriter.status.rawValue)")
+            logger.debug("Video writer already finalized with status: \(videoWriter.status.rawValue)")
         }
 
-        print("[DEBUG] Finalizing audio writer...")
+        logger.debug("Finalizing audio writer...")
         if let audioWriter = session.getAudioWriter(), audioWriter.status == .writing {
             await audioWriter.finishWriting()
-            print("[DEBUG] Audio writer status: \(audioWriter.status.rawValue)")
+            logger.debug("Audio writer status: \(audioWriter.status.rawValue)")
             if let error = audioWriter.error {
-                print("[ERROR] Audio writer error: \(error.localizedDescription)")
+                logger.error("Audio writer error: \(error.localizedDescription)")
             }
         } else if let audioWriter = session.getAudioWriter() {
-            print("[DEBUG] Audio writer already finalized with status: \(audioWriter.status.rawValue)")
+            logger.debug("Audio writer already finalized with status: \(audioWriter.status.rawValue)")
         }
         
         // Print frame statistics
-        print("[DEBUG] Total video frames: \(videoFrameCount)")
-        print("[DEBUG] Total audio frames: \(audioFrameCount)")
+        logger.debug("Total video frames: \(self.videoFrameCount)")
+        logger.debug("Total audio frames: \(self.audioFrameCount)")
 
         // Get output paths from session (these are the real paths where files were created)
         guard let screenVideoPath = session.getVideoOutputURL() else {
             throw CaptureError.recordingNotStarted
         }
 
-        print("[DEBUG] Video output path: \(screenVideoPath.path)")
+        logger.debug("Video output path: \(screenVideoPath.path)")
         
         // Check if file exists
         let fileExists = FileManager.default.fileExists(atPath: screenVideoPath.path)
-        print("[DEBUG] Video file exists: \(fileExists)")
+        logger.debug("Video file exists: \(fileExists)")
         
         if fileExists {
             do {
                 let attributes = try FileManager.default.attributesOfItem(atPath: screenVideoPath.path)
                 if let fileSize = attributes[.size] as? NSNumber {
-                    print("[DEBUG] Video file size: \(fileSize.int64Value) bytes")
+                    logger.debug("Video file size: \(fileSize.int64Value) bytes")
                 }
             } catch {
-                print("[ERROR] Failed to get file attributes: \(error)")
+                logger.error("Failed to get file attributes: \(error.localizedDescription)")
             }
         }
 

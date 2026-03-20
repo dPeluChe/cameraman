@@ -227,7 +227,7 @@ public actor ZoomPlanGenerator {
     }
 
     /// Filter windows by importance (remove low-importance windows)
-    private func filterWindowsByImportance(_ windows: [TelemetryParser.ClickWindow]) -> [TelemetryParser.ClickWindow] {
+    func filterWindowsByImportance(_ windows: [TelemetryParser.ClickWindow]) -> [TelemetryParser.ClickWindow] {
         guard windows.count > 1 else { return windows }
 
         // Calculate median importance score
@@ -240,7 +240,7 @@ public actor ZoomPlanGenerator {
     }
 
     /// Validate zoom rate limits
-    private func validateZoomRate(
+    func validateZoomRate(
         for windows: [TelemetryParser.ClickWindow],
         duration: TimeInterval,
         config: Configuration
@@ -258,7 +258,7 @@ public actor ZoomPlanGenerator {
     }
 
     /// Calculate zoom level based on bounding box area
-    private func calculateZoomLevel(for normalizedArea: Double, config: Configuration) -> Double {
+    func calculateZoomLevel(for normalizedArea: Double, config: Configuration) -> Double {
         // Smaller area = higher zoom level
         // Larger area = lower zoom level
 
@@ -276,7 +276,7 @@ public actor ZoomPlanGenerator {
     }
 
     /// Generate keyframes from zoom events
-    private func generateKeyframes(from zoomEvents: [ZoomEvent], config: Configuration) -> [ZoomKeyframe] {
+    func generateKeyframes(from zoomEvents: [ZoomEvent], config: Configuration) -> [ZoomKeyframe] {
         var allKeyframes: [ZoomKeyframe] = []
 
         for event in zoomEvents {
@@ -289,7 +289,7 @@ public actor ZoomPlanGenerator {
     }
 
     /// Calculate zoom plan statistics
-    private func calculateZoomPlanStats(
+    func calculateZoomPlanStats(
         events: [ZoomEvent],
         keyframes: [ZoomKeyframe],
         config: Configuration,
@@ -346,261 +346,4 @@ public actor ZoomPlanGenerator {
         )
     }
 
-    /// Generate a zoom plan with per-segment configuration (Épica I, Task 4)
-    /// This method respects per-segment zoom settings and generates appropriate zoom plans for each section
-    /// - Parameters:
-    ///   - parseResult: Result from TelemetryParser containing click windows
-    ///   - segments: Timeline segments with their zoom configurations
-    ///   - defaultConfig: Default zoom configuration for segments without explicit settings
-    ///   - timelineDuration: Total timeline duration for stats calculation
-    /// - Returns: ZoomPlan with zoom events and keyframes respecting per-segment settings
-    public func generateZoomPlanWithSections(
-        from parseResult: TelemetryParser.ParseResult,
-        segments: [Project.Timeline.Segment],
-        defaultConfig: Configuration = .default(),
-        timelineDuration: TimeInterval? = nil
-    ) async throws -> ZoomPlan {
-        let duration = timelineDuration ?? (parseResult.stats.timeRange.upperBound - parseResult.stats.timeRange.lowerBound)
-
-        // Filter click windows by segment and generate zoom events for each segment
-        var allZoomEvents: [ZoomEvent] = []
-        var allKeyframes: [ZoomKeyframe] = []
-
-        for segment in segments {
-            // Get effective configuration for this segment
-            let segmentConfig: Configuration
-            if let zoomConfig = segment.zoom {
-                if let intensity = zoomConfig.intensity {
-                    segmentConfig = intensity.toConfiguration(base: defaultConfig)
-                } else {
-                    // Use custom configuration from segment
-                    segmentConfig = Configuration(
-                        minZoomLevel: zoomConfig.minZoomLevel,
-                        maxZoomLevel: zoomConfig.maxZoomLevel,
-                        defaultZoomLevel: defaultConfig.defaultZoomLevel,
-                        zoomInDuration: defaultConfig.zoomInDuration,
-                        zoomOutDuration: defaultConfig.zoomOutDuration,
-                        holdDuration: defaultConfig.holdDuration,
-                        boundingBoxPadding: defaultConfig.boundingBoxPadding,
-                        easingFunction: defaultConfig.easingFunction,
-                        maxZoomsPerMinute: defaultConfig.maxZoomsPerMinute,
-                        minTimeBetweenZooms: defaultConfig.minTimeBetweenZooms,
-                        zoomEnabled: zoomConfig.enabled
-                    )
-                }
-            } else {
-                segmentConfig = defaultConfig
-            }
-
-            // Skip zoom generation for this segment if disabled
-            guard segmentConfig.zoomEnabled else {
-                continue
-            }
-
-            // Get click windows that fall within this segment's timeline range
-            let segmentClickWindows = parseResult.windows.filter { window in
-                window.startTime >= segment.timelineIn && window.startTime <= segment.timelineOut
-            }
-
-            // Skip if no click windows in this segment
-            guard !segmentClickWindows.isEmpty else {
-                continue
-            }
-
-            // Sort windows by start time and filter by importance
-            let sortedWindows = segmentClickWindows.sorted { $0.startTime < $1.startTime }
-            let filteredWindows = filterWindowsByImportance(sortedWindows)
-
-            // Check zoom rate limits for this segment
-            let segmentDuration = segment.timelineOut - segment.timelineIn
-            try validateZoomRate(for: filteredWindows, duration: segmentDuration, config: segmentConfig)
-
-            // Generate zoom events for this segment
-            var lastZoomEndTime: TimeInterval = segment.timelineIn
-
-            for window in filteredWindows {
-                // Check minimum time between zooms
-                if lastZoomEndTime > segment.timelineIn && (window.startTime - lastZoomEndTime) < segmentConfig.minTimeBetweenZooms {
-                    continue // Skip this zoom event (too soon after previous)
-                }
-
-                // Calculate zoom level based on bounding box size
-                let boundingBoxArea = Double(window.boundingBox.width * window.boundingBox.height)
-                let normalizedArea = boundingBoxArea / 2_500_000.0
-                let targetZoomLevel = calculateZoomLevel(for: normalizedArea, config: segmentConfig)
-
-                // Calculate focus point
-                let focusX = window.centerPoint.x / 1920.0
-                let focusY = window.centerPoint.y / 1080.0
-
-                // Calculate timing (all times are in timeline coordinates)
-                let zoomInStart = window.startTime
-                let zoomInEnd = zoomInStart + segmentConfig.zoomInDuration
-                let holdEnd = zoomInEnd + segmentConfig.holdDuration
-                let zoomOutEnd = holdEnd + segmentConfig.zoomOutDuration
-
-                // Create zoom event
-                let zoomEvent = ZoomEvent(
-                    zoomInStartTime: zoomInStart,
-                    zoomInEndTime: zoomInEnd,
-                    holdEndTime: holdEnd,
-                    zoomOutEndTime: zoomOutEnd,
-                    targetZoomLevel: targetZoomLevel,
-                    focusX: focusX,
-                    focusY: focusY,
-                    clickWindowId: window.id,
-                    easing: segmentConfig.easingFunction
-                )
-
-                allZoomEvents.append(zoomEvent)
-                lastZoomEndTime = zoomOutEnd
-            }
-        }
-
-        // Generate keyframes from all zoom events
-        allKeyframes = generateKeyframes(from: allZoomEvents, config: defaultConfig)
-
-        // Calculate statistics
-        let stats = calculateZoomPlanStats(
-            events: allZoomEvents,
-            keyframes: allKeyframes,
-            config: defaultConfig,
-            duration: duration
-        )
-
-        return ZoomPlan(
-            events: allZoomEvents,
-            keyframes: allKeyframes,
-            configuration: defaultConfig,
-            stats: stats
-        )
-    }
-
-    /// Generate a zoom plan with per-segment configuration from click windows directly
-    /// This is a convenience method that doesn't require a ParseResult
-    /// - Parameters:
-    ///   - clickWindows: Array of click windows from telemetry parser
-    ///   - segments: Timeline segments with their zoom configurations
-    ///   - defaultConfig: Default zoom configuration for segments without explicit settings
-    ///   - timelineDuration: Total timeline duration for stats calculation
-    /// - Returns: ZoomPlan with zoom events and keyframes respecting per-segment settings
-    public func generateZoomPlanWithSections(
-        from clickWindows: [TelemetryParser.ClickWindow],
-        segments: [Project.Timeline.Segment],
-        defaultConfig: Configuration = .default(),
-        timelineDuration: TimeInterval
-    ) async throws -> ZoomPlan {
-        // Filter click windows by segment and generate zoom events for each segment
-        var allZoomEvents: [ZoomEvent] = []
-        var allKeyframes: [ZoomKeyframe] = []
-
-        for segment in segments {
-            // Get effective configuration for this segment
-            let segmentConfig: Configuration
-            if let zoomConfig = segment.zoom {
-                if let intensity = zoomConfig.intensity {
-                    segmentConfig = intensity.toConfiguration(base: defaultConfig)
-                } else {
-                    // Use custom configuration from segment
-                    segmentConfig = Configuration(
-                        minZoomLevel: zoomConfig.minZoomLevel,
-                        maxZoomLevel: zoomConfig.maxZoomLevel,
-                        defaultZoomLevel: defaultConfig.defaultZoomLevel,
-                        zoomInDuration: defaultConfig.zoomInDuration,
-                        zoomOutDuration: defaultConfig.zoomOutDuration,
-                        holdDuration: defaultConfig.holdDuration,
-                        boundingBoxPadding: defaultConfig.boundingBoxPadding,
-                        easingFunction: defaultConfig.easingFunction,
-                        maxZoomsPerMinute: defaultConfig.maxZoomsPerMinute,
-                        minTimeBetweenZooms: defaultConfig.minTimeBetweenZooms,
-                        zoomEnabled: zoomConfig.enabled
-                    )
-                }
-            } else {
-                segmentConfig = defaultConfig
-            }
-
-            // Skip zoom generation for this segment if disabled
-            guard segmentConfig.zoomEnabled else {
-                continue
-            }
-
-            // Get click windows that fall within this segment's timeline range
-            let segmentClickWindows = clickWindows.filter { window in
-                window.startTime >= segment.timelineIn && window.startTime <= segment.timelineOut
-            }
-
-            // Skip if no click windows in this segment
-            guard !segmentClickWindows.isEmpty else {
-                continue
-            }
-
-            // Sort windows by start time and filter by importance
-            let sortedWindows = segmentClickWindows.sorted { $0.startTime < $1.startTime }
-            let filteredWindows = filterWindowsByImportance(sortedWindows)
-
-            // Check zoom rate limits for this segment
-            let segmentDuration = segment.timelineOut - segment.timelineIn
-            try validateZoomRate(for: filteredWindows, duration: segmentDuration, config: segmentConfig)
-
-            // Generate zoom events for this segment
-            var lastZoomEndTime: TimeInterval = segment.timelineIn
-
-            for window in filteredWindows {
-                // Check minimum time between zooms
-                if lastZoomEndTime > segment.timelineIn && (window.startTime - lastZoomEndTime) < segmentConfig.minTimeBetweenZooms {
-                    continue
-                }
-
-                // Calculate zoom level based on bounding box size
-                let boundingBoxArea = Double(window.boundingBox.width * window.boundingBox.height)
-                let normalizedArea = boundingBoxArea / 2_500_000.0
-                let targetZoomLevel = calculateZoomLevel(for: normalizedArea, config: segmentConfig)
-
-                // Calculate focus point
-                let focusX = window.centerPoint.x / 1920.0
-                let focusY = window.centerPoint.y / 1080.0
-
-                // Calculate timing
-                let zoomInStart = window.startTime
-                let zoomInEnd = zoomInStart + segmentConfig.zoomInDuration
-                let holdEnd = zoomInEnd + segmentConfig.holdDuration
-                let zoomOutEnd = holdEnd + segmentConfig.zoomOutDuration
-
-                // Create zoom event
-                let zoomEvent = ZoomEvent(
-                    zoomInStartTime: zoomInStart,
-                    zoomInEndTime: zoomInEnd,
-                    holdEndTime: holdEnd,
-                    zoomOutEndTime: zoomOutEnd,
-                    targetZoomLevel: targetZoomLevel,
-                    focusX: focusX,
-                    focusY: focusY,
-                    clickWindowId: window.id,
-                    easing: segmentConfig.easingFunction
-                )
-
-                allZoomEvents.append(zoomEvent)
-                lastZoomEndTime = zoomOutEnd
-            }
-        }
-
-        // Generate keyframes from all zoom events
-        allKeyframes = generateKeyframes(from: allZoomEvents, config: defaultConfig)
-
-        // Calculate statistics
-        let stats = calculateZoomPlanStats(
-            events: allZoomEvents,
-            keyframes: allKeyframes,
-            config: defaultConfig,
-            duration: timelineDuration
-        )
-
-        return ZoomPlan(
-            events: allZoomEvents,
-            keyframes: allKeyframes,
-            configuration: defaultConfig,
-            stats: stats
-        )
-    }
 }

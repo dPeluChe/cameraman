@@ -55,8 +55,9 @@ extension ExportEngine {
         }
 
         var transform = CGAffineTransform.identity
-        transform = transform.scaledBy(x: CGFloat(scale), y: CGFloat(scale))
+        // Apply translation first, then scale so offset isn't scaled
         transform = transform.concatenating(translate)
+        transform = transform.scaledBy(x: CGFloat(scale), y: CGFloat(scale))
 
         return transform
     }
@@ -84,11 +85,38 @@ extension ExportEngine {
             return
         }
 
-        // Apply transform at each keyframe
-        for keyframe in zoomPlan.keyframes {
+        let maxTime = compositionDuration.seconds
+
+        // Filter keyframes within valid composition time range
+        let validKeyframes = zoomPlan.keyframes.filter { $0.timestamp >= 0 && $0.timestamp <= maxTime }
+
+        guard !validKeyframes.isEmpty else {
+            logger.warning("No valid zoom keyframes within composition duration (\(maxTime)s), applying base transform")
+            layerInstruction.setTransform(baseTransform, at: .zero)
+            return
+        }
+
+        if validKeyframes.count < zoomPlan.keyframes.count {
+            logger.warning("Filtered \(zoomPlan.keyframes.count - validKeyframes.count) zoom keyframes exceeding composition duration (\(maxTime)s)")
+        }
+
+        // Ensure first keyframe is applied at time zero
+        if let firstKeyframe = validKeyframes.first {
+            let firstTransform = calculateZoomTransform(
+                zoomLevel: firstKeyframe.zoomLevel,
+                focusX: firstKeyframe.focusX,
+                focusY: firstKeyframe.focusY,
+                baseTransform: baseTransform,
+                sourceSize: sourceSize,
+                renderSize: renderSize
+            )
+            layerInstruction.setTransform(firstTransform, at: .zero)
+        }
+
+        // Apply transform at each subsequent keyframe
+        for keyframe in validKeyframes {
             let keyframeTime = CMTime(seconds: keyframe.timestamp, preferredTimescale: 600)
 
-            // Calculate zoom transform
             let zoomTransform = calculateZoomTransform(
                 zoomLevel: keyframe.zoomLevel,
                 focusX: keyframe.focusX,
@@ -100,19 +128,48 @@ extension ExportEngine {
 
             layerInstruction.setTransform(zoomTransform, at: keyframeTime)
         }
+    }
 
-        // Ensure first keyframe is applied at time zero
-        if let firstKeyframe = zoomPlan.keyframes.first {
-            let firstTransform = calculateZoomTransform(
-                zoomLevel: firstKeyframe.zoomLevel,
-                focusX: firstKeyframe.focusX,
-                focusY: firstKeyframe.focusY,
-                baseTransform: baseTransform,
-                sourceSize: sourceSize,
-                renderSize: renderSize
-            )
-            layerInstruction.setTransform(firstTransform, at: .zero)
-        }
+    /// Calculate camera overlay transform for PiP layout
+    /// - Parameters:
+    ///   - cameraPosition: Camera position with normalized coordinates (0-1)
+    ///   - cameraSourceSize: Size of the camera source video
+    ///   - renderSize: Output render size
+    /// - Returns: Transform for positioning and scaling the camera overlay
+    func calculateCameraOverlayTransform(
+        cameraPosition: Project.Canvas.Layout.CameraPosition,
+        cameraSourceSize: CoreFoundation.CGSize,
+        renderSize: CoreFoundation.CGSize
+    ) -> CGAffineTransform {
+        // Convert normalized coordinates to pixel coordinates
+        let cameraX = cameraPosition.x * renderSize.width
+        let cameraY = cameraPosition.y * renderSize.height
+        let cameraW = cameraPosition.w * renderSize.width
+        let cameraH = cameraPosition.h * renderSize.height
+
+        // Calculate scale to fit camera into its target rect
+        let scaleX = cameraW / cameraSourceSize.width
+        let scaleY = cameraH / cameraSourceSize.height
+
+        // Use uniform scale to maintain aspect ratio, fitting to the smaller dimension
+        let scale = min(scaleX, scaleY)
+
+        // Calculate actual scaled size
+        let scaledWidth = cameraSourceSize.width * scale
+        let scaledHeight = cameraSourceSize.height * scale
+
+        // Center the camera within the target rect
+        let offsetX = cameraX + (cameraW - scaledWidth) / 2
+        let offsetY = cameraY + (cameraH - scaledHeight) / 2
+
+        logger.debug("Camera overlay: position(\(cameraX), \(cameraY)), size(\(cameraW)x\(cameraH)), scale(\(scale)), offset(\(offsetX), \(offsetY))")
+
+        // Build transform: translate to position, then scale
+        var transform = CGAffineTransform.identity
+        transform = transform.translatedBy(x: offsetX, y: offsetY)
+        transform = transform.scaledBy(x: scale, y: scale)
+
+        return transform
     }
 
     /// Calculate zoom transform for a specific zoom level and focus point

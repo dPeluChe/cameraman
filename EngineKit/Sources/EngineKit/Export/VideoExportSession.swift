@@ -153,9 +153,118 @@ extension ExportEngine {
                     at: currentTime
                 )
 
+                // Apply speed change by scaling the inserted time range
+                if segment.speed != 1.0 {
+                    let insertedRange = CMTimeRange(start: currentTime, duration: duration)
+                    videoTrack.scaleTimeRange(insertedRange, toDuration: scaledDuration)
+                }
+
                 logger.debug("Segment \(index + 1): source \(segment.sourceIn)s - \(segment.sourceOut)s, speed \(segment.speed)x")
 
                 currentTime = CMTimeAdd(currentTime, scaledDuration)
+            }
+
+            // Build camera track if available
+            var cameraTrack: AVMutableCompositionTrack?
+            if primarySources.camera != nil {
+                logger.debug("Building camera track")
+
+                if let camTrack = composition.addMutableTrack(
+                    withMediaType: .video,
+                    preferredTrackID: kCMPersistentTrackID_Invalid
+                ) {
+                    cameraTrack = camTrack
+                    currentTime = CMTime.zero
+
+                    for (index, segment) in project.timeline.segments.enumerated() {
+                        try await checkCancellation(jobId: jobId)
+
+                        guard let segmentSources = resolveSources(for: segment.takeId, in: project),
+                              let cameraPath = segmentSources.camera?.path else {
+                            logger.debug("No camera source for segment \(segment.id), skipping")
+                            // Insert a gap of the segment duration
+                            let segmentDuration = CMTime(
+                                seconds: (segment.sourceOut - segment.sourceIn) / segment.speed,
+                                preferredTimescale: 600
+                            )
+                            currentTime = CMTimeAdd(currentTime, segmentDuration)
+                            continue
+                        }
+
+                        let asset: AVAsset
+                        if let cached = assetCache[cameraPath] {
+                            asset = cached
+                        } else {
+                            let assetURL = projectDirectory.appendingPathComponent(cameraPath)
+
+                            // Verify camera file exists before loading
+                            guard fileManager.fileExists(atPath: assetURL.path) else {
+                                logger.warning("Camera file not found: \(cameraPath), skipping segment \(segment.id)")
+                                // Insert a gap of segment duration
+                                let segmentDuration = CMTime(
+                                    seconds: (segment.sourceOut - segment.sourceIn) / segment.speed,
+                                    preferredTimescale: 600
+                                )
+                                currentTime = CMTimeAdd(currentTime, segmentDuration)
+                                continue
+                            }
+
+                            asset = AVAsset(url: assetURL)
+                            assetCache[cameraPath] = asset
+                        }
+
+                        // Check if camera asset is readable
+                        let isReadable: Bool
+                        do {
+                            isReadable = try await asset.load(.isReadable)
+                        } catch {
+                            logger.warning("Failed to check camera asset readability for segment \(segment.id): \(error.localizedDescription)")
+                            isReadable = false
+                        }
+                        guard isReadable else {
+                            logger.warning("Camera asset not readable for segment \(segment.id), skipping")
+                            let segmentDuration = CMTime(
+                                seconds: (segment.sourceOut - segment.sourceIn) / segment.speed,
+                                preferredTimescale: 600
+                            )
+                            currentTime = CMTimeAdd(currentTime, segmentDuration)
+                            continue
+                        }
+
+                        let cameraAssetTracks = try await asset.loadTracks(withMediaType: .video)
+                        guard let sourceCameraTrack = cameraAssetTracks.first else {
+                            logger.warning("No camera video track found for segment \(segment.id), skipping")
+                            continue
+                        }
+
+                        let startTime = CMTime(seconds: segment.sourceIn, preferredTimescale: 600)
+                        let duration = CMTime(seconds: segment.sourceOut - segment.sourceIn, preferredTimescale: 600)
+                        let scaledDuration = CMTimeMultiplyByFloat64(duration, multiplier: 1.0 / segment.speed)
+
+                        do {
+                            try camTrack.insertTimeRange(
+                                CMTimeRangeMake(start: startTime, duration: duration),
+                                of: sourceCameraTrack,
+                                at: currentTime
+                            )
+
+                            // Apply speed change to camera track
+                            if segment.speed != 1.0 {
+                                let insertedRange = CMTimeRange(start: currentTime, duration: duration)
+                                camTrack.scaleTimeRange(insertedRange, toDuration: scaledDuration)
+                            }
+
+                            logger.debug("Camera segment \(index + 1): \(segment.sourceIn)s - \(segment.sourceOut)s")
+                        } catch {
+                            logger.error("Failed to insert camera segment \(index + 1): \(error.localizedDescription)")
+                        }
+                        currentTime = CMTimeAdd(currentTime, scaledDuration)
+                    }
+
+                    logger.debug("Camera track built successfully")
+                } else {
+                    logger.warning("Failed to create camera track, continuing without camera overlay")
+                }
             }
 
             // Build audio track if available
@@ -182,11 +291,21 @@ extension ExportEngine {
                             let duration = CMTime(seconds: segment.sourceOut - segment.sourceIn, preferredTimescale: 600)
                             let scaledDuration = CMTimeMultiplyByFloat64(duration, multiplier: 1.0 / segment.speed)
 
-                            try? audioTrack.insertTimeRange(
-                                CMTimeRangeMake(start: startTime, duration: duration),
-                                of: sourceAudioTrack,
-                                at: currentTime
-                            )
+                            do {
+                                try audioTrack.insertTimeRange(
+                                    CMTimeRangeMake(start: startTime, duration: duration),
+                                    of: sourceAudioTrack,
+                                    at: currentTime
+                                )
+
+                                // Apply speed change to audio track
+                                if segment.speed != 1.0 {
+                                    let insertedRange = CMTimeRange(start: currentTime, duration: duration)
+                                    audioTrack.scaleTimeRange(insertedRange, toDuration: scaledDuration)
+                                }
+                            } catch {
+                                logger.error("Failed to insert audio segment for source_in \(segment.sourceIn)s: \(error.localizedDescription)")
+                            }
 
                             currentTime = CMTimeAdd(currentTime, scaledDuration)
                         }
@@ -246,7 +365,32 @@ extension ExportEngine {
                 layerInstruction.setTransform(transform, at: .zero)
             }
 
-            instruction.layerInstructions = [layerInstruction]
+            // Add camera layer instruction if camera track exists
+            if let cameraTrack = cameraTrack, let cameraPosition = project.canvas.layout.camera {
+                logger.debug("Adding camera overlay layer instruction")
+
+                let cameraLayerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: cameraTrack)
+
+                let cameraSourceSize = CoreFoundation.CGSize(
+                    width: CGFloat(primarySources.camera?.size.w ?? 0),
+                    height: CGFloat(primarySources.camera?.size.h ?? 0)
+                )
+
+                let cameraTransform = calculateCameraOverlayTransform(
+                    cameraPosition: cameraPosition,
+                    cameraSourceSize: cameraSourceSize,
+                    renderSize: videoComposition.renderSize
+                )
+
+                cameraLayerInstruction.setTransform(cameraTransform, at: .zero)
+
+                // Add both layer instructions (screen first, then camera on top)
+                instruction.layerInstructions = [layerInstruction, cameraLayerInstruction]
+                logger.debug("Camera overlay added to composition")
+            } else {
+                instruction.layerInstructions = [layerInstruction]
+            }
+
             videoComposition.instructions = [instruction]
 
             // Stage 5: Setup export session (0.5 - 0.6)
@@ -408,7 +552,7 @@ extension ExportEngine {
 
         } catch {
             // Log error with stage information
-            let currentStage = exportStages[jobId]?.last ?? .validation
+            let currentStage = exportStages[jobId] ?? .validation
             logExportError(jobId: jobId, error: error, stage: currentStage)
 
             // Fail job with error
@@ -423,200 +567,4 @@ extension ExportEngine {
         }
     }
 
-    /// Create caption layer for burn-in captions
-    /// - Parameters:
-    ///   - project: Project with captions
-    ///   - projectId: Project ID for file path resolution
-    ///   - renderSize: Size of the output video
-    ///   - compositionDuration: Duration of the composition
-    /// - Returns: AVVideoCompositionCoreAnimationTool with caption layer
-    private func createCaptionLayer(
-        for project: Project,
-        projectId: ProjectId,
-        renderSize: CoreFoundation.CGSize,
-        compositionDuration: CMTime
-    ) async throws -> AVVideoCompositionCoreAnimationTool {
-        logger.debug("Creating caption layer for burn-in")
-
-        // Load captions from project
-        guard let captionsConfig = project.captions else {
-            logger.warning("No captions configured in project")
-            throw ExportError.exportFailed("No captions available for burn-in")
-        }
-
-        // Load caption file
-        let projectDirectory = getProjectDirectory(for: projectId)
-        let captionPath = projectDirectory.appendingPathComponent(captionsConfig.srtPath)
-
-        guard fileManager.fileExists(atPath: captionPath.path) else {
-            logger.error("Caption file not found: \(captionPath)")
-            throw ExportError.sourceFileNotFound(captionsConfig.srtPath)
-        }
-
-        // Parse captions
-        let captionsManager = CaptionsManager()
-        try await captionsManager.loadCaptions(from: captionPath.path)
-        let captions = await captionsManager.getAllCaptions()
-
-        logger.debug("Loaded \(captions.count) captions for burn-in")
-
-        // Create parent layer for video composition
-        let parentLayer = CALayer()
-        parentLayer.frame = CoreFoundation.CGRect(origin: .zero, size: renderSize)
-
-        // Create video layer
-        let videoLayer = CALayer()
-        videoLayer.frame = CoreFoundation.CGRect(origin: .zero, size: renderSize)
-        parentLayer.addSublayer(videoLayer)
-
-        // Create caption layer
-        let captionLayer = CALayer()
-        captionLayer.frame = CoreFoundation.CGRect(origin: .zero, size: renderSize)
-        parentLayer.addSublayer(captionLayer)
-
-        // Get caption style
-        let style = await captionsManager.getStyle()
-
-        // Create text attributes
-        let fontSize = style.fontSize * CGFloat(renderSize.height)
-        let font = NSFont(name: style.fontFamily, size: fontSize) ?? NSFont.systemFont(ofSize: fontSize)
-
-        // Calculate text position
-        let yPos = (1.0 - style.verticalPosition) * CGFloat(renderSize.height) - fontSize
-        let maxLineWidth = style.maxLineWidth * CGFloat(renderSize.width)
-
-        // Process each caption and create animation
-        for caption in captions {
-            let startTime = CMTime(seconds: caption.start, preferredTimescale: 600)
-            let endTime = CMTime(seconds: caption.end, preferredTimescale: 600)
-
-            // Create text layer for this caption
-            let textLayer = CATextLayer()
-            textLayer.string = caption.text
-            textLayer.font = font
-            textLayer.fontSize = fontSize
-            textLayer.foregroundColor = NSColor(hex: style.textColor).cgColor
-
-            // Background
-            if style.backgroundOpacity > 0 {
-                let bgColor = NSColor(hex: style.backgroundColor).withAlphaComponent(style.backgroundOpacity)
-                textLayer.backgroundColor = bgColor.cgColor
-                textLayer.cornerRadius = fontSize * 0.2
-            }
-
-            // Shadow
-            if style.shadow {
-                textLayer.shadowColor = NSColor.black.cgColor
-                textLayer.shadowOffset = CoreFoundation.CGSize(width: 0, height: -1)
-                textLayer.shadowRadius = 2
-                textLayer.shadowOpacity = 0.5
-            }
-
-            // Alignment
-            let xPos: CGFloat
-            switch style.horizontalAlignment {
-            case 0.0: // Left
-                textLayer.alignmentMode = .left
-                xPos = CGFloat(renderSize.width) * (1.0 - style.maxLineWidth) / 2.0
-            case 1.0: // Right
-                textLayer.alignmentMode = .right
-                xPos = CGFloat(renderSize.width) * (1.0 + style.maxLineWidth) / 2.0
-            default: // Center (0.5)
-                textLayer.alignmentMode = .center
-                xPos = CGFloat(renderSize.width) * 0.5
-            }
-
-            // Wrap text if needed
-            let wrappedText = wrapText(caption.text, font: font, maxWidth: maxLineWidth)
-            textLayer.string = wrappedText
-
-            // Calculate text size
-            let textSize = (wrappedText as NSString).size(withAttributes: [.font: font])
-
-            // Position text
-            let textX = xPos - textSize.width / 2.0
-            let textY = yPos - textSize.height
-            textLayer.frame = CoreFoundation.CGRect(x: textX, y: textY, width: textSize.width, height: textSize.height)
-
-            // Create fade-in and fade-out animations
-            textLayer.opacity = 0.0
-
-            // Fade in animation
-            let fadeIn = CABasicAnimation(keyPath: "opacity")
-            fadeIn.fromValue = 0.0
-            fadeIn.toValue = 1.0
-            fadeIn.duration = 0.2 // 200ms fade-in
-            fadeIn.beginTime = startTime.seconds
-            fadeIn.fillMode = .forwards
-
-            // Fade out animation
-            let fadeOut = CABasicAnimation(keyPath: "opacity")
-            fadeOut.fromValue = 1.0
-            fadeOut.toValue = 0.0
-            fadeOut.duration = 0.2 // 200ms fade-out
-            fadeOut.beginTime = endTime.seconds - 0.2
-            fadeOut.fillMode = .forwards
-
-            // Add animations
-            textLayer.add(fadeIn, forKey: "fadeIn_\(caption.id)")
-            textLayer.add(fadeOut, forKey: "fadeOut_\(caption.id)")
-
-            // Set final opacity for after animations
-            DispatchQueue.main.asyncAfter(deadline: .now() + endTime.seconds) {
-                textLayer.opacity = 0.0
-            }
-
-            captionLayer.addSublayer(textLayer)
-        }
-
-        // Create animation tool
-        let animationTool = AVVideoCompositionCoreAnimationTool(
-            postProcessingAsVideoLayer: videoLayer,
-            in: parentLayer
-        )
-
-        logger.debug("Caption layer created with \(captions.count) captions")
-
-        return animationTool
-    }
-
-    /// Wrap text to fit within max width
-    private func wrapText(_ text: String, font: NSFont, maxWidth: CGFloat) -> NSString {
-        let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.lineBreakMode = .byWordWrapping
-
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: font,
-            .paragraphStyle: paragraphStyle
-        ]
-
-        let attributedString = NSAttributedString(string: text, attributes: attributes)
-        let framesetter = CTFramesetterCreateWithAttributedString(attributedString)
-
-        var currentRange = CFRange(location: 0, length: attributedString.length)
-        var lines: [String] = []
-
-        while currentRange.length > 0 {
-            let suggestedSize = CTFramesetterSuggestFrameSizeWithConstraints(
-                framesetter,
-                currentRange,
-                nil,
-                CoreFoundation.CGSize(width: maxWidth, height: CGFloat.greatestFiniteMagnitude),
-                nil
-            )
-
-            let path = CGPath(rect: CoreFoundation.CGRect(origin: .zero, size: suggestedSize), transform: nil)
-            let frame = CTFramesetterCreateFrame(framesetter, currentRange, path, nil)
-
-            let lineRange = CTFrameGetVisibleStringRange(frame)
-            let nsRange = NSRange(location: lineRange.location, length: lineRange.length)
-            let lineText = attributedString.attributedSubstring(from: nsRange).string
-            lines.append(lineText)
-
-            currentRange.location += lineRange.length
-            currentRange.length -= lineRange.length
-        }
-
-        return lines.joined(separator: "\n") as NSString
-    }
 }

@@ -61,28 +61,28 @@ extension CaptureEngine {
         case .display:
             let shareableContent = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
 
-            print("[DEBUG] Available SCDisplay count: \(shareableContent.displays.count)")
+            logger.debug("Available SCDisplay count: \(shareableContent.displays.count)")
             for (index, display) in shareableContent.displays.enumerated() {
-                print("[DEBUG] SCDisplay[\(index)]: id=\(display.displayID), width=\(display.width), height=\(display.height)")
+                logger.debug("SCDisplay[\(index)]: id=\(display.displayID), width=\(display.width), height=\(display.height)")
             }
 
             guard let scDisplay: SCDisplay = {
                 if let targetID = config.display?.id {
-                    print("[DEBUG] Looking for display with config id: \(targetID)")
+                    logger.debug("Looking for display with config id: \(targetID)")
                     if let cgTargetID = UInt32(targetID) {
-                        print("[DEBUG] Converted to CGDisplayID: \(cgTargetID)")
+                        logger.debug("Converted to CGDisplayID: \(cgTargetID)")
                         return shareableContent.displays.first(where: { $0.displayID == cgTargetID })
                     } else {
-                        print("[DEBUG] Failed to convert ID to UInt32")
+                        logger.debug("Failed to convert ID to UInt32")
                     }
                 }
-                print("[DEBUG] Using first available display as fallback")
+                logger.debug("Using first available display as fallback")
                 return shareableContent.displays.first
             }() else {
                 throw CaptureError.noSourceSelected
             }
 
-            print("[DEBUG] Selected SCDisplay: id=\(scDisplay.displayID)")
+            logger.debug("Selected SCDisplay: id=\(scDisplay.displayID)")
             contentFilter = SCContentFilter(display: scDisplay, excludingWindows: [])
 
         case .window:
@@ -132,10 +132,10 @@ extension CaptureEngine {
         configuration: SCStreamConfiguration,
         filter: SCContentFilter
     ) async throws -> SCStream {
-        print("[DEBUG] Creating SCStream...")
+        logger.debug("Creating SCStream...")
 
         let stream = SCStream(filter: filter, configuration: configuration, delegate: nil)
-        print("[DEBUG] SCStream created successfully")
+        logger.debug("SCStream created successfully")
 
         // Create a queue for sample handling
         let sampleQueue = DispatchQueue(label: "com.cameraman.samplequeue")
@@ -152,7 +152,7 @@ extension CaptureEngine {
         self.videoStreamOutput = videoOutput
 
         try stream.addStreamOutput(videoOutput, type: .screen, sampleHandlerQueue: sampleQueue)
-        print("[DEBUG] Added video stream output")
+        logger.debug("Added video stream output")
 
         // Add audio stream output if enabled
         if configuration.capturesAudio {
@@ -167,12 +167,12 @@ extension CaptureEngine {
             self.audioStreamOutput = audioOutput
 
             try stream.addStreamOutput(audioOutput, type: .audio, sampleHandlerQueue: sampleQueue)
-            print("[DEBUG] Added audio stream output")
+            logger.debug("Added audio stream output")
         }
 
-        print("[DEBUG] Starting capture...")
+        logger.debug("Starting capture...")
         try await stream.startCapture()
-        print("[DEBUG] Capture started successfully")
+        logger.debug("Capture started successfully")
 
         return stream
     }
@@ -230,11 +230,11 @@ extension CaptureEngine {
         }
 
         guard writer.startWriting() else {
-            print("[ERROR] Failed to start writing: \(writer.error?.localizedDescription ?? "unknown")")
+            logger.error("Failed to start writing: \(writer.error?.localizedDescription ?? "unknown")")
             throw CaptureError.failedToCreateAssetWriter(underlying: writer.error ?? NSError(domain: "CaptureEngine", code: -1))
         }
 
-        print("[DEBUG] Video writer started successfully at: \(outputURL.path)")
+        logger.debug("Video writer started successfully at: \(outputURL.path)")
 
         return (writer, adaptor)
     }
@@ -280,12 +280,12 @@ extension CaptureEngine {
         case kCMMediaType_Video:
             videoFrameCount += 1
             if videoFrameCount % 60 == 1 { // Log every 60 frames (~1 second at 60fps)
-                print("[DEBUG] Video frames received: \(videoFrameCount)")
+                logger.debug("Video frames received: \(self.videoFrameCount)")
             }
 
             guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
                 if videoFrameCount < 10 {
-                    print("[WARN] No pixel buffer in video sample at frame \(videoFrameCount)")
+                    logger.warning("No pixel buffer in video sample at frame \(self.videoFrameCount)")
                 }
                 return
             }
@@ -296,7 +296,7 @@ extension CaptureEngine {
                 session.setFirstVideoTimestamp(presentationTime)
                 if let writer = session.getVideoWriter() {
                     writer.startSession(atSourceTime: .zero)
-                    print("[DEBUG] Video session started")
+                    logger.debug("Video session started")
                 }
             }
 
@@ -307,18 +307,18 @@ extension CaptureEngine {
                adaptor.assetWriterInput.isReadyForMoreMediaData {
                 let success = adaptor.append(pixelBuffer, withPresentationTime: relativeTime)
                 if !success, let writer = session.getVideoWriter() {
-                    print("[ERROR] Failed to append video frame \(videoFrameCount). Writer status: \(writer.status.rawValue), error: \(writer.error?.localizedDescription ?? "none")")
+                    logger.error("Failed to append video frame \(self.videoFrameCount). Writer status: \(writer.status.rawValue), error: \(writer.error?.localizedDescription ?? "none")")
                 }
             } else {
                 if videoFrameCount < 10 {
-                    print("[WARN] Video input not ready for more data at frame \(videoFrameCount)")
+                    logger.warning("Video input not ready for more data at frame \(self.videoFrameCount)")
                 }
             }
 
         case kCMMediaType_Audio:
             audioFrameCount += 1
             if audioFrameCount % 100 == 1 {
-                print("[DEBUG] Audio frames received: \(audioFrameCount)")
+                logger.debug("Audio frames received: \(self.audioFrameCount)")
             }
 
             let presentationTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
@@ -327,7 +327,7 @@ extension CaptureEngine {
                 session.setFirstAudioTimestamp(presentationTime)
                 if let writer = session.getAudioWriter() {
                     writer.startSession(atSourceTime: .zero)
-                    print("[DEBUG] Audio session started")
+                    logger.debug("Audio session started")
                 }
             }
 
@@ -364,7 +364,7 @@ extension CaptureEngine {
             )
             guard copyStatus == noErr, let adjustedSampleBuffer else {
                 if audioFrameCount < 10 {
-                    print("[ERROR] Failed to retime audio sample buffer: \(copyStatus)")
+                    logger.error("Failed to retime audio sample buffer: \(copyStatus)")
                 }
                 return
             }
@@ -373,7 +373,7 @@ extension CaptureEngine {
                audioInput.isReadyForMoreMediaData {
                 let success = audioInput.append(adjustedSampleBuffer)
                 if !success, let writer = session.getAudioWriter() {
-                    print("[ERROR] Failed to append audio frame \(audioFrameCount). Writer status: \(writer.status.rawValue), error: \(writer.error?.localizedDescription ?? "none")")
+                    logger.error("Failed to append audio frame \(self.audioFrameCount). Writer status: \(writer.status.rawValue), error: \(writer.error?.localizedDescription ?? "none")")
                 }
             }
 

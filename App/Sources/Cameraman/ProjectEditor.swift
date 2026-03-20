@@ -14,7 +14,7 @@ import SwiftUI
 @MainActor
 final class ProjectEditor: ObservableObject {
     private let editorModel: EditorModel
-    @Published private(set) var project: Project
+    @Published var project: Project
     @Published private(set) var canUndo = false
     @Published private(set) var canRedo = false
 
@@ -309,34 +309,34 @@ final class ProjectEditor: ObservableObject {
         updateHistoryState()
     }
 
-    // MARK: - Overlay Operations
+    // MARK: - Internal helpers for extensions
 
-    func addOverlay(projectId: ProjectId, overlay: Project.Overlay) async -> EditorResult {
-        let previousProject = project
-
-        // Directly add to project since EditorModel doesn't have addOverlay
-        var updatedProject = project
-        updatedProject.overlays.append(overlay)
-
+    /// Set the editor model project (used by extensions)
+    func setEditorProject(_ updatedProject: Project) async {
         await editorModel.setProject(updatedProject)
-        recordUndoSnapshot(previousProject)
-        project = updatedProject
-
-        return .success(project)
     }
 
-    func updateOverlay(
+    /// Record an undo snapshot (used by extensions)
+    func recordUndo(_ snapshot: Project) {
+        recordUndoSnapshot(snapshot)
+    }
+
+    /// Update published project from an editor result (used by extensions)
+    func updateFromResult(_ result: EditorResult, previousProject: Project) {
+        updatePublishedProject(from: result, previousProject: previousProject)
+    }
+
+    /// Perform overlay update via editor model (used by extensions)
+    func performUpdateOverlay(
         projectId: ProjectId,
         overlayId: UUID,
-        transform: Project.Overlay.Transform? = nil,
-        style: Project.Overlay.Style? = nil,
-        start: TimeInterval? = nil,
-        end: TimeInterval? = nil,
-        animation: Project.Overlay.Animation? = nil
+        transform: Project.Overlay.Transform?,
+        style: Project.Overlay.Style?,
+        start: TimeInterval?,
+        end: TimeInterval?,
+        animation: Project.Overlay.Animation?
     ) async -> EditorResult {
-        let previousProject = project
-
-        let result = await editorModel.updateOverlay(
+        await editorModel.updateOverlay(
             projectId: projectId,
             overlayId: overlayId,
             transform: transform,
@@ -345,249 +345,17 @@ final class ProjectEditor: ObservableObject {
             end: end,
             animation: animation
         )
-
-        updatePublishedProject(from: result, previousProject: previousProject)
-        return result
     }
 
-    func deleteOverlay(projectId: ProjectId, overlayId: UUID) async -> EditorResult {
-        let previousProject = project
-
-        let result = await editorModel.deleteOverlay(
+    /// Perform overlay delete via editor model (used by extensions)
+    func performDeleteOverlay(
+        projectId: ProjectId,
+        overlayId: UUID
+    ) async -> EditorResult {
+        await editorModel.deleteOverlay(
             projectId: projectId,
             overlayId: overlayId
         )
-
-        updatePublishedProject(from: result, previousProject: previousProject)
-        return result
-    }
-
-    // MARK: - Chapter Management
-
-    /// Add a chapter marker to the project
-    /// - Parameter chapter: Chapter to add
-    /// - Returns: true if successful, false otherwise
-    @discardableResult
-    func addChapter(_ chapter: Project.Chapter) async -> Bool {
-        let previousProject = project
-        var updatedProject = project
-
-        // Add chapter maintaining chronological order
-        updatedProject.chapters.append(chapter)
-        updatedProject.chapters.sort { $0.startTime < $1.startTime }
-        updatedProject.updatedAt = Date()
-
-        await editorModel.setProject(updatedProject)
-        recordUndoSnapshot(previousProject)
-        project = updatedProject
-        return true
-    }
-
-    /// Update an existing chapter
-    /// - Parameters:
-    ///   - chapterId: ID of chapter to update
-    ///   - title: New title (optional)
-    ///   - summary: New summary (optional)
-    ///   - keywords: New keywords (optional)
-    /// - Returns: true if successful, false otherwise
-    @discardableResult
-    func updateChapter(
-        chapterId: UUID,
-        title: String? = nil,
-        summary: String? = nil,
-        keywords: [String]? = nil
-    ) async -> Bool {
-        let previousProject = project
-        var updatedProject = project
-
-        // Find and update the chapter
-        guard let index = updatedProject.chapters.firstIndex(where: { $0.id == chapterId }) else {
-            return false
-        }
-
-        // Update fields if provided
-        if let title = title {
-            updatedProject.chapters[index].title = title
-        }
-        if let summary = summary {
-            updatedProject.chapters[index].summary = summary
-        }
-        if let keywords = keywords {
-            updatedProject.chapters[index].keywords = keywords
-        }
-        updatedProject.updatedAt = Date()
-
-        await editorModel.setProject(updatedProject)
-        recordUndoSnapshot(previousProject)
-        project = updatedProject
-        return true
-    }
-
-    /// Delete a chapter from the project
-    /// - Parameter chapterId: ID of chapter to delete
-    /// - Returns: true if successful, false otherwise
-    @discardableResult
-    func deleteChapter(chapterId: UUID) async -> Bool {
-        let previousProject = project
-        var updatedProject = project
-
-        // Find and remove the chapter
-        guard let index = updatedProject.chapters.firstIndex(where: { $0.id == chapterId }) else {
-            return false
-        }
-
-        updatedProject.chapters.remove(at: index)
-        updatedProject.updatedAt = Date()
-
-        await editorModel.setProject(updatedProject)
-        recordUndoSnapshot(previousProject)
-        project = updatedProject
-        return true
-    }
-
-    /// Apply AI-suggested chapters to the project
-    /// - Parameter suggestions: Array of chapter suggestions from AI
-    /// - Returns: Number of chapters added
-    @discardableResult
-    func applyChapterSuggestions(from suggestions: [Suggestion]) async -> Int {
-        var addedCount = 0
-
-        for suggestion in suggestions where suggestion.type == .createChapter {
-            // Extract chapter metadata from suggestion
-            let title = suggestion.metadata("title", as: String.self) ?? "Untitled Chapter"
-            let summary = suggestion.metadata("summary", as: String.self)
-            let keywords = suggestion.metadata("keywords", as: [String].self) ?? []
-
-            // Create chapter
-            let chapter = Project.Chapter(
-                title: title,
-                startTime: suggestion.timelineIn,
-                endTime: suggestion.timelineOut,
-                summary: summary,
-                keywords: keywords
-            )
-
-            // Add to project
-            if await addChapter(chapter) {
-                addedCount += 1
-            }
-        }
-
-        return addedCount
-    }
-
-    // MARK: - Zoom Controls
-
-    /// Update zoom configuration for a specific segment
-    /// - Parameters:
-    ///   - segmentId: ID of the segment to update
-    ///   - configuration: New zoom configuration
-    /// - Returns: true if successful, false otherwise
-    @discardableResult
-    func updateSegmentZoom(
-        segmentId: String,
-        configuration: Project.Timeline.ZoomConfiguration
-    ) async -> Bool {
-        let previousProject = project
-        var updatedProject = project
-
-        // Find and update the segment
-        guard let index = updatedProject.timeline.segments.firstIndex(where: { $0.id == segmentId }) else {
-            return false
-        }
-
-        updatedProject.timeline.segments[index].zoom = configuration
-        updatedProject.updatedAt = Date()
-
-        await editorModel.setProject(updatedProject)
-        recordUndoSnapshot(previousProject)
-        project = updatedProject
-        return true
-    }
-
-    /// Update zoom configuration for all timeline segments
-    /// - Parameter configuration: New zoom configuration to apply to all segments
-    /// - Returns: true if successful, false otherwise
-    @discardableResult
-    func updateAllSegmentsZoom(configuration: Project.Timeline.ZoomConfiguration) async -> Bool {
-        let previousProject = project
-        var updatedProject = project
-
-        // Update all segments
-        for index in updatedProject.timeline.segments.indices {
-            updatedProject.timeline.segments[index].zoom = configuration
-        }
-
-        updatedProject.updatedAt = Date()
-
-        await editorModel.setProject(updatedProject)
-        recordUndoSnapshot(previousProject)
-        project = updatedProject
-        return true
-    }
-
-    /// Remove zoom configuration for a specific segment (reverts to defaults)
-    /// - Parameter segmentId: ID of the segment to remove configuration from
-    /// - Returns: true if successful, false if segment not found
-    @discardableResult
-    func removeSegmentZoom(segmentId: String) async -> Bool {
-        let previousProject = project
-        var updatedProject = project
-
-        // Find and update the segment
-        guard let index = updatedProject.timeline.segments.firstIndex(where: { $0.id == segmentId }) else {
-            return false
-        }
-
-        // Remove zoom configuration (will use defaults)
-        updatedProject.timeline.segments[index].zoom = nil
-        updatedProject.updatedAt = Date()
-
-        await editorModel.setProject(updatedProject)
-        recordUndoSnapshot(previousProject)
-        project = updatedProject
-        return true
-    }
-
-    /// Enable or disable zoom for all segments
-    /// - Parameter enabled: Whether to enable zoom
-    /// - Returns: true if successful, false otherwise
-    @discardableResult
-    func setZoomEnabled(_ enabled: Bool) async -> Bool {
-        let configuration: Project.Timeline.ZoomConfiguration
-        if enabled {
-            configuration = .normal // Use normal intensity when enabling
-        } else {
-            configuration = .disabled
-        }
-        return await updateAllSegmentsZoom(configuration: configuration)
-    }
-
-    /// Set zoom intensity for all segments (keeps current enabled state)
-    /// - Parameter intensity: Zoom intensity preset
-    /// - Returns: true if successful, false otherwise
-    @discardableResult
-    func setZoomIntensity(_ intensity: Project.Timeline.ZoomConfiguration.ZoomIntensity) async -> Bool {
-        let previousProject = project
-        var updatedProject = project
-
-        // Update all segments with new intensity
-        for index in updatedProject.timeline.segments.indices {
-            let currentConfig = updatedProject.timeline.segments[index].zoom
-            let shouldEnable = currentConfig?.enabled ?? true // Default to enabled
-
-            updatedProject.timeline.segments[index].zoom = Project.Timeline.ZoomConfiguration(
-                enabled: intensity == .disabled ? false : shouldEnable,
-                intensity: intensity == .disabled ? nil : intensity
-            )
-        }
-
-        updatedProject.updatedAt = Date()
-
-        await editorModel.setProject(updatedProject)
-        recordUndoSnapshot(previousProject)
-        project = updatedProject
-        return true
     }
 
     private func updateHistoryState() {
