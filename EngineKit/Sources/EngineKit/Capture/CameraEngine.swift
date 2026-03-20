@@ -162,10 +162,10 @@ public actor CameraEngine {
 
         session.setCaptureSession(captureSession)
 
-        // Start asset writer BEFORE capture session to avoid race condition
-        // (frames arriving before writer is ready)
+        // Start asset writer BEFORE capture session
+        // Note: startSession is deferred to first frame in the delegate
+        // to use the actual presentation timestamp as base
         assetWriter.startWriting()
-        assetWriter.startSession(atSourceTime: .zero)
 
         // Start capture session after writer is ready
         captureSession.startRunning()
@@ -324,17 +324,13 @@ public actor CameraEngine {
 private class CameraSampleBufferDelegate: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     private let assetWriterInput: AVAssetWriterInput
     private let assetWriter: AVAssetWriter
-    private let sessionStartTime: Date
-    private let syncOffsetMs: Double
     private let logger = Logger(subsystem: "com.projectstudio.enginekit", category: "CameraCapture")
     private var frameCount: Int = 0
-    private var firstFrameTime: Date?
+    private var firstPresentationTime: CMTime?
 
     init(assetWriterInput: AVAssetWriterInput, assetWriter: AVAssetWriter, sessionStartTime: Date, syncOffsetMs: Double) {
         self.assetWriterInput = assetWriterInput
         self.assetWriter = assetWriter
-        self.sessionStartTime = sessionStartTime
-        self.syncOffsetMs = syncOffsetMs
     }
 
     func captureOutput(
@@ -342,11 +338,7 @@ private class CameraSampleBufferDelegate: NSObject, AVCaptureVideoDataOutputSamp
         didOutput sampleBuffer: CMSampleBuffer,
         from connection: AVCaptureConnection
     ) {
-        // Verify writer is in correct state
         guard assetWriter.status == .writing else {
-            if frameCount == 0 {
-                logger.warning("Camera writer not in writing state: \(self.assetWriter.status.rawValue)")
-            }
             return
         }
 
@@ -354,56 +346,31 @@ private class CameraSampleBufferDelegate: NSObject, AVCaptureVideoDataOutputSamp
             return
         }
 
-        // Track first frame
-        if firstFrameTime == nil {
-            firstFrameTime = Date()
-            logger.debug("Camera first frame received")
-        }
-
-        // Calculate elapsed time relative to session start
-        let elapsed = Date().timeIntervalSince(sessionStartTime)
-        let adjustedElapsed = max(0, elapsed + (syncOffsetMs / 1000.0))
-
-        // Build adjusted timing
-        var timingInfo = CMSampleTimingInfo()
-        CMSampleBufferGetSampleTimingInfo(sampleBuffer, at: 0, timingInfoOut: &timingInfo)
-
-        timingInfo.presentationTimeStamp = CMTime(
-            seconds: adjustedElapsed,
-            preferredTimescale: 600
-        )
-        timingInfo.decodeTimeStamp = .invalid
-
-        // Get image buffer and format description
-        guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer),
-              let formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer) else {
-            let success = assetWriterInput.append(sampleBuffer)
-            if success { frameCount += 1 }
+        guard CMSampleBufferDataIsReady(sampleBuffer) else {
             return
         }
 
-        // Create new sample buffer with adjusted timing
-        var newSampleBuffer: CMSampleBuffer?
-        let status = CMSampleBufferCreateReadyWithImageBuffer(
-            allocator: kCFAllocatorDefault,
-            imageBuffer: imageBuffer,
-            formatDescription: formatDescription,
-            sampleTiming: &timingInfo,
-            sampleBufferOut: &newSampleBuffer
-        )
+        let presentationTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
 
-        let bufferToAppend = (status == noErr && newSampleBuffer != nil) ? newSampleBuffer! : sampleBuffer
-        let success = assetWriterInput.append(bufferToAppend)
+        // Record first frame's timestamp to use as base offset
+        if firstPresentationTime == nil {
+            firstPresentationTime = presentationTime
+            // Re-start session at this timestamp so all frames are relative
+            assetWriter.startSession(atSourceTime: presentationTime)
+            logger.debug("[CAMERA-DEBUG] First frame PTS: \(presentationTime.seconds)s")
+        }
+
+        // Append original sample buffer directly — timestamps are already valid
+        // relative to the session start time we just set
+        let success = assetWriterInput.append(sampleBuffer)
 
         if success {
             frameCount += 1
             if frameCount % 30 == 1 {
-                logger.debug("Camera frames written: \(self.frameCount)")
+                logger.debug("[CAMERA-DEBUG] Frames written: \(self.frameCount), PTS: \(presentationTime.seconds)s")
             }
-        } else {
-            if frameCount < 5 {
-                logger.error("Camera frame append failed at frame \(self.frameCount), writer status: \(self.assetWriter.status.rawValue), error: \(self.assetWriter.error?.localizedDescription ?? "none")")
-            }
+        } else if frameCount < 5 {
+            logger.error("[CAMERA-DEBUG] Append failed at frame \(self.frameCount), writer status: \(self.assetWriter.status.rawValue), error: \(self.assetWriter.error?.localizedDescription ?? "none")")
         }
     }
 }
