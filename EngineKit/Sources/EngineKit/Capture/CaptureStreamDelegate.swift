@@ -8,6 +8,7 @@
 import Foundation
 import ScreenCaptureKit
 import AVFoundation
+import os.log
 
 /// Delegate for handling SCStream events
 final class StreamDelegate: NSObject, SCStreamDelegate {
@@ -22,7 +23,8 @@ final class StreamDelegate: NSObject, SCStreamDelegate {
     }
 
     func stream(_ stream: SCStream, didStopWithError error: Error) {
-        print("[ERROR] Stream stopped with error: \(error.localizedDescription)")
+        let logger = Logger(subsystem: "com.projectstudio.enginekit", category: "CaptureStream")
+        logger.error("Stream stopped with error: \(error.localizedDescription)")
     }
 }
 

@@ -270,7 +270,7 @@ extension PreviewEngine {
         } catch {
             // If captions fail to load, just continue without them
             // This is not a fatal error for preview
-            print("Warning: Failed to load captions: \(error.localizedDescription)")
+            logger.warning("Failed to load captions: \(error.localizedDescription)")
         }
     }
 

@@ -84,7 +84,7 @@ extension PreviewEngine {
                 thumbnails.append((time, image))
             } catch {
                 // Skip failed thumbnails or retry
-                print("Failed to generate thumbnail at \(time): \(error)")
+                logger.warning("Failed to generate thumbnail at \(time): \(error.localizedDescription)")
             }
         }
 

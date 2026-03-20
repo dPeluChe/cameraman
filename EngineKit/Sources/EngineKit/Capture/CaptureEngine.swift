@@ -264,11 +264,17 @@ public actor CaptureEngine {
             frameRate: config.frameRate
         )
 
-        session.setVideoWriter(videoWriter, input: videoWriter.inputs.first!, adaptor: pixelBufferAdaptor)
+        guard let videoInput = videoWriter.inputs.first else {
+            throw CaptureError.failedToCreateAssetWriter(underlying: NSError(domain: "CaptureEngine", code: -1, userInfo: [NSLocalizedDescriptionKey: "Video writer has no inputs"]))
+        }
+        session.setVideoWriter(videoWriter, input: videoInput, adaptor: pixelBufferAdaptor)
 
         if config.captureSystemAudio, let audioURL = systemAudioURL {
             let audioWriter = try await createAudioWriter(outputURL: audioURL)
-            session.setAudioWriter(audioWriter, input: audioWriter.inputs.first!)
+            guard let audioInput = audioWriter.inputs.first else {
+                throw CaptureError.failedToCreateAssetWriter(underlying: NSError(domain: "CaptureEngine", code: -1, userInfo: [NSLocalizedDescriptionKey: "Audio writer has no inputs"]))
+            }
+            session.setAudioWriter(audioWriter, input: audioInput)
         }
 
         // Create and start stream

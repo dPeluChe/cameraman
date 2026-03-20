@@ -122,7 +122,10 @@ extension CaptureEngine {
                 window.owningApplication?.bundleIdentifier == app.bundleIdentifier
             }
 
-            contentFilter = SCContentFilter(desktopIndependentWindow: appWindows.first!)
+            guard let firstWindow = appWindows.first else {
+                throw CaptureError.noSourceSelected
+            }
+            contentFilter = SCContentFilter(desktopIndependentWindow: firstWindow)
         }
 
         return (streamConfig, contentFilter)

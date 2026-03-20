@@ -363,8 +363,7 @@ extension PreviewEngine {
             throw PreviewError.playbackFailed("Failed to create player: \(error.localizedDescription)")
         }
         } catch {
-            logger.error("❌ UNHANDLED ERROR in createPlayerWithEdits: \(error.localizedDescription)")
-            dump(error, name: "Preview Error", indent: 2)
+            logger.error("Unhandled error in createPlayerWithEdits: \(error.localizedDescription)")
             throw PreviewError.playbackFailed("Preview failed: \(error.localizedDescription)")
         }
 

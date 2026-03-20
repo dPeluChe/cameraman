@@ -8,6 +8,7 @@
 import Foundation
 import AVFoundation
 import ScreenCaptureKit
+import os.log
 import AppKit
 
 /// PermissionManager handles checking and requesting permissions for screen recording, microphone, and camera access.
@@ -118,7 +119,8 @@ public actor PermissionManager {
             _ = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
             return .authorized
         } catch {
-            print("⚠️ Permission Check Failed: \(error)")
+            let logger = Logger(subsystem: "com.projectstudio.enginekit", category: "PermissionManager")
+            logger.warning("Permission check failed: \(error.localizedDescription)")
             return .denied
         }
     }

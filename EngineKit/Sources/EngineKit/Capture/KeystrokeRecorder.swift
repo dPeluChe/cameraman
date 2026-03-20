@@ -8,10 +8,12 @@
 import Foundation
 import AppKit
 import Carbon
+import os.log
 
 /// KeystrokeRecorder captures keyboard input for tutorial purposes
 /// NOTE: Requires Accessibility permission to capture global keyboard events
 public actor KeystrokeRecorder {
+    private let logger = Logger(subsystem: "com.projectstudio.enginekit", category: "KeystrokeRecorder")
     // MARK: - Types
 
     /// Configuration for keystroke recording
@@ -308,8 +310,7 @@ public actor KeystrokeRecorder {
         #if !DEBUG
         // Only check in release mode (tests may not have accessibility permission)
         if !hasAccessibilityPermission() {
-            print("WARNING: Accessibility permission may not be granted. Keystroke recording may not work.")
-            print("Please grant Accessibility permission in System Settings > Privacy & Security > Accessibility")
+            logger.warning("Accessibility permission may not be granted. Keystroke recording may not work. Please grant Accessibility permission in System Settings > Privacy & Security > Accessibility")
         }
         #endif
     }

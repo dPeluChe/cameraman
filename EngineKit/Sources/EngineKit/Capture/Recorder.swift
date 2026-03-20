@@ -7,9 +7,11 @@
 
 import Foundation
 import AVFoundation
+import os.log
 
 /// Recorder coordinates multi-track recording (screen, camera, system audio, mic)
 public actor Recorder {
+    private let logger = Logger(subsystem: "com.projectstudio.enginekit", category: "Recorder")
     // MARK: - Properties
 
     /// Shared instance
@@ -328,7 +330,8 @@ internal class MicAudioRecorder {
                 guard let audioFile = self.audioFile else { return }
                 try audioFile.write(from: buffer)
             } catch {
-                print("Error writing audio buffer: \(error)")
+                let log = Logger(subsystem: "com.projectstudio.enginekit", category: "MicAudioRecorder")
+                log.error("Error writing audio buffer: \(error.localizedDescription)")
             }
         }
 

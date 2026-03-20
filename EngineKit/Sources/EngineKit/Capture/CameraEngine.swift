@@ -126,7 +126,9 @@ public actor CameraEngine {
             codec: config.codec.codecType
         )
 
-        let assetWriterInput = assetWriter.inputs.first!
+        guard let assetWriterInput = assetWriter.inputs.first else {
+            throw CameraError.failedToCreateAssetWriter(underlying: NSError(domain: "CameraEngine", code: -1, userInfo: [NSLocalizedDescriptionKey: "Asset writer has no inputs"]))
+        }
         session.setAssetWriter(assetWriter, input: assetWriterInput)
         session.setOutputURL(outputURL)
 
