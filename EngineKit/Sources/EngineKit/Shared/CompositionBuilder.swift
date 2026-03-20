@@ -240,17 +240,17 @@ public struct CompositionBuilder {
                 continue
             }
 
-            let cameraAssetTracks = try await asset.loadTracks(withMediaType: .video)
-            guard let sourceTrack = cameraAssetTracks.first else {
-                logger.warning("No camera video track for segment \(segment.id)")
-                currentTime = CMTimeAdd(currentTime, gapDuration)
-                continue
-            }
-
-            let startTime = CMTime(seconds: segment.sourceIn, preferredTimescale: 600)
-            let duration = CMTime(seconds: segment.sourceOut - segment.sourceIn, preferredTimescale: 600)
-
             do {
+                let cameraAssetTracks = try await asset.loadTracks(withMediaType: .video)
+                guard let sourceTrack = cameraAssetTracks.first else {
+                    logger.warning("No camera video track for segment \(segment.id)")
+                    currentTime = CMTimeAdd(currentTime, gapDuration)
+                    continue
+                }
+
+                let startTime = CMTime(seconds: segment.sourceIn, preferredTimescale: 600)
+                let duration = CMTime(seconds: segment.sourceOut - segment.sourceIn, preferredTimescale: 600)
+
                 try camTrack.insertTimeRange(
                     CMTimeRangeMake(start: startTime, duration: duration),
                     of: sourceTrack,
@@ -264,7 +264,7 @@ public struct CompositionBuilder {
                 logger.debug("Camera segment \(index + 1): \(segment.sourceIn)s-\(segment.sourceOut)s")
                 currentTime = CMTimeAdd(currentTime, effectiveDuration)
             } catch {
-                logger.error("Failed to insert camera segment \(index + 1): \(error.localizedDescription)")
+                logger.warning("Camera segment \(index + 1) failed, skipping: \(error.localizedDescription)")
                 currentTime = CMTimeAdd(currentTime, gapDuration)
             }
         }
@@ -295,7 +295,13 @@ public struct CompositionBuilder {
         }
 
         let audioAsset = AVAsset(url: audioURL)
-        let audioAssetTracks = try await audioAsset.loadTracks(withMediaType: .audio)
+        let audioAssetTracks: [AVAssetTrack]
+        do {
+            audioAssetTracks = try await audioAsset.loadTracks(withMediaType: .audio)
+        } catch {
+            logger.warning("Failed to load \(trackLabel) tracks: \(error.localizedDescription)")
+            return nil
+        }
 
         guard let sourceAudioTrack = audioAssetTracks.first else {
             logger.debug("No audio data found in \(trackLabel) source")
@@ -386,9 +392,11 @@ public struct CompositionBuilder {
 
         // Verify file exists
         guard fileManager.fileExists(atPath: assetURL.path) else {
+            logger.error("Source file not found at: \(assetURL.path)")
             throw CompositionBuilderError.sourceFileNotFound(assetURL.path)
         }
 
+        logger.debug("Loading asset from: \(assetURL.path)")
         let asset = AVAsset(url: assetURL)
         cache[effectivePath] = asset
         return asset

@@ -42,6 +42,14 @@ extension PreviewEngine {
             cameraProxyPath: configuration.useProxy ? getProxyPath(for: "camera") : nil
         )
 
+        logger.debug("Resolver projectDirectory: \(projectDir)")
+        if let sources = project.primarySources {
+            let screenFullPath = URL(fileURLWithPath: projectDir).appendingPathComponent(sources.screen.path).path
+            logger.debug("Screen source path: \(sources.screen.path)")
+            logger.debug("Screen full path: \(screenFullPath)")
+            logger.debug("Screen file exists: \(self.fileManager.fileExists(atPath: screenFullPath))")
+        }
+
         let result: CompositionBuilder.Result
         do {
             result = try await builder.buildComposition(
