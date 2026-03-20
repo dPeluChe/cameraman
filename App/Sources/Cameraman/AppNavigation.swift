@@ -322,14 +322,10 @@ struct AppNavigation: View {
                 if let project = viewModel.project(for: projectId) {
                     ProjectEditorView(projectSummary: project)
                         .id(projectId)
-                        .onAppear {
-                            print("[NAV-DEBUG] Opened project: \(project.name) id=\(projectId)")
-                        }
                 } else {
                     ProgressView("Loading project...")
-                        .onAppear {
-                            print("[NAV-DEBUG] Project not found for id=\(projectId), reloading...")
-                            Task { await viewModel.loadProjects() }
+                        .task {
+                            await viewModel.loadProjects()
                         }
                 }
             }
