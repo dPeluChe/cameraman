@@ -25,13 +25,12 @@ struct PreviewPlayerView: View {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color.black.opacity(0.9))
 
-                if let frame = viewModel.currentFrame {
-                    Image(decorative: frame, scale: 1.0)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
+                // Native AVPlayerLayer for fluid playback
+                if let avPlayer = viewModel.avPlayer {
+                    AVPlayerLayerView(player: avPlayer)
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-                    // Telemetry overlay
+                    // Telemetry overlay on top of the player
                     if viewModel.showCursor || viewModel.showClicks || viewModel.showKeystrokes {
                         GeometryReader { geometry in
                             TelemetryOverlayView(

@@ -23,8 +23,8 @@ public actor PreviewEngine {
     /// Project directory path (for proxy generation)
     var projectDirectory: String?
 
-    /// AVPlayer for video playback
-    var player: AVPlayer?
+    /// AVPlayer for video playback (exposed for AVPlayerLayer integration)
+    public var player: AVPlayer?
 
     /// Current composition being played
     var composition: AVComposition?

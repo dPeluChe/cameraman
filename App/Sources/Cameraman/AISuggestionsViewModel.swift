@@ -18,7 +18,7 @@ final class AISuggestionsViewModel: ObservableObject {
     @Published private(set) var loadingMessage = ""
     @Published private(set) var errorMessage: String?
 
-    private let projectLibrary = ProjectLibrary()
+    private let projectLibrary = ProjectLibrary.shared
 
     func loadSuggestions(for projectId: ProjectId) async {
         isLoading = true
@@ -51,7 +51,7 @@ final class AISuggestionsViewModel: ObservableObject {
         errorMessage = nil
 
         do {
-            let library = ProjectLibrary()
+            let library = ProjectLibrary.shared
             let aiService = try await library.getAIService()
 
             let options = SilenceDetectionOptions.default
@@ -75,7 +75,7 @@ final class AISuggestionsViewModel: ObservableObject {
         errorMessage = nil
 
         do {
-            let library = ProjectLibrary()
+            let library = ProjectLibrary.shared
             let aiService = try await library.getAIService()
 
             let options = ChapterSuggestionOptions.default
@@ -98,7 +98,7 @@ final class AISuggestionsViewModel: ObservableObject {
     }
 
     private func waitForJobCompletion(jobId: JobId, aiService: AIService) async {
-        let library = ProjectLibrary()
+        let library = ProjectLibrary.shared
         let jobQueue = try? await library.getJobQueue()
 
         for _ in 0..<100 {

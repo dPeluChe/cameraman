@@ -237,7 +237,7 @@ class RecordingControlViewModel: ObservableObject {
             print("✅ Recording saved to: \(result.screenVideoPath)")
             print("   Duration: \(result.duration)s")
 
-            let library = ProjectLibrary()
+            let library = ProjectLibrary.shared
             
             if let targetId = targetProjectId {
                 _ = try await library.addTake(projectId: targetId, recordingResult: result)

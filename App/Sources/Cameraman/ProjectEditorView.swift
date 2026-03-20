@@ -24,7 +24,7 @@ final class ProjectEditorViewModel: ObservableObject {
     private let library: ProjectLibrary
     private var cancellables = Set<AnyCancellable>()
 
-    init(projectId: ProjectId, library: ProjectLibrary = ProjectLibrary()) {
+    init(projectId: ProjectId, library: ProjectLibrary = ProjectLibrary.shared) {
         self.projectId = projectId
         self.library = library
         // Defer observer setup to avoid "Publishing changes from within view updates"
@@ -84,7 +84,7 @@ struct ProjectEditorView: View {
     @State private var isOverlaysExpanded = false
     @State private var isExportExpanded = true
 
-    init(projectSummary: ProjectSummary, library: ProjectLibrary = ProjectLibrary()) {
+    init(projectSummary: ProjectSummary, library: ProjectLibrary = ProjectLibrary.shared) {
         self.projectSummary = projectSummary
         _viewModel = StateObject(wrappedValue: ProjectEditorViewModel(projectId: projectSummary.projectId, library: library))
     }

@@ -9,6 +9,9 @@ import Foundation
 
 /// ProjectLibrary provides a high-level API for managing projects
 public actor ProjectLibrary {
+    /// Shared singleton instance — use this instead of creating new instances
+    public static let shared = ProjectLibrary()
+
     /// Project store for persistence
     private let store: ProjectStore
 

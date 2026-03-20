@@ -43,7 +43,7 @@ final class TranscriptionViewModel: ObservableObject {
     }
 
     init() {
-        self.projectLibrary = ProjectLibrary()
+        self.projectLibrary = ProjectLibrary.shared
     }
 
     func checkTranscriptionStatus(project: Project) {

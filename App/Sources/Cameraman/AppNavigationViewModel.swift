@@ -44,7 +44,7 @@ final class AppNavigationViewModel: ObservableObject {
 
     private let library: ProjectLibrary
 
-    nonisolated init(library: ProjectLibrary = ProjectLibrary()) {
+    nonisolated init(library: ProjectLibrary = ProjectLibrary.shared) {
         self.library = library
     }
 

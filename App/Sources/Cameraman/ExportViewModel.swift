@@ -154,7 +154,7 @@ final class ExportViewModel: ObservableObject {
                 ? outputFilename
                 : "\(outputFilename).\(fileExtension)"
 
-            let library = ProjectLibrary()
+            let library = ProjectLibrary.shared
             let engine = try await library.getExportEngine()
             self.exportEngine = engine
 

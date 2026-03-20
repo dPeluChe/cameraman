@@ -2,8 +2,7 @@
 //  PreviewPlayerViewModel.swift
 //  App
 //
-//  Extracted from PreviewPlayerView.swift
-//  View model for preview player
+//  View model for preview player — uses native AVPlayer for fluid playback
 //
 
 import AVFoundation
@@ -17,6 +16,7 @@ import Combine
 @MainActor
 final class PreviewPlayerViewModel: ObservableObject {
     @Published private(set) var previewEngine: PreviewEngine?
+    @Published private(set) var avPlayer: AVPlayer?
     @Published private(set) var aspectRatio: Double = PreviewPlayerViewModel.fallbackAspectRatio
     @Published private(set) var loadError: String?
     @Published private(set) var currentTime: Double = 0
@@ -33,9 +33,13 @@ final class PreviewPlayerViewModel: ObservableObject {
     @Published var showClicks: Bool = false
     @Published var showKeystrokes: Bool = false
     @Published private(set) var project: Project?
+    @Published var isMuted: Bool = false {
+        didSet { avPlayer?.isMuted = isMuted }
+    }
 
     private static let fallbackAspectRatio: Double = 16.0 / 9.0
-    private var updateTimer: Timer?
+    private var timeObserver: Any?
+    private var endObserver: NSObjectProtocol?
     private var cancellables = Set<AnyCancellable>()
 
     enum PlaybackRate: Double, CaseIterable, Identifiable {
@@ -64,16 +68,16 @@ final class PreviewPlayerViewModel: ObservableObject {
         aspectRatio = Self.aspectRatio(for: project)
         updateDuration(project.timeline.duration)
 
-        guard let sources = project.primarySources else {
+        guard project.primarySources != nil else {
             reset()
             return
         }
 
-        let sourcePath = projectDirectory.appendingPathComponent(sources.screen.path).path
+        let sourcePath = projectDirectory.appendingPathComponent(project.primarySources!.screen.path).path
 
         guard FileManager.default.fileExists(atPath: sourcePath) else {
-            stopUpdateTimer()
             previewEngine = nil
+            avPlayer = nil
             currentFrame = nil
             loadError = "Preview source missing."
             currentTime = 0
@@ -92,16 +96,22 @@ final class PreviewPlayerViewModel: ObservableObject {
         Task {
             do {
                 try await engine.loadProject(project, projectDirectory: projectDirectory.path)
+
+                // Get the AVPlayer from the engine
+                let player = await engine.player
+
                 await MainActor.run {
                     self.previewEngine = engine
+                    self.avPlayer = player
                     self.loadError = nil
                     self.currentTime = 0
-                    self.updateCurrentFrame()
+                    self.setupPlayerObservers()
                 }
             } catch {
                 await MainActor.run {
                     self.loadError = error.localizedDescription
                     self.previewEngine = nil
+                    self.avPlayer = nil
                     self.currentFrame = nil
                 }
             }
@@ -109,8 +119,10 @@ final class PreviewPlayerViewModel: ObservableObject {
     }
 
     func reset() {
-        stopUpdateTimer()
+        removePlayerObservers()
+        avPlayer?.pause()
         previewEngine = nil
+        avPlayer = nil
         currentFrame = nil
         aspectRatio = Self.fallbackAspectRatio
         loadError = nil
@@ -125,123 +137,86 @@ final class PreviewPlayerViewModel: ObservableObject {
         showKeystrokes = false
     }
 
-    func setPlaybackRate(_ rate: PlaybackRate) {
-        playbackRate = rate
-        guard let engine = previewEngine else { return }
-        Task {
-            try? await engine.setPlaybackRate(rate.rawValue)
-        }
-    }
-
     func togglePlayPause() {
-        guard let engine = previewEngine else {
-            print("[PLAYER-DEBUG] togglePlayPause: no engine")
-            return
-        }
+        guard let player = avPlayer else { return }
 
-        print("[PLAYER-DEBUG] togglePlayPause: isPlaying=\(isPlaying)")
-        Task {
-            if isPlaying {
-                try? await engine.pause()
-                await MainActor.run {
-                    self.isPlaying = false
-                    self.stopUpdateTimer()
-                }
-            } else {
-                try? await engine.play()
-                await MainActor.run {
-                    self.isPlaying = true
-                    self.startUpdateTimer()
-                }
-            }
+        if isPlaying {
+            player.pause()
+            isPlaying = false
+        } else {
+            player.rate = Float(playbackRate.rawValue)
+            isPlaying = true
         }
     }
 
     func stopPlayback() {
-        guard let engine = previewEngine else {
+        guard let player = avPlayer else {
             currentTime = 0
             isPlaying = false
             return
         }
 
-        Task {
-            try? await engine.stop()
-            await MainActor.run {
-                self.currentTime = 0
-                self.isPlaying = false
-                self.stopUpdateTimer()
-                self.updateCurrentFrame()
-            }
-        }
+        player.pause()
+        player.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
+        currentTime = 0
+        isPlaying = false
     }
 
     func seek(to seconds: Double) {
         let clamped = clampTime(seconds)
         currentTime = clamped
 
-        guard let engine = previewEngine else {
-            print("[PLAYER-DEBUG] seek: no engine")
-            return
-        }
+        guard let player = avPlayer else { return }
 
-        Task {
-            try? await engine.seek(to: clamped)
-            await MainActor.run {
-                self.updateCurrentFrame()
-            }
-        }
+        let cmTime = CMTime(seconds: clamped, preferredTimescale: 600)
+        player.seek(to: cmTime, toleranceBefore: .zero, toleranceAfter: .zero)
     }
 
     func setScrubbing(_ scrubbing: Bool) {
         isScrubbing = scrubbing
-        if !scrubbing {
-            updateCurrentFrame()
+        if scrubbing {
+            avPlayer?.pause()
+        } else if isPlaying {
+            avPlayer?.rate = Float(playbackRate.rawValue)
         }
     }
 
-    private func updateCurrentFrame() {
-        guard let engine = previewEngine, !isScrubbing else { return }
+    // MARK: - Player Observers
 
-        Task {
-            do {
-                let frame = try await engine.extractFrame(at: currentTime)
-                await MainActor.run {
-                    self.currentFrame = frame
-                }
-            } catch {
-                // Silently fail frame extraction during playback
-            }
+    private func setupPlayerObservers() {
+        guard let player = avPlayer else { return }
+
+        // Periodic time observer for scrubber updates
+        let interval = CMTime(seconds: 0.05, preferredTimescale: 600)
+        timeObserver = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
+            guard let self = self, !self.isScrubbing else { return }
+            self.currentTime = time.seconds
+        }
+
+        // End-of-playback observer
+        endObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: player.currentItem,
+            queue: .main
+        ) { [weak self] _ in
+            self?.isPlaying = false
+            self?.currentTime = self?.duration ?? 0
         }
     }
 
-    private func startUpdateTimer() {
-        stopUpdateTimer()
-
-        self.updateTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                guard let self = self, self.isPlaying else { return }
-
-                if let engine = self.previewEngine {
-                    let session = await engine.getSession()
-                    self.currentTime = session.currentTime
-                    self.updateDuration(session.duration)
-
-                    if Int(session.currentTime * 15) % 1 == 0 {
-                        self.updateCurrentFrame()
-                    }
-
-                    if session.currentTime >= session.duration && session.duration > 0 {
-                        self.stopPlayback()
-                    }
-                }
-            }
+    private func removePlayerObservers() {
+        if let observer = timeObserver, let player = avPlayer {
+            player.removeTimeObserver(observer)
         }
+        timeObserver = nil
+
+        if let observer = endObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        endObserver = nil
     }
 
-    private func stopUpdateTimer() {
-        updateTimer?.invalidate()
-        updateTimer = nil
-    }
+    // MARK: - Helpers
 
     var formattedCurrentTime: String {
         Self.formatTime(currentTime)
@@ -252,9 +227,7 @@ final class PreviewPlayerViewModel: ObservableObject {
     }
 
     static func formatTime(_ seconds: Double) -> String {
-        guard seconds.isFinite, seconds >= 0 else {
-            return "0:00"
-        }
+        guard seconds.isFinite, seconds >= 0 else { return "0:00" }
         let totalSeconds = Int(seconds.rounded(.down))
         let hours = totalSeconds / 3600
         let minutes = (totalSeconds % 3600) / 60
@@ -276,14 +249,17 @@ final class PreviewPlayerViewModel: ObservableObject {
     static func aspectRatio(for project: Project) -> Double {
         let width = Double(project.canvas.format.w)
         let height = Double(project.canvas.format.h)
-        guard width > 0, height > 0 else {
-            return fallbackAspectRatio
-        }
+        guard width > 0, height > 0 else { return fallbackAspectRatio }
         return width / height
     }
 
     private func clampTime(_ seconds: Double) -> Double {
         guard duration > 0 else { return max(0, seconds) }
         return min(max(0, seconds), duration)
+    }
+
+    nonisolated deinit {
+        // Note: can't access MainActor properties in deinit
+        // Observers are cleaned up in reset() / removePlayerObservers()
     }
 }
