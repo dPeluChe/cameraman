@@ -29,12 +29,21 @@ extension PreviewEngine {
 
         let assetImageGenerator = AVAssetImageGenerator(asset: asset)
         assetImageGenerator.appliesPreferredTrackTransform = true
-        // Set tolerance to zero for precise frame extraction
         assetImageGenerator.requestedTimeToleranceBefore = .zero
         assetImageGenerator.requestedTimeToleranceAfter = .zero
 
+        // Apply videoComposition so camera PiP and layout transforms render
+        if let videoComp = self.videoCompositionConfig {
+            assetImageGenerator.videoComposition = videoComp
+        }
+
         let cmTime = CMTime(seconds: time, preferredTimescale: 600)
         let image = try assetImageGenerator.copyCGImage(at: cmTime, actualTime: nil)
+
+        // Log frame info for debugging (only first frame)
+        if time < 0.1 {
+            logger.debug("[FRAME-DEBUG] Extracted frame: \(image.width)x\(image.height), hasVideoComp=\(self.videoCompositionConfig != nil)")
+        }
 
         // Render overlays on the frame
         let imageWithOverlays = try await renderOverlays(on: image, at: time, project: project)

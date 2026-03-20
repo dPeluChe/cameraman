@@ -44,17 +44,15 @@ struct CameramanApp: App {
             }
         }
 
-        // Recording Controls Window (Standalone)
-        WindowGroup(id: "recording-controls") {
+        // Recording Controls Window (Standalone, single instance)
+        Window("Recording Controls", id: "recording-controls") {
             RecordingControlView()
                 .background(VisualEffectView(material: .hudWindow, blendingMode: .behindWindow))
                 .onAppear {
-                    // Ensure window is properly sized and positioned
-                    NSApp.windows.first { $0.title == "recording-controls" }?.center()
+                    NSApp.windows.first { $0.identifier?.rawValue == "recording-controls" }?.center()
                 }
         }
         .windowResizability(.contentSize)
         .windowStyle(.hiddenTitleBar)
-        .handlesExternalEvents(matching: Set(arrayLiteral: "recording-controls")) // Only open on explicit request
     }
 }

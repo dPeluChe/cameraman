@@ -141,7 +141,12 @@ extension PreviewEngine {
 
         videoComposition.instructions = [instruction]
 
-        logger.debug("Video composition created with \(instruction.layerInstructions.count) layer instructions")
+        logger.debug("[PREVIEW-DEBUG] Video composition: \(instruction.layerInstructions.count) layers, render=\(Int(renderSize.width))x\(Int(renderSize.height))")
+        if result.cameraTrack != nil {
+            logger.debug("[PREVIEW-DEBUG] Camera track present, PiP position: x=\(project.canvas.layout.camera?.x ?? -1), y=\(project.canvas.layout.camera?.y ?? -1), w=\(project.canvas.layout.camera?.w ?? -1), h=\(project.canvas.layout.camera?.h ?? -1)")
+        } else {
+            logger.debug("[PREVIEW-DEBUG] No camera track in composition")
+        }
 
         // Create player item
         let playerItem = await MainActor.run {
@@ -151,6 +156,7 @@ extension PreviewEngine {
         }
         player = AVPlayer(playerItem: playerItem)
         self.composition = composition
+        self.videoCompositionConfig = videoComposition
 
         logger.debug("Player created successfully with composition")
     }

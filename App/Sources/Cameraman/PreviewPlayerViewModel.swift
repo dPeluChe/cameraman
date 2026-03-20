@@ -134,8 +134,12 @@ final class PreviewPlayerViewModel: ObservableObject {
     }
 
     func togglePlayPause() {
-        guard let engine = previewEngine else { return }
+        guard let engine = previewEngine else {
+            print("[PLAYER-DEBUG] togglePlayPause: no engine")
+            return
+        }
 
+        print("[PLAYER-DEBUG] togglePlayPause: isPlaying=\(isPlaying)")
         Task {
             if isPlaying {
                 try? await engine.pause()
@@ -175,7 +179,10 @@ final class PreviewPlayerViewModel: ObservableObject {
         let clamped = clampTime(seconds)
         currentTime = clamped
 
-        guard let engine = previewEngine else { return }
+        guard let engine = previewEngine else {
+            print("[PLAYER-DEBUG] seek: no engine")
+            return
+        }
 
         Task {
             try? await engine.seek(to: clamped)

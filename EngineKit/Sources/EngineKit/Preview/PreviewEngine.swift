@@ -29,6 +29,9 @@ public actor PreviewEngine {
     /// Current composition being played
     var composition: AVComposition?
 
+    /// Video composition with transforms (PiP layout, scaling)
+    var videoCompositionConfig: AVVideoComposition?
+
     /// Current playback state
     var playbackState: PlaybackState = .stopped
 
