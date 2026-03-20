@@ -5,6 +5,34 @@
 
 ---
 
+## 0. Bugs Criticos de Integracion UI-Engine (Prioridad Inmediata)
+
+> Descubiertos durante testing 2026-03-20. Requieren debugging profundo con Xcode breakpoints.
+
+- [ ] **Camera PiP no visible en preview:**
+    - Camera track carga exitosamente (`Camera segment 1: OK`), 2 layer instructions creadas.
+    - El video de camara no se renderiza en el preview (PiP invisible).
+    - Probable: transform del camera layer instruction incorrecto (posicion/escala).
+    - Debugging: verificar `cameraLayerInstruction.setTransform()` values vs render size.
+
+- [ ] **Track mute toggles no afectan playback:**
+    - Los toggles cambian opacidad visual en timeline pero no modifican la composicion AVPlayer.
+    - Necesita: reconstruir composicion cuando cambia mute state, o usar AVMutableAudioMix para audio mute.
+
+- [ ] **Player controls lentos (play/pause/seek):**
+    - El actor isolation de PreviewEngine causa delays.
+    - Necesita: evaluar si AVPlayer debe vivir en @MainActor wrapper en vez de actor.
+
+- [ ] **Cursor/click overlays no visibles en preview:**
+    - PreviewRenderer tiene logica de overlays pero no esta conectado al player view.
+    - Necesita: integrar overlay rendering como capa sobre el AVPlayerLayer.
+
+- [ ] **"Publishing changes from within view updates" repetitivo:**
+    - ProjectLibrary() se instancia multiples veces (cada ViewModel crea uno nuevo).
+    - Necesita: singleton compartido o inyeccion de dependencias.
+
+---
+
 ## 1. Motores Reales (Prioridad Alta)
 
 - [ ] **Integración Whisper.cpp real:**
