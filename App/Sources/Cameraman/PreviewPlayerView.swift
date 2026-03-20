@@ -14,10 +14,12 @@ import SwiftUI
 import Combine
 
 struct PreviewPlayerView: View {
-    let project: Project?
+    @ObservedObject var editor: ProjectEditor
     let projectDirectory: URL?
 
     @StateObject private var viewModel = PreviewPlayerViewModel()
+
+    private var project: Project? { editor.project }
 
     var body: some View {
         VStack(spacing: 12) {
@@ -79,16 +81,20 @@ struct PreviewPlayerView: View {
 
             PlaybackControlsView(viewModel: viewModel)
         }
-        .task(id: project?.projectId) {
-            viewModel.load(project: project, projectDirectory: projectDirectory)
+        .task(id: editor.project.projectId) {
+            viewModel.load(project: editor.project, projectDirectory: projectDirectory)
         }
-        .onChange(of: project) { _, newProject in
-            // Rebuild composition when project settings change (layout, format, camera, timeline)
-            guard let newProject, viewModel.previewEngine != nil else { return }
-            viewModel.refreshPreview(with: newProject)
+        .onReceive(editor.objectWillChange.throttle(for: .milliseconds(200), scheduler: RunLoop.main, latest: true)) { _ in
+            guard viewModel.previewEngine != nil else { return }
+            viewModel.refreshPreview(with: editor.project)
         }
         .onDisappear {
             viewModel.stopPlayback()
+        }
+        .keyboardShortcut(.space, modifiers: [])
+        .onKeyPress(.space) {
+            viewModel.togglePlayPause()
+            return .handled
         }
     }
 }

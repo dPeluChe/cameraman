@@ -19,10 +19,11 @@ struct CenterPanel: View {
             ZStack {
                 Color.black
                 
-                if let editor = viewModel.editor {
+                if let editor = viewModel.editor,
+                   let projectDir = viewModel.projectDirectory {
                     PreviewPlayerView(
-                        project: editor.project,
-                        projectDirectory: viewModel.projectDirectory
+                        editor: editor,
+                        projectDirectory: projectDir
                     )
                 } else if viewModel.isLoading {
                     ProgressView()
