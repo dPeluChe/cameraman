@@ -74,6 +74,7 @@ extension Project {
                 public var w: Double
                 public var h: Double
                 public var cornerRadius: Double
+                public var maskShape: PiPMaskShape
 
                 /// Initialize a new camera position
                 public init(
@@ -81,13 +82,15 @@ extension Project {
                     y: Double,
                     w: Double,
                     h: Double,
-                    cornerRadius: Double = 0
+                    cornerRadius: Double = 0,
+                    maskShape: PiPMaskShape = .roundedRect
                 ) {
                     self.x = x
                     self.y = y
                     self.w = w
                     self.h = h
                     self.cornerRadius = cornerRadius
+                    self.maskShape = maskShape
                 }
             }
         }

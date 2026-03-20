@@ -46,6 +46,29 @@ struct PiPConfigurationView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
+                    Text("Shape")
+                        .font(.subheadline)
+
+                    HStack(spacing: 6) {
+                        ForEach(PiPMaskShape.allCases, id: \.self) { shape in
+                            Button {
+                                var updated = camera
+                                updated.maskShape = shape
+                                Task {
+                                    _ = await editor.updateCameraPosition(updated, recordUndoFrom: editor.project)
+                                }
+                            } label: {
+                                Image(systemName: shapeIcon(shape))
+                                    .frame(width: 28, height: 28)
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(camera.maskShape == shape ? .accentColor : .secondary)
+                            .controlSize(.small)
+                        }
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
                     Text("Corner Radius")
                         .font(.subheadline)
 
@@ -75,6 +98,15 @@ struct PiPConfigurationView: View {
                     )
                 }
             }
+        }
+    }
+
+    private func shapeIcon(_ shape: PiPMaskShape) -> String {
+        switch shape {
+        case .none: return "rectangle"
+        case .circle: return "circle"
+        case .roundedRect: return "rectangle.roundedtop"
+        case .capsule: return "capsule"
         }
     }
 }

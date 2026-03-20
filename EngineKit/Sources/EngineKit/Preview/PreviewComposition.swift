@@ -93,7 +93,6 @@ extension PreviewEngine {
             // PiP camera overlay
             if hasCameraTrack, let cameraPosition = project.canvas.layout.camera {
                 let cameraTrack = videoTracks[1]
-                let cameraLayerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: cameraTrack)
                 let camNatural = cameraTrack.naturalSize
                 let camSourceSize = CoreFoundation.CGSize(
                     width: camNatural.width > 0 ? camNatural.width : 1280,
@@ -111,8 +110,35 @@ extension PreviewEngine {
                 var cameraTransform = CGAffineTransform.identity
                 cameraTransform = cameraTransform.translatedBy(x: camX, y: camY)
                 cameraTransform = cameraTransform.scaledBy(x: camScale, y: camScale)
-                cameraLayerInstruction.setTransform(cameraTransform, at: .zero)
 
+                // Use custom compositor for masked PiP
+                if cameraPosition.maskShape != .none {
+                    let maskedInstruction = MaskedVideoCompositionInstruction(
+                        timeRange: CMTimeRangeMake(start: .zero, duration: composition.duration),
+                        screenTrackID: screenTrack.trackID,
+                        cameraTrackID: cameraTrack.trackID,
+                        renderSize: renderSize,
+                        screenTransform: screenTransform,
+                        cameraTransform: cameraTransform,
+                        cameraRect: CGRect(
+                            x: cameraPosition.x,
+                            y: cameraPosition.y,
+                            width: cameraPosition.w,
+                            height: cameraPosition.h
+                        ),
+                        maskShape: cameraPosition.maskShape,
+                        cornerRadius: CGFloat(cameraPosition.cornerRadius),
+                        layoutType: layoutType
+                    )
+
+                    videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
+                    videoComposition.instructions = [maskedInstruction]
+                    return videoComposition
+                }
+
+                // Standard PiP (no mask)
+                let cameraLayerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: cameraTrack)
+                cameraLayerInstruction.setTransform(cameraTransform, at: .zero)
                 instruction.layerInstructions = [cameraLayerInstruction, screenLayerInstruction]
             } else {
                 instruction.layerInstructions = [screenLayerInstruction]
