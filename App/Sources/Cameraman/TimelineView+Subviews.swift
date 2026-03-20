@@ -29,30 +29,35 @@ struct TimelineTrackRow: View {
     let onToggleMute: () -> Void
 
     var body: some View {
-        ZStack(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Color.primary.opacity(0.06))
-
+        HStack(spacing: 0) {
+            // Track label with mute toggle (fixed width, not in ZStack)
             HStack(spacing: 4) {
                 Button(action: onToggleMute) {
                     Image(systemName: isMuted ? "eye.slash" : "eye")
                         .font(.caption2)
                         .foregroundStyle(isMuted ? .tertiary : .secondary)
+                        .frame(width: 20, height: 20)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .frame(width: 16)
 
                 Text(track.label)
                     .font(.caption)
                     .foregroundStyle(isMuted ? .tertiary : .secondary)
+                    .lineLimit(1)
             }
-            .frame(width: layout.labelWidth - 12, alignment: .leading)
+            .frame(width: layout.labelWidth, alignment: .leading)
             .padding(.leading, 6)
+
+            // Track content (segments)
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(Color.primary.opacity(0.06))
 
             ForEach(track.segments) { segment in
                 let isSelected = segment.id == selectedSegmentId
                 let width = layout.segmentWidth(for: segment.timelineDuration)
-                let xPosition = layout.xPosition(for: segment.timelineIn)
+                let xPosition = layout.xPosition(for: segment.timelineIn) - layout.labelWidth
 
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
                     .fill(track.color.opacity(showThumbnails || showWaveforms ? 0.3 : 1.0))
@@ -118,9 +123,14 @@ struct TimelineTrackRow: View {
                     }
                     .opacity(isMuted ? 0.3 : 1.0)
                     .offset(x: xPosition)
+                }
             }
         }
         .frame(height: height)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(Color.primary.opacity(0.03))
+        )
     }
 }
 
