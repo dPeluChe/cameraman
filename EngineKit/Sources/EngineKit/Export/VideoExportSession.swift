@@ -77,20 +77,16 @@ extension ExportEngine {
             try await checkCancellation(jobId: jobId)
             await updateExportStage(jobId: jobId, stage: .assetLoading, progress: 0.1)
 
-            // Asset cache to avoid reloading the same file multiple times
-            var assetCache: [String: AVAsset] = [:]
-
-            // Pre-load primary screen asset to verify readability and get tracks
+            // Pre-validate primary screen asset readability
             let primaryScreenPath = primarySources.screen.path
             let primaryScreenAsset = AVAsset(url: projectDirectory.appendingPathComponent(primaryScreenPath))
-            assetCache[primaryScreenPath] = primaryScreenAsset
 
             let isScreenReadable = try await primaryScreenAsset.load(.isReadable)
             guard isScreenReadable else {
                 logger.error("Primary screen asset is not readable")
                 throw ExportError.assetNotReadable("screen")
             }
-            logger.debug("Primary screen asset loaded successfully")
+            logger.debug("Primary screen asset validated successfully")
 
             // Check for cancellation after asset loading
             try await checkCancellation(jobId: jobId)
@@ -99,222 +95,25 @@ extension ExportEngine {
             await updateExportStage(jobId: jobId, stage: .compositionBuilding, progress: 0.25)
             logger.debug("Building video composition from timeline segments")
 
-            let composition = AVMutableComposition()
+            let builder = CompositionBuilder(fileManager: fileManager)
+            let resolver = CompositionBuilder.SourceResolver(projectDirectory: projectDirectory)
 
-            // Build video track from timeline segments
-            guard let videoTrack = composition.addMutableTrack(
-                withMediaType: .video,
-                preferredTrackID: kCMPersistentTrackID_Invalid
-            ) else {
-                logger.error("Failed to create video track")
-                throw ExportError.compositionFailed("Failed to create video track")
-            }
-
-            var currentTime = CMTime.zero
-
-            logger.debug("Applying \(project.timeline.segments.count) timeline segments")
-
-            // Apply timeline segments (trims, cuts, speed)
-            for (index, segment) in project.timeline.segments.enumerated() {
-                try await checkCancellation(jobId: jobId)
-
-                // Resolve sources for this segment
-                guard let segmentSources = resolveSources(for: segment.takeId, in: project) else {
-                    logger.warning("Could not resolve sources for segment \(segment.id), skipping")
-                    continue
+            let compositionResult = try await builder.buildComposition(
+                project: project,
+                resolver: resolver,
+                resolveSources: { [self] segment in
+                    self.resolveSources(for: segment.takeId, in: project)
+                },
+                cancellationCheck: { [self] in
+                    try await self.checkCancellation(jobId: jobId)
                 }
+            )
 
-                let sourcePath = segmentSources.screen.path
-                let asset: AVAsset
+            let composition = compositionResult.composition
+            let videoTrack = compositionResult.videoTrack
+            let cameraTrack = compositionResult.cameraTrack
 
-                if let cached = assetCache[sourcePath] {
-                    asset = cached
-                } else {
-                    let assetURL = projectDirectory.appendingPathComponent(sourcePath)
-                    asset = AVAsset(url: assetURL)
-                    assetCache[sourcePath] = asset
-                }
-
-                let videoAssetTracks = try await asset.loadTracks(withMediaType: .video)
-                guard let sourceVideoTrack = videoAssetTracks.first else {
-                    logger.warning("No video track found in source asset for segment \(segment.id), skipping")
-                    continue
-                }
-
-                let startTime = CMTime(seconds: segment.sourceIn, preferredTimescale: 600)
-                let duration = CMTime(seconds: segment.sourceOut - segment.sourceIn, preferredTimescale: 600)
-
-                // Calculate scaled duration based on speed
-                let scaledDuration = CMTimeMultiplyByFloat64(duration, multiplier: 1.0 / segment.speed)
-
-                try videoTrack.insertTimeRange(
-                    CMTimeRangeMake(start: startTime, duration: duration),
-                    of: sourceVideoTrack,
-                    at: currentTime
-                )
-
-                // Apply speed change by scaling the inserted time range
-                if segment.speed != 1.0 {
-                    let insertedRange = CMTimeRange(start: currentTime, duration: duration)
-                    videoTrack.scaleTimeRange(insertedRange, toDuration: scaledDuration)
-                }
-
-                logger.debug("Segment \(index + 1): source \(segment.sourceIn)s - \(segment.sourceOut)s, speed \(segment.speed)x")
-
-                currentTime = CMTimeAdd(currentTime, scaledDuration)
-            }
-
-            // Build camera track if available
-            var cameraTrack: AVMutableCompositionTrack?
-            if primarySources.camera != nil {
-                logger.debug("Building camera track")
-
-                if let camTrack = composition.addMutableTrack(
-                    withMediaType: .video,
-                    preferredTrackID: kCMPersistentTrackID_Invalid
-                ) {
-                    cameraTrack = camTrack
-                    currentTime = CMTime.zero
-
-                    for (index, segment) in project.timeline.segments.enumerated() {
-                        try await checkCancellation(jobId: jobId)
-
-                        guard let segmentSources = resolveSources(for: segment.takeId, in: project),
-                              let cameraPath = segmentSources.camera?.path else {
-                            logger.debug("No camera source for segment \(segment.id), skipping")
-                            // Insert a gap of the segment duration
-                            let segmentDuration = CMTime(
-                                seconds: (segment.sourceOut - segment.sourceIn) / segment.speed,
-                                preferredTimescale: 600
-                            )
-                            currentTime = CMTimeAdd(currentTime, segmentDuration)
-                            continue
-                        }
-
-                        let asset: AVAsset
-                        if let cached = assetCache[cameraPath] {
-                            asset = cached
-                        } else {
-                            let assetURL = projectDirectory.appendingPathComponent(cameraPath)
-
-                            // Verify camera file exists before loading
-                            guard fileManager.fileExists(atPath: assetURL.path) else {
-                                logger.warning("Camera file not found: \(cameraPath), skipping segment \(segment.id)")
-                                // Insert a gap of segment duration
-                                let segmentDuration = CMTime(
-                                    seconds: (segment.sourceOut - segment.sourceIn) / segment.speed,
-                                    preferredTimescale: 600
-                                )
-                                currentTime = CMTimeAdd(currentTime, segmentDuration)
-                                continue
-                            }
-
-                            asset = AVAsset(url: assetURL)
-                            assetCache[cameraPath] = asset
-                        }
-
-                        // Check if camera asset is readable
-                        let isReadable: Bool
-                        do {
-                            isReadable = try await asset.load(.isReadable)
-                        } catch {
-                            logger.warning("Failed to check camera asset readability for segment \(segment.id): \(error.localizedDescription)")
-                            isReadable = false
-                        }
-                        guard isReadable else {
-                            logger.warning("Camera asset not readable for segment \(segment.id), skipping")
-                            let segmentDuration = CMTime(
-                                seconds: (segment.sourceOut - segment.sourceIn) / segment.speed,
-                                preferredTimescale: 600
-                            )
-                            currentTime = CMTimeAdd(currentTime, segmentDuration)
-                            continue
-                        }
-
-                        let cameraAssetTracks = try await asset.loadTracks(withMediaType: .video)
-                        guard let sourceCameraTrack = cameraAssetTracks.first else {
-                            logger.warning("No camera video track found for segment \(segment.id), skipping")
-                            continue
-                        }
-
-                        let startTime = CMTime(seconds: segment.sourceIn, preferredTimescale: 600)
-                        let duration = CMTime(seconds: segment.sourceOut - segment.sourceIn, preferredTimescale: 600)
-                        let scaledDuration = CMTimeMultiplyByFloat64(duration, multiplier: 1.0 / segment.speed)
-
-                        do {
-                            try camTrack.insertTimeRange(
-                                CMTimeRangeMake(start: startTime, duration: duration),
-                                of: sourceCameraTrack,
-                                at: currentTime
-                            )
-
-                            // Apply speed change to camera track
-                            if segment.speed != 1.0 {
-                                let insertedRange = CMTimeRange(start: currentTime, duration: duration)
-                                camTrack.scaleTimeRange(insertedRange, toDuration: scaledDuration)
-                            }
-
-                            logger.debug("Camera segment \(index + 1): \(segment.sourceIn)s - \(segment.sourceOut)s")
-                        } catch {
-                            logger.error("Failed to insert camera segment \(index + 1): \(error.localizedDescription)")
-                        }
-                        currentTime = CMTimeAdd(currentTime, scaledDuration)
-                    }
-
-                    logger.debug("Camera track built successfully")
-                } else {
-                    logger.warning("Failed to create camera track, continuing without camera overlay")
-                }
-            }
-
-            // Build audio track if available
-            var audioTrack: AVMutableCompositionTrack?
-
-            // TODO: Enhance audio support for multi-take (currently using primary system audio)
-            if let audioPath = primarySources.audio?.system?.path {
-                logger.debug("Loading system audio from: \(audioPath)")
-                let audioAsset = AVAsset(url: projectDirectory.appendingPathComponent(audioPath))
-                let audioAssetTracks = try await audioAsset.loadTracks(withMediaType: .audio)
-
-                if let sourceAudioTrack = audioAssetTracks.first {
-                    audioTrack = composition.addMutableTrack(
-                        withMediaType: .audio,
-                        preferredTrackID: kCMPersistentTrackID_Invalid
-                    )
-
-                    if let audioTrack = audioTrack {
-                        currentTime = CMTime.zero
-                        for segment in project.timeline.segments {
-                            try await checkCancellation(jobId: jobId)
-
-                            let startTime = CMTime(seconds: segment.sourceIn, preferredTimescale: 600)
-                            let duration = CMTime(seconds: segment.sourceOut - segment.sourceIn, preferredTimescale: 600)
-                            let scaledDuration = CMTimeMultiplyByFloat64(duration, multiplier: 1.0 / segment.speed)
-
-                            do {
-                                try audioTrack.insertTimeRange(
-                                    CMTimeRangeMake(start: startTime, duration: duration),
-                                    of: sourceAudioTrack,
-                                    at: currentTime
-                                )
-
-                                // Apply speed change to audio track
-                                if segment.speed != 1.0 {
-                                    let insertedRange = CMTimeRange(start: currentTime, duration: duration)
-                                    audioTrack.scaleTimeRange(insertedRange, toDuration: scaledDuration)
-                                }
-                            } catch {
-                                logger.error("Failed to insert audio segment for source_in \(segment.sourceIn)s: \(error.localizedDescription)")
-                            }
-
-                            currentTime = CMTimeAdd(currentTime, scaledDuration)
-                        }
-                        logger.debug("Audio track built successfully")
-                    }
-                }
-            } else {
-                logger.debug("No audio track available")
-            }
+            logger.debug("Composition built: \(composition.duration.seconds)s, camera: \(cameraTrack != nil), audio: \(compositionResult.audioTrack != nil)")
 
             // Stage 4: Apply layout and transforms (0.4 - 0.5)
             try await checkCancellation(jobId: jobId)
