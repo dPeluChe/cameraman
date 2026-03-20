@@ -27,8 +27,10 @@ public struct CompositionBuilder {
         public let videoTrack: AVMutableCompositionTrack
         /// The camera track (nil if no camera)
         public let cameraTrack: AVMutableCompositionTrack?
-        /// The audio track (nil if no audio)
-        public let audioTrack: AVMutableCompositionTrack?
+        /// System audio track (nil if no system audio)
+        public let systemAudioTrack: AVMutableCompositionTrack?
+        /// Microphone audio track (nil if no mic audio)
+        public let micAudioTrack: AVMutableCompositionTrack?
     }
 
     /// Configuration for how to resolve source file paths
@@ -93,13 +95,23 @@ public struct CompositionBuilder {
             cancellationCheck: cancellationCheck
         )
 
-        // 3. Build audio track (if available)
-        let audioTrack = try await buildAudioTrack(
+        // 3. Build system audio track (if available)
+        let systemAudioTrack = try await buildAudioTrack(
             into: composition,
             segments: project.timeline.segments,
-            primarySources: project.primarySources,
+            audioPath: project.primarySources?.audio?.system?.path,
+            trackLabel: "system audio",
             resolver: resolver,
-            assetCache: &assetCache,
+            cancellationCheck: cancellationCheck
+        )
+
+        // 4. Build mic audio track (if available)
+        let micAudioTrack = try await buildAudioTrack(
+            into: composition,
+            segments: project.timeline.segments,
+            audioPath: project.primarySources?.audio?.mic?.path,
+            trackLabel: "mic audio",
+            resolver: resolver,
             cancellationCheck: cancellationCheck
         )
 
@@ -107,7 +119,8 @@ public struct CompositionBuilder {
             composition: composition,
             videoTrack: videoTrack,
             cameraTrack: cameraTrack,
-            audioTrack: audioTrack
+            systemAudioTrack: systemAudioTrack,
+            micAudioTrack: micAudioTrack
         )
     }
 
@@ -264,22 +277,28 @@ public struct CompositionBuilder {
     private func buildAudioTrack(
         into composition: AVMutableComposition,
         segments: [Project.Timeline.Segment],
-        primarySources: Project.Sources?,
+        audioPath: String?,
+        trackLabel: String,
         resolver: SourceResolver,
-        assetCache: inout [String: AVAsset],
         cancellationCheck: CancellationCheck?
     ) async throws -> AVMutableCompositionTrack? {
-        guard let audioPath = primarySources?.audio?.system?.path else {
-            logger.debug("No audio track available")
+        guard let audioPath = audioPath else {
+            logger.debug("No \(trackLabel) track available")
             return nil
         }
 
         let audioURL = resolver.projectDirectory.appendingPathComponent(audioPath)
+
+        guard fileManager.fileExists(atPath: audioURL.path) else {
+            logger.warning("\(trackLabel) file not found: \(audioURL.path)")
+            return nil
+        }
+
         let audioAsset = AVAsset(url: audioURL)
         let audioAssetTracks = try await audioAsset.loadTracks(withMediaType: .audio)
 
         guard let sourceAudioTrack = audioAssetTracks.first else {
-            logger.debug("No audio track found in source")
+            logger.debug("No audio data found in \(trackLabel) source")
             return nil
         }
 
@@ -287,7 +306,7 @@ public struct CompositionBuilder {
             withMediaType: .audio,
             preferredTrackID: kCMPersistentTrackID_Invalid
         ) else {
-            logger.warning("Failed to create audio track in composition")
+            logger.warning("Failed to create \(trackLabel) track in composition")
             return nil
         }
 
@@ -318,7 +337,7 @@ public struct CompositionBuilder {
             }
         }
 
-        logger.debug("Audio track built successfully")
+        logger.debug("\(trackLabel) track built successfully")
         return audioTrack
     }
 

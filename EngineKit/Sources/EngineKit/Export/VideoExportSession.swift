@@ -113,7 +113,7 @@ extension ExportEngine {
             let videoTrack = compositionResult.videoTrack
             let cameraTrack = compositionResult.cameraTrack
 
-            logger.debug("Composition built: \(composition.duration.seconds)s, camera: \(cameraTrack != nil), audio: \(compositionResult.audioTrack != nil)")
+            logger.debug("Composition built: \(composition.duration.seconds)s, camera: \(cameraTrack != nil), systemAudio: \(compositionResult.systemAudioTrack != nil), micAudio: \(compositionResult.micAudioTrack != nil)")
 
             // Stage 4: Apply layout and transforms (0.4 - 0.5)
             try await checkCancellation(jobId: jobId)
