@@ -46,7 +46,7 @@
 ## 3. Features del Editor (Prioridad Media)
 
 - [ ] **Reordenar segmentos en timeline (v1.1):**
-    - Spec define drag-and-drop de segmentos (prd.md sección 5.3).
+    - Spec define drag-and-drop de segmentos (prd.md seccion 5.3).
     - El modelo lo soporta pero la UI no lo implementa.
 
 - [ ] **Speed presets en timeline (v1.1):**
@@ -55,30 +55,69 @@
 
 - [ ] **Background blur (v1.1):**
     - Canvas background soporta `solid` e `image`.
-    - Agregar opción `blur` del contenido de pantalla como fondo.
+    - Agregar opcion `blur` del contenido de pantalla como fondo.
 
 - [ ] **Captions visibles en preview (mejorar):**
     - Captions se renderizan en export (burn-in) pero el overlay de preview puede mejorar.
 
-## 4. Infraestructura y Distribución (Prioridad Baja)
+- [ ] **Duplicar proyecto:**
+    - PRD define "duplicar" como accion de biblioteca (seccion 5.2).
+    - `ProjectLibrary` no tiene `duplicateProject()` — copiar carpeta + generar nuevo UUID.
 
-- [ ] **Permisos y Entitlements para distribución:**
+- [ ] **Export formato `.txt` para transcript:**
+    - PRD define export de transcript en `.txt`, `.srt`, `.vtt` (seccion 5.4).
+    - `.srt` y `.vtt` existen, falta `.txt` plano.
+
+- [ ] **Posicion/escala manual de camara en canvas:**
+    - PRD seccion 5.3: "Posicion/escala camara en canvas".
+    - Hoy los presets (PiP, side-by-side) definen posicion fija.
+    - Falta UI para drag/resize libre de la camara en el canvas.
+
+- [ ] **Thumbnails al hover en scrubber del preview:**
+    - ARCHIVED_NEW_TASKS menciona preview de thumbnails al hacer hover en scrubber.
+    - `ThumbnailCache` y `PreviewFrameExtractor` existen pero no estan conectados al scrubber UI.
+
+## 4. Infraestructura y Distribucion (Prioridad Baja)
+
+- [ ] **Permisos y Entitlements para distribucion:**
     - Configurar `hardened runtime` y keys de `Info.plist`.
     - Screen Recording, Camera, Microphone permissions.
 
 - [ ] **Tests automatizados de UI:**
-    - Existen tests unitarios pero faltan tests de integración UI.
+    - Existen tests unitarios pero faltan tests de integracion UI.
 
 - [ ] **Export preset 4K HEVC (v1.1):**
-    - Spec define `high_4k_hevc` preset (tech-spec sección 8).
-    - Solo falta agregar el preset estático a `ExportPreset`.
+    - Spec define `high_4k_hevc` preset (tech-spec seccion 8).
+    - Solo falta agregar el preset estatico a `ExportPreset`.
+
+- [ ] **Auto-generar proxies al crear proyecto:**
+    - Tech-spec seccion 10.3: "Al crear proyecto, generar proxies como job en background".
+    - ProxyGenerator existe y esta conectado al preview, pero no se auto-dispara al crear proyecto.
+
+- [ ] **Regenerar proxies al cambiar sync offsets:**
+    - Tech-spec seccion 10.3 paso 4: "Si el usuario modifica sync offsets, regenerar proxies".
+    - No implementado.
+
+- [ ] **Estimacion de tamano y tiempo de export:**
+    - ARCHIVED_NEW_TASKS: "Estimacion de tamano de archivo" y "Estimacion de tiempo de export".
+    - ExportView no muestra estimaciones previas al export.
 
 ## 5. Experimentos IA (Prioridad P2 / Labs)
 
-- [ ] **Cloud provider para generación de assets:**
+- [ ] **Cloud provider para generacion de assets:**
     - Interfaz `AIService` existe, falta conectar a un provider real.
     - Generar backgrounds por prompt, aplicar a canvas.
 
 - [ ] **Estilo frame-a-frame (experimental):**
-    - Reemplazo de fondo en cámara, style transfer.
+    - Reemplazo de fondo en camara, style transfer.
     - Reservado para fase Labs.
+
+- [ ] **Auto-cortes por silencios (Fase 5 PRD):**
+    - PRD Fase 5: "Auto-cortes por silencios".
+    - `AIService.suggestSilenceEdits()` existe en backend.
+    - Falta un flujo automatizado que aplique los cortes sugeridos.
+
+- [ ] **Capitulos/titulos desde transcript (Fase 5 PRD):**
+    - PRD Fase 5: "Capitulos/titulos desde transcript".
+    - `AIService.suggestChapters()` existe en backend.
+    - ChapterManagementView existe pero no auto-genera desde transcript.
