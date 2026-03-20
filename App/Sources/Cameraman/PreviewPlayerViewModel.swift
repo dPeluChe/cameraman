@@ -216,8 +216,10 @@ final class PreviewPlayerViewModel: ObservableObject {
         // Periodic time observer for scrubber updates
         let interval = CMTime(seconds: 0.05, preferredTimescale: 600)
         timeObserver = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
-            guard let self = self, !self.isScrubbing else { return }
-            self.currentTime = time.seconds
+            Task { @MainActor [weak self] in
+                guard let self = self, !self.isScrubbing else { return }
+                self.currentTime = time.seconds
+            }
         }
 
         // End-of-playback observer
@@ -226,8 +228,10 @@ final class PreviewPlayerViewModel: ObservableObject {
             object: player.currentItem,
             queue: .main
         ) { [weak self] _ in
-            self?.isPlaying = false
-            self?.currentTime = self?.duration ?? 0
+            Task { @MainActor [weak self] in
+                self?.isPlaying = false
+                self?.currentTime = self?.duration ?? 0
+            }
         }
     }
 

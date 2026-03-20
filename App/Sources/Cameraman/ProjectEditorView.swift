@@ -48,19 +48,33 @@ final class ProjectEditorViewModel: ObservableObject {
 
     func loadProject() async {
         guard !isLoading else { return }
-        isLoading = true
-        defer { isLoading = false }
 
+        // Fetch data outside of view update cycle
+        let result: (Project, URL)?
         do {
             let project = try await library.getProject(projectId: projectId)
-            let projectDirectory = try await library.getProjectDirectory(projectId: projectId)
-            editor = ProjectEditor(project: project)
-            self.projectDirectory = projectDirectory
-            loadError = nil
-            playheadTime = 0
+            let dir = try await library.getProjectDirectory(projectId: projectId)
+            result = (project, dir)
         } catch {
-            loadError = error.localizedDescription
-            projectDirectory = nil
+            result = nil
+            await MainActor.run {
+                self.loadError = error.localizedDescription
+                self.projectDirectory = nil
+                self.isLoading = false
+            }
+            return
+        }
+
+        // Apply all state changes in a single batch via Task to avoid
+        // "Publishing changes from within view updates"
+        if let (project, dir) = result {
+            await MainActor.run {
+                self.editor = ProjectEditor(project: project)
+                self.projectDirectory = dir
+                self.loadError = nil
+                self.playheadTime = 0
+                self.isLoading = false
+            }
         }
     }
 }
