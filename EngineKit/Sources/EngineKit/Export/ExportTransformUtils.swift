@@ -160,7 +160,9 @@ extension ExportEngine {
 
         // Center the camera within the target rect
         let offsetX = cameraX + (cameraW - scaledWidth) / 2
-        let offsetY = cameraY + (cameraH - scaledHeight) / 2
+        // Flip Y axis: SwiftUI y=0 is top, AVFoundation y=0 is bottom
+        let flippedY = (1.0 - cameraPosition.y - cameraPosition.h) * renderSize.height
+        let offsetY = flippedY + (cameraH - scaledHeight) / 2
 
         logger.debug("Camera overlay: position(\(cameraX), \(cameraY)), size(\(cameraW)x\(cameraH)), scale(\(scale)), offset(\(offsetX), \(offsetY))")
 

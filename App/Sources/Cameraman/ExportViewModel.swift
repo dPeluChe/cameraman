@@ -145,10 +145,14 @@ final class ExportViewModel: ObservableObject {
 
         exportState = .preparing
         progress = 0
-        progressMessage = "Initializing export..."
+        progressMessage = "Saving project..."
         exportStartTime = Date()
 
         do {
+            // Save the current project state to disk before exporting
+            // so the export reads the latest edits (camera position, mask, etc.)
+            let store = ProjectStore()
+            try await store.saveProject(project)
             let fileExtension = selectedPreset.id.contains("gif") ? "gif" : "mp4"
             let finalFilename = outputFilename.hasSuffix(".\(fileExtension)")
                 ? outputFilename

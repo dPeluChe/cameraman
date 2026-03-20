@@ -186,14 +186,38 @@ extension ExportEngine {
 
                 cameraLayerInstruction.setTransform(cameraTransform, at: .zero)
 
-                // Camera first = on top (frontmost in AVFoundation layer order)
-                instruction.layerInstructions = [cameraLayerInstruction, layerInstruction]
-                logger.debug("Camera overlay added to composition")
+                // Use custom compositor for masked PiP
+                if cameraPosition.maskShape != .none {
+                    let maskedInstruction = MaskedVideoCompositionInstruction(
+                        timeRange: CMTimeRangeMake(start: .zero, duration: composition.duration),
+                        screenTrackID: videoTrack.trackID,
+                        cameraTrackID: cameraTrack.trackID,
+                        renderSize: videoComposition.renderSize,
+                        screenTransform: transform,
+                        cameraTransform: cameraTransform,
+                        cameraRect: CGRect(
+                            x: cameraPosition.x,
+                            y: cameraPosition.y,
+                            width: cameraPosition.w,
+                            height: cameraPosition.h
+                        ),
+                        maskShape: cameraPosition.maskShape,
+                        cornerRadius: CGFloat(cameraPosition.cornerRadius),
+                        layoutType: project.canvas.layout.type
+                    )
+                    videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
+                    videoComposition.instructions = [maskedInstruction]
+                    logger.debug("Camera overlay with mask (\(cameraPosition.maskShape.rawValue)) added to export")
+                } else {
+                    // Standard PiP (no mask)
+                    instruction.layerInstructions = [cameraLayerInstruction, layerInstruction]
+                    videoComposition.instructions = [instruction]
+                    logger.debug("Camera overlay added to composition")
+                }
             } else {
                 instruction.layerInstructions = [layerInstruction]
+                videoComposition.instructions = [instruction]
             }
-
-            videoComposition.instructions = [instruction]
 
             // Stage 5: Setup export session (0.5 - 0.6)
             try await checkCancellation(jobId: jobId)
