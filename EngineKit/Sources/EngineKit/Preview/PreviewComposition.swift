@@ -140,7 +140,8 @@ extension PreviewEngine {
 
             cameraLayerInstruction.setTransform(cameraTransform, at: .zero)
 
-            instruction.layerInstructions = [screenLayerInstruction, cameraLayerInstruction]
+            // Camera first = on top (frontmost in AVFoundation layer order)
+            instruction.layerInstructions = [cameraLayerInstruction, screenLayerInstruction]
         } else {
             instruction.layerInstructions = [screenLayerInstruction]
         }

@@ -186,8 +186,8 @@ extension ExportEngine {
 
                 cameraLayerInstruction.setTransform(cameraTransform, at: .zero)
 
-                // Add both layer instructions (screen first, then camera on top)
-                instruction.layerInstructions = [layerInstruction, cameraLayerInstruction]
+                // Camera first = on top (frontmost in AVFoundation layer order)
+                instruction.layerInstructions = [cameraLayerInstruction, layerInstruction]
                 logger.debug("Camera overlay added to composition")
             } else {
                 instruction.layerInstructions = [layerInstruction]
