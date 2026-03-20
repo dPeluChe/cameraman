@@ -7,10 +7,7 @@
 
 ## 0. Bugs Conocidos (Prioridad Alta)
 
-- [ ] **Export no incluye cambios de PiP editados:**
-    - Al exportar, el PiP puede no reflejar posicion/tamano/mascara editados.
-    - VideoExportSession usa ExportTransformUtils que no tiene el custom compositor.
-    - Necesita: integrar MaskedVideoCompositor en export pipeline.
+- [x] ~~**Export no incluye cambios de PiP editados**~~ RESUELTO: save before export + MaskedVideoCompositor en export
 
 - [ ] **Track mute toggles no afectan playback:**
     - Toggles solo visuales en timeline. No silencian audio ni ocultan video.
