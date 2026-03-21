@@ -109,19 +109,21 @@ struct ConfigGroup<Content: View>: View {
     let title: String
     @Binding var isExpanded: Bool
     let content: () -> Content
-    
+
     var body: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
             content()
-                .padding(.top, 12)
-                .padding(.bottom, 16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .clipped()
+                .padding(.top, 8)
+                .padding(.bottom, 12)
         } label: {
             Text(title)
                 .font(.subheadline)
                 .fontWeight(.semibold)
                 .foregroundStyle(.secondary)
         }
-        .padding(.horizontal)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
     }
 }

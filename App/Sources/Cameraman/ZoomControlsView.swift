@@ -37,19 +37,14 @@ struct ZoomControlsView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Header
+        VStack(alignment: .leading, spacing: 12) {
+            // Info button
             HStack {
-                Label("Auto-Zoom", systemImage: "magnifyingglass")
-                    .font(.headline)
-                    .foregroundColor(.primary)
-
                 Spacer()
-
-                // Info button
                 Button(action: { showInfo.toggle() }) {
                     Image(systemName: "info.circle")
                         .foregroundColor(.secondary)
+                        .font(.caption)
                 }
                 .buttonStyle(.plain)
                 .popover(isPresented: $showInfo) {

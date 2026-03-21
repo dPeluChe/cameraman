@@ -26,12 +26,9 @@ struct BackgroundControlsView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Background")
-                .font(.headline)
-
+        VStack(alignment: .leading, spacing: 12) {
             // Background type selector
-            HStack(spacing: 12) {
+            HStack(spacing: 8) {
                 ForEach(CanvasLayout.BackgroundType.allCases, id: \.self) { type in
                     BackgroundTypeButton(
                         type: type,
