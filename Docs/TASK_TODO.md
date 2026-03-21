@@ -1,6 +1,6 @@
 # Backlog de Tareas Pendientes
 
-> Actualizado: 2026-03-20 (sesion completa)
+> Actualizado: 2026-03-20 (sesion final)
 > Solo features y mejoras NO implementadas. Para trabajo completado ver `TASK_COMPLETED/`.
 
 ---
@@ -8,6 +8,20 @@
 ## 0. Bugs Conocidos (Prioridad Alta)
 
 - [x] ~~**Export no incluye cambios de PiP editados**~~ RESUELTO: save before export + MaskedVideoCompositor en export
+
+- [ ] **Sidebar overflow al abrir Background/Zoom/Overlays:**
+    - Los controles de Background (Solid Color, Image, Blurred Screen + paleta de colores) se salen del panel de 260px.
+    - Necesita: redisenar controles para layout compacto vertical.
+    - Overlays canvas editor tambien desborda.
+
+- [ ] **Timeline no funcional (PRIORIDAD ALTA):**
+    - Split: no genera segmentos separados visualmente ni en el modelo
+    - Delete: no elimina segmentos seleccionados
+    - Canales: eye toggles son solo visuales, no afectan preview/export
+    - No se puede desfasar tracks entre si
+    - No se puede agregar assets/tracks adicionales
+    - Playhead no sincroniza con preview al hacer click en timeline
+    - Necesita: conectar TimelineView actions al EditorModel + CompositionBuilder
 
 - [ ] **Track mute toggles no afectan playback:**
     - Toggles solo visuales en timeline. No silencian audio ni ocultan video.
