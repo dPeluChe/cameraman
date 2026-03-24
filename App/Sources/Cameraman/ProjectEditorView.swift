@@ -15,10 +15,12 @@ import CoreGraphics
 @MainActor
 final class ProjectEditorViewModel: ObservableObject {
     @Published private(set) var editor: ProjectEditor?
-    @Published var playheadTime: TimeInterval = 0
     @Published private(set) var loadError: String?
     @Published private(set) var isLoading = false
     @Published private(set) var projectDirectory: URL?
+    @Published var mutedTracks: Set<TimelineTrackKind> = []
+
+    let playerViewModel = PreviewPlayerViewModel()
 
     private let projectId: ProjectId
     private let library: ProjectLibrary
@@ -72,7 +74,7 @@ final class ProjectEditorViewModel: ObservableObject {
                 self.editor = ProjectEditor(project: project)
                 self.projectDirectory = dir
                 self.loadError = nil
-                self.playheadTime = 0
+                self.playerViewModel.seek(to: 0)
                 self.isLoading = false
             }
         }
@@ -118,6 +120,7 @@ struct ProjectEditorView: View {
                 // Center - Preview & Timeline
                 CenterPanel(
                     viewModel: viewModel,
+                    playerViewModel: viewModel.playerViewModel,
                     showExportModal: $showExportModal,
                     showTranscriptionModal: $showTranscriptionModal
                 )
@@ -157,6 +160,7 @@ struct ProjectEditorView: View {
                 ExportView(
                     project: editor.project,
                     projectDirectory: projectDirectory,
+                    mutedTracks: viewModel.mutedTracks,
                     onExportComplete: { _ in
                         showExportModal = false
                     },
@@ -171,7 +175,10 @@ struct ProjectEditorView: View {
         }
         .sheet(isPresented: $showTranscriptionModal) {
             if let editor = viewModel.editor {
-                TranscriptionView(editor: editor, playheadTime: $viewModel.playheadTime)
+                TranscriptionView(editor: editor, playheadTime: Binding(
+                    get: { viewModel.playerViewModel.currentTime },
+                    set: { viewModel.playerViewModel.seek(to: $0) }
+                ))
             } else {
                 ProgressView()
                     .frame(width: 560, height: 400)

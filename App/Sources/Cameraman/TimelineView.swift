@@ -9,11 +9,13 @@ import SwiftUI
 import EngineKit
 import CoreGraphics
 import AVFoundation
+import UniformTypeIdentifiers
 
 struct TimelineView: View {
     @ObservedObject var editor: ProjectEditor
-    @Binding var playheadTime: TimeInterval
+    @ObservedObject var playerViewModel: PreviewPlayerViewModel
     let projectDirectory: URL?
+    @Binding var mutedTracks: Set<TimelineTrackKind>
 
     private let trackHeight: TimelineScalar = 34
     private let trackSpacing: TimelineScalar = 8
@@ -29,6 +31,7 @@ struct TimelineView: View {
     @State private var dragStartTime: TimeInterval?
     @State private var selectedSegmentId: String?
     @State private var isTrimming = false
+    @State private var showImportPanel = false
 
     // Thumbnail cache
     @State private var thumbnailCache: ThumbnailCache?
@@ -39,10 +42,10 @@ struct TimelineView: View {
     @State private var waveforms: [String: [Float]] = [:]
     @State private var showWaveforms: Bool = true
 
-    // Track mute state
-    @State private var mutedTracks: Set<TimelineTrackKind> = []
-
     private var project: Project { editor.project }
+
+    // Convenience accessor for playhead time
+    private var playheadTime: Double { playerViewModel.currentTime }
 
     // MARK: - Thumbnail Management
 
@@ -206,6 +209,13 @@ struct TimelineView: View {
                 .keyboardShortcut(.delete, modifiers: [])
                 .disabled(selectedSegmentId == nil)
 
+                Button {
+                    showImportPanel = true
+                } label: {
+                    Label("Import", systemImage: "plus.circle")
+                }
+                .help("Import audio or image asset")
+
                 Toggle("Thumbnails", isOn: $showThumbnails)
                     .toggleStyle(.switch)
                     .help("Show/hide video thumbnails in timeline")
@@ -256,7 +266,7 @@ struct TimelineView: View {
                                 waveformSamples: trackWaveform,
                                 onSelectSegment: { segment in
                                     selectedSegmentId = segment.id
-                                    playheadTime = segment.timelineIn
+                                    playerViewModel.seek(to: segment.timelineIn)
                                 },
                                 onTrimDragChanged: { _, _, _ in
                                     isTrimming = true
@@ -298,10 +308,14 @@ struct TimelineView: View {
                         .onChanged { value in
                             guard !isTrimming else { return }
                             let time = layout.time(forXPosition: value.location.x)
-                            playheadTime = time
+
+                            // Start scrubbing on first drag event
                             if dragStartTime == nil {
                                 dragStartTime = time
+                                playerViewModel.setScrubbing(true)
                             }
+
+                            playerViewModel.seek(to: time)
 
                             let startTime = dragStartTime ?? time
                             if abs(value.translation.width) > 2 {
@@ -315,7 +329,7 @@ struct TimelineView: View {
                         .onEnded { value in
                             guard !isTrimming else { return }
                             let time = layout.time(forXPosition: value.location.x)
-                            playheadTime = time
+                            playerViewModel.seek(to: time)
 
                             if let startTime = dragStartTime, abs(value.translation.width) > 2 {
                                 let rangeStart = min(startTime, time)
@@ -326,6 +340,7 @@ struct TimelineView: View {
                             }
 
                             dragStartTime = nil
+                            playerViewModel.setScrubbing(false)
                         }
                 )
                 .onDrop(of: [.text], isTargeted: nil) { providers, location in
@@ -348,6 +363,13 @@ struct TimelineView: View {
         }
         .onDeleteCommand {
             deleteSelectedSegment()
+        }
+        .fileImporter(
+            isPresented: $showImportPanel,
+            allowedContentTypes: [.audio, .mp3, .wav, .aiff, .mpeg4Audio, .image, .png, .jpeg, .heic, .tiff, .webP],
+            allowsMultipleSelection: false
+        ) { result in
+            handleImportedFile(result)
         }
     }
 
@@ -384,7 +406,8 @@ struct TimelineView: View {
             if didUndo {
                 selectedSegmentId = nil
                 selection = nil
-                playheadTime = min(playheadTime, editor.project.timeline.duration)
+                let clampedTime = min(playheadTime, editor.project.timeline.duration)
+                playerViewModel.seek(to: clampedTime)
             }
         }
     }
@@ -395,7 +418,8 @@ struct TimelineView: View {
             if didRedo {
                 selectedSegmentId = nil
                 selection = nil
-                playheadTime = min(playheadTime, editor.project.timeline.duration)
+                let clampedTime = min(playheadTime, editor.project.timeline.duration)
+                playerViewModel.seek(to: clampedTime)
             }
         }
     }
@@ -440,6 +464,59 @@ struct TimelineView: View {
         }
         
         return false
+    }
+
+    private func handleImportedFile(_ result: Result<[URL], Error>) {
+        guard case .success(let urls) = result,
+              let url = urls.first,
+              let projectDir = projectDirectory else { return }
+
+        let ext = url.pathExtension.lowercased()
+        let isAudio = ["mp3", "wav", "m4a", "aac", "aiff", "flac"].contains(ext)
+        let isImage = ["png", "jpg", "jpeg", "heic", "webp", "tiff"].contains(ext)
+        guard isAudio || isImage else { return }
+
+        let type: Project.MediaItemType = isAudio ? .audio : .image
+        let fileName = url.lastPathComponent
+        let currentPlayhead = playheadTime
+
+        Task {
+            let fileManager = FileManager.default
+            let assetsDir = projectDir.appendingPathComponent("assets", isDirectory: true)
+            try? fileManager.createDirectory(at: assetsDir, withIntermediateDirectories: true)
+
+            let destURL = assetsDir.appendingPathComponent(fileName)
+
+            let didAccess = url.startAccessingSecurityScopedResource()
+            defer { if didAccess { url.stopAccessingSecurityScopedResource() } }
+
+            do {
+                if fileManager.fileExists(atPath: destURL.path) {
+                    try fileManager.removeItem(at: destURL)
+                }
+                try fileManager.copyItem(at: url, to: destURL)
+            } catch {
+                return
+            }
+
+            var duration: TimeInterval = 5.0
+            if isAudio {
+                let asset = AVURLAsset(url: destURL)
+                if let assetDuration = try? await asset.load(.duration) {
+                    duration = assetDuration.seconds
+                }
+            }
+
+            let item = Project.MediaItem(
+                type: type,
+                path: "assets/\(fileName)",
+                name: fileName,
+                timelineIn: currentPlayhead,
+                duration: duration
+            )
+
+            await editor.addMediaItem(item)
+        }
     }
 
     private func applyTrim(

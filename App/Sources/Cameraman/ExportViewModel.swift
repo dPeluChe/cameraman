@@ -28,6 +28,7 @@ final class ExportViewModel: ObservableObject {
 
     private let project: Project
     private let projectDirectory: URL
+    private let mutedTracks: Set<TimelineTrackKind>
     private var exportEngine: ExportEngine?
     private var exportJobId: JobId?
     private var exportStartTime: Date?
@@ -129,9 +130,10 @@ final class ExportViewModel: ObservableObject {
         }
     }
 
-    init(project: Project, projectDirectory: URL) {
+    init(project: Project, projectDirectory: URL, mutedTracks: Set<TimelineTrackKind> = []) {
         self.project = project
         self.projectDirectory = projectDirectory
+        self.mutedTracks = mutedTracks
         self.outputFilename = project.name.isEmpty ? "Untitled" : project.name
         self.outputURL = FileManager.default.urls(for: .moviesDirectory, in: .userDomainMask).first ?? FileManager.default.homeDirectoryForCurrentUser
     }
@@ -172,7 +174,15 @@ final class ExportViewModel: ObservableObject {
                     outputFilename: finalFilename,
                     gifOptions: nil,
                     applyZoom: true,
-                    zoomPlan: nil
+                    zoomPlan: nil,
+                    audioMuteState: AudioMixBuilder.TrackMuteState(
+                        systemAudioMuted: mutedTracks.contains(.systemAudio),
+                        micAudioMuted: mutedTracks.contains(.micAudio)
+                    ),
+                    videoMuteState: VideoMuteState(
+                        screenMuted: mutedTracks.contains(.screen),
+                        cameraMuted: mutedTracks.contains(.camera)
+                    )
                 )
             )
 

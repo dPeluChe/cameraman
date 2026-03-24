@@ -32,6 +32,13 @@ public actor PreviewEngine {
     /// Video composition with transforms (PiP layout, scaling)
     var videoCompositionConfig: AVVideoComposition?
 
+    /// Stored composition result for audio mix building
+    var compositionResult: CompositionBuilder.Result?
+
+    enum VideoTrackID: String, Hashable { case screen, camera }
+    /// Which video tracks are currently muted (hidden) in preview
+    var mutedVideoTracks: Set<VideoTrackID> = []
+
     /// Current playback state
     var playbackState: PlaybackState = .stopped
 

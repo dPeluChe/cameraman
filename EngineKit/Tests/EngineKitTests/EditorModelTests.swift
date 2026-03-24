@@ -64,17 +64,11 @@ final class EditorModelTests: XCTestCase {
         )
 
         return Project(
-            schemaVersion: 1,
             projectId: UUID(),
             name: "Test Project",
-            tags: [],
-            createdAt: Date(),
-            updatedAt: Date(),
             sources: sources,
             timeline: timeline,
-            canvas: canvas,
-            overlays: [],
-            captions: nil
+            canvas: canvas
         )
     }
 
@@ -655,17 +649,11 @@ final class EditorModelTests: XCTestCase {
         )
 
         let project = Project(
-            schemaVersion: 1,
             projectId: UUID(),
             name: "Speed Test Project",
-            tags: [],
-            createdAt: Date(),
-            updatedAt: Date(),
             sources: sources,
             timeline: timeline,
-            canvas: canvas,
-            overlays: [],
-            captions: nil
+            canvas: canvas
         )
 
         let editor = EditorModel(project: project)
@@ -722,17 +710,11 @@ final class EditorModelTests: XCTestCase {
         )
 
         let project = Project(
-            schemaVersion: 1,
             projectId: UUID(),
             name: "Empty Project",
-            tags: [],
-            createdAt: Date(),
-            updatedAt: Date(),
             sources: sources,
             timeline: timeline,
-            canvas: canvas,
-            overlays: [],
-            captions: nil
+            canvas: canvas
         )
 
         let editor = EditorModel(project: project)
@@ -790,17 +772,11 @@ final class EditorModelTests: XCTestCase {
         )
 
         let project = Project(
-            schemaVersion: 1,
             projectId: UUID(),
             name: "Single Segment Project",
-            tags: [],
-            createdAt: Date(),
-            updatedAt: Date(),
             sources: sources,
             timeline: timeline,
-            canvas: canvas,
-            overlays: [],
-            captions: nil
+            canvas: canvas
         )
 
         let editor = EditorModel(project: project)
@@ -1143,16 +1119,13 @@ final class EditorModelTests: XCTestCase {
             start: 0.0,
             end: 10.0,
             transform: Project.Overlay.Transform(x: 0.5, y: 0.5, scale: 1.0, rotation: 0.0),
-            style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 6.0, shadow: true)
+            style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 6.0, shadow: true),
+            animation: nil
         )
 
         return Project(
-            schemaVersion: 1,
             projectId: UUID(),
             name: "Test Project",
-            tags: [],
-            createdAt: Date(),
-            updatedAt: Date(),
             sources: Project.Sources(
                 syncReference: "screen",
                 screen: Project.Sources.MediaTrack(
@@ -1166,8 +1139,7 @@ final class EditorModelTests: XCTestCase {
             ),
             timeline: timeline,
             canvas: canvas,
-            overlays: [overlay],
-            captions: nil
+            overlays: [overlay]
         )
     }
 }

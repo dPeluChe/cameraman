@@ -12,11 +12,13 @@ import CoreGraphics
 
 typealias TimelineScalar = CoreGraphics.CGFloat
 
-enum TimelineTrackKind: String, CaseIterable, Identifiable {
+enum TimelineTrackKind: String, CaseIterable, Identifiable, Hashable {
     case screen
     case camera
     case systemAudio
     case micAudio
+    case additionalAudio
+    case imageOverlay
 
     var id: String { rawValue }
 
@@ -30,6 +32,10 @@ enum TimelineTrackKind: String, CaseIterable, Identifiable {
             return "System Audio"
         case .micAudio:
             return "Mic Audio"
+        case .additionalAudio:
+            return "Music / Audio"
+        case .imageOverlay:
+            return "Images"
         }
     }
 
@@ -43,17 +49,29 @@ enum TimelineTrackKind: String, CaseIterable, Identifiable {
             return Color.orange.opacity(0.85)
         case .micAudio:
             return Color.pink.opacity(0.85)
+        case .additionalAudio:
+            return Color.purple.opacity(0.85)
+        case .imageOverlay:
+            return Color.yellow.opacity(0.85)
         }
     }
 }
 
+/// A timeline track that can hold either recording segments or imported media items
 struct TimelineTrack: Identifiable {
     let kind: TimelineTrackKind
     let segments: [Project.Timeline.Segment]
+    let mediaItems: [Project.MediaItem]
 
     var id: TimelineTrackKind { kind }
     var label: String { kind.label }
     var color: Color { kind.color }
+
+    init(kind: TimelineTrackKind, segments: [Project.Timeline.Segment], mediaItems: [Project.MediaItem] = []) {
+        self.kind = kind
+        self.segments = segments
+        self.mediaItems = mediaItems
+    }
 }
 
 enum TimelineTrackBuilder {
@@ -72,6 +90,18 @@ enum TimelineTrackBuilder {
 
         if project.primarySources?.audio?.mic != nil {
             tracks.append(TimelineTrack(kind: .micAudio, segments: project.timeline.segments))
+        }
+
+        // Additional audio tracks (imported music, voiceover)
+        let audioItems = project.mediaItems.filter { $0.type == .audio }
+        if !audioItems.isEmpty {
+            tracks.append(TimelineTrack(kind: .additionalAudio, segments: [], mediaItems: audioItems))
+        }
+
+        // Image overlay tracks
+        let imageItems = project.mediaItems.filter { $0.type == .image }
+        if !imageItems.isEmpty {
+            tracks.append(TimelineTrack(kind: .imageOverlay, segments: [], mediaItems: imageItems))
         }
 
         return tracks

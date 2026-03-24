@@ -350,17 +350,11 @@ final class ProxyGeneratorTests: XCTestCase {
         )
 
         return Project(
-            schemaVersion: 1,
             projectId: UUID(),
             name: "Test Project",
-            tags: [],
-            createdAt: Date(),
-            updatedAt: Date(),
             sources: sources,
             timeline: timeline,
-            canvas: canvas,
-            overlays: [],
-            captions: nil
+            canvas: canvas
         )
     }
 }

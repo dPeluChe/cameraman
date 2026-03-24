@@ -147,8 +147,8 @@ final class CanvasLayoutTests: XCTestCase {
         )
 
         XCTAssertNotNil(frame)
-        XCTAssertEqual(frame!.x, 960, accuracy: 0.1) // 0.5 * 1920
-        XCTAssertEqual(frame!.y, 540, accuracy: 0.1) // 0.5 * 1080
+        XCTAssertEqual(frame!.minX, 960, accuracy: 0.1) // 0.5 * 1920
+        XCTAssertEqual(frame!.minY, 540, accuracy: 0.1) // 0.5 * 1080
         XCTAssertEqual(frame!.width, 480, accuracy: 0.1) // 0.25 * 1920
         XCTAssertEqual(frame!.height, 270, accuracy: 0.1) // 0.25 * 1080
     }
@@ -186,8 +186,8 @@ final class CanvasLayoutTests: XCTestCase {
             canvasHeight: 1080
         )
 
-        XCTAssertEqual(frame.x, 0)
-        XCTAssertEqual(frame.y, 0)
+        XCTAssertEqual(frame.minX, 0)
+        XCTAssertEqual(frame.minY, 0)
         XCTAssertEqual(frame.width, 1920)
         XCTAssertEqual(frame.height, 1080)
     }
@@ -210,8 +210,8 @@ final class CanvasLayoutTests: XCTestCase {
             canvasHeight: 1080
         )
 
-        XCTAssertEqual(frame.x, 10, accuracy: 0.1) // Padding
-        XCTAssertEqual(frame.y, 10, accuracy: 0.1) // Padding
+        XCTAssertEqual(frame.minX, 10, accuracy: 0.1) // Padding
+        XCTAssertEqual(frame.minY, 10, accuracy: 0.1) // Padding
         XCTAssertEqual(frame.width, 940.8, accuracy: 0.1) // 49% of 1920
         XCTAssertEqual(frame.height, 1060, accuracy: 0.1) // 1080 - 2*padding
     }
@@ -228,8 +228,8 @@ final class CanvasLayoutTests: XCTestCase {
             canvasHeight: 1080
         )
 
-        XCTAssertEqual(frame.x, 0)
-        XCTAssertEqual(frame.y, 0)
+        XCTAssertEqual(frame.minX, 0)
+        XCTAssertEqual(frame.minY, 0)
         XCTAssertEqual(frame.width, 1920)
         XCTAssertEqual(frame.height, 1080)
     }
@@ -786,8 +786,8 @@ final class CanvasLayoutTests: XCTestCase {
         // Image should fit to width, with letterboxing on top/bottom
         XCTAssertEqual(frame.width, 1920)
         XCTAssertEqual(frame.height, 960) // 1920 / 2
-        XCTAssertEqual(frame.x, 0)
-        XCTAssertEqual(frame.y, 60) // (1080 - 960) / 2
+        XCTAssertEqual(frame.minX, 0)
+        XCTAssertEqual(frame.minY, 60) // (1080 - 960) / 2
     }
 
     func testCalculateImageFrameFitTallerImage() {
@@ -800,8 +800,8 @@ final class CanvasLayoutTests: XCTestCase {
         // Image should fit to height, with letterboxing on sides
         XCTAssertEqual(frame.height, 1080)
         XCTAssertEqual(frame.width, 540) // 1080 / 2
-        XCTAssertEqual(frame.x, 690) // (1920 - 540) / 2
-        XCTAssertEqual(frame.y, 0)
+        XCTAssertEqual(frame.minX, 690) // (1920 - 540) / 2
+        XCTAssertEqual(frame.minY, 0)
     }
 
     func testCalculateImageFrameFillWiderImage() {
@@ -814,8 +814,8 @@ final class CanvasLayoutTests: XCTestCase {
         // Image should fill height, cropping left/right
         XCTAssertEqual(frame.height, 1080)
         XCTAssertEqual(frame.width, 2160) // 1080 * 2
-        XCTAssertEqual(frame.x, -120) // (1920 - 2160) / 2
-        XCTAssertEqual(frame.y, 0)
+        XCTAssertEqual(frame.minX, -120) // (1920 - 2160) / 2
+        XCTAssertEqual(frame.minY, 0)
     }
 
     func testCalculateImageFrameFillTallerImage() {
@@ -828,8 +828,8 @@ final class CanvasLayoutTests: XCTestCase {
         // Image should fill width, cropping top/bottom
         XCTAssertEqual(frame.width, 1920)
         XCTAssertEqual(frame.height, 3840) // 1920 * 2
-        XCTAssertEqual(frame.x, 0)
-        XCTAssertEqual(frame.y, -1380) // (1080 - 3840) / 2
+        XCTAssertEqual(frame.minX, 0)
+        XCTAssertEqual(frame.minY, -1380) // (1080 - 3840) / 2
     }
 
     func testCalculateImageFramePerfectMatch() {
@@ -841,8 +841,8 @@ final class CanvasLayoutTests: XCTestCase {
 
         XCTAssertEqual(frame.width, 1920)
         XCTAssertEqual(frame.height, 1080)
-        XCTAssertEqual(frame.x, 0)
-        XCTAssertEqual(frame.y, 0)
+        XCTAssertEqual(frame.minX, 0)
+        XCTAssertEqual(frame.minY, 0)
     }
 
     // MARK: - Hex Color Parsing Tests

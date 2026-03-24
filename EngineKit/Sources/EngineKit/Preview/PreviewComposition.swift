@@ -32,6 +32,11 @@ extension PreviewEngine {
         }
 
         let screenLayerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: screenTrack)
+        let screenMuted = mutedVideoTracks.contains(.screen)
+        let cameraMuted = mutedVideoTracks.contains(.camera)
+        if screenMuted {
+            screenLayerInstruction.setOpacity(0, at: .zero)
+        }
         let screenSize = screenTrack.naturalSize
         let screenSourceSize = CoreFoundation.CGSize(
             width: screenSize.width > 0 ? screenSize.width : 1920,
@@ -41,7 +46,50 @@ extension PreviewEngine {
         let layoutType = project.canvas.layout.type
         let hasCameraTrack = videoTracks.count > 1
 
-        if layoutType == "sideBySide" && hasCameraTrack {
+        // When screen is muted and camera is available, show camera fullscreen (with mask if set)
+        if screenMuted && hasCameraTrack && !cameraMuted {
+            let cameraTrack = videoTracks[1]
+            let camNatural = cameraTrack.naturalSize
+            let camSourceSize = CoreFoundation.CGSize(
+                width: camNatural.width > 0 ? camNatural.width : 1280,
+                height: camNatural.height > 0 ? camNatural.height : 720
+            )
+            let camScale = min(renderSize.width / camSourceSize.width, renderSize.height / camSourceSize.height)
+            let camOffX = (renderSize.width - camSourceSize.width * camScale) / 2
+            let camOffY = (renderSize.height - camSourceSize.height * camScale) / 2
+            var cameraTransform = CGAffineTransform.identity
+            cameraTransform = cameraTransform.translatedBy(x: camOffX, y: camOffY)
+            cameraTransform = cameraTransform.scaledBy(x: camScale, y: camScale)
+
+            let maskShape = project.canvas.layout.camera?.maskShape ?? .none
+            let cornerRadius = project.canvas.layout.camera?.cornerRadius ?? 0
+
+            if maskShape != .none {
+                let maskedInstruction = MaskedVideoCompositionInstruction(
+                    timeRange: CMTimeRangeMake(start: .zero, duration: composition.duration),
+                    screenTrackID: screenTrack.trackID,
+                    cameraTrackID: cameraTrack.trackID,
+                    renderSize: renderSize,
+                    screenTransform: CGAffineTransform.identity,
+                    cameraTransform: cameraTransform,
+                    cameraRect: CGRect(x: 0, y: 0, width: 1, height: 1),
+                    maskShape: maskShape,
+                    cornerRadius: CGFloat(cornerRadius),
+                    layoutType: "fullscreenCamera",
+                    screenMuted: true
+                )
+                videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
+                videoComposition.instructions = [maskedInstruction]
+            } else {
+                let cameraLayerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: cameraTrack)
+                cameraLayerInstruction.setTransform(cameraTransform, at: .zero)
+                instruction.layerInstructions = [cameraLayerInstruction, screenLayerInstruction]
+                videoComposition.instructions = [instruction]
+            }
+            return videoComposition
+        }
+
+        if layoutType == "sideBySide" && hasCameraTrack && !cameraMuted {
             // Side-by-Side: screen on left 50%, camera on right 50%
             let halfWidth = renderSize.width / 2
 
@@ -90,8 +138,8 @@ extension PreviewEngine {
             screenTransform = screenTransform.scaledBy(x: scale, y: scale)
             screenLayerInstruction.setTransform(screenTransform, at: .zero)
 
-            // PiP camera overlay
-            if hasCameraTrack, let cameraPosition = project.canvas.layout.camera {
+            // PiP camera overlay (skip if camera is muted)
+            if hasCameraTrack && !cameraMuted, let cameraPosition = project.canvas.layout.camera {
                 let cameraTrack = videoTracks[1]
                 let camNatural = cameraTrack.naturalSize
                 let camSourceSize = CoreFoundation.CGSize(
@@ -219,7 +267,47 @@ extension PreviewEngine {
         player = AVPlayer(playerItem: playerItem)
         self.composition = composition
         self.videoCompositionConfig = videoComposition
+        self.compositionResult = result
 
         logger.debug("Player created successfully with composition")
+    }
+
+    /// Apply video track mutes by rebuilding the video composition
+    public func applyVideoMutes(screenMuted: Bool, cameraMuted: Bool) async {
+        var newMuted: Set<VideoTrackID> = []
+        if screenMuted { newMuted.insert(.screen) }
+        if cameraMuted { newMuted.insert(.camera) }
+
+        guard newMuted != mutedVideoTracks else { return }
+        mutedVideoTracks = newMuted
+
+        guard let project = project,
+              let player = player,
+              let currentItem = player.currentItem,
+              let composition = self.composition as? AVMutableComposition else {
+            return
+        }
+
+        let videoComposition = buildVideoComposition(for: project, composition: composition)
+        self.videoCompositionConfig = videoComposition
+
+        await MainActor.run {
+            currentItem.videoComposition = videoComposition
+        }
+    }
+
+    /// Apply audio mix to the current player item for per-track mute/volume
+    public func applyAudioMix(_ muteState: AudioMixBuilder.TrackMuteState) async {
+        guard let compositionResult = compositionResult,
+              let currentItem = player?.currentItem else { return }
+
+        let audioMix = AudioMixBuilder.buildAudioMix(
+            compositionResult: compositionResult,
+            muteState: muteState
+        )
+
+        await MainActor.run {
+            currentItem.audioMix = audioMix
+        }
     }
 }

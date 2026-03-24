@@ -128,12 +128,8 @@ final class TranscriptionEngineTests: XCTestCase {
     func testTranscribeWithNoAudioSource() async throws {
         // Create project without audio
         let project = Project(
-            schemaVersion: 1,
             projectId: ProjectId(),
             name: "Test Project",
-            tags: [],
-            createdAt: Date(),
-            updatedAt: Date(),
             sources: Project.Sources(
                 syncReference: "screen",
                 screen: Project.Sources.MediaTrack(
@@ -156,9 +152,7 @@ final class TranscriptionEngineTests: XCTestCase {
                 format: Project.Canvas.Format(aspect: "16:9", w: 1920, h: 1080),
                 background: Project.Canvas.Background(type: "solid", value: "#000000", fitMode: "fill"),
                 layout: Project.Canvas.Layout(type: "pip")
-            ),
-            overlays: [],
-            captions: nil
+            )
         )
 
         try await projectStore.saveProject(project)
@@ -183,12 +177,8 @@ final class TranscriptionEngineTests: XCTestCase {
 
         // Create project with mic audio path (file won't exist in test)
         let project = Project(
-            schemaVersion: 1,
             projectId: ProjectId(),
             name: "Test Project",
-            tags: [],
-            createdAt: Date(),
-            updatedAt: Date(),
             sources: Project.Sources(
                 syncReference: "screen",
                 screen: Project.Sources.MediaTrack(
@@ -219,9 +209,7 @@ final class TranscriptionEngineTests: XCTestCase {
                 format: Project.Canvas.Format(aspect: "16:9", w: 1920, h: 1080),
                 background: Project.Canvas.Background(type: "solid", value: "#000000", fitMode: "fill"),
                 layout: Project.Canvas.Layout(type: "pip")
-            ),
-            overlays: [],
-            captions: nil
+            )
         )
 
         try await projectStore.saveProject(project)
@@ -245,12 +233,8 @@ final class TranscriptionEngineTests: XCTestCase {
 
     func testTranscribeWithOptions() async throws {
         let project = Project(
-            schemaVersion: 1,
             projectId: ProjectId(),
             name: "Test Project",
-            tags: [],
-            createdAt: Date(),
-            updatedAt: Date(),
             sources: Project.Sources(
                 syncReference: "screen",
                 screen: Project.Sources.MediaTrack(
@@ -281,9 +265,7 @@ final class TranscriptionEngineTests: XCTestCase {
                 format: Project.Canvas.Format(aspect: "16:9", w: 1920, h: 1080),
                 background: Project.Canvas.Background(type: "solid", value: "#000000", fitMode: "fill"),
                 layout: Project.Canvas.Layout(type: "pip")
-            ),
-            overlays: [],
-            captions: nil
+            )
         )
 
         try await projectStore.saveProject(project)
@@ -309,12 +291,8 @@ final class TranscriptionEngineTests: XCTestCase {
 
     func testSubscribeToTranscriptionJob() async throws {
         let project = Project(
-            schemaVersion: 1,
             projectId: ProjectId(),
             name: "Test Project",
-            tags: [],
-            createdAt: Date(),
-            updatedAt: Date(),
             sources: Project.Sources(
                 syncReference: "screen",
                 screen: Project.Sources.MediaTrack(
@@ -345,9 +323,7 @@ final class TranscriptionEngineTests: XCTestCase {
                 format: Project.Canvas.Format(aspect: "16:9", w: 1920, h: 1080),
                 background: Project.Canvas.Background(type: "solid", value: "#000000", fitMode: "fill"),
                 layout: Project.Canvas.Layout(type: "pip")
-            ),
-            overlays: [],
-            captions: nil
+            )
         )
 
         try await projectStore.saveProject(project)
@@ -382,12 +358,8 @@ final class TranscriptionEngineTests: XCTestCase {
 
     func testCancelTranscriptionJob() async throws {
         let project = Project(
-            schemaVersion: 1,
             projectId: ProjectId(),
             name: "Test Project",
-            tags: [],
-            createdAt: Date(),
-            updatedAt: Date(),
             sources: Project.Sources(
                 syncReference: "screen",
                 screen: Project.Sources.MediaTrack(
@@ -418,9 +390,7 @@ final class TranscriptionEngineTests: XCTestCase {
                 format: Project.Canvas.Format(aspect: "16:9", w: 1920, h: 1080),
                 background: Project.Canvas.Background(type: "solid", value: "#000000", fitMode: "fill"),
                 layout: Project.Canvas.Layout(type: "pip")
-            ),
-            overlays: [],
-            captions: nil
+            )
         )
 
         try await projectStore.saveProject(project)
@@ -1047,12 +1017,8 @@ final class TranscriptionEngineTests: XCTestCase {
         // to transcription job completion (with mock data)
 
         let project = Project(
-            schemaVersion: 1,
             projectId: ProjectId(),
             name: "Test Project",
-            tags: [],
-            createdAt: Date(),
-            updatedAt: Date(),
             sources: Project.Sources(
                 syncReference: "screen",
                 screen: Project.Sources.MediaTrack(
@@ -1083,9 +1049,7 @@ final class TranscriptionEngineTests: XCTestCase {
                 format: Project.Canvas.Format(aspect: "16:9", w: 1920, h: 1080),
                 background: Project.Canvas.Background(type: "solid", value: "#000000", fitMode: "fill"),
                 layout: Project.Canvas.Layout(type: "pip")
-            ),
-            overlays: [],
-            captions: nil
+            )
         )
 
         try await projectStore.saveProject(project)

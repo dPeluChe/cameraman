@@ -19,12 +19,8 @@ final class OverlayEditViewTests: XCTestCase {
 
         // Create a test project
         project = Project(
-            schemaVersion: 1,
             projectId: UUID(),
             name: "Test Project",
-            tags: ["test"],
-            createdAt: Date(),
-            updatedAt: Date(),
             sources: Project.Sources(
                 syncReference: "screen",
                 screen: Project.Sources.MediaTrack(
@@ -90,7 +86,11 @@ final class OverlayEditViewTests: XCTestCase {
                 )
             ),
             overlays: [],
-            captions: nil
+            captions: nil,
+            tags: ["test"],
+            schemaVersion: 1,
+            createdAt: Date(),
+            updatedAt: Date()
         )
 
         editorModel = EditorModel(project: project)
@@ -106,22 +106,23 @@ final class OverlayEditViewTests: XCTestCase {
             start: 5.0,
             end: 10.0,
             transform: Project.Overlay.Transform(x: 0.5, y: 0.5, scale: 1.0, rotation: 0.0),
-            style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 6.0, shadow: true)
+            style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 6.0, shadow: true),
+            animation: nil
         )
 
         // Create a new project with the overlay
         let updatedProject = Project(
-            schemaVersion: project.schemaVersion,
             projectId: project.projectId,
             name: project.name,
-            tags: project.tags,
-            createdAt: project.createdAt,
-            updatedAt: project.updatedAt,
             sources: project.sources,
             timeline: project.timeline,
             canvas: project.canvas,
             overlays: [overlay],
-            captions: project.captions
+            captions: project.captions,
+            tags: project.tags,
+            schemaVersion: project.schemaVersion,
+            createdAt: project.createdAt,
+            updatedAt: project.updatedAt
         )
         await editorModel.setProject(updatedProject)
 
@@ -148,22 +149,23 @@ final class OverlayEditViewTests: XCTestCase {
             start: 10.0,
             end: 20.0,
             transform: Project.Overlay.Transform(x: 0.5, y: 0.5, scale: 1.0, rotation: 0.0),
-            style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 4.0, shadow: true)
+            style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 4.0, shadow: true),
+            animation: nil
         )
 
         // Create a new project with the overlay
         let updatedProject = Project(
-            schemaVersion: project.schemaVersion,
             projectId: project.projectId,
             name: project.name,
-            tags: project.tags,
-            createdAt: project.createdAt,
-            updatedAt: project.updatedAt,
             sources: project.sources,
             timeline: project.timeline,
             canvas: project.canvas,
             overlays: [overlay],
-            captions: project.captions
+            captions: project.captions,
+            tags: project.tags,
+            schemaVersion: project.schemaVersion,
+            createdAt: project.createdAt,
+            updatedAt: project.updatedAt
         )
         await editorModel.setProject(updatedProject)
 
@@ -190,22 +192,23 @@ final class OverlayEditViewTests: XCTestCase {
             start: 5.0,
             end: 10.0,
             transform: Project.Overlay.Transform(x: 0.5, y: 0.5, scale: 1.0, rotation: 0.0),
-            style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 6.0, shadow: true)
+            style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 6.0, shadow: true),
+            animation: nil
         )
 
         // Create a new project with the overlay
         let updatedProject = Project(
-            schemaVersion: project.schemaVersion,
             projectId: project.projectId,
             name: project.name,
-            tags: project.tags,
-            createdAt: project.createdAt,
-            updatedAt: project.updatedAt,
             sources: project.sources,
             timeline: project.timeline,
             canvas: project.canvas,
             overlays: [overlay],
-            captions: project.captions
+            captions: project.captions,
+            tags: project.tags,
+            schemaVersion: project.schemaVersion,
+            createdAt: project.createdAt,
+            updatedAt: project.updatedAt
         )
         await editorModel.setProject(updatedProject)
 
@@ -230,22 +233,23 @@ final class OverlayEditViewTests: XCTestCase {
             start: 10.0,
             end: 20.0,
             transform: Project.Overlay.Transform(x: 0.5, y: 0.5, scale: 1.0, rotation: 0.0),
-            style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 4.0, shadow: true)
+            style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 4.0, shadow: true),
+            animation: nil
         )
 
         // Create a new project with the overlay
         let projectWithOverlay = Project(
-            schemaVersion: project.schemaVersion,
             projectId: project.projectId,
             name: project.name,
-            tags: project.tags,
-            createdAt: project.createdAt,
-            updatedAt: project.updatedAt,
             sources: project.sources,
             timeline: project.timeline,
             canvas: project.canvas,
             overlays: [overlay],
-            captions: project.captions
+            captions: project.captions,
+            tags: project.tags,
+            schemaVersion: project.schemaVersion,
+            createdAt: project.createdAt,
+            updatedAt: project.updatedAt
         )
         await editorModel.setProject(projectWithOverlay)
 
@@ -270,22 +274,23 @@ final class OverlayEditViewTests: XCTestCase {
             start: 15.0,
             end: 25.0,
             transform: Project.Overlay.Transform(x: 0.5, y: 0.5, scale: 1.0, rotation: 0.0),
-            style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 4.0, shadow: true)
+            style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 4.0, shadow: true),
+            animation: nil
         )
 
         // Create a new project with the overlay
         let projectWithOverlay = Project(
-            schemaVersion: project.schemaVersion,
             projectId: project.projectId,
             name: project.name,
-            tags: project.tags,
-            createdAt: project.createdAt,
-            updatedAt: project.updatedAt,
             sources: project.sources,
             timeline: project.timeline,
             canvas: project.canvas,
             overlays: [overlay],
-            captions: project.captions
+            captions: project.captions,
+            tags: project.tags,
+            schemaVersion: project.schemaVersion,
+            createdAt: project.createdAt,
+            updatedAt: project.updatedAt
         )
         await editorModel.setProject(projectWithOverlay)
 
@@ -316,7 +321,8 @@ final class OverlayEditViewTests: XCTestCase {
             start: 5.0,
             end: 10.0,
             transform: Project.Overlay.Transform(x: 0.5, y: 0.5, scale: 1.0, rotation: 0.0),
-            style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 6.0, shadow: true)
+            style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 6.0, shadow: true),
+            animation: nil
         )
 
         let overlay2 = Project.Overlay(
@@ -325,22 +331,23 @@ final class OverlayEditViewTests: XCTestCase {
             start: 10.0,
             end: 20.0,
             transform: Project.Overlay.Transform(x: 0.6, y: 0.6, scale: 1.0, rotation: 0.0),
-            style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 4.0, shadow: true)
+            style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 4.0, shadow: true),
+            animation: nil
         )
 
         // Create a new project with overlays
         let projectWithOverlays = Project(
-            schemaVersion: project.schemaVersion,
             projectId: project.projectId,
             name: project.name,
-            tags: project.tags,
-            createdAt: project.createdAt,
-            updatedAt: project.updatedAt,
             sources: project.sources,
             timeline: project.timeline,
             canvas: project.canvas,
             overlays: [overlay1, overlay2],
-            captions: project.captions
+            captions: project.captions,
+            tags: project.tags,
+            schemaVersion: project.schemaVersion,
+            createdAt: project.createdAt,
+            updatedAt: project.updatedAt
         )
         await editorModel.setProject(projectWithOverlays)
 
@@ -367,22 +374,23 @@ final class OverlayEditViewTests: XCTestCase {
             start: 5.0,
             end: 10.0,
             transform: Project.Overlay.Transform(x: 0.5, y: 0.5, scale: 1.0, rotation: 0.0),
-            style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 6.0, shadow: true)
+            style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 6.0, shadow: true),
+            animation: nil
         )
 
         // Create a new project with the overlay
         let projectWithOverlay = Project(
-            schemaVersion: project.schemaVersion,
             projectId: project.projectId,
             name: project.name,
-            tags: project.tags,
-            createdAt: project.createdAt,
-            updatedAt: project.updatedAt,
             sources: project.sources,
             timeline: project.timeline,
             canvas: project.canvas,
             overlays: [overlay],
-            captions: project.captions
+            captions: project.captions,
+            tags: project.tags,
+            schemaVersion: project.schemaVersion,
+            createdAt: project.createdAt,
+            updatedAt: project.updatedAt
         )
         await editorModel.setProject(projectWithOverlay)
 
@@ -453,22 +461,23 @@ final class OverlayEditViewTests: XCTestCase {
             start: 5.0,
             end: 10.0,
             transform: Project.Overlay.Transform(x: 0.5, y: 0.5, scale: 1.0, rotation: 0.0),
-            style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 6.0, shadow: true)
+            style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 6.0, shadow: true),
+            animation: nil
         )
 
         // Create a new project with the overlay
         let projectWithOverlay = Project(
-            schemaVersion: project.schemaVersion,
             projectId: project.projectId,
             name: project.name,
-            tags: project.tags,
-            createdAt: project.createdAt,
-            updatedAt: project.updatedAt,
             sources: project.sources,
             timeline: project.timeline,
             canvas: project.canvas,
             overlays: [overlay],
-            captions: project.captions
+            captions: project.captions,
+            tags: project.tags,
+            schemaVersion: project.schemaVersion,
+            createdAt: project.createdAt,
+            updatedAt: project.updatedAt
         )
         await editorModel.setProject(projectWithOverlay)
 
@@ -498,22 +507,23 @@ final class OverlayEditViewTests: XCTestCase {
             start: 5.0,
             end: 10.0,
             transform: Project.Overlay.Transform(x: 0.5, y: 0.5, scale: 1.0, rotation: 0.0),
-            style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 6.0, shadow: true)
+            style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 6.0, shadow: true),
+            animation: nil
         )
 
         // Create a new project with the overlay
         let projectWithOverlay = Project(
-            schemaVersion: project.schemaVersion,
             projectId: project.projectId,
             name: project.name,
-            tags: project.tags,
-            createdAt: project.createdAt,
-            updatedAt: project.updatedAt,
             sources: project.sources,
             timeline: project.timeline,
             canvas: project.canvas,
             overlays: [overlay],
-            captions: project.captions
+            captions: project.captions,
+            tags: project.tags,
+            schemaVersion: project.schemaVersion,
+            createdAt: project.createdAt,
+            updatedAt: project.updatedAt
         )
         await editorModel.setProject(projectWithOverlay)
 

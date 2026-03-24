@@ -263,3 +263,59 @@ extension ProjectEditor {
         return true
     }
 }
+
+// MARK: - Media Item Operations
+
+extension ProjectEditor {
+    func addMediaItem(_ item: Project.MediaItem) async {
+        let previousProject = project
+        var updatedProject = project
+        updatedProject.mediaItems.append(item)
+        updatedProject.updatedAt = Date()
+
+        await setEditorProject(updatedProject)
+        recordUndo(previousProject)
+        project = updatedProject
+    }
+
+    func removeMediaItem(id: UUID) async {
+        let previousProject = project
+        var updatedProject = project
+        updatedProject.mediaItems.removeAll { $0.id == id }
+        updatedProject.updatedAt = Date()
+
+        await setEditorProject(updatedProject)
+        recordUndo(previousProject)
+        project = updatedProject
+    }
+
+    func updateMediaItem(
+        id: UUID,
+        timelineIn: TimeInterval? = nil,
+        duration: TimeInterval? = nil,
+        volume: Double? = nil,
+        opacity: Double? = nil,
+        position: Project.MediaPosition? = nil,
+        isMuted: Bool? = nil,
+        name: String? = nil
+    ) async {
+        let previousProject = project
+        var updatedProject = project
+
+        guard let index = updatedProject.mediaItems.firstIndex(where: { $0.id == id }) else { return }
+
+        if let t = timelineIn { updatedProject.mediaItems[index].timelineIn = t }
+        if let d = duration { updatedProject.mediaItems[index].duration = d }
+        if let v = volume { updatedProject.mediaItems[index].volume = v }
+        if let o = opacity { updatedProject.mediaItems[index].opacity = o }
+        if let p = position { updatedProject.mediaItems[index].position = p }
+        if let m = isMuted { updatedProject.mediaItems[index].isMuted = m }
+        if let n = name { updatedProject.mediaItems[index].name = n }
+
+        updatedProject.updatedAt = Date()
+
+        await setEditorProject(updatedProject)
+        recordUndo(previousProject)
+        project = updatedProject
+    }
+}

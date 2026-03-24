@@ -20,8 +20,7 @@ extension Notification.Name {
 struct PreviewPlayerView: View {
     @ObservedObject var editor: ProjectEditor
     let projectDirectory: URL?
-
-    @StateObject private var viewModel = PreviewPlayerViewModel()
+    @ObservedObject var viewModel: PreviewPlayerViewModel
 
     private var project: Project? { editor.project }
 
@@ -79,9 +78,6 @@ struct PreviewPlayerView: View {
             viewModel.togglePlayPause()
         }
     }
-
-    /// Expose viewModel for parent views (e.g., Space bar shortcut)
-    var playerViewModel: PreviewPlayerViewModel { viewModel }
 }
 
 private struct PlaybackControlsView: View {

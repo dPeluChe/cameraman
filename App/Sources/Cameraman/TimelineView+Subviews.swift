@@ -54,6 +54,31 @@ struct TimelineTrackRow: View {
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .fill(Color.primary.opacity(0.06))
 
+            // Render media items (for additional audio / image tracks)
+            ForEach(track.mediaItems) { item in
+                let width = layout.segmentWidth(for: item.duration)
+                let xPosition = layout.xPosition(for: item.timelineIn) - layout.labelWidth
+
+                VStack(spacing: 1) {
+                    Text(item.name)
+                        .font(.system(size: 8))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .padding(.horizontal, 3)
+                }
+                .frame(width: width, height: height - 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(track.color)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .stroke(Color.white.opacity(0.4), lineWidth: 1)
+                )
+                .opacity(item.isMuted || isMuted ? 0.3 : 1.0)
+                .offset(x: xPosition)
+            }
+
             ForEach(track.segments) { segment in
                 let isSelected = segment.id == selectedSegmentId
                 let width = layout.segmentWidth(for: segment.timelineDuration)

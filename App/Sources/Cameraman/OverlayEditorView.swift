@@ -25,14 +25,43 @@ struct OverlayEditorView: View {
     let availableTools: [OverlayTool] = [.arrow, .rect, .line, .text]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Toolbar
+        VStack(alignment: .leading, spacing: 10) {
+            // Toolbar (add overlay buttons)
             toolbar
 
-            Divider()
-
-            // Canvas with overlays
-            overlayCanvas
+            // List of existing overlays
+            if editor.project.overlays.isEmpty {
+                Text("No overlays yet. Use the tools above to add.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+            } else {
+                VStack(spacing: 4) {
+                    ForEach(editor.project.overlays) { overlay in
+                        HStack {
+                            Image(systemName: overlayIcon(overlay.type))
+                                .font(.caption)
+                                .frame(width: 16)
+                            Text(overlay.type.rawValue.capitalized)
+                                .font(.caption)
+                            Spacer()
+                            Text("\(String(format: "%.1f", overlay.start))s - \(String(format: "%.1f", overlay.end))s")
+                                .font(.system(size: 9, design: .monospaced))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(selectedOverlayId == overlay.id ? Color.accentColor.opacity(0.15) : Color.clear)
+                        )
+                        .onTapGesture {
+                            selectedOverlayId = overlay.id
+                        }
+                    }
+                }
+            }
 
             // Style inspector (when overlay is selected)
             if let overlayId = selectedOverlayId,
@@ -41,7 +70,14 @@ struct OverlayEditorView: View {
                 styleInspector(for: overlay)
             }
         }
-        .padding(16)
-        .background(Color(NSColor.controlBackgroundColor))
+    }
+
+    private func overlayIcon(_ type: Project.Overlay.OverlayType) -> String {
+        switch type {
+        case .arrow: return "arrow.up.right"
+        case .rect: return "rectangle"
+        case .line: return "line.diagonal"
+        case .text: return "textformat"
+        }
     }
 }

@@ -81,17 +81,11 @@ final class ThumbnailCacheTests: XCTestCase {
         )
 
         return Project(
-            schemaVersion: 1,
             projectId: UUID(),
             name: "Test Project",
-            tags: [],
-            createdAt: Date(),
-            updatedAt: Date(),
             sources: sources,
             timeline: timeline,
-            canvas: canvas,
-            overlays: [],
-            captions: nil
+            canvas: canvas
         )
     }
 
@@ -522,15 +516,11 @@ final class ThumbnailCacheTests: XCTestCase {
         )
 
         let projectWithAudio = Project(
-            schemaVersion: baseProject.schemaVersion,
             projectId: baseProject.projectId,
             name: baseProject.name,
-            tags: baseProject.tags,
-            createdAt: baseProject.createdAt,
-            updatedAt: baseProject.updatedAt,
             sources: Project.Sources(
                 syncReference: "screen",
-                screen: baseProject.sources.screen,
+                screen: baseProject.sources!.screen,
                 camera: nil,
                 audio: Project.Sources.AudioTracks(system: systemAudio, mic: micAudio),
                 telemetry: nil
@@ -538,7 +528,11 @@ final class ThumbnailCacheTests: XCTestCase {
             timeline: baseProject.timeline,
             canvas: baseProject.canvas,
             overlays: baseProject.overlays,
-            captions: baseProject.captions
+            captions: baseProject.captions,
+            tags: baseProject.tags,
+            schemaVersion: baseProject.schemaVersion,
+            createdAt: baseProject.createdAt,
+            updatedAt: baseProject.updatedAt
         )
 
         await thumbnailCache.setProject(projectWithAudio, projectDirectory: tempDirectory)

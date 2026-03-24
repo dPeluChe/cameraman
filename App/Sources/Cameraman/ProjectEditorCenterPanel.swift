@@ -10,6 +10,7 @@ import EngineKit
 
 struct CenterPanel: View {
     @ObservedObject var viewModel: ProjectEditorViewModel
+    @ObservedObject var playerViewModel: PreviewPlayerViewModel
     @Binding var showExportModal: Bool
     @Binding var showTranscriptionModal: Bool
 
@@ -32,7 +33,8 @@ struct CenterPanel: View {
                    let projectDir = viewModel.projectDirectory {
                     PreviewPlayerView(
                         editor: editor,
-                        projectDirectory: projectDir
+                        projectDirectory: projectDir,
+                        viewModel: playerViewModel
                     )
                 } else if viewModel.isLoading {
                     ProgressView()
@@ -46,8 +48,9 @@ struct CenterPanel: View {
             if let editor = viewModel.editor {
                 TimelineView(
                     editor: editor,
-                    playheadTime: $viewModel.playheadTime,
-                    projectDirectory: viewModel.projectDirectory
+                    playerViewModel: playerViewModel,
+                    projectDirectory: viewModel.projectDirectory,
+                    mutedTracks: $viewModel.mutedTracks
                 )
                 .frame(height: 250)
             } else {
@@ -78,6 +81,9 @@ struct CenterPanel: View {
         .onKeyPress(.space) {
             NotificationCenter.default.post(name: .togglePlayPause, object: nil)
             return .handled
+        }
+        .onChange(of: viewModel.mutedTracks) { _, newValue in
+            playerViewModel.applyTrackMutes(mutedTracks: newValue)
         }
     }
 }

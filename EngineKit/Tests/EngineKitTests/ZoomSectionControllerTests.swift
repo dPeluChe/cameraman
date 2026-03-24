@@ -20,12 +20,8 @@ final class ZoomSectionControllerTests: XCTestCase {
 
         // Create a mock project with multiple segments
         mockProject = Project(
-            schemaVersion: 1,
             projectId: ProjectId(),
             name: "Test Project",
-            tags: ["test"],
-            createdAt: Date(),
-            updatedAt: Date(),
             sources: Project.Sources(
                 syncReference: "screen",
                 screen: Project.Sources.MediaTrack(

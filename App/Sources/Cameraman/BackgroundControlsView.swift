@@ -56,48 +56,39 @@ struct BackgroundControlsView: View {
 
     @ViewBuilder
     private var solidColorControls: some View {
-        HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             // Color preview button
             Button {
                 colorPickerPresented = true
             } label: {
                 HStack(spacing: 8) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
-                            .fill(selectedColor)
-                            .frame(width: 32, height: 32)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                    .stroke(Color.primary.opacity(0.2), lineWidth: 1)
-                            )
-
-                        Image(systemName: "eyedropper")
-                            .font(.caption)
-                            .foregroundStyle(
-                                selectedColor.isDark ? .white : .primary
-                            )
-                            .shadow(color: .black.opacity(0.3), radius: 2)
-                    }
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(selectedColor)
+                        .frame(width: 24, height: 24)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .stroke(Color.primary.opacity(0.2), lineWidth: 1)
+                        )
 
                     Text(background.value.isEmpty ? "Pick Color" : background.value)
-                        .font(.subheadline)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
 
                     Spacer()
 
-                    Image(systemName: "chevron.down")
+                    Image(systemName: "eyedropper")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
                 .background(Color.primary.opacity(0.05))
-                .cornerRadius(8)
+                .cornerRadius(6)
             }
             .buttonStyle(.plain)
 
-            // Quick color presets
-            HStack(spacing: 6) {
+            // Quick color presets (wrapped grid)
+            LazyVGrid(columns: Array(repeating: GridItem(.fixed(22), spacing: 4), count: 8), spacing: 4) {
                 ForEach(quickColors, id: \.self) { hex in
                     Button {
                         Task {
@@ -107,7 +98,7 @@ struct BackgroundControlsView: View {
                     } label: {
                         Circle()
                             .fill(Color(hex: hex))
-                            .frame(width: 24, height: 24)
+                            .frame(width: 20, height: 20)
                             .overlay(
                                 Circle()
                                     .stroke(Color.primary.opacity(0.2), lineWidth: 1)

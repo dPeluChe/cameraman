@@ -19,26 +19,27 @@ struct BackgroundTypeButton: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 6) {
+            VStack(spacing: 3) {
                 Image(systemName: type.backgroundIcon)
-                    .font(.title3)
+                    .font(.system(size: 14))
                     .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
 
-                Text(type.backgroundDisplayName)
-                    .font(.caption)
-                    .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
+                Text(type.backgroundShortName)
+                    .font(.system(size: 9))
+                    .lineLimit(1)
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
+            .padding(.vertical, 8)
             .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(isSelected ? Color.accentColor.opacity(0.1) : Color.primary.opacity(0.05))
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(isSelected ? Color.accentColor.opacity(0.15) : Color.primary.opacity(0.04))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .strokeBorder(
-                        isSelected ? Color.accentColor : Color.primary.opacity(0.15),
-                        lineWidth: isSelected ? 2 : 1
+                        isSelected ? Color.accentColor : Color.primary.opacity(0.1),
+                        lineWidth: isSelected ? 1.5 : 0.5
                     )
             )
         }
@@ -145,6 +146,14 @@ extension CanvasLayout.BackgroundType {
 
     var backgroundDisplayName: String {
         displayName
+    }
+
+    var backgroundShortName: String {
+        switch self {
+        case .solid: return "Color"
+        case .image: return "Image"
+        case .blur: return "Blur"
+        }
     }
 }
 

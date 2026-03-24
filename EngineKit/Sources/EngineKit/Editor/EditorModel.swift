@@ -397,22 +397,7 @@ public actor EditorModel {
 
         project.overlays[index] = overlay
 
-        // Update project timestamp
-        project = Project(
-            projectId: project.projectId,
-            name: project.name,
-            sources: project.sources,
-            takes: project.takes,
-            timeline: project.timeline,
-            canvas: project.canvas,
-            overlays: project.overlays,
-            chapters: project.chapters,
-            captions: project.captions,
-            tags: project.tags,
-            schemaVersion: project.schemaVersion,
-            createdAt: project.createdAt,
-            updatedAt: Date()
-        )
+        project.updatedAt = Date()
 
         return .success(project)
     }
@@ -432,23 +417,54 @@ public actor EditorModel {
 
         project.overlays.removeAll { $0.id == overlayId }
 
-        // Update project timestamp
-        project = Project(
-            projectId: project.projectId,
-            name: project.name,
-            sources: project.sources,
-            takes: project.takes,
-            timeline: project.timeline,
-            canvas: project.canvas,
-            overlays: project.overlays,
-            chapters: project.chapters,
-            captions: project.captions,
-            tags: project.tags,
-            schemaVersion: project.schemaVersion,
-            createdAt: project.createdAt,
-            updatedAt: Date()
-        )
+        project.updatedAt = Date()
 
+        return .success(project)
+    }
+
+    // MARK: - Media Item Operations
+
+    /// Add an imported media item to the project
+    public func addMediaItem(_ item: Project.MediaItem) async -> EditorResult {
+        project.mediaItems.append(item)
+        project.updatedAt = Date()
+        return .successWithInfo(project, .mediaItemAdded(mediaItemId: item.id))
+    }
+
+    /// Remove a media item from the project
+    public func removeMediaItem(id: UUID) async -> EditorResult {
+        guard project.mediaItems.contains(where: { $0.id == id }) else {
+            return .failure(.mediaItemNotFound(id.uuidString))
+        }
+        project.mediaItems.removeAll { $0.id == id }
+        project.updatedAt = Date()
+        return .success(project)
+    }
+
+    /// Update a media item's properties
+    public func updateMediaItem(
+        id: UUID,
+        timelineIn: TimeInterval? = nil,
+        duration: TimeInterval? = nil,
+        volume: Double? = nil,
+        opacity: Double? = nil,
+        position: Project.MediaPosition? = nil,
+        isMuted: Bool? = nil,
+        name: String? = nil
+    ) async -> EditorResult {
+        guard let index = project.mediaItems.firstIndex(where: { $0.id == id }) else {
+            return .failure(.mediaItemNotFound(id.uuidString))
+        }
+
+        if let t = timelineIn { project.mediaItems[index].timelineIn = t }
+        if let d = duration { project.mediaItems[index].duration = d }
+        if let v = volume { project.mediaItems[index].volume = v }
+        if let o = opacity { project.mediaItems[index].opacity = o }
+        if let p = position { project.mediaItems[index].position = p }
+        if let m = isMuted { project.mediaItems[index].isMuted = m }
+        if let n = name { project.mediaItems[index].name = n }
+
+        project.updatedAt = Date()
         return .success(project)
     }
 }

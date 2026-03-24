@@ -162,6 +162,7 @@ final class PreviewPlayerViewModel: ObservableObject {
         showCursor = false
         showClicks = false
         showKeystrokes = false
+        lastMuteState = nil
     }
 
     func togglePlayPause() {
@@ -292,6 +293,31 @@ final class PreviewPlayerViewModel: ObservableObject {
     private func clampTime(_ seconds: Double) -> Double {
         guard duration > 0 else { return max(0, seconds) }
         return min(max(0, seconds), duration)
+    }
+
+    // MARK: - Audio Mix
+
+    private var lastMuteState: AudioMixBuilder.TrackMuteState?
+
+    func applyTrackMutes(mutedTracks: Set<TimelineTrackKind>) {
+        guard let engine = previewEngine else { return }
+
+        let audioMuteState = AudioMixBuilder.TrackMuteState(
+            systemAudioMuted: mutedTracks.contains(.systemAudio),
+            micAudioMuted: mutedTracks.contains(.micAudio)
+        )
+        let audioChanged = audioMuteState != lastMuteState
+        if audioChanged { lastMuteState = audioMuteState }
+
+        let screenMuted = mutedTracks.contains(.screen)
+        let cameraMuted = mutedTracks.contains(.camera)
+
+        Task {
+            if audioChanged {
+                await engine.applyAudioMix(audioMuteState)
+            }
+            await engine.applyVideoMutes(screenMuted: screenMuted, cameraMuted: cameraMuted)
+        }
     }
 
     nonisolated deinit {

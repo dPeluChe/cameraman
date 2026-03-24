@@ -125,6 +125,10 @@ public struct ExportOptions: Equatable, Sendable {
     public let applyZoom: Bool
     /// Zoom plan to use for export (optional, will be loaded from project if not provided)
     public let zoomPlan: ZoomPlanGenerator.ZoomPlan?
+    /// Audio mute state for per-track mute/volume during export
+    public let audioMuteState: AudioMixBuilder.TrackMuteState?
+    /// Video mute state for hiding screen/camera during export
+    public let videoMuteState: VideoMuteState?
 
     public init(
         burnCaptions: Bool = false,
@@ -132,7 +136,9 @@ public struct ExportOptions: Equatable, Sendable {
         outputFilename: String? = nil,
         gifOptions: GIFExportOptions? = nil,
         applyZoom: Bool = true,
-        zoomPlan: ZoomPlanGenerator.ZoomPlan? = nil
+        zoomPlan: ZoomPlanGenerator.ZoomPlan? = nil,
+        audioMuteState: AudioMixBuilder.TrackMuteState? = nil,
+        videoMuteState: VideoMuteState? = nil
     ) {
         self.burnCaptions = burnCaptions
         self.includeCursorHighlight = includeCursorHighlight
@@ -140,12 +146,25 @@ public struct ExportOptions: Equatable, Sendable {
         self.gifOptions = gifOptions
         self.applyZoom = applyZoom
         self.zoomPlan = zoomPlan
+        self.audioMuteState = audioMuteState
+        self.videoMuteState = videoMuteState
     }
 
     public static let `default` = ExportOptions()
 
     /// Export options with zoom disabled
     public static let noZoom = ExportOptions(applyZoom: false)
+}
+
+/// Video track mute state for export
+public struct VideoMuteState: Equatable, Sendable {
+    public let screenMuted: Bool
+    public let cameraMuted: Bool
+
+    public init(screenMuted: Bool = false, cameraMuted: Bool = false) {
+        self.screenMuted = screenMuted
+        self.cameraMuted = cameraMuted
+    }
 }
 
 // MARK: - GIF Export Options

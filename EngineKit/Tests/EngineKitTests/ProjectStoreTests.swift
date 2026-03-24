@@ -49,7 +49,7 @@ final class ProjectStoreTests: XCTestCase {
         let project = try await sut.loadProject(projectId: projectId)
         XCTAssertEqual(project.name, testName)
         XCTAssertEqual(project.tags, testTags)
-        XCTAssertEqual(project.sources.screen.path, "sources/screen.mov")
+        XCTAssertEqual(project.sources?.screen.path, "sources/screen.mov")
         XCTAssertEqual(project.timeline.duration, 120.0)
     }
 

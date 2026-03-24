@@ -1,6 +1,6 @@
 # Backlog de Tareas Pendientes
 
-> Actualizado: 2026-03-20 (sesion final)
+> Actualizado: 2026-03-24
 > Solo features y mejoras NO implementadas. Para trabajo completado ver `TASK_COMPLETED/`.
 
 ---
@@ -9,23 +9,11 @@
 
 - [x] ~~**Export no incluye cambios de PiP editados**~~ RESUELTO: save before export + MaskedVideoCompositor en export
 
-- [ ] **Sidebar overflow al abrir Background/Zoom/Overlays:**
-    - Los controles de Background (Solid Color, Image, Blurred Screen + paleta de colores) se salen del panel de 260px.
-    - Necesita: redisenar controles para layout compacto vertical.
-    - Overlays canvas editor tambien desborda.
+- [x] ~~**Sidebar overflow al abrir Background/Zoom/Overlays**~~ RESUELTO: layout compacto vertical, controles redimensionados
 
-- [ ] **Timeline no funcional (PRIORIDAD ALTA):**
-    - Split: no genera segmentos separados visualmente ni en el modelo
-    - Delete: no elimina segmentos seleccionados
-    - Canales: eye toggles son solo visuales, no afectan preview/export
-    - No se puede desfasar tracks entre si
-    - No se puede agregar assets/tracks adicionales
-    - Playhead no sincroniza con preview al hacer click en timeline
-    - Necesita: conectar TimelineView actions al EditorModel + CompositionBuilder
+- [x] ~~**Timeline no funcional**~~ RESUELTO: playhead sync bidireccional, split/delete/trim conectados, import de assets
 
-- [ ] **Track mute toggles no afectan playback:**
-    - Toggles solo visuales en timeline. No silencian audio ni ocultan video.
-    - Necesita: AVMutableAudioMix para mute por track de audio.
+- [x] ~~**Track mute toggles no afectan playback**~~ RESUELTO: AVMutableAudioMix para audio + video composition rebuild para video. Funciona en preview y export.
 
 - [ ] **Mic audio no se graba a veces:**
     - Primera grabacion puede no tener mic audio ("No mic audio track available").
@@ -55,8 +43,7 @@
 - [ ] **Concurrencia estricta (Swift 6):**
     - Refactorizar para `@MainActor` y `Sendable` estricto en EngineKit.
 
-- [ ] **Reparacion de tests unitarios:**
-    - Tests no compilan tras cambios de API.
+- [x] ~~**Reparacion de tests unitarios**~~ RESUELTO: tests actualizados para nueva API de Project init + mediaItems.
 
 - [ ] **Validacion de performance (larga duracion):**
     - No probado con videos > 1 hora.
@@ -69,6 +56,10 @@
 
 ## 3. Features del Editor (Prioridad Media)
 
+- [ ] **Drag para reposicionar media items en timeline:**
+    - Actualmente se insertan al playhead; falta drag para moverlos.
+- [ ] **Image overlays visibles en preview/export:**
+    - MediaItem tipo image se importa pero no se renderiza aun (necesita CALayer + animationTool).
 - [ ] **Reordenar segmentos en timeline (v1.1)**
 - [ ] **Speed presets en timeline (v1.1):** UI para cambiar velocidad por segmento
 - [ ] **Background blur (v1.1)**
@@ -76,6 +67,7 @@
 - [ ] **Duplicar proyecto**
 - [ ] **Export formato `.txt` para transcript**
 - [ ] **Thumbnails al hover en scrubber del preview**
+- [ ] **Volume slider por track (en vez de solo mute on/off)**
 
 ## 4. Infraestructura y Distribucion (Prioridad Baja)
 

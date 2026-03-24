@@ -35,10 +35,35 @@ public struct Project: Codable, Equatable {
     public var captions: Captions?
     /// Chapter markers for video navigation
     public var chapters: [Chapter]
+    /// Imported media assets (audio, images) placed on the timeline
+    public var mediaItems: [MediaItem]
 
     /// Helper to access sources from V1 (legacy) or V2 (first take)
     public var primarySources: Sources? {
         sources ?? takes.first?.sources
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case schemaVersion, projectId, name, tags, createdAt, updatedAt
+        case sources, takes, timeline, canvas, overlays, captions, chapters, mediaItems
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try container.decode(Int.self, forKey: .schemaVersion)
+        projectId = try container.decode(ProjectId.self, forKey: .projectId)
+        name = try container.decode(String.self, forKey: .name)
+        tags = try container.decodeIfPresent([String].self, forKey: .tags) ?? []
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+        sources = try container.decodeIfPresent(Sources.self, forKey: .sources)
+        takes = try container.decodeIfPresent([Take].self, forKey: .takes) ?? []
+        timeline = try container.decode(Timeline.self, forKey: .timeline)
+        canvas = try container.decode(Canvas.self, forKey: .canvas)
+        overlays = try container.decodeIfPresent([Overlay].self, forKey: .overlays) ?? []
+        captions = try container.decodeIfPresent(Captions.self, forKey: .captions)
+        chapters = try container.decodeIfPresent([Chapter].self, forKey: .chapters) ?? []
+        mediaItems = try container.decodeIfPresent([MediaItem].self, forKey: .mediaItems) ?? []
     }
 
     public init(
@@ -54,7 +79,8 @@ public struct Project: Codable, Equatable {
         tags: [String] = [],
         schemaVersion: Int = 1,
         createdAt: Date = Date(),
-        updatedAt: Date = Date()
+        updatedAt: Date = Date(),
+        mediaItems: [MediaItem] = []
     ) {
         self.projectId = projectId
         self.name = name
@@ -69,6 +95,7 @@ public struct Project: Codable, Equatable {
         self.schemaVersion = schemaVersion
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.mediaItems = mediaItems
     }
 
 }

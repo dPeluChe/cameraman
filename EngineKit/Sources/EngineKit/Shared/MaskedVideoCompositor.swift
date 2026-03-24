@@ -30,6 +30,7 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
     let maskShape: PiPMaskShape
     let cornerRadius: CGFloat
     let layoutType: String
+    let screenMuted: Bool
 
     init(
         timeRange: CMTimeRange,
@@ -41,7 +42,8 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         cameraRect: CGRect?,
         maskShape: PiPMaskShape,
         cornerRadius: CGFloat,
-        layoutType: String
+        layoutType: String,
+        screenMuted: Bool = false
     ) {
         self.timeRange = timeRange
         self.screenTrackID = screenTrackID
@@ -53,6 +55,7 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         self.maskShape = maskShape
         self.cornerRadius = cornerRadius
         self.layoutType = layoutType
+        self.screenMuted = screenMuted
         super.init()
 
         var trackIDs: [NSValue] = [screenTrackID as NSValue]
@@ -97,18 +100,19 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
 
         let renderSize = instruction.renderSize
 
-        // Get screen frame
-        guard let screenBuffer = request.sourceFrame(byTrackID: instruction.screenTrackID) else {
-            request.finish(withComposedVideoFrame: outputBuffer)
-            return
+        // Compose final image: black background when screen is muted, otherwise screen frame
+        var finalImage: CIImage
+        if instruction.screenMuted {
+            finalImage = CIImage(color: .black).cropped(to: CGRect(origin: .zero, size: renderSize))
+        } else {
+            guard let screenBuffer = request.sourceFrame(byTrackID: instruction.screenTrackID) else {
+                request.finish(withComposedVideoFrame: outputBuffer)
+                return
+            }
+            let screenImage = CIImage(cvPixelBuffer: screenBuffer)
+                .transformed(by: instruction.screenTransform)
+            finalImage = screenImage.cropped(to: CGRect(origin: .zero, size: renderSize))
         }
-
-        // Create CIImage from screen
-        let screenImage = CIImage(cvPixelBuffer: screenBuffer)
-            .transformed(by: instruction.screenTransform)
-
-        // Compose final image
-        var finalImage = screenImage.cropped(to: CGRect(origin: .zero, size: renderSize))
 
         // Add camera if available
         if let camTrackID = instruction.cameraTrackID,

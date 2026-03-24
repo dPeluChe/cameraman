@@ -31,6 +31,8 @@ public struct CompositionBuilder {
         public let systemAudioTrack: AVMutableCompositionTrack?
         /// Microphone audio track (nil if no mic audio)
         public let micAudioTrack: AVMutableCompositionTrack?
+        /// Additional audio tracks from imported media items
+        public let additionalAudioTracks: [(track: AVMutableCompositionTrack, mediaItem: Project.MediaItem)]
     }
 
     /// Configuration for how to resolve source file paths
@@ -115,12 +117,20 @@ public struct CompositionBuilder {
             cancellationCheck: cancellationCheck
         )
 
+        // 5. Build additional audio tracks from imported media items
+        let additionalAudioTracks = await buildAdditionalAudioTracks(
+            into: composition,
+            mediaItems: project.mediaItems.filter { $0.type == .audio && !$0.isMuted },
+            resolver: resolver
+        )
+
         return Result(
             composition: composition,
             videoTrack: videoTrack,
             cameraTrack: cameraTrack,
             systemAudioTrack: systemAudioTrack,
-            micAudioTrack: micAudioTrack
+            micAudioTrack: micAudioTrack,
+            additionalAudioTracks: additionalAudioTracks
         )
     }
 
@@ -345,6 +355,59 @@ public struct CompositionBuilder {
 
         logger.debug("\(trackLabel) track built successfully")
         return audioTrack
+    }
+
+    // MARK: - Additional Audio Tracks (Imported Media)
+
+    private func buildAdditionalAudioTracks(
+        into composition: AVMutableComposition,
+        mediaItems: [Project.MediaItem],
+        resolver: SourceResolver
+    ) async -> [(track: AVMutableCompositionTrack, mediaItem: Project.MediaItem)] {
+        var result: [(track: AVMutableCompositionTrack, mediaItem: Project.MediaItem)] = []
+
+        for item in mediaItems {
+            let audioURL = resolver.projectDirectory.appendingPathComponent(item.path)
+
+            guard fileManager.fileExists(atPath: audioURL.path) else {
+                logger.warning("Additional audio file not found: \(audioURL.path)")
+                continue
+            }
+
+            let audioAsset = AVAsset(url: audioURL)
+
+            do {
+                let audioAssetTracks = try await audioAsset.loadTracks(withMediaType: .audio)
+                guard let sourceTrack = audioAssetTracks.first else {
+                    logger.warning("No audio data in imported file: \(item.name)")
+                    continue
+                }
+
+                guard let compositionTrack = composition.addMutableTrack(
+                    withMediaType: .audio,
+                    preferredTrackID: kCMPersistentTrackID_Invalid
+                ) else {
+                    logger.warning("Failed to create composition track for: \(item.name)")
+                    continue
+                }
+
+                let insertTime = CMTime(seconds: item.timelineIn, preferredTimescale: 600)
+                let duration = CMTime(seconds: item.duration, preferredTimescale: 600)
+
+                try compositionTrack.insertTimeRange(
+                    CMTimeRangeMake(start: .zero, duration: duration),
+                    of: sourceTrack,
+                    at: insertTime
+                )
+
+                logger.debug("Additional audio '\(item.name)' inserted at \(item.timelineIn)s, duration \(item.duration)s")
+                result.append((track: compositionTrack, mediaItem: item))
+            } catch {
+                logger.error("Failed to insert additional audio '\(item.name)': \(error.localizedDescription)")
+            }
+        }
+
+        return result
     }
 
     // MARK: - Helpers

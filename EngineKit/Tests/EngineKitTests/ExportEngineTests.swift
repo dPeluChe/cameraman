@@ -423,12 +423,8 @@ final class ExportEngineTests: XCTestCase {
         let duration = segments.reduce(0.0) { max($0, $1.timelineIn + ($1.sourceOut - $1.sourceIn) / $1.speed) }
 
         return Project(
-            schemaVersion: 1,
             projectId: projectId,
             name: "Test Project",
-            tags: [],
-            createdAt: Date(),
-            updatedAt: Date(),
             sources: Project.Sources(
                 syncReference: "screen",
                 screen: Project.Sources.MediaTrack(
@@ -451,9 +447,7 @@ final class ExportEngineTests: XCTestCase {
                 format: Project.Canvas.Format(aspect: "16:9", w: 1920, h: 1080),
                 background: Project.Canvas.Background(type: "solid", value: "#0B0B0D", fitMode: "fill"),
                 layout: Project.Canvas.Layout(type: "pip", camera: nil)
-            ),
-            overlays: [],
-            captions: nil
+            )
         )
     }
 
@@ -488,7 +482,7 @@ final class ExportEngineTests: XCTestCase {
         )
 
         // Add system audio track
-        project.sources.audio = Project.Sources.AudioTracks(
+        project.sources?.audio = Project.Sources.AudioTracks(
             system: Project.Sources.AudioTracks.AudioTrack(
                 path: "sources/system_audio.m4a",
                 syncOffsetMs: 0,
@@ -695,7 +689,8 @@ final class ExportEngineTests: XCTestCase {
                 start: 2.0,
                 end: 5.0,
                 transform: Project.Overlay.Transform(x: 0.5, y: 0.5, scale: 1.0, rotation: 0),
-                style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 6, shadow: false, font: nil, size: nil, color: nil, bg: nil, text: nil)
+                style: Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 6, shadow: false, font: nil, size: nil, color: nil, bg: nil, text: nil),
+                animation: nil
             ),
             Project.Overlay(
                 id: UUID(),
@@ -703,7 +698,8 @@ final class ExportEngineTests: XCTestCase {
                 start: 5.0,
                 end: 8.0,
                 transform: Project.Overlay.Transform(x: 0.3, y: 0.3, scale: 1.5, rotation: 45),
-                style: Project.Overlay.Style(stroke: "#FF0000", strokeWidth: 4, shadow: true, font: nil, size: nil, color: nil, bg: nil, text: nil)
+                style: Project.Overlay.Style(stroke: "#FF0000", strokeWidth: 4, shadow: true, font: nil, size: nil, color: nil, bg: nil, text: nil),
+                animation: nil
             )
         ]
 

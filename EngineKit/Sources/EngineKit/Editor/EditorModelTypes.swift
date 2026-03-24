@@ -33,11 +33,13 @@ public enum EditorResultInfo: Equatable {
     case splitCreated(newSegmentId: String)
     case rangeDeleted(count: Int)
     case segmentAdded(segmentId: String)
+    case mediaItemAdded(mediaItemId: UUID)
 }
 
 /// Errors that can occur during editing operations
 public enum EditorError: Error, Equatable {
     case segmentNotFound(String)
+    case mediaItemNotFound(String)
     case takeNotFound(String)
     case invalidTrimTime(sourceIn: TimeInterval, sourceOut: TimeInterval, reason: String)
     case invalidSplitTime(segmentId: String, timelineIn: TimeInterval, timelineOut: TimeInterval, requestedTime: TimeInterval)
@@ -50,6 +52,8 @@ public enum EditorError: Error, Equatable {
         switch self {
         case .segmentNotFound(let id):
             return "Segment with ID '\(id)' not found"
+        case .mediaItemNotFound(let id):
+            return "Media item with ID '\(id)' not found"
         case .takeNotFound(let id):
             return "Take with ID '\(id)' not found in project"
         case .invalidTrimTime(let sourceIn, let sourceOut, let reason):

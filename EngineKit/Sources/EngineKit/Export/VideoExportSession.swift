@@ -132,6 +132,53 @@ extension ExportEngine {
 
             // Create layer instruction for screen track
             let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: videoTrack)
+            let screenMuted = options.videoMuteState?.screenMuted ?? false
+            let cameraMuted = options.videoMuteState?.cameraMuted ?? false
+            if screenMuted {
+                layerInstruction.setOpacity(0, at: .zero)
+            }
+
+            // When screen is muted and camera is available, show camera fullscreen (with mask if set)
+            if screenMuted, let cameraTrack = cameraTrack, !cameraMuted {
+                let trackSize = cameraTrack.naturalSize
+                let cameraSourceSize = CoreFoundation.CGSize(
+                    width: trackSize.width > 0 ? trackSize.width : CGFloat(primarySources.camera?.size.w ?? 1280),
+                    height: trackSize.height > 0 ? trackSize.height : CGFloat(primarySources.camera?.size.h ?? 720)
+                )
+                let camScale = min(videoComposition.renderSize.width / cameraSourceSize.width,
+                                   videoComposition.renderSize.height / cameraSourceSize.height)
+                let camOffX = (videoComposition.renderSize.width - cameraSourceSize.width * camScale) / 2
+                let camOffY = (videoComposition.renderSize.height - cameraSourceSize.height * camScale) / 2
+                var cameraTransform = CGAffineTransform.identity
+                cameraTransform = cameraTransform.translatedBy(x: camOffX, y: camOffY)
+                cameraTransform = cameraTransform.scaledBy(x: camScale, y: camScale)
+
+                let maskShape = project.canvas.layout.camera?.maskShape ?? .none
+                let cornerRadius = project.canvas.layout.camera?.cornerRadius ?? 0
+
+                if maskShape != .none {
+                    let maskedInstruction = MaskedVideoCompositionInstruction(
+                        timeRange: CMTimeRangeMake(start: .zero, duration: composition.duration),
+                        screenTrackID: videoTrack.trackID,
+                        cameraTrackID: cameraTrack.trackID,
+                        renderSize: videoComposition.renderSize,
+                        screenTransform: CGAffineTransform.identity,
+                        cameraTransform: cameraTransform,
+                        cameraRect: CGRect(x: 0, y: 0, width: 1, height: 1),
+                        maskShape: maskShape,
+                        cornerRadius: CGFloat(cornerRadius),
+                        layoutType: "fullscreenCamera",
+                        screenMuted: true
+                    )
+                    videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
+                    videoComposition.instructions = [maskedInstruction]
+                } else {
+                    let cameraLayerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: cameraTrack)
+                    cameraLayerInstruction.setTransform(cameraTransform, at: .zero)
+                    instruction.layerInstructions = [cameraLayerInstruction, layerInstruction]
+                    videoComposition.instructions = [instruction]
+                }
+            } else {
 
             // Apply downscale from native resolution to output resolution
             // NOTE: We assume all clips have the same resolution as primary sources for now
@@ -164,8 +211,8 @@ extension ExportEngine {
                 layerInstruction.setTransform(transform, at: .zero)
             }
 
-            // Add camera layer instruction if camera track exists
-            if let cameraTrack = cameraTrack, let cameraPosition = project.canvas.layout.camera {
+            // Add camera layer instruction if camera track exists (skip if muted)
+            if !cameraMuted, let cameraTrack = cameraTrack, let cameraPosition = project.canvas.layout.camera {
                 logger.debug("Adding camera overlay layer instruction")
 
                 let cameraLayerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: cameraTrack)
@@ -218,6 +265,8 @@ extension ExportEngine {
                 instruction.layerInstructions = [layerInstruction]
                 videoComposition.instructions = [instruction]
             }
+
+            } // end else (screen not muted fullscreen-camera path)
 
             // Stage 5: Setup export session (0.5 - 0.6)
             try await checkCancellation(jobId: jobId)
@@ -272,6 +321,15 @@ extension ExportEngine {
                 }
             } else {
                 exportSession.videoComposition = videoComposition
+            }
+
+            // Apply audio mix for per-track mute/volume
+            if let audioMuteState = options.audioMuteState {
+                let audioMix = AudioMixBuilder.buildAudioMix(
+                    compositionResult: compositionResult,
+                    muteState: audioMuteState
+                )
+                exportSession.audioMix = audioMix
             }
 
             logger.debug("Export session configured successfully")
