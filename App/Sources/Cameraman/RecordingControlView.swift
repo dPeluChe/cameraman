@@ -8,6 +8,11 @@
 import SwiftUI
 import EngineKit
 
+enum WindowID {
+    static let mainEditor = "main-editor"
+    static let recordingControls = "recording-controls"
+}
+
 struct RecordingControlView: View {
     @StateObject private var viewModel = RecordingControlViewModel()
     @StateObject private var sourceViewModel = SourceSelectorViewModel()
@@ -54,6 +59,13 @@ struct RecordingControlView: View {
         .onDisappear {
             TeleprompterWindowController.shared.hide()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .openProject)) { _ in
+            // Window scene is single-instance: openWindow brings existing to front or recreates it
+            openWindow(id: WindowID.mainEditor)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                NSApp.activate(ignoringOtherApps: true)
+            }
+        }
     }
 
     // MARK: - Header
@@ -76,7 +88,7 @@ struct RecordingControlView: View {
             Spacer()
 
             Button {
-                openWindow(id: "main-editor")
+                openWindow(id: WindowID.mainEditor)
                 NSApp.activate(ignoringOtherApps: true)
             } label: {
                 Label("Projects", systemImage: "rectangle.stack")
@@ -230,6 +242,11 @@ struct RecordingControlView: View {
                 ToggleRow(icon: "speaker.wave.2.fill", title: "System Audio", isOn: $viewModel.includeSystemAudio, offIcon: "speaker.slash.fill")
                 Divider().opacity(0.3)
                 ToggleRow(icon: "text.justify.leading", title: "Teleprompter", isOn: $showTeleprompter, offIcon: "text.justify.leading")
+                Divider().opacity(0.3)
+                qualityRow
+                if viewModel.selectedDisplaySource != nil {
+                    captureAreaRow
+                }
             }
             .padding(12)
             .background(Color(NSColor.controlBackgroundColor))
@@ -293,6 +310,77 @@ struct RecordingControlView: View {
         .cornerRadius(10)
     }
 
+    // MARK: - Quality & Area Rows
+
+    private var qualityRow: some View {
+        HStack {
+            Image(systemName: "sparkles")
+                .font(.system(size: 14))
+                .frame(width: 22)
+
+            Text("Quality")
+                .font(.system(size: 13))
+
+            Spacer()
+
+            Picker("", selection: $viewModel.recordingQuality) {
+                ForEach(RecordingQuality.allCases, id: \.self) { q in
+                    Text(q.rawValue).tag(q)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 160)
+        }
+    }
+
+    private var captureAreaRow: some View {
+        HStack {
+            Image(systemName: "crop")
+                .font(.system(size: 14))
+                .frame(width: 22)
+
+            if let area = viewModel.selectedArea {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Area")
+                        .font(.system(size: 13))
+                    Text("\(Int(area.width)) × \(Int(area.height))")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Text("Capture Area")
+                    .font(.system(size: 13))
+            }
+
+            Spacer()
+
+            if viewModel.selectedArea != nil {
+                Button {
+                    viewModel.selectedArea = nil
+                    AreaHighlightController.shared.hide()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+
+            Button(viewModel.selectedArea == nil ? "Select" : "Change") {
+                if let displaySource = viewModel.selectedDisplaySource {
+                    ScreenAreaSelectorController.shared.show(for: displaySource) { rect in
+                        viewModel.selectedArea = rect
+                        if let rect {
+                            AreaHighlightController.shared.show(rect: rect, on: displaySource)
+                        }
+                    }
+                }
+            }
+            .font(.caption)
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+    }
+
     // MARK: - Recording View
 
     private var recordingView: some View {
@@ -346,7 +434,7 @@ struct RecordingControlView: View {
                 .buttonStyle(.plain)
 
                 Button {
-                    Task { await viewModel.stopRecording() }
+                    stopAndCleanup()
                 } label: {
                     VStack(spacing: 4) {
                         Image(systemName: "stop.fill")
@@ -415,10 +503,17 @@ struct RecordingControlView: View {
             }
             countdownValue = nil
             await viewModel.startRecording()
-            // Start teleprompter scrolling if enabled
             if showTeleprompter {
-                TeleprompterWindowController.shared.viewModel.startScrolling()
+                TeleprompterWindowController.shared.viewModel.play()
             }
+        }
+    }
+
+    private func stopAndCleanup() {
+        AreaHighlightController.shared.hide()
+        Task {
+            await viewModel.stopRecording()
+            TeleprompterWindowController.shared.viewModel.pause()
         }
     }
 
@@ -441,6 +536,7 @@ struct RecordingControlView: View {
 
     private func selectSource(_ source: RecordingSourceSelectorView.CaptureSource) {
         selectedSource = source
+        AreaHighlightController.shared.hide()
         Task { await viewModel.configureSource(source) }
     }
 

@@ -269,6 +269,17 @@ extension PreviewEngine {
         self.videoCompositionConfig = videoComposition
         self.compositionResult = result
 
+        // Apply default audio mix (mic boost) on initial load
+        if let currentItem = player?.currentItem {
+            let defaultMix = AudioMixBuilder.buildAudioMix(
+                compositionResult: result,
+                muteState: AudioMixBuilder.TrackMuteState()
+            )
+            await MainActor.run {
+                currentItem.audioMix = defaultMix
+            }
+        }
+
         logger.debug("Player created successfully with composition")
     }
 

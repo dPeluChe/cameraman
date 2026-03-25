@@ -22,6 +22,10 @@ enum TimelineTrackKind: String, CaseIterable, Identifiable, Hashable {
 
     var id: String { rawValue }
 
+    var isAudioTrack: Bool {
+        self == .systemAudio || self == .micAudio
+    }
+
     var label: String {
         switch self {
         case .screen:

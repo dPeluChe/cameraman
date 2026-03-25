@@ -31,6 +31,11 @@ public actor CaptureEngine {
         public let frameRate: Int
         /// Output pixel format
         public let pixelFormat: OSType
+        /// Output quality preset (scales down from native, never upscales)
+        public let quality: RecordingQuality
+        /// Capture only this region of the display, in display points with top-left origin.
+        /// nil = full display.
+        public let captureRect: CGRect?
 
         public enum SourceType {
             case display
@@ -45,7 +50,9 @@ public actor CaptureEngine {
             application: SourceSelector.ApplicationSource? = nil,
             captureSystemAudio: Bool = false,
             frameRate: Int = 60,
-            pixelFormat: OSType = kCVPixelFormatType_32BGRA
+            pixelFormat: OSType = kCVPixelFormatType_32BGRA,
+            quality: RecordingQuality = .native,
+            captureRect: CGRect? = nil
         ) {
             self.sourceType = sourceType
             self.display = display
@@ -54,6 +61,8 @@ public actor CaptureEngine {
             self.captureSystemAudio = captureSystemAudio
             self.frameRate = frameRate
             self.pixelFormat = pixelFormat
+            self.quality = quality
+            self.captureRect = captureRect
         }
     }
 
@@ -257,10 +266,11 @@ public actor CaptureEngine {
         let baseDirectory = outputURL.deletingLastPathComponent()
         let systemAudioURL = config.captureSystemAudio ? baseDirectory.appendingPathComponent("system_audio.m4a") : nil
 
+        // streamConfig already has the correct output dimensions (computed in setupStreamConfiguration)
         let (videoWriter, pixelBufferAdaptor) = try await createVideoWriter(
             outputURL: screenVideoURL,
-            width: config.display?.width ?? 1920,
-            height: config.display?.height ?? 1080,
+            width: streamConfig.width,
+            height: streamConfig.height,
             frameRate: config.frameRate
         )
 

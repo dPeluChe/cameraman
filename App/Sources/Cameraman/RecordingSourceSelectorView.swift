@@ -218,7 +218,7 @@ struct RecordingSourceSelectorView: View {
     }
 
     private func openMainWindow() {
-        openWindow(id: "main-editor")
+        openWindow(id: WindowID.mainEditor)
         NSApp.activate(ignoringOtherApps: true)
     }
 }

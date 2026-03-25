@@ -23,6 +23,7 @@ struct TimelineTrackRow: View {
     let thumbnails: [TimeInterval: NSImage]
     let showWaveforms: Bool
     let waveformSamples: [Float]?
+    let volumeBinding: Binding<Float>?
     let onSelectSegment: (Project.Timeline.Segment) -> Void
     let onTrimDragChanged: (Project.Timeline.Segment, TimelineTrimEdge, TimelineScalar) -> Void
     let onTrimDragEnded: (Project.Timeline.Segment, TimelineTrimEdge, TimelineScalar) -> Void
@@ -30,10 +31,12 @@ struct TimelineTrackRow: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            // Track label with mute toggle (fixed width, not in ZStack)
+            // Track label with mute toggle and optional volume slider (fixed width, not in ZStack)
             HStack(spacing: 4) {
                 Button(action: onToggleMute) {
-                    Image(systemName: isMuted ? "eye.slash" : "eye")
+                    Image(systemName: isMuted
+                        ? (track.kind.isAudioTrack ? "speaker.slash" : "eye.slash")
+                        : (track.kind.isAudioTrack ? "speaker.wave.2" : "eye"))
                         .font(.caption2)
                         .foregroundStyle(isMuted ? .tertiary : .secondary)
                         .frame(width: 20, height: 20)
@@ -45,6 +48,14 @@ struct TimelineTrackRow: View {
                     .font(.caption)
                     .foregroundStyle(isMuted ? .tertiary : .secondary)
                     .lineLimit(1)
+
+                if let binding = volumeBinding {
+                    Slider(value: binding, in: 0...3)
+                        .frame(width: 48)
+                        .controlSize(.mini)
+                        .opacity(isMuted ? 0.4 : 1.0)
+                        .help(String(format: "Volume: %.1fx", binding.wrappedValue))
+                }
             }
             .frame(width: layout.labelWidth, alignment: .leading)
             .padding(.leading, 6)
@@ -103,7 +114,7 @@ struct TimelineTrackRow: View {
                         }
 
                         // Render waveforms for audio tracks
-                        if showWaveforms, let samples = waveformSamples, (track.kind == .systemAudio || track.kind == .micAudio) {
+                        if showWaveforms, let samples = waveformSamples, track.kind.isAudioTrack {
                             TimelineWaveformStrip(
                                 segment: segment,
                                 layout: layout,

@@ -18,11 +18,12 @@ public struct AudioMixBuilder {
         public var systemAudioVolume: Float
         public var micAudioVolume: Float
 
+        /// Default mic volume is boosted to compensate for typically lower mic input levels vs system audio
         public init(
             systemAudioMuted: Bool = false,
             micAudioMuted: Bool = false,
             systemAudioVolume: Float = 1.0,
-            micAudioVolume: Float = 1.0
+            micAudioVolume: Float = 2.5
         ) {
             self.systemAudioMuted = systemAudioMuted
             self.micAudioMuted = micAudioMuted

@@ -24,7 +24,18 @@ final class PreviewPlayerViewModel: ObservableObject {
     @Published private(set) var isPlaying: Bool = false
     @Published private(set) var isScrubbing: Bool = false
     @Published private(set) var currentFrame: CGImage?
-    @Published var playbackRate: PlaybackRate = .normal
+    @Published var playbackRate: PlaybackRate = .normal {
+        didSet {
+            guard isPlaying else { return }
+            avPlayer?.rate = Float(playbackRate.rawValue)
+        }
+    }
+    @Published var systemAudioVolume: Float = 1.0 {
+        didSet { reapplyAudioMix() }
+    }
+    @Published var micAudioVolume: Float = 2.5 {
+        didSet { reapplyAudioMix() }
+    }
     @Published var showOverlays: Bool = true
     @Published var showLayout: Bool = true
     @Published var showZoom: Bool = true
@@ -158,6 +169,8 @@ final class PreviewPlayerViewModel: ObservableObject {
         isPlaying = false
         isScrubbing = false
         playbackRate = .normal
+        systemAudioVolume = 1.0
+        micAudioVolume = 2.5
         project = nil
         showCursor = false
         showClicks = false
@@ -304,7 +317,9 @@ final class PreviewPlayerViewModel: ObservableObject {
 
         let audioMuteState = AudioMixBuilder.TrackMuteState(
             systemAudioMuted: mutedTracks.contains(.systemAudio),
-            micAudioMuted: mutedTracks.contains(.micAudio)
+            micAudioMuted: mutedTracks.contains(.micAudio),
+            systemAudioVolume: systemAudioVolume,
+            micAudioVolume: micAudioVolume
         )
         let audioChanged = audioMuteState != lastMuteState
         if audioChanged { lastMuteState = audioMuteState }
@@ -318,6 +333,19 @@ final class PreviewPlayerViewModel: ObservableObject {
             }
             await engine.applyVideoMutes(screenMuted: screenMuted, cameraMuted: cameraMuted)
         }
+    }
+
+    private func reapplyAudioMix() {
+        guard let engine = previewEngine else { return }
+        let audioMuteState = AudioMixBuilder.TrackMuteState(
+            systemAudioMuted: lastMuteState?.systemAudioMuted ?? false,
+            micAudioMuted: lastMuteState?.micAudioMuted ?? false,
+            systemAudioVolume: systemAudioVolume,
+            micAudioVolume: micAudioVolume
+        )
+        guard audioMuteState != lastMuteState else { return }
+        lastMuteState = audioMuteState
+        Task { await engine.applyAudioMix(audioMuteState) }
     }
 
     nonisolated deinit {

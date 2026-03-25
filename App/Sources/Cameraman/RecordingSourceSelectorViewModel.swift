@@ -109,10 +109,7 @@ class DisplayHighlighter {
 
         stopHighlight()
 
-        guard let screen = NSScreen.screens.first(where: {
-            guard let id = $0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else { return false }
-            return String(id.uint32Value) == displayID
-        }) else {
+        guard let screen = NSScreen.screen(withDisplayID: displayID) else {
             print("Could not find screen for ID: \(displayID)")
             return
         }

@@ -20,13 +20,14 @@ struct TimelineView: View {
     private let trackHeight: TimelineScalar = 34
     private let trackSpacing: TimelineScalar = 8
     private let pixelsPerSecond: TimelineScalar = 40
-    private let labelWidth: TimelineScalar = 120
+    private let labelWidth: TimelineScalar = 160
     private let minZoomScale: TimelineScalar = 0.5
     private let maxZoomScale: TimelineScalar = 4
     private let zoomStep: TimelineScalar = 0.25
     private let minimumTrimDuration: TimeInterval = 0.1
 
     @State private var zoomScale: TimelineScalar = 1
+    @State private var availableWidth: CGFloat = 800
     @State private var selection: RangeSelection?
     @State private var dragStartTime: TimeInterval?
     @State private var selectedSegmentId: String?
@@ -167,9 +168,14 @@ struct TimelineView: View {
     }
 
     var body: some View {
+        // Scale pps so the full timeline fills the available width at zoomScale == 1
+        let basePPS: TimelineScalar = project.timeline.duration > 0
+            ? max(pixelsPerSecond, (availableWidth - labelWidth) / TimelineScalar(project.timeline.duration))
+            : pixelsPerSecond
+
         let layout = TimelineLayout(
             duration: project.timeline.duration,
-            pixelsPerSecond: pixelsPerSecond * zoomScale,
+            pixelsPerSecond: basePPS * zoomScale,
             labelWidth: labelWidth
         )
         let tracks = TimelineTrackBuilder.tracks(for: project)
@@ -262,8 +268,9 @@ struct TimelineView: View {
                                 isMuted: mutedTracks.contains(track.kind),
                                 showThumbnails: showThumbnails && track.kind == .screen,
                                 thumbnails: thumbnails,
-                                showWaveforms: showWaveforms && (track.kind == .systemAudio || track.kind == .micAudio),
+                                showWaveforms: showWaveforms && track.kind.isAudioTrack,
                                 waveformSamples: trackWaveform,
+                                volumeBinding: volumeBinding(for: track.kind),
                                 onSelectSegment: { segment in
                                     selectedSegmentId = segment.id
                                     playerViewModel.seek(to: segment.timelineIn)
@@ -351,6 +358,16 @@ struct TimelineView: View {
             .background(Color.primary.opacity(0.03))
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
+        .background(
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear {
+                        let w = geo.size.width
+                        Task { @MainActor in availableWidth = w }
+                    }
+                    .onChange(of: geo.size.width) { _, w in availableWidth = w }
+            }
+        )
         .onChange(of: projectDirectory) { _, newValue in
             if let path = newValue?.path {
                 initializeThumbnailCache(projectDirectory: path)
@@ -370,6 +387,14 @@ struct TimelineView: View {
             allowsMultipleSelection: false
         ) { result in
             handleImportedFile(result)
+        }
+    }
+
+    private func volumeBinding(for kind: TimelineTrackKind) -> Binding<Float>? {
+        switch kind {
+        case .systemAudio: return $playerViewModel.systemAudioVolume
+        case .micAudio: return $playerViewModel.micAudioVolume
+        default: return nil
         }
     }
 

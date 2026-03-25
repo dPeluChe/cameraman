@@ -5,6 +5,34 @@ All notable changes to Cameraman will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-03-25
+
+### Added
+- **Per-track volume sliders** in timeline label area (system audio + mic audio), range 0–3x, with live preview update
+- **Area selector highlight** — persistent dashed overlay shows selected capture area; hidden when recording stops or source changes
+- **Area selector UX** — double-click to confirm selection; instruction bar adapts text based on state; Escape cancels
+
+### Fixed
+- **Mic audio error -50** — `AVAudioFile` settings now match `AVAudioEngine` input node native format (channel count + sample rate), eliminating `ExtAudioFileWrite paramErr`
+- **Duplicate editor window** — changed main editor from `WindowGroup` (multi-instance) to `Window` (single-instance) so `openWindow` brings existing window to front
+- **Project not auto-selected after recording** — removed async yield before `selectedItem` assignment, eliminating race condition
+- **Playback speed change required stop/play** — `playbackRate` now has `didSet` that updates `avPlayer.rate` immediately when playing
+- **Area highlight visible in recorded video** — added `sharingType = .none` to `AreaHighlightController` overlay window
+- **Area highlight persisting after recording stops** — `hide()` now called at start of `stopAndCleanup()`
+- **NSPanel keyboard shortcuts broken** — `KeyablePanel: NSPanel` subclass with `canBecomeKey = true` enables Escape and other shortcuts in area selector
+- **Timeline segments not filling available width** — `pixelsPerSecond` now scales dynamically to fill the ScrollView viewport
+
+### Changed
+- **Mic audio default volume** boosted from 1.0x to 2.5x to compensate for lower mic input levels vs system audio
+- **Timeline label width** expanded from 120 to 160px to accommodate volume sliders
+- **Track mute icons** differentiated: speaker for audio tracks, eye for video tracks
+
+### Technical
+- `WindowID` enum centralizes window ID constants (eliminates string literals)
+- `TimelineTrackKind.isAudioTrack` computed property replaces inline checks in 3 places
+- `reapplyAudioMix()` reconstructs state from `lastMuteState` (audio only), avoiding unnecessary `applyVideoMutes` calls on volume changes
+- GeometryReader state writes deferred with `Task { @MainActor in }` to avoid "Publishing during view update" warning
+
 ## [0.2.0] - 2026-01-22
 
 ### Added

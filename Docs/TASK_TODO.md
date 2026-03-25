@@ -1,6 +1,6 @@
 # Backlog de Tareas Pendientes
 
-> Actualizado: 2026-03-24
+> Actualizado: 2026-03-25
 > Solo features y mejoras NO implementadas. Para trabajo completado ver `TASK_COMPLETED/`.
 
 ---
@@ -20,7 +20,7 @@
     - Posible race condition en Recorder al iniciar mic audio recording.
 
 - [ ] **"Publishing changes from within view updates" residual:**
-    - Aparece 1-2 veces al cambiar de proyecto. No bloquea pero es un warning.
+    - Aparece al cargar proyectos. GeometryReader fix aplicado (Task defer) pero el warning persiste en otros sitios. No bloquea.
 
 ---
 
@@ -67,7 +67,7 @@
 - [ ] **Duplicar proyecto**
 - [ ] **Export formato `.txt` para transcript**
 - [ ] **Thumbnails al hover en scrubber del preview**
-- [ ] **Volume slider por track (en vez de solo mute on/off)**
+- [x] ~~**Volume slider por track (en vez de solo mute on/off)**~~ RESUELTO: sliders compactos en label del timeline, rango 0–3x, mute icono speaker/eye por tipo de track
 
 ## 4. Infraestructura y Distribucion (Prioridad Baja)
 

@@ -15,8 +15,8 @@ struct CameramanApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
-        // Main window with project library and editor
-        WindowGroup(id: "main-editor") {
+        // Main window with project library and editor (single-instance)
+        Window("Projects", id: WindowID.mainEditor) {
             AppNavigation()
                 .frame(minWidth: 900, minHeight: 600)
         }
@@ -44,7 +44,7 @@ struct CameramanApp: App {
         }
 
         // Recording Controls Window (Standalone, single instance)
-        Window("Recording", id: "recording-controls") {
+        Window("Recording", id: WindowID.recordingControls) {
             RecordingControlView()
         }
         .windowResizability(.contentSize)

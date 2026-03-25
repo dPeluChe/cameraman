@@ -33,16 +33,14 @@ struct AppNavigation: View {
                 toolbarContent
             }
             .onReceive(NotificationCenter.default.publisher(for: .openRecordingWindow)) { _ in
-                openWindow(id: "recording-controls")
+                openWindow(id: WindowID.recordingControls)
             }
             .onReceive(NotificationCenter.default.publisher(for: .openProject)) { notification in
                 guard let projectId = notification.object as? ProjectId else { return }
-                Task { @MainActor in
-                    await Task.yield()
-                    await viewModel.loadProjects()
-                    viewModel.selectedItem = .project(projectId)
-                    NSApp.activate(ignoringOtherApps: true)
-                }
+                // Set selection immediately so the detail pane opens without a race condition
+                viewModel.selectedItem = .project(projectId)
+                NSApp.activate(ignoringOtherApps: true)
+                Task { await viewModel.loadProjects() }
             }
             // Removed onAppear auto-open to prevent double windows
     }
@@ -126,7 +124,7 @@ struct AppNavigation: View {
 
         ToolbarItem(placement: .automatic) {
             Button {
-                openWindow(id: "recording-controls")
+                openWindow(id: WindowID.recordingControls)
             } label: {
                 Label("New Project", systemImage: "plus")
             }
@@ -148,7 +146,7 @@ struct AppNavigation: View {
         List(selection: $viewModel.selectedItem) {
             Section("Capture") {
                 Button {
-                    openWindow(id: "recording-controls")
+                    openWindow(id: WindowID.recordingControls)
                 } label: {
                     Label("New Recording", systemImage: "record.circle")
                 }
@@ -312,7 +310,7 @@ struct AppNavigation: View {
             EmptyStateView(message: "Start a new recording from the toolbar or sidebar.")
                 .overlay {
                     Button("Open Recording Controls") {
-                        openWindow(id: "recording-controls")
+                        openWindow(id: WindowID.recordingControls)
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)

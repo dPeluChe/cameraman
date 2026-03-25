@@ -22,14 +22,19 @@ class RecordingControlViewModel: ObservableObject {
     @Published var elapsedTime = "00:00"
     @Published var statusText = "Ready to record"
     @Published var includeCamera = true
-    @Published var includeMicrophone = false
+    @Published var includeMicrophone = true
     @Published var includeSystemAudio = true
     @Published var lastRecordingURL: URL?
-    
+    @Published var recordingQuality: RecordingQuality = .native
+    /// Selected capture area in display points (top-left origin). nil = full display.
+    @Published var selectedArea: CGRect?
+
     // If set, the new recording will be added as a take to this project instead of creating a new one
     @Published var targetProjectId: ProjectId?
 
     private var selectedConfig: CaptureEngine.CaptureConfiguration?
+    /// The currently selected display source (derived from selectedConfig).
+    var selectedDisplaySource: SourceSelector.DisplaySource? { selectedConfig?.display }
 
     private var timer: Timer?
     private var recordingSession: Recorder.RecordingSession?
@@ -42,14 +47,15 @@ class RecordingControlViewModel: ObservableObject {
     }
 
     func configureSource(_ source: RecordingSourceSelectorView.CaptureSource) async {
+        // Reset area selection when source changes
+        selectedArea = nil
+
         // Convert UI selection to CaptureConfiguration
         switch source {
         case .display(let displaySource):
             selectedConfig = CaptureEngine.CaptureConfiguration(
                 sourceType: .display,
                 display: displaySource,
-                window: nil,
-                application: nil,
                 captureSystemAudio: includeSystemAudio,
                 frameRate: 60,
                 pixelFormat: kCVPixelFormatType_32BGRA
@@ -59,9 +65,7 @@ class RecordingControlViewModel: ObservableObject {
         case .window(let windowSource):
             selectedConfig = CaptureEngine.CaptureConfiguration(
                 sourceType: .window,
-                display: nil,
                 window: windowSource,
-                application: nil,
                 captureSystemAudio: includeSystemAudio,
                 frameRate: 60,
                 pixelFormat: kCVPixelFormatType_32BGRA
@@ -71,8 +75,6 @@ class RecordingControlViewModel: ObservableObject {
         case .application(let appSource):
             selectedConfig = CaptureEngine.CaptureConfiguration(
                 sourceType: .application,
-                display: nil,
-                window: nil,
                 application: appSource,
                 captureSystemAudio: includeSystemAudio,
                 frameRate: 60,
@@ -152,7 +154,7 @@ class RecordingControlViewModel: ObservableObject {
             try FileManager.default.createDirectory(at: outputURL, withIntermediateDirectories: true)
             log("Output directory: \(outputURL.path)")
 
-            // Recreate config with current system audio setting
+            // Recreate config with current system audio + quality + area settings
             let screenConfig = CaptureEngine.CaptureConfiguration(
                 sourceType: config.sourceType,
                 display: config.display,
@@ -160,7 +162,9 @@ class RecordingControlViewModel: ObservableObject {
                 application: config.application,
                 captureSystemAudio: includeSystemAudio,
                 frameRate: config.frameRate,
-                pixelFormat: config.pixelFormat
+                pixelFormat: config.pixelFormat,
+                quality: recordingQuality,
+                captureRect: selectedArea
             )
 
             // Create camera configuration if needed
@@ -251,10 +255,6 @@ class RecordingControlViewModel: ObservableObject {
                 targetProjectId = nil
             } else {
                 let projectId = try await library.createProject(from: result)
-                let projectDirectory = try await library.getProjectDirectory(projectId: projectId)
-
-                // Auto-reveal in Finder
-                NSWorkspace.shared.activateFileViewerSelecting([projectDirectory])
 
                 // Open the editor for the newly created project
                 NotificationCenter.default.post(name: .openProject, object: projectId)

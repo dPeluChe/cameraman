@@ -35,18 +35,23 @@ public actor SourceSelector {
     public struct DisplaySource: Identifiable, Equatable {
         public let id: String
         public let name: String
+        /// Physical pixel width (logical points × backingScaleFactor)
         public let width: Int
+        /// Physical pixel height (logical points × backingScaleFactor)
         public let height: Int
         public let refreshRate: Double
         public let isMain: Bool
+        /// Retina scale factor (1.0 for standard displays, 2.0 for Retina)
+        public let backingScaleFactor: Double
 
-        public init(id: String, name: String, width: Int, height: Int, refreshRate: Double, isMain: Bool) {
+        public init(id: String, name: String, width: Int, height: Int, refreshRate: Double, isMain: Bool, backingScaleFactor: Double = 1.0) {
             self.id = id
             self.name = name
             self.width = width
             self.height = height
             self.refreshRate = refreshRate
             self.isMain = isMain
+            self.backingScaleFactor = backingScaleFactor
         }
     }
 
@@ -114,6 +119,7 @@ public actor SourceSelector {
         return screens.enumerated().map { index, screen in
             let frame = screen.frame
             let isMain = screen == NSScreen.main
+            let scale = screen.backingScaleFactor
 
             // Try to get display name from device description
             let deviceDescription = screen.deviceDescription
@@ -125,10 +131,12 @@ public actor SourceSelector {
             return DisplaySource(
                 id: displayName,
                 name: isMain ? "Main Display" : "Display \(index + 1)",
-                width: Int(frame.width),
-                height: Int(frame.height),
+                // Store physical pixels (not logical points) so streamConfig gets correct dimensions
+                width: Int(frame.width * scale),
+                height: Int(frame.height * scale),
                 refreshRate: refreshRate,
-                isMain: isMain
+                isMain: isMain,
+                backingScaleFactor: scale
             )
         }
     }
@@ -227,6 +235,18 @@ public actor SourceSelector {
             return true
         } catch {
             return false
+        }
+    }
+}
+
+// MARK: - NSScreen Lookup
+
+public extension NSScreen {
+    /// Find the NSScreen matching a CGDirectDisplayID string (as stored in DisplaySource.id).
+    static func screen(withDisplayID displayID: String) -> NSScreen? {
+        screens.first { screen in
+            guard let num = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else { return false }
+            return String(num.uint32Value) == displayID
         }
     }
 }

@@ -27,32 +27,49 @@ extension CaptureEngine {
         }
     }
 
+    /// Compute output pixel dimensions for the given configuration.
+    func outputDimensions(for config: CaptureConfiguration) -> (width: Int, height: Int) {
+        let nativeWidth: Int
+        let nativeHeight: Int
+
+        if let rect = config.captureRect {
+            // Area selection: convert from points to pixels using display scale
+            let scale = config.display?.backingScaleFactor ?? 1.0
+            nativeWidth = Int(rect.width * scale)
+            nativeHeight = Int(rect.height * scale)
+        } else {
+            switch config.sourceType {
+            case .display:
+                nativeWidth = config.display?.width ?? 1920
+                nativeHeight = config.display?.height ?? 1080
+            case .window:
+                nativeWidth = config.window?.width ?? 1920
+                nativeHeight = config.window?.height ?? 1080
+            case .application:
+                nativeWidth = 1920
+                nativeHeight = 1080
+            }
+        }
+
+        return config.quality.outputSize(nativeWidth: nativeWidth, nativeHeight: nativeHeight)
+    }
+
     func setupStreamConfiguration(
         _ config: CaptureConfiguration
     ) async throws -> (SCStreamConfiguration, SCContentFilter) {
         let streamConfig = SCStreamConfiguration()
 
-        // Set dimensions based on source
-        let width: Int
-        let height: Int
-
-        switch config.sourceType {
-        case .display:
-            width = config.display?.width ?? 1920
-            height = config.display?.height ?? 1080
-        case .window:
-            width = config.window?.width ?? 1920
-            height = config.window?.height ?? 1080
-        case .application:
-            width = 1920
-            height = 1080
-        }
-
+        let (width, height) = outputDimensions(for: config)
         streamConfig.width = width
         streamConfig.height = height
         streamConfig.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(config.frameRate))
         streamConfig.pixelFormat = config.pixelFormat
         streamConfig.capturesAudio = config.captureSystemAudio
+
+        // Apply capture area if set (top-left origin, in display points)
+        if let rect = config.captureRect {
+            streamConfig.sourceRect = rect
+        }
 
         // Setup content filter
         let contentFilter: SCContentFilter

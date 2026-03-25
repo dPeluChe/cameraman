@@ -297,15 +297,16 @@ internal class MicAudioRecorder {
         // Get input node
         let inputNode = audioEngine.inputNode
 
-        // Create recording format
+        // Use the input node's native format so the tap buffers match the file's processing format.
+        // Forcing a different sample rate or channel count causes ExtAudioFileWrite error -50.
         let recordingFormat = inputNode.outputFormat(forBus: 0)
 
-        // Create audio file
+        // Create audio file — match AVSampleRateKey/AVNumberOfChannelsKey to recordingFormat
         let settings: [String: Any] = [
             AVFormatIDKey: kAudioFormatMPEG4AAC,
-            AVNumberOfChannelsKey: 1,
-            AVSampleRateKey: 48000,
-            AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
+            AVNumberOfChannelsKey: recordingFormat.channelCount,
+            AVSampleRateKey: recordingFormat.sampleRate,
+            AVEncoderBitRateKey: 128000
         ]
 
         let audioFile = try AVAudioFile(
