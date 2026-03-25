@@ -6,10 +6,21 @@
 //
 
 import Foundation
+import AVFoundation
 
 extension ProjectStore {
+    /// Detect video dimensions from a file URL
+    func detectVideoDimensions(at url: URL) async -> (width: Int, height: Int)? {
+        let asset = AVURLAsset(url: url)
+        guard let track = try? await asset.loadTracks(withMediaType: .video).first,
+              let size = try? await track.load(.naturalSize) else {
+            return nil
+        }
+        return (width: Int(size.width), height: Int(size.height))
+    }
+
     /// Move recording files from Recorder.RecordingResult into the project sources directory
-    func moveRecordingFiles(_ result: Recorder.RecordingResult, to sourcesPath: URL, takeId: UUID) throws -> Project.Sources {
+    func moveRecordingFiles(_ result: Recorder.RecordingResult, to sourcesPath: URL, takeId: UUID) async throws -> Project.Sources {
         // Use takeId prefix to avoid collisions
         let prefix = takeId.uuidString.prefix(8)
         let screenFilename = "\(prefix)_screen.mov"
@@ -61,12 +72,15 @@ extension ProjectStore {
             audio = Project.Sources.AudioTracks(system: systemAudioTrack, mic: micAudioTrack)
         }
 
+        // Detect actual video dimensions
+        let screenDims = await detectVideoDimensions(at: screenPath)
+
         return Project.Sources(
             syncReference: "screen",
             screen: Project.Sources.MediaTrack(
                 path: "sources/\(screenFilename)",
                 fps: 60.0,
-                size: Project.Sources.Size(w: 2880, h: 1800),
+                size: Project.Sources.Size(w: screenDims?.width ?? 1920, h: screenDims?.height ?? 1080),
                 syncOffsetMs: 0,
                 sha256: "placeholder",
                 sizeBytes: 0

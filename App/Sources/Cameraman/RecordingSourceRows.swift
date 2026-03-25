@@ -90,10 +90,13 @@ struct ProfessionalDisplaySourceRow: View {
                         .fontWeight(.medium)
                         .foregroundStyle(.primary)
 
-                    HStack(spacing: 8) {
-                        badge("\(source.width)x\(source.height)")
-                        badge("\(Int(source.refreshRate)) Hz")
-
+                    HStack(spacing: 6) {
+                        Text("\(source.width)x\(source.height)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text("\(Int(source.refreshRate)) Hz")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                         if source.isMain {
                             badge("Main", color: .green)
                         }

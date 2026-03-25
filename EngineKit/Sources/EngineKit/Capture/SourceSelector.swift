@@ -198,10 +198,10 @@ public actor SourceSelector {
 
             let applications = content.applications.map { application in
                 ApplicationSource(
-                    id: application.bundleIdentifier,
+                    id: "\(application.bundleIdentifier)_\(application.processID)",
                     name: application.applicationName,
                     bundleIdentifier: application.bundleIdentifier,
-                    iconPath: nil // Could be enhanced to fetch actual icon path
+                    iconPath: nil
                 )
             }
 

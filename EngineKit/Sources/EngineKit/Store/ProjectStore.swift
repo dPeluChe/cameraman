@@ -184,10 +184,23 @@ public actor ProjectStore {
 
         let sourcesPath = projectDirectory.appendingPathComponent("sources", isDirectory: true)
         let takeId = UUID()
-        let takeSources = try moveRecordingFiles(recordingResult, to: sourcesPath, takeId: takeId)
+        let takeSources = try await moveRecordingFiles(recordingResult, to: sourcesPath, takeId: takeId)
+
+        // Detect real screen dimensions from the recorded file
+        let screenFilePath = projectDirectory.appendingPathComponent(takeSources.screen.path)
+        let screenDims = await detectVideoDimensions(at: screenFilePath)
+        let screenW = screenDims?.width ?? 1920
+        let screenH = screenDims?.height ?? 1080
+
+        // Use 1080p output scaled to match source aspect ratio
+        let sourceAspect = Double(screenW) / Double(screenH)
+        let exportH = 1080
+        let exportW = Int(Double(exportH) * sourceAspect)
+        // Round to even number (required by video codecs)
+        let finalW = exportW % 2 == 0 ? exportW : exportW + 1
 
         let now = Date()
-        
+
         let take = Project.Take(
             id: takeId,
             name: "Take 1",
@@ -213,7 +226,7 @@ public actor ProjectStore {
                 ]
             ),
             canvas: Project.Canvas(
-                format: Project.Canvas.Format(aspect: "16:9", w: 1920, h: 1080),
+                format: Project.Canvas.Format(aspect: "\(finalW):\(exportH)", w: finalW, h: exportH),
                 background: Project.Canvas.Background(type: "solid", value: "#0B0B0D", fitMode: nil),
                 layout: Project.Canvas.Layout(
                     type: "pip",
@@ -246,8 +259,8 @@ public actor ProjectStore {
         let sourcesPath = projectDirectory.appendingPathComponent("sources", isDirectory: true)
         
         let takeId = UUID()
-        let takeSources = try moveRecordingFiles(recordingResult, to: sourcesPath, takeId: takeId)
-        
+        let takeSources = try await moveRecordingFiles(recordingResult, to: sourcesPath, takeId: takeId)
+
         let takeNumber = project.takes.count + 1
         let take = Project.Take(
             id: takeId,

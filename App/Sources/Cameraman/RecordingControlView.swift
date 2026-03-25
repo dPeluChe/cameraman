@@ -2,171 +2,509 @@
 //  RecordingControlView.swift
 //  App
 //
-//  Created by Ralphy on 2026-01-19.
+//  Unified recording window: 2-step flow (select source → configure & record).
 //
 
 import SwiftUI
 import EngineKit
 
-/// Recording control UI
 struct RecordingControlView: View {
     @StateObject private var viewModel = RecordingControlViewModel()
-    @State private var showSourceSelector = true
+    @StateObject private var sourceViewModel = SourceSelectorViewModel()
+    @Environment(\.openWindow) private var openWindow
+
     @State private var selectedSource: RecordingSourceSelectorView.CaptureSource?
+    @State private var showTeleprompter = false
+    @State private var countdownValue: Int? = nil
+
+    private var isSourceSelected: Bool { selectedSource != nil }
 
     var body: some View {
-        VStack(spacing: 16) {
-            if showSourceSelector && !viewModel.isRecording {
-                RecordingSourceSelectorView(selectedSource: Binding(
-                    get: { selectedSource ?? .display(SourceSelector.DisplaySource(id: "0", name: "Main", width: 1920, height: 1080, refreshRate: 60, isMain: true)) }, // Dummy default for binding
-                    set: { newValue in
-                        selectedSource = newValue
-                        showSourceSelector = false
-                        Task {
-                            await viewModel.configureSource(newValue)
-                        }
-                    }
-                ))
+        ZStack {
+            VStack(spacing: 0) {
+                header
+                Divider().opacity(0.3)
+
+                if viewModel.isRecording {
+                    ScrollView { recordingView.padding(20) }
+            } else if isSourceSelected {
+                ScrollView { configureView.padding(20) }
             } else {
-                // Header
-                HStack {
-                    if viewModel.targetProjectId != nil {
-                        HStack(spacing: 6) {
-                            Image(systemName: "plus.square.fill.on.square.fill")
-                                .foregroundColor(.orange)
-                            Text("Record New Take")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                        }
-                    } else {
-                        Text("Recording Controls")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                    }
-                    Spacer()
-
-                    if !viewModel.isRecording {
-                        Button("Change Source") {
-                            showSourceSelector = true
-                        }
-                        .font(.caption)
-                        .buttonStyle(.link)
-                    }
-                }
-                .padding(.horizontal)
-
-                Divider()
-                    .background(Color.white.opacity(0.2))
-
-                // Status
-                HStack {
-                    Circle()
-                        .fill(viewModel.isRecording ? Color.red : (viewModel.statusText.contains("denied") ? Color.orange : Color.gray))
-                        .frame(width: 8, height: 8)
-
-                    Text(viewModel.statusText)
-                        .font(.system(size: 12))
-                        .foregroundColor(viewModel.statusText.contains("denied") ? .orange : .white)
-                        .lineLimit(1)
-
-                    Spacer()
-
-                    // Permission fix button
-                    if viewModel.statusText.contains("denied") {
-                        Button("Fix") {
-                            Task {
-                                // Open Privacy & Security settings
-                                let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera")!
-                                NSWorkspace.shared.open(url)
-                            }
-                        }
-                        .font(.caption)
-                        .buttonStyle(.borderedProminent)
-                        .tint(.orange)
-                    }
-
-                    if viewModel.isRecording {
-                        Text(viewModel.elapsedTime)
-                            .font(.system(size: 12, design: .monospaced))
-                            .foregroundColor(.white)
-                    }
-                }
-                .padding(.horizontal)
-
-                // Controls
-                HStack(spacing: 12) {
-                    // Record/Stop button
-                    Button(action: {
-                        if viewModel.isRecording {
-                            Task { await viewModel.stopRecording() }
-                        } else {
-                            Task { await viewModel.startRecording() }
-                        }
-                    }) {
-                        ZStack {
-                            Circle()
-                                .fill(viewModel.isRecording ? Color.red : Color.green)
-                                .frame(width: 50, height: 50)
-
-                            Image(systemName: viewModel.isRecording ? "stop.fill" : "record.circle")
-                                .font(.system(size: 24))
-                                .foregroundColor(.white)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(selectedSource == nil && !viewModel.isRecording) // Disable if no source selected
-
-                    // Pause/Resume button
-                    if viewModel.isRecording {
-                        Button(action: {
-                            Task { await viewModel.pauseResumeRecording() }
-                        }) {
-                            ZStack {
-                                Circle()
-                                    .fill(Color.white.opacity(0.2))
-                                    .frame(width: 40, height: 40)
-
-                                Image(systemName: viewModel.isPaused ? "play.fill" : "pause.fill")
-                                    .font(.system(size: 16))
-                                    .foregroundColor(.white)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-
-                Divider()
-                    .background(Color.white.opacity(0.2))
-
-                // Options
-                VStack(spacing: 8) {
-                    Toggle("Camera", isOn: $viewModel.includeCamera)
-                        .toggleStyle(.switch)
-                        .foregroundColor(.white)
-                        .font(.system(size: 12))
-
-                    Toggle("Microphone", isOn: $viewModel.includeMicrophone)
-                        .toggleStyle(.switch)
-                        .foregroundColor(.white)
-                        .font(.system(size: 12))
-
-                    Toggle("System Audio", isOn: $viewModel.includeSystemAudio)
-                        .toggleStyle(.switch)
-                        .foregroundColor(.white)
-                        .font(.system(size: 12))
-                }
-                .padding(.horizontal)
-
-                Spacer()
+                ScrollView { sourcePickerView.padding(20) }
             }
         }
-        .padding()
-        .frame(width: showSourceSelector && !viewModel.isRecording ? 500 : 280, height: showSourceSelector && !viewModel.isRecording ? 450 : 260) // Dynamic size
-        .background(Color.black.opacity(0.8))
-        .cornerRadius(12)
+            // Countdown overlay
+            if let count = countdownValue {
+                countdownOverlay(count)
+            }
+        }
+        .frame(width: 420, height: 500)
+        .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
-            // Share view model with status bar menu
             RecordingStateManager.shared.viewModel = viewModel
+            Task { await sourceViewModel.loadSources(for: .display) }
+        }
+        .onChange(of: showTeleprompter) { _, show in
+            if show {
+                TeleprompterWindowController.shared.show()
+            } else {
+                TeleprompterWindowController.shared.hide()
+            }
+        }
+        .onDisappear {
+            TeleprompterWindowController.shared.hide()
+        }
+    }
+
+    // MARK: - Header
+
+    private var header: some View {
+        HStack(spacing: 12) {
+            if viewModel.isRecording {
+                Label("Recording", systemImage: "record.circle.fill")
+                    .font(.headline)
+                    .foregroundStyle(.red)
+            } else if viewModel.targetProjectId != nil {
+                Label("Record New Take", systemImage: "plus.square.fill.on.square.fill")
+                    .font(.headline)
+                    .foregroundStyle(.orange)
+            } else {
+                Label("Recording", systemImage: "record.circle")
+                    .font(.headline)
+            }
+
+            Spacer()
+
+            Button {
+                openWindow(id: "main-editor")
+                NSApp.activate(ignoringOtherApps: true)
+            } label: {
+                Label("Projects", systemImage: "rectangle.stack")
+                    .font(.caption)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .background(Color(NSColor.controlBackgroundColor))
+    }
+
+    // MARK: - Step 1: Source Picker
+
+    private var sourcePickerView: some View {
+        VStack(spacing: 16) {
+            // Step indicator
+            HStack {
+                Text("Step 1")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.blue)
+                Text("Select what to record")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+
+            // Tab buttons
+            HStack(spacing: 6) {
+                ForEach(FloatingSourceType.allCases, id: \.self) { type in
+                    FloatingSourceTypeButton(
+                        type: type,
+                        isSelected: sourceViewModel.selectedTab == type.rawValue
+                    ) {
+                        Task { await sourceViewModel.loadSources(for: type.rawValue) }
+                    }
+                }
+            }
+
+            // Permission view or source list
+            if sourceViewModel.permissionDenied {
+                permissionView
+            } else {
+                sourceList
+            }
+
+            // Preview
+            if let image = sourceViewModel.previewImage {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Preview")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Image(nsImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(maxHeight: 140)
+                        .cornerRadius(8)
+                        .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var sourceList: some View {
+        VStack(spacing: 6) {
+            switch sourceViewModel.selectedTab {
+            case .display:
+                ForEach(sourceViewModel.displaySources, id: \.id) { source in
+                    ProfessionalDisplaySourceRow(source: source, onTap: {
+                        selectSource(.display(source))
+                    }, onPreview: {
+                        Task { await sourceViewModel.capturePreview(display: source) }
+                    })
+                }
+            case .window:
+                ForEach(sourceViewModel.windowSources, id: \.id) { source in
+                    ProfessionalWindowSourceRow(source: source, onTap: {
+                        selectSource(.window(source))
+                    }, onPreview: {
+                        Task { await sourceViewModel.capturePreview(window: source) }
+                    })
+                }
+            case .application:
+                ForEach(sourceViewModel.applicationSources, id: \.id) { source in
+                    ProfessionalApplicationSourceRow(source: source, onTap: {
+                        selectSource(.application(source))
+                    })
+                }
+            }
+        }
+
+        if sourceViewModel.displaySources.isEmpty && !sourceViewModel.permissionDenied {
+            ProgressView()
+                .frame(height: 60)
+        }
+    }
+
+    private var permissionView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "lock.shield.fill")
+                .font(.system(size: 32))
+                .foregroundStyle(.orange)
+            Text("Screen recording permission required")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            HStack(spacing: 8) {
+                Button("Open Settings") {
+                    Task { await sourceViewModel.openSystemSettings() }
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                Button("Retry") {
+                    Task { await sourceViewModel.loadSources(for: sourceViewModel.selectedTab) }
+                }
+                .controlSize(.small)
+            }
+        }
+        .padding(.vertical, 16)
+    }
+
+    // MARK: - Step 2: Configure & Record
+
+    private var configureView: some View {
+        VStack(spacing: 16) {
+            // Step indicator
+            HStack {
+                Text("Step 2")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.green)
+                Text("Configure and record")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+
+            // Selected source summary
+            if let source = selectedSource {
+                sourceSummary(source)
+            }
+
+            // Options
+            VStack(spacing: 8) {
+                ToggleRow(icon: "video.fill", title: "Camera", isOn: $viewModel.includeCamera, offIcon: "video.slash.fill")
+                ToggleRow(icon: "mic.fill", title: "Microphone", isOn: $viewModel.includeMicrophone, offIcon: "mic.slash.fill")
+                ToggleRow(icon: "speaker.wave.2.fill", title: "System Audio", isOn: $viewModel.includeSystemAudio, offIcon: "speaker.slash.fill")
+                Divider().opacity(0.3)
+                ToggleRow(icon: "text.justify.leading", title: "Teleprompter", isOn: $showTeleprompter, offIcon: "text.justify.leading")
+            }
+            .padding(12)
+            .background(Color(NSColor.controlBackgroundColor))
+            .cornerRadius(10)
+
+            // Record button (starts countdown then records)
+            Button {
+                startCountdown()
+            } label: {
+                HStack {
+                    Image(systemName: "record.circle.fill")
+                        .font(.system(size: 18))
+                    Text("Start Recording")
+                        .font(.system(size: 15, weight: .semibold))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(
+                    LinearGradient(colors: [.red, .red.opacity(0.8)], startPoint: .top, endPoint: .bottom)
+                )
+                .foregroundStyle(.white)
+                .cornerRadius(10)
+            }
+            .buttonStyle(.plain)
+            .disabled(countdownValue != nil)
+
+            // Hotkey hints
+            hotkeyHints
+        }
+    }
+
+    private func sourceSummary(_ source: RecordingSourceSelectorView.CaptureSource) -> some View {
+        HStack(spacing: 12) {
+            sourceIcon(source)
+                .font(.system(size: 18))
+                .frame(width: 36, height: 36)
+                .background(sourceColor(source).opacity(0.15))
+                .cornerRadius(8)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(sourceName(source))
+                    .font(.system(size: 13, weight: .medium))
+                    .lineLimit(1)
+                Text(sourceDetails(source))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            Button("Change") {
+                selectedSource = nil
+            }
+            .font(.caption)
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+        .padding(12)
+        .background(Color(NSColor.controlBackgroundColor))
+        .cornerRadius(10)
+    }
+
+    // MARK: - Recording View
+
+    private var recordingView: some View {
+        VStack(spacing: 20) {
+            VStack(spacing: 8) {
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(Color.red)
+                        .frame(width: 10, height: 10)
+                        .opacity(viewModel.isPaused ? 0.4 : 1.0)
+
+                    Text(viewModel.isPaused ? "PAUSED" : "REC")
+                        .font(.system(size: 14, weight: .bold, design: .monospaced))
+                        .foregroundStyle(viewModel.isPaused ? .orange : .red)
+
+                    Spacer()
+
+                    Text(viewModel.elapsedTime)
+                        .font(.system(size: 24, weight: .medium, design: .monospaced))
+                }
+
+                if let source = selectedSource {
+                    HStack(spacing: 6) {
+                        sourceIcon(source).font(.caption)
+                        Text(sourceName(source))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                    }
+                }
+            }
+            .padding(16)
+            .background(Color(NSColor.controlBackgroundColor))
+            .cornerRadius(10)
+
+            HStack(spacing: 16) {
+                Button {
+                    Task { await viewModel.pauseResumeRecording() }
+                } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: viewModel.isPaused ? "play.fill" : "pause.fill")
+                            .font(.system(size: 20))
+                        Text(viewModel.isPaused ? "Resume" : "Pause")
+                            .font(.caption2)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(10)
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    Task { await viewModel.stopRecording() }
+                } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: "stop.fill")
+                            .font(.system(size: 20))
+                            .foregroundStyle(.red)
+                        Text("Stop")
+                            .font(.caption2)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(10)
+                }
+                .buttonStyle(.plain)
+            }
+
+            HStack(spacing: 12) {
+                if viewModel.includeCamera {
+                    Label("Camera", systemImage: "video.fill").font(.caption2).foregroundStyle(.green)
+                }
+                if viewModel.includeMicrophone {
+                    Label("Mic", systemImage: "mic.fill").font(.caption2).foregroundStyle(.orange)
+                }
+                if viewModel.includeSystemAudio {
+                    Label("Audio", systemImage: "speaker.wave.2.fill").font(.caption2).foregroundStyle(.blue)
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 4)
+        }
+    }
+
+    // MARK: - Hotkey Hints
+
+    private var hotkeyHints: some View {
+        HStack(spacing: 12) {
+            hotkeyBadge("Shift+Cmd+R", "Start")
+            hotkeyBadge("Esc", "Stop")
+            hotkeyBadge("Shift+Cmd+Space", "Pause")
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func hotkeyBadge(_ key: String, _ label: String) -> some View {
+        HStack(spacing: 4) {
+            Text(key)
+                .font(.system(size: 9, design: .monospaced))
+                .padding(.horizontal, 5)
+                .padding(.vertical, 2)
+                .background(Color.secondary.opacity(0.15))
+                .cornerRadius(3)
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundStyle(.tertiary)
+        }
+    }
+
+    // MARK: - Countdown
+
+    private func startCountdown() {
+        countdownValue = 3
+        Task { @MainActor in
+            for i in stride(from: 3, through: 1, by: -1) {
+                countdownValue = i
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+            }
+            countdownValue = nil
+            await viewModel.startRecording()
+            // Start teleprompter scrolling if enabled
+            if showTeleprompter {
+                TeleprompterWindowController.shared.viewModel.startScrolling()
+            }
+        }
+    }
+
+    private func countdownOverlay(_ count: Int) -> some View {
+        ZStack {
+            Color.black.opacity(0.7)
+            VStack(spacing: 8) {
+                Text("\(count)")
+                    .font(.system(size: 72, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                Text("Recording starts in...")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.6))
+            }
+        }
+        .ignoresSafeArea()
+    }
+
+    // MARK: - Helpers
+
+    private func selectSource(_ source: RecordingSourceSelectorView.CaptureSource) {
+        selectedSource = source
+        Task { await viewModel.configureSource(source) }
+    }
+
+    private func sourceIcon(_ source: RecordingSourceSelectorView.CaptureSource) -> some View {
+        Group {
+            switch source {
+            case .display: Image(systemName: "display").foregroundStyle(.blue)
+            case .window: Image(systemName: "rectangle.on.rectangle").foregroundStyle(.purple)
+            case .application: Image(systemName: "app.fill").foregroundStyle(.green)
+            }
+        }
+    }
+
+    private func sourceColor(_ source: RecordingSourceSelectorView.CaptureSource) -> Color {
+        switch source {
+        case .display: return .blue
+        case .window: return .purple
+        case .application: return .green
+        }
+    }
+
+    private func sourceName(_ source: RecordingSourceSelectorView.CaptureSource) -> String {
+        switch source {
+        case .display(let s): return s.name
+        case .window(let s): return s.title
+        case .application(let s): return s.name
+        }
+    }
+
+    private func sourceDetails(_ source: RecordingSourceSelectorView.CaptureSource) -> String {
+        switch source {
+        case .display(let s):
+            var detail = "\(s.width)x\(s.height) \(Int(s.refreshRate))Hz"
+            if s.isMain { detail += " Main" }
+            return detail
+        case .window(let s): return "\(s.applicationName) \(s.width)x\(s.height)"
+        case .application(let s): return s.bundleIdentifier
+        }
+    }
+}
+
+// MARK: - Toggle Row
+
+struct ToggleRow: View {
+    let icon: String
+    let title: String
+    @Binding var isOn: Bool
+    var offIcon: String?
+
+    var body: some View {
+        HStack {
+            Image(systemName: isOn ? icon : (offIcon ?? icon))
+                .font(.system(size: 14))
+                .foregroundStyle(isOn ? .primary : .tertiary)
+                .frame(width: 22)
+
+            Text(title)
+                .font(.system(size: 13))
+
+            Spacer()
+
+            Toggle("", isOn: $isOn)
+                .toggleStyle(.switch)
+                .controlSize(.small)
         }
     }
 }

@@ -54,10 +54,9 @@ extension ExportEngine {
             }
         }
 
-        var transform = CGAffineTransform.identity
-        // Apply translation first, then scale so offset isn't scaled
+        // Scale first, then translate to center (offset must NOT be scaled)
+        var transform = CGAffineTransform(scaleX: scale, y: scale)
         transform = transform.concatenating(translate)
-        transform = transform.scaledBy(x: CGFloat(scale), y: CGFloat(scale))
 
         return transform
     }

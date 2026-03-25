@@ -16,10 +16,10 @@ import EngineKit
 struct RecordingSourceSelectorView: View {
     @StateObject private var viewModel = SourceSelectorViewModel()
     @Binding var selectedSource: CaptureSource
-    
+    @Environment(\.openWindow) private var openWindow
+
     init(selectedSource: Binding<CaptureSource>) {
         self._selectedSource = selectedSource
-        // Note: SwiftUI may call init multiple times during view lifecycle - this is normal
     }
 
     enum CaptureSource {
@@ -31,9 +31,19 @@ struct RecordingSourceSelectorView: View {
     var body: some View {
         VStack(spacing: 20) {
             // Header
-            Text("Select Recording Source")
-                .font(.headline)
-                .foregroundColor(.white)
+            HStack {
+                Text("Select Recording Source")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                Spacer()
+                Button {
+                    openMainWindow()
+                } label: {
+                    Label("Projects", systemImage: "rectangle.stack")
+                        .font(.caption)
+                }
+                .buttonStyle(.link)
+            }
 
             // Source type tabs
             Picker("Source Type", selection: $viewModel.selectedTab) {
@@ -205,6 +215,11 @@ struct RecordingSourceSelectorView: View {
         Task {
             await viewModel.capturePreview(window: source)
         }
+    }
+
+    private func openMainWindow() {
+        openWindow(id: "main-editor")
+        NSApp.activate(ignoringOtherApps: true)
     }
 }
 

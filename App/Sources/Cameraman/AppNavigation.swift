@@ -41,6 +41,7 @@ struct AppNavigation: View {
                     await Task.yield()
                     await viewModel.loadProjects()
                     viewModel.selectedItem = .project(projectId)
+                    NSApp.activate(ignoringOtherApps: true)
                 }
             }
             // Removed onAppear auto-open to prevent double windows

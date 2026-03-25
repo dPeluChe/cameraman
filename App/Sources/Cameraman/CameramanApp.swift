@@ -15,12 +15,11 @@ struct CameramanApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
-        // Main window with recording controls
-        WindowGroup {
+        // Main window with project library and editor
+        WindowGroup(id: "main-editor") {
             AppNavigation()
                 .frame(minWidth: 900, minHeight: 600)
         }
-        .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1100, height: 700)
         .commands {
             // Add Preferences menu item
@@ -45,14 +44,10 @@ struct CameramanApp: App {
         }
 
         // Recording Controls Window (Standalone, single instance)
-        Window("Recording Controls", id: "recording-controls") {
+        Window("Recording", id: "recording-controls") {
             RecordingControlView()
-                .background(VisualEffectView(material: .hudWindow, blendingMode: .behindWindow))
-                .onAppear {
-                    NSApp.windows.first { $0.identifier?.rawValue == "recording-controls" }?.center()
-                }
         }
         .windowResizability(.contentSize)
-        .windowStyle(.hiddenTitleBar)
+        .defaultSize(width: 420, height: 480)
     }
 }
