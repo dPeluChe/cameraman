@@ -372,6 +372,9 @@ public actor ProjectStore {
 
     /// List all projects sorted by update date
     /// - Returns: Array of ProjectSummary
+    /// Cache of project summaries keyed by project.json URL, with file modification date for invalidation
+    private var summaryCache: [URL: (modDate: Date, summary: ProjectSummary)] = [:]
+
     public func listProjects() async throws -> [ProjectSummary] {
         let directories = try fileManager.contentsOfDirectory(
             at: baseDirectory,
@@ -380,6 +383,7 @@ public actor ProjectStore {
         )
 
         var summaries: [ProjectSummary] = []
+        var seenURLs: Set<URL> = []
 
         for directory in directories {
             guard UUID(uuidString: directory.lastPathComponent) != nil else { continue }
@@ -387,6 +391,16 @@ public actor ProjectStore {
             let projectFile = directory.appendingPathComponent("project.json")
 
             guard fileManager.fileExists(atPath: projectFile.path) else { continue }
+            seenURLs.insert(projectFile)
+
+            // Check file modification date to skip unchanged projects
+            let attrs = try? fileManager.attributesOfItem(atPath: projectFile.path)
+            let modDate = attrs?[.modificationDate] as? Date
+
+            if let modDate, let cached = summaryCache[projectFile], cached.modDate == modDate {
+                summaries.append(cached.summary)
+                continue
+            }
 
             do {
                 let data = try Data(contentsOf: projectFile)
@@ -401,17 +415,23 @@ public actor ProjectStore {
                     updatedAt: project.updatedAt,
                     tags: project.tags,
                     duration: project.timeline.duration,
-                    thumbnailPath: nil // TODO: Generate thumbnail
+                    thumbnailPath: nil
                 )
 
                 summaries.append(summary)
+                if let modDate {
+                    summaryCache[projectFile] = (modDate: modDate, summary: summary)
+                }
             } catch {
-                // Skip projects that fail to decode
                 continue
             }
         }
 
-        // Sort by updatedAt (newest first)
+        // Evict cache entries for deleted projects
+        for key in summaryCache.keys where !seenURLs.contains(key) {
+            summaryCache.removeValue(forKey: key)
+        }
+
         return summaries.sorted { $0.updatedAt > $1.updatedAt }
     }
 

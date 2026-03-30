@@ -17,6 +17,7 @@ public actor CameraEngine {
     public static let shared = CameraEngine()
 
     private var currentSession: RecordingSession?
+    private var durationTimerTask: Task<Void, Never>?
     private let permissionManager = PermissionManager.shared
 
     // MARK: - Initialization
@@ -192,6 +193,8 @@ public actor CameraEngine {
         }
 
         session.markStopped()
+        durationTimerTask?.cancel()
+        durationTimerTask = nil
 
         // Stop capture session
         if let captureSession = session.getCaptureSession() {
@@ -308,12 +311,13 @@ public actor CameraEngine {
     }
 
     private func startDurationTimer(for session: RecordingSession) {
-        Task {
-            while session.isRecording {
+        durationTimerTask?.cancel()
+        durationTimerTask = Task {
+            while !Task.isCancelled, session.isRecording {
                 if let startTime = session.startTime {
                     session.updateDuration(Date().timeIntervalSince(startTime))
                 }
-                try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+                try? await Task.sleep(nanoseconds: 100_000_000)
             }
         }
     }

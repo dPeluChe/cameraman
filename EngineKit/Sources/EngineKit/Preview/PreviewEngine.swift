@@ -273,6 +273,7 @@ public actor PreviewEngine {
     public func unloadProject() {
         self.project = nil
         self.projectDirectory = nil
+        stopPeriodicTimeObservation()
         self.player?.pause()
         self.player = nil
         self.currentTime = 0

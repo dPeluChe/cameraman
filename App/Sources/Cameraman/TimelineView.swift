@@ -57,19 +57,21 @@ struct TimelineView: View {
             await MainActor.run {
                 self.thumbnailCache = cache
             }
-            // Pre-generate thumbnails for better performance
-            await generateInitialThumbnails()
-            // Pre-generate waveforms for audio tracks
-            await generateInitialWaveforms()
+            // Generate a small initial set of thumbnails for fast open
+            await generateInitialThumbnails(count: 15)
+            // Generate waveforms and remaining thumbnails at low priority
+            Task(priority: .utility) {
+                await generateInitialWaveforms()
+                await generateInitialThumbnails(count: 50)
+            }
         }
     }
 
-    private func generateInitialThumbnails() async {
+    private func generateInitialThumbnails(count: Int = 50) async {
         guard let cache = thumbnailCache else { return }
 
-        // Generate thumbnails at regular intervals
         let duration = project.timeline.duration
-        let thumbnailCount = min(50, Int(duration) + 1)
+        let thumbnailCount = min(count, Int(duration) + 1)
         let interval = duration / Double(max(thumbnailCount - 1, 1))
 
         var newThumbnails: [TimeInterval: NSImage] = [:]

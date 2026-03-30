@@ -5,6 +5,17 @@ All notable changes to Cameraman will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-03-30
+
+### Performance
+- **Fix Task leak in CameraEngine/CaptureEngine** — duration timer now stores a cancellable `Task` handle with `!Task.isCancelled` guard; cancelled explicitly on `stopRecording()`
+- **Fix AVPlayer observer leak in PreviewEngine** — `stopPeriodicTimeObservation()` now called before nilling player in `unloadProject()`
+- **ThumbnailCache LRU eviction** — enforces `maxThumbnailCount` via access-order tracking; evicts oldest entries when limit exceeded
+- **Waveform rendering: GeometryReader+Path → Canvas** — renders directly into graphics context, no SwiftUI view tree; uses `ArraySlice` instead of array copy
+- **Thumbnail lookup O(n log n) → O(n)** — replaced `sorted()` + `min(by:)` per render with single linear scan
+- **Lazy project list loading** — summary cache with file modification date invalidation; skips re-decoding unchanged `project.json` files. `loadProjects()` debounced (500ms)
+- **Deferred thumbnail/waveform generation** — initial open generates 15 thumbnails (was 50); remaining thumbnails + waveforms generated at `.utility` priority in background
+
 ## [0.3.0] - 2026-03-25
 
 ### Added

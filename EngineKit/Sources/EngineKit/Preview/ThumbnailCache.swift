@@ -18,6 +18,7 @@ public actor ThumbnailCache {
     private var projectDirectory: String?
     private let configuration: Configuration
     private var thumbnailCache: [TimeInterval: CachedThumbnail] = [:]
+    private var thumbnailAccessOrder: [TimeInterval] = []
     private var waveformCache: [String: CachedWaveform] = [:]
 
     private var cacheDirectory: String? {
@@ -40,6 +41,7 @@ public actor ThumbnailCache {
         self.project = project
         self.projectDirectory = projectDirectory
         thumbnailCache.removeAll()
+        thumbnailAccessOrder.removeAll()
         waveformCache.removeAll()
         if configuration.enableDiskCache {
             createCacheDirectories()
@@ -50,7 +52,25 @@ public actor ThumbnailCache {
         self.project = nil
         self.projectDirectory = nil
         thumbnailCache.removeAll()
+        thumbnailAccessOrder.removeAll()
         waveformCache.removeAll()
+    }
+
+    // MARK: - LRU Helpers
+
+    private func insertThumbnail(_ thumbnail: CachedThumbnail, at time: TimeInterval) {
+        insertThumbnail(thumbnail, at: time)
+        thumbnailAccessOrder.removeAll { $0 == time }
+        thumbnailAccessOrder.append(time)
+        evictThumbnailsIfNeeded()
+    }
+
+    private func evictThumbnailsIfNeeded() {
+        while thumbnailCache.count > configuration.maxThumbnailCount,
+              let oldest = thumbnailAccessOrder.first {
+            thumbnailAccessOrder.removeFirst()
+            thumbnailCache.removeValue(forKey: oldest)
+        }
     }
 
     // MARK: - Thumbnail Operations
@@ -77,13 +97,13 @@ public actor ThumbnailCache {
             if configuration.enableDiskCache,
                let diskCached = try? loadThumbnailFromDisk(at: time) {
                 thumbnails.append(diskCached)
-                thumbnailCache[time] = diskCached
+                insertThumbnail(diskCached, at: time)
                 continue
             }
 
             let thumbnail = try await generateThumbnail(at: time, for: project)
             thumbnails.append(thumbnail)
-            thumbnailCache[time] = thumbnail
+            insertThumbnail(thumbnail, at: time)
 
             if configuration.enableDiskCache {
                 try? saveThumbnailToDisk(thumbnail, at: time)
@@ -105,7 +125,7 @@ public actor ThumbnailCache {
         }
 
         let thumbnail = try await generateThumbnail(at: time, for: project)
-        thumbnailCache[time] = thumbnail
+        insertThumbnail(thumbnail, at: time)
         if configuration.enableDiskCache {
             try? saveThumbnailToDisk(thumbnail, at: time)
         }
@@ -129,7 +149,7 @@ public actor ThumbnailCache {
             }
 
             let thumbnail = try await generateThumbnail(at: time, for: project)
-            thumbnailCache[time] = thumbnail
+            insertThumbnail(thumbnail, at: time)
             if configuration.enableDiskCache { try? saveThumbnailToDisk(thumbnail, at: time) }
             generatedCount += 1
             progress?(Double(i + 1) / Double(thumbnailCount))
@@ -140,6 +160,7 @@ public actor ThumbnailCache {
 
     public func clearThumbnails() {
         thumbnailCache.removeAll()
+        thumbnailAccessOrder.removeAll()
         if configuration.enableDiskCache, let cacheDir = cacheDirectory {
             try? FileManager.default.removeItem(atPath: cacheDir)
             createCacheDirectories()

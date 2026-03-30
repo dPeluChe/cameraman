@@ -219,6 +219,8 @@ public actor CaptureEngine {
     var videoFrameCount = 0
     var audioFrameCount = 0
 
+    private var durationTimerTask: Task<Void, Never>?
+
     // MARK: - Initialization
 
     private init() {}
@@ -319,6 +321,8 @@ public actor CaptureEngine {
 
         // Mark as stopped IMMEDIATELY to prevent double calls
         session.markStopped()
+        durationTimerTask?.cancel()
+        durationTimerTask = nil
 
         logger.debug("Stopping stream...")
         // Stop stream

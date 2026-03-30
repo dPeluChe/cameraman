@@ -43,6 +43,7 @@ final class AppNavigationViewModel: ObservableObject {
     @Published var sortDirectionAscending: Bool = false
 
     private let library: ProjectLibrary
+    private var lastLoadTime: Date?
 
     nonisolated init(library: ProjectLibrary = ProjectLibrary.shared) {
         self.library = library
@@ -110,14 +111,17 @@ final class AppNavigationViewModel: ObservableObject {
     }
 
     func loadProjects() async {
+        // Debounce: skip if called within 500ms of last load
+        let now = Date()
+        if let last = lastLoadTime, now.timeIntervalSince(last) < 0.5 {
+            return
+        }
+        lastLoadTime = now
+
         do {
             let loadedProjects = try await library.listProjects()
             projects = loadedProjects
             loadErrorMessage = nil
-
-            if case let .project(projectId) = selectedItem,
-               !loadedProjects.contains(where: { $0.projectId == projectId }) {
-            }
         } catch {
             loadErrorMessage = error.localizedDescription
         }

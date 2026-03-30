@@ -1,6 +1,6 @@
 # Backlog de Tareas Pendientes
 
-> Actualizado: 2026-03-25
+> Actualizado: 2026-03-30
 > Solo features y mejoras NO implementadas. Para trabajo completado ver `TASK_COMPLETED/`.
 
 ---
@@ -44,6 +44,8 @@
     - Refactorizar para `@MainActor` y `Sendable` estricto en EngineKit.
 
 - [x] ~~**Reparacion de tests unitarios**~~ RESUELTO: tests actualizados para nueva API de Project init + mediaItems.
+
+- [x] ~~**Optimizacion de recursos criticos (pre-release):**~~ RESUELTO: Task leaks, observer leaks, thumbnail LRU, waveform Canvas, project cache, deferred generation
 
 - [ ] **Validacion de performance (larga duracion):**
     - No probado con videos > 1 hora.

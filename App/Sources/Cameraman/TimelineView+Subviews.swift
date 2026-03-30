@@ -281,17 +281,16 @@ struct TimelineThumbnailStrip: View {
     }
 
     private func findClosestThumbnail(for time: TimeInterval) -> NSImage? {
-        let sortedTimes = thumbnails.keys.sorted()
-        guard let closestTime = sortedTimes.min(by: { abs($0 - time) < abs($1 - time) }) else {
-            return nil
+        guard !thumbnails.isEmpty else { return nil }
+        // O(n) linear scan — cheaper than sorting keys every render
+        var bestTime: TimeInterval?
+        var bestDist = Double.greatestFiniteMagnitude
+        for key in thumbnails.keys {
+            let dist = abs(key - time)
+            if dist < bestDist { bestDist = dist; bestTime = key }
         }
-
-        // Only return if within 1 second
-        if abs(closestTime - time) <= 1.0 {
-            return thumbnails[closestTime]
-        }
-
-        return nil
+        guard let closest = bestTime, bestDist <= 1.0 else { return nil }
+        return thumbnails[closest]
     }
 }
 
@@ -309,52 +308,33 @@ struct TimelineWaveformStrip: View {
 
     var body: some View {
         let segmentWidth = layout.segmentWidth(for: segment.timelineDuration)
-        let effectiveHeight = max(2, height - (waveformPadding * 2))
+        let samples = waveformSamples
+        let segRange = sampleRange()
 
-        // Map waveform samples to segment time range
-        let segmentSamples = samplesForSegment()
+        Canvas { context, size in
+            guard segRange.count > 0 else { return }
+            let effectiveHeight = max(2, size.height - (waveformPadding * 2))
+            let sampleWidth = size.width / CGFloat(segRange.count)
+            let centerY = effectiveHeight / 2
 
-        GeometryReader { geometry in
-            Path { path in
-                guard !segmentSamples.isEmpty else { return }
-
-                let sampleWidth = segmentWidth / CGFloat(segmentSamples.count)
-                let centerY = effectiveHeight / 2
-
-                for (index, sample) in segmentSamples.enumerated() {
-                    let x = CGFloat(index) * sampleWidth
-
-                    // Scale sample to height (samples are normalized -1.0 to 1.0)
-                    let amplitude = CGFloat(abs(sample)) * centerY
-                    let yStart = centerY - amplitude
-                    let yEnd = centerY + amplitude
-
-                    path.move(to: CGPoint(x: x, y: yStart))
-                    path.addLine(to: CGPoint(x: x, y: yEnd))
-                }
+            var path = Path()
+            for (i, sample) in samples[segRange].enumerated() {
+                let x = CGFloat(i) * sampleWidth
+                let amplitude = CGFloat(abs(sample)) * centerY
+                path.move(to: CGPoint(x: x, y: centerY - amplitude))
+                path.addLine(to: CGPoint(x: x, y: centerY + amplitude))
             }
-            .stroke(color, style: StrokeStyle(lineWidth: 1.0, lineCap: .round))
+            context.stroke(path, with: .color(color), style: StrokeStyle(lineWidth: 1.0, lineCap: .round))
         }
         .frame(width: segmentWidth, height: height)
         .padding(.vertical, waveformPadding)
     }
 
-    /// Extract waveform samples for this segment's time range
-    private func samplesForSegment() -> [Float] {
-        guard !waveformSamples.isEmpty else { return [] }
-
-        let totalDuration = layout.duration
-        let sampleCount = waveformSamples.count
-
-        // Calculate sample range for this segment
-        let startRatio = segment.timelineIn / totalDuration
-        let endRatio = segment.timelineOut / totalDuration
-
-        let startIndex = max(0, Int(startRatio * Double(sampleCount)))
-        let endIndex = min(sampleCount, Int(endRatio * Double(sampleCount)))
-
-        guard endIndex > startIndex else { return [] }
-
-        return Array(waveformSamples[startIndex..<endIndex])
+    private func sampleRange() -> Range<Int> {
+        guard !waveformSamples.isEmpty, layout.duration > 0 else { return 0..<0 }
+        let count = waveformSamples.count
+        let start = max(0, Int((segment.timelineIn / layout.duration) * Double(count)))
+        let end = min(count, Int((segment.timelineOut / layout.duration) * Double(count)))
+        return start < end ? start..<end : 0..<0
     }
 }
