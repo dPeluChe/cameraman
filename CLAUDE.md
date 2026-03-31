@@ -59,6 +59,7 @@ Because App Sandbox is enabled, camera and microphone access require entitlement
 Capture/        - Screen/camera recording (CaptureEngine, CameraEngine, Recorder)
                 - Permissions (PermissionManager), hotkeys (HotkeyManager)
                 - Telemetry (TelemetryRecorder, TelemetryParser, TelemetrySync)
+                - Recording quality presets (RecordingQuality)
 
 Editor/         - Non-destructive editing model (EditorModel)
                 - Overlays: arrows, rectangles, text (OverlayEngine)
@@ -66,10 +67,21 @@ Editor/         - Non-destructive editing model (EditorModel)
 
 Preview/        - Playback with edits applied (PreviewEngine)
                 - Proxy generation for smooth preview (ProxyGenerator)
-                - Thumbnail/waveform caching (ThumbnailCache)
+                - Thumbnail/waveform caching (ThumbnailCache, LRU eviction)
+                - Zoom rendering (applyZoom, applyZoomTransform in PreviewRenderer)
 
-Export/         - Async video rendering (ExportEngine)
-                - Presets: web_1080_h264, portrait, HEVC
+Export/         - Async video rendering (ExportEngine, VideoExportSession)
+                - GIF export (GIFExportSession via CGImageDestination)
+                - Presets: web_1080_h264, portrait, HEVC, animated_gif
+                - Per-track audio/video mute state in exports
+
+Zoom/           - Auto-zoom pipeline:
+                  DwellDetector → detects cursor pauses (>450ms) as zoom candidates
+                  ZoomSuggestionEngine → combines click + dwell into suggestions
+                  ZoomPlanGenerator → converts suggestions to keyframed zoom events
+                  ZoomSectionController → per-segment zoom config management
+                - Easing functions (ZoomEasing)
+                - Types: ZoomKeyframe, ZoomEvent, ZoomPlan, ZoomSuggestion
 
 Transcription/  - Offline STT via Whisper.cpp (TranscriptionEngine)
                 - SRT/VTT caption generation
@@ -77,21 +89,25 @@ Transcription/  - Offline STT via Whisper.cpp (TranscriptionEngine)
 Intelligence/   - AI service interface (AIService actor)
                 - Local analysis: silence detection, chapter suggestion
 
+Shared/         - AudioMixBuilder (per-track volume/mute for preview + export)
+
 Infrastructure/ - Logging (LoggingSystem), crash reporting (CrashReporter)
 
-Store/          - Project persistence (ProjectStore)
+Store/          - Project persistence (ProjectStore, summary cache with mod-date invalidation)
 Queue/          - Background job orchestration (JobQueue)
 Library/        - Project listing, search, tags (ProjectLibrary)
-Models/         - Core types: Project, Job, Segment, Overlay
+Models/         - Core types: Project, Job, Segment, Overlay, MediaItem, ZoomConfiguration
 ```
 
 ### Key Design Patterns
 
 1. **Non-destructive editing:** All edits stored in `project.json` metadata; source files never modified
-2. **Segment-based timeline:** Edits represented as segments with `source_in/out` and `timeline_in`
+2. **Segment-based timeline:** Edits represented as segments with `source_in/out` and `timeline_in`; each segment can have per-segment zoom config
 3. **Job-based processing:** Export, transcription, proxy generation run as async background jobs
-4. **Actor model:** `AIService` uses Swift actors for thread-safe state
+4. **Actor model:** `CaptureEngine`, `CameraEngine`, `PreviewEngine`, `ThumbnailCache` use Swift actors for thread-safe state
 5. **Engine/UI separation:** EngineKit exposes stable API; UI layer is replaceable
+6. **Zoom pipeline:** Telemetry → Parser (click windows) + DwellDetector (pauses) → ZoomSuggestionEngine (merge/dedup) → ZoomPlanGenerator (keyframes with easing) → PreviewRenderer (frame transform)
+7. **Per-track audio:** AudioMixBuilder constructs AVMutableAudioMix with independent volume/mute per track; used in both preview and export
 
 ### Project File Structure
 
@@ -105,6 +121,26 @@ Projects/<project_id>/
 ├── renders/               # Export outputs
 └── transcript/            # transcript.json, captions.srt/.vtt
 ```
+
+### App-Side Key Components (App/Sources/Cameraman/)
+
+```
+CameramanApp.swift       - Entry point, Window scenes (single-instance via WindowID)
+AppNavigation.swift      - Main split view: sidebar (project list) + detail (editor)
+ProjectEditor.swift      - @MainActor wrapper around EditorModel with undo/redo stack
+ProjectEditorView.swift  - 3-panel layout: left (settings) + center (preview+timeline) + right (inspector)
+PreviewPlayerViewModel   - AVPlayer management, playback rate, per-track volume sliders
+TimelineView.swift       - Timeline with tracks, segments, playhead, zoom suggestion markers
+RecordingControlView     - Recording window: source selector, options, start/stop
+ScreenAreaSelector.swift - Full-screen overlay for area selection (KeyablePanel + AreaHighlightController)
+ExportView/ViewModel     - Export UI with preset selection, GIF options, progress monitoring
+```
+
+### Window Architecture
+
+- `Window("Projects", id: WindowID.mainEditor)` — single-instance main editor
+- `Window("Recording", id: WindowID.recordingControls)` — single-instance recording controls
+- `WindowID` enum centralizes all window identifiers
 
 ## Concurrency Model
 
@@ -123,6 +159,6 @@ All docs live in `Docs/`:
 - `Docs/prd.md` - Product requirements, user flows, MVP scope
 - `Docs/tech-spec.md` - API contracts, data schemas, sync strategy
 - `Docs/TASK_TODO.md` - Pending features and improvements
-- `Docs/TASK_COMPLETED/` - Completed work by month (2601.md, 2603.md)
-- `Docs/CHANGELOG.md` - Version changelog
+- `Docs/TASK_COMPLETED/` - Completed work by session (2601.md, 2603.md, 2603_session2.md, 2603_session3.md, 2603_session4_perf.md)
+- `Docs/CHANGELOG.md` - Version changelog (current: v0.4.0)
 - `Docs/Archived/` - Historical docs (recovery summaries, validation reports)
