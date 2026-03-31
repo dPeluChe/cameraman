@@ -63,6 +63,11 @@ public actor PreviewEngine {
     /// Zoom plan for auto-zoom rendering
     var zoomPlan: ZoomPlanGenerator.ZoomPlan?
 
+    /// Set the zoom plan from external callers (e.g. suggestion engine)
+    public func setZoomPlan(_ plan: ZoomPlanGenerator.ZoomPlan?) {
+        self.zoomPlan = plan
+    }
+
     /// Whether zoom rendering is enabled
     var zoomEnabled: Bool = true
 

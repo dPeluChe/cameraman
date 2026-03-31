@@ -33,6 +33,9 @@ struct TimelineView: View {
     @State private var selectedSegmentId: String?
     @State private var isTrimming = false
     @State private var showImportPanel = false
+    @State private var zoomSuggestions: [ZoomSuggestion] = []
+    @State private var dismissedSuggestionIds: Set<UUID> = []
+    @State private var isGeneratingSuggestions = false
 
     // Thumbnail cache
     @State private var thumbnailCache: ThumbnailCache?
@@ -217,6 +220,34 @@ struct TimelineView: View {
                 .keyboardShortcut(.delete, modifiers: [])
                 .disabled(selectedSegmentId == nil)
 
+                // Zoom suggestions
+                if !zoomSuggestions.isEmpty {
+                    Button {
+                        applyZoomSuggestions()
+                    } label: {
+                        Label("Apply (\(activeSuggestions.count)/\(zoomSuggestions.count))", systemImage: "checkmark.circle")
+                    }
+                    .disabled(activeSuggestions.isEmpty)
+                    .help("Apply selected zoom suggestions as keyframes")
+
+                    Button {
+                        zoomSuggestions = []
+                        dismissedSuggestionIds = []
+                    } label: {
+                        Image(systemName: "xmark.circle")
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Dismiss all zoom suggestions")
+                } else {
+                    Button {
+                        generateZoomSuggestions()
+                    } label: {
+                        Label("Suggest Zooms", systemImage: "sparkle.magnifyingglass")
+                    }
+                    .disabled(isGeneratingSuggestions || !hasCursorTelemetry)
+                    .help(hasCursorTelemetry ? "Detect zoom points from cursor telemetry" : "No cursor telemetry available")
+                }
+
                 Button {
                     showImportPanel = true
                 } label: {
@@ -303,6 +334,23 @@ struct TimelineView: View {
 
                     if let selection {
                         TimelineRangeSelectionView(selection: selection, layout: layout, height: totalHeight)
+                    }
+
+                    // Zoom suggestion markers
+                    ForEach(zoomSuggestions) { suggestion in
+                        ZoomSuggestionMarker(
+                            suggestion: suggestion,
+                            xPosition: layout.xPosition(for: suggestion.timelineTime),
+                            height: totalHeight,
+                            isDismissed: dismissedSuggestionIds.contains(suggestion.id),
+                            onToggle: {
+                                if dismissedSuggestionIds.contains(suggestion.id) {
+                                    dismissedSuggestionIds.remove(suggestion.id)
+                                } else {
+                                    dismissedSuggestionIds.insert(suggestion.id)
+                                }
+                            }
+                        )
                     }
 
                     TimelinePlayheadView(
@@ -582,6 +630,111 @@ struct TimelineView: View {
                 _ = await editor.trimOut(segmentId: segment.id, newSourceOut: newSourceOut)
             }
         }
+    }
+
+    // MARK: - Zoom Suggestions
+
+    private var hasCursorTelemetry: Bool {
+        project.primarySources?.telemetry?.cursor != nil
+    }
+
+    private var activeSuggestions: [ZoomSuggestion] {
+        zoomSuggestions.filter { !dismissedSuggestionIds.contains($0.id) }
+    }
+
+    private func generateZoomSuggestions() {
+        guard let cursorTrack = project.primarySources?.telemetry?.cursor,
+              let projDir = projectDirectory else { return }
+
+        isGeneratingSuggestions = true
+        let cursorURL = projDir.appendingPathComponent(cursorTrack.path)
+        let proj = project
+
+        Task {
+            // Load events once via TelemetryParser (avoids double file read)
+            let parser = TelemetryParser()
+            let parseResult: TelemetryParser.ParseResult?
+            let events: [TelemetryRecorder.Event]
+
+            do {
+                // parse() loads and decodes the JSONL file internally
+                let result = try await parser.parse(telemetryFile: cursorURL)
+                parseResult = result
+
+                // Re-load events for dwell detection (parser doesn't expose raw events)
+                let data = try String(contentsOf: cursorURL, encoding: .utf8)
+                let decoder = JSONDecoder()
+                events = data.split(separator: "\n").compactMap { line in
+                    try? decoder.decode(TelemetryRecorder.Event.self, from: Data(line.utf8))
+                }
+            } catch {
+                parseResult = nil
+                events = []
+            }
+
+            guard !events.isEmpty else {
+                await MainActor.run { isGeneratingSuggestions = false }
+                return
+            }
+
+            let emptyStats = TelemetryParser.ParseStats(
+                totalEvents: events.count, totalClicks: 0, importantClicks: 0,
+                windowCount: 0, clicksPerSecond: 0, timeRange: 0...proj.timeline.duration
+            )
+            let result = parseResult ?? TelemetryParser.ParseResult(
+                importantClicks: [], windows: [], stats: emptyStats
+            )
+
+            let suggestions = ZoomSuggestionEngine.generateSuggestions(
+                events: events,
+                parseResult: result,
+                screenWidth: Double(proj.canvas.format.w),
+                screenHeight: Double(proj.canvas.format.h),
+                timelineDuration: proj.timeline.duration
+            )
+
+            await MainActor.run {
+                zoomSuggestions = suggestions
+                isGeneratingSuggestions = false
+            }
+        }
+    }
+
+    private func applyZoomSuggestions() {
+        let suggestions = activeSuggestions
+        let proj = project
+
+        Task {
+            // Generate and apply zoom plan to preview engine
+            if let plan = try? await ZoomSuggestionEngine.applyAsPlan(
+                suggestions: suggestions,
+                screenWidth: Double(proj.canvas.format.w),
+                screenHeight: Double(proj.canvas.format.h),
+                timelineDuration: proj.timeline.duration
+            ) {
+                await playerViewModel.previewEngine?.setZoomPlan(plan)
+            }
+
+            // Persist: enable zoom on all segments so it's saved in project.json
+            await enableZoomOnAllSegments()
+
+            await MainActor.run {
+                zoomSuggestions = []
+                dismissedSuggestionIds = []
+            }
+        }
+    }
+
+    private func enableZoomOnAllSegments() async {
+        let zoomConfig = Project.Timeline.ZoomConfiguration(
+            enabled: true,
+            intensity: .normal
+        )
+        var updatedProject = editor.project
+        for i in updatedProject.timeline.segments.indices {
+            updatedProject.timeline.segments[i].zoom = zoomConfig
+        }
+        await editor.setProject(updatedProject)
     }
 }
 

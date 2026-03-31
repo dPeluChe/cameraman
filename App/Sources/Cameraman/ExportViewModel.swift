@@ -26,6 +26,13 @@ final class ExportViewModel: ObservableObject {
     @Published var showSavePanel: Bool = false
     @Published var temporaryExportURL: URL? = nil
 
+    // GIF-specific options
+    @Published var gifFrameRate: Int = 15
+    @Published var gifMaxSize: Int = 800
+    @Published var gifLoop: Bool = true
+
+    var isGIFPreset: Bool { selectedPreset.id.contains("gif") }
+
     private let project: Project
     private let projectDirectory: URL
     private let mutedTracks: Set<TimelineTrackKind>
@@ -165,14 +172,24 @@ final class ExportViewModel: ObservableObject {
             self.exportEngine = engine
 
             progressMessage = "Starting export job..."
+            let gifOpts: GIFExportOptions? = isGIFPreset
+                ? GIFExportOptions(
+                    quality: 0.8,
+                    loopCount: gifLoop ? 0 : 1,
+                    maxSize: gifMaxSize,
+                    frameRate: gifFrameRate,
+                    dither: true
+                )
+                : nil
+
             let jobId = try await engine.export(
                 projectId: project.projectId,
                 preset: selectedPreset,
                 options: ExportOptions(
                     burnCaptions: false,
-                    includeCursorHighlight: true,
+                    includeCursorHighlight: !isGIFPreset,
                     outputFilename: finalFilename,
-                    gifOptions: nil,
+                    gifOptions: gifOpts,
                     applyZoom: true,
                     zoomPlan: nil,
                     audioMuteState: AudioMixBuilder.TrackMuteState(

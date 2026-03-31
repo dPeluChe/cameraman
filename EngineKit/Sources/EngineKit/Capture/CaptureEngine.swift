@@ -219,7 +219,7 @@ public actor CaptureEngine {
     var videoFrameCount = 0
     var audioFrameCount = 0
 
-    private var durationTimerTask: Task<Void, Never>?
+    var durationTimerTask: Task<Void, Never>?
 
     // MARK: - Initialization
 

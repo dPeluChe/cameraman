@@ -106,6 +106,47 @@ struct ExportView: View {
                 .pickerStyle(.segmented)
             }
 
+            // GIF-specific options
+            if viewModel.isGIFPreset {
+                Divider()
+
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("GIF Options")
+                        .font(.headline)
+
+                    HStack(spacing: 16) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Frame Rate")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Picker("FPS", selection: $viewModel.gifFrameRate) {
+                                Text("10 fps").tag(10)
+                                Text("15 fps").tag(15)
+                                Text("24 fps").tag(24)
+                            }
+                            .pickerStyle(.segmented)
+                            .frame(width: 200)
+                        }
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Max Size")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Picker("Size", selection: $viewModel.gifMaxSize) {
+                                Text("Small (480)").tag(480)
+                                Text("Medium (800)").tag(800)
+                                Text("Large (1200)").tag(1200)
+                            }
+                            .pickerStyle(.segmented)
+                            .frame(width: 260)
+                        }
+
+                        Toggle("Loop", isOn: $viewModel.gifLoop)
+                            .toggleStyle(.switch)
+                    }
+                }
+            }
+
             Divider()
 
             VStack(alignment: .leading, spacing: 12) {

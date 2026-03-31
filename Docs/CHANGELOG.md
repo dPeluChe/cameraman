@@ -5,6 +5,19 @@ All notable changes to Cameraman will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-03-31
+
+### Added
+- **Auto-zoom from cursor telemetry** — `DwellDetector` detects cursor pauses (>450ms stationary), `ZoomSuggestionEngine` combines click windows + dwell candidates into unified suggestions. Timeline shows yellow markers for each suggestion; click markers to accept/reject individually. "Apply" creates zoom keyframes and persists zoom config on segments.
+- **GIF export options** — when "Animated GIF" preset is selected, ExportView shows GIF-specific controls: frame rate (10/15/24 fps), max size (480/800/1200), loop toggle. Options flow through `GIFExportOptions` to the existing `GIFExportSession` engine.
+- New EngineKit files: `DwellDetector.swift`, `ZoomSuggestionEngine.swift`
+- `PreviewEngine.setZoomPlan()` public setter for external zoom plan application
+
+### Technical
+- `ZoomSuggestionEngine` is a stateless enum with static methods (no actor overhead)
+- `ZoomSuggestion.toClickWindow()` unifies coordinate conversion in one place
+- Individual suggestion accept/reject via `dismissedSuggestionIds` state set
+
 ## [0.3.1] - 2026-03-30
 
 ### Performance
