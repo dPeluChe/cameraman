@@ -5,6 +5,30 @@ All notable changes to Cameraman will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-03-31
+
+### Added
+- **4K HEVC export preset** (3840x2160, 60fps, 30Mbps) in export options
+- **Duplicate project** — deep copy via context menu, auto-opens the clone
+- **Export transcript as TXT/SRT/VTT** — full caption export with NSSavePanel
+- **Video effects sidebar** — corner radius (0–16px), shadow intensity (0–100%), padding (0–30%) controls
+- **Background gradients** — 8 presets (Sunset, Ocean, Forest, Midnight, Lavender, Ember, Arctic, Slate) in new "Gradient" tab
+- **Project thumbnails** — auto-generated JPEG from first frame of screen video on project creation; shown in project list
+
+### Fixed
+- **Mic audio race condition** — validates AVAudioEngine format before recording; auto-retry with 300ms delay if format invalid (0 Hz / 0 channels)
+- **"Publishing changes from within view updates"** — BackgroundControlsView state mutation deferred with Task
+- **onChange macOS 13 compatibility** — 12 instances of macOS 14+ API converted to macOS 13 single-parameter syntax
+- **SHA256 placeholders** — replaced 8 "placeholder" values with real CryptoKit SHA256 streaming hashes (64KB chunks, constant memory)
+- **Hardcoded video dimensions** — screen and camera tracks now use `detectVideoDimensions()` for actual recorded resolution
+- **Timer intervals** — export/keystroke polling reduced to 0.25s; recording elapsed display kept at 0.1s for smooth UX
+- **ExportViewModel timer leak** — deinit now invalidates progressUpdateTimer if view dismissed during export
+
+### Technical
+- EngineKit passes `-strict-concurrency=complete` with zero warnings
+- `ProjectStore.sha256(of:)` uses streaming FileHandle (constant memory for 1GB+ files)
+- `ProjectStore.generateThumbnail()` uses AVAssetImageGenerator + CGImageDestination (pure CoreGraphics)
+
 ## [0.4.0] - 2026-03-31
 
 ### Added

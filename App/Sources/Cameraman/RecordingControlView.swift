@@ -49,7 +49,7 @@ struct RecordingControlView: View {
             RecordingStateManager.shared.viewModel = viewModel
             Task { await sourceViewModel.loadSources(for: .display) }
         }
-        .onChange(of: showTeleprompter) { _, show in
+        .onChange(of: showTeleprompter) { show in
             if show {
                 TeleprompterWindowController.shared.show()
             } else {

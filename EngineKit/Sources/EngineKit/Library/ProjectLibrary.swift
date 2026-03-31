@@ -271,6 +271,13 @@ public actor ProjectLibrary {
         try await store.setTags(projectId: projectId, tags: tags)
     }
 
+    /// Duplicate a project (deep copy of all files)
+    /// - Parameter projectId: Source project ID
+    /// - Returns: New project ID of the duplicate
+    public func duplicateProject(projectId: ProjectId) async throws -> ProjectId {
+        try await store.duplicateProject(projectId: projectId)
+    }
+
     /// Delete a project
     /// - Parameter projectId: Project ID to delete
     public func deleteProject(projectId: ProjectId) async throws {

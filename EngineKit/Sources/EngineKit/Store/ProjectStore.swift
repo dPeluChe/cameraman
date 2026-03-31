@@ -5,11 +5,37 @@
 //  Created by Ralphy on 2026-01-18.
 //
 
+import AVFoundation
+import CoreGraphics
+import CryptoKit
 import Foundation
+import ImageIO
 import os.log
 
 /// ProjectStore manages project persistence on disk
 public actor ProjectStore {
+
+    /// Compute SHA256 hex digest for a file using streaming (constant memory). Returns "unknown" on error.
+    func sha256(of url: URL) -> String {
+        guard let file = try? FileHandle(forReadingFrom: url) else { return "unknown" }
+        defer { try? file.close() }
+
+        var hasher = SHA256()
+        let bufferSize = 65536 // 64KB chunks
+        while autoreleasepool(invoking: {
+            let chunk = file.readData(ofLength: bufferSize)
+            guard !chunk.isEmpty else { return false }
+            hasher.update(data: chunk)
+            return true
+        }) {}
+
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// Get file size in bytes. Returns 0 on error.
+    func fileSize(of url: URL) -> UInt64 {
+        (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? UInt64) ?? 0
+    }
     /// Base directory for all projects
     private let baseDirectory: URL
     /// File manager for disk operations
@@ -71,14 +97,14 @@ public actor ProjectStore {
         if let cameraPath = recordingResult.cameraPath {
             let destCameraPath = sourcesPath.appendingPathComponent("camera.mov")
             try fileManager.moveItem(at: cameraPath, to: destCameraPath)
-            // TODO: Calculate actual SHA256 and dimensions
+            let cameraDims = await detectVideoDimensions(at: destCameraPath)
             camera = Project.Sources.MediaTrack(
                 path: "sources/camera.mov",
                 fps: 30.0,
-                size: Project.Sources.Size(w: 1280, h: 720),
+                size: Project.Sources.Size(w: cameraDims?.width ?? 1280, h: cameraDims?.height ?? 720),
                 syncOffsetMs: 0,
-                sha256: "placeholder",
-                sizeBytes: 0
+                sha256: sha256(of: destCameraPath),
+                sizeBytes: fileSize(of: destCameraPath)
             )
         }
 
@@ -89,8 +115,8 @@ public actor ProjectStore {
             let systemAudioTrack = Project.Sources.AudioTracks.AudioTrack(
                 path: "sources/system_audio.m4a",
                 syncOffsetMs: 0,
-                sha256: "placeholder",
-                sizeBytes: 0
+                sha256: sha256(of: destSystemAudioPath),
+                sizeBytes: fileSize(of: destSystemAudioPath)
             )
 
             var micAudioTrack: Project.Sources.AudioTracks.AudioTrack?
@@ -100,8 +126,8 @@ public actor ProjectStore {
                 micAudioTrack = Project.Sources.AudioTracks.AudioTrack(
                     path: "sources/mic_audio.m4a",
                     syncOffsetMs: 0,
-                    sha256: "placeholder",
-                    sizeBytes: 0
+                    sha256: sha256(of: destMicAudioPath),
+                    sizeBytes: fileSize(of: destMicAudioPath)
                 )
             }
 
@@ -110,15 +136,16 @@ public actor ProjectStore {
 
         // Create initial project
         let now = Date()
+        let screenDims = await detectVideoDimensions(at: screenPath)
         let sources = Project.Sources(
             syncReference: "screen",
             screen: Project.Sources.MediaTrack(
                 path: "sources/screen.mov",
                 fps: 60.0,
-                size: Project.Sources.Size(w: 2880, h: 1800),
+                size: Project.Sources.Size(w: screenDims?.width ?? 1920, h: screenDims?.height ?? 1080),
                 syncOffsetMs: 0,
-                sha256: "placeholder",
-                sizeBytes: 0
+                sha256: sha256(of: screenPath),
+                sizeBytes: fileSize(of: screenPath)
             ),
             camera: camera,
             audio: audio,
@@ -173,7 +200,26 @@ public actor ProjectStore {
         // Save project.json
         try await saveProject(project)
 
+        // Generate thumbnail from first frame of screen video
+        let thumbnailURL = projectDirectory.appendingPathComponent("thumbnail.jpg")
+        generateThumbnail(from: screenPath, to: thumbnailURL)
+
         return projectId
+    }
+
+    /// Generate a JPEG thumbnail from the first frame of a video file
+    func generateThumbnail(from videoURL: URL, to outputURL: URL) {
+        let asset = AVURLAsset(url: videoURL)
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        generator.maximumSize = CGSize(width: 320, height: 180)
+
+        guard let cgImage = try? generator.copyCGImage(at: .zero, actualTime: nil),
+              let dest = CGImageDestinationCreateWithURL(outputURL as CFURL, "public.jpeg" as CFString, 1, nil)
+        else { return }
+
+        CGImageDestinationAddImage(dest, cgImage, [kCGImageDestinationLossyCompressionQuality: 0.7] as CFDictionary)
+        CGImageDestinationFinalize(dest)
     }
 
     public func createProject(from recordingResult: Recorder.RecordingResult, name: String?, tags: [String]?) async throws -> ProjectId {
@@ -346,6 +392,52 @@ public actor ProjectStore {
         try fileManager.removeItem(at: projectDirectory)
     }
 
+    /// Duplicate a project (deep copy of all files)
+    /// - Parameter projectId: Source project ID
+    /// - Returns: New project ID of the duplicate
+    public func duplicateProject(projectId: ProjectId) async throws -> ProjectId {
+        let sourceDir = baseDirectory.appendingPathComponent(projectId.uuidString, isDirectory: true)
+        guard fileManager.fileExists(atPath: sourceDir.path) else {
+            throw EngineKitError.projectNotFound(projectId)
+        }
+
+        let newProjectId = ProjectId()
+        let destDir = baseDirectory.appendingPathComponent(newProjectId.uuidString, isDirectory: true)
+
+        try fileManager.copyItem(at: sourceDir, to: destDir)
+
+        // Update project metadata with new ID and name
+        let projectFile = destDir.appendingPathComponent("project.json")
+        let data = try Data(contentsOf: projectFile)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        var project = try decoder.decode(Project.self, from: data)
+
+        project = Project(
+            projectId: newProjectId,
+            name: "\(project.name) (Copy)",
+            sources: project.sources,
+            takes: project.takes,
+            timeline: project.timeline,
+            canvas: project.canvas,
+            overlays: project.overlays,
+            chapters: project.chapters,
+            captions: project.captions,
+            tags: project.tags,
+            schemaVersion: project.schemaVersion,
+            createdAt: Date(),
+            updatedAt: Date(),
+            mediaItems: project.mediaItems
+        )
+
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try encoder.encode(project).write(to: projectFile)
+
+        return newProjectId
+    }
+
     /// Rename a project
     /// - Parameters:
     ///   - projectId: Project ID to rename
@@ -408,6 +500,9 @@ public actor ProjectStore {
                 decoder.dateDecodingStrategy = .iso8601
                 let project = try decoder.decode(Project.self, from: data)
 
+                let thumbPath = directory.appendingPathComponent("thumbnail.jpg")
+                let thumbnailPath = fileManager.fileExists(atPath: thumbPath.path) ? thumbPath.path : nil
+
                 let summary = ProjectSummary(
                     projectId: project.projectId,
                     name: project.name,
@@ -415,7 +510,7 @@ public actor ProjectStore {
                     updatedAt: project.updatedAt,
                     tags: project.tags,
                     duration: project.timeline.duration,
-                    thumbnailPath: nil
+                    thumbnailPath: thumbnailPath
                 )
 
                 summaries.append(summary)

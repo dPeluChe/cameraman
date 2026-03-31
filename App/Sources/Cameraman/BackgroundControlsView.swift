@@ -50,6 +50,8 @@ struct BackgroundControlsView: View {
                 imageControls
             case .blur:
                 blurControls
+            case .gradient:
+                gradientControls
             }
         }
     }
@@ -120,10 +122,10 @@ struct BackgroundControlsView: View {
             )
         }
         .onAppear {
-            updateSelectedColor()
+            Task { @MainActor in updateSelectedColor() }
         }
-        .onChange(of: background.value) { _, _ in
-            updateSelectedColor()
+        .onChange(of: background.value) { _ in
+            Task { @MainActor in updateSelectedColor() }
         }
     }
 
@@ -251,6 +253,54 @@ struct BackgroundControlsView: View {
             Text("Applies a blur effect to the screen content")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
+        }
+    }
+
+    @ViewBuilder
+    private var gradientControls: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Gradient Presets")
+                .font(.subheadline)
+
+            LazyVGrid(columns: [
+                GridItem(.flexible()), GridItem(.flexible()),
+                GridItem(.flexible()), GridItem(.flexible())
+            ], spacing: 8) {
+                ForEach(CanvasLayout.GradientPreset.allCases, id: \.self) { preset in
+                    let parts = preset.rawValue.split(separator: ",")
+                    let isSelected = background.value == preset.rawValue
+
+                    Button {
+                        Task {
+                            var updatedProject = editor.project
+                            updatedProject.canvas.background = CanvasLayout.createGradientBackground(preset: preset)
+                            await editor.setProject(updatedProject)
+                        }
+                    } label: {
+                        VStack(spacing: 4) {
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(LinearGradient(
+                                    colors: [
+                                        Color(hex: String(parts.first ?? "#000")),
+                                        Color(hex: String(parts.dropFirst().first ?? "#333"))
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ))
+                                .frame(height: 36)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
+                                )
+
+                            Text(preset.displayName)
+                                .font(.system(size: 9))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
         }
     }
 

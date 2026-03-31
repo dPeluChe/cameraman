@@ -33,13 +33,14 @@ extension ProjectStore {
             let cameraFilename = "\(prefix)_camera.mov"
             let destCameraPath = sourcesPath.appendingPathComponent(cameraFilename)
             try fileManager.moveItem(at: cameraVideoPath, to: destCameraPath)
+            let cameraDims = await detectVideoDimensions(at: destCameraPath)
             camera = Project.Sources.MediaTrack(
                 path: "sources/\(cameraFilename)",
                 fps: 30.0,
-                size: Project.Sources.Size(w: 1280, h: 720),
+                size: Project.Sources.Size(w: cameraDims?.width ?? 1280, h: cameraDims?.height ?? 720),
                 syncOffsetMs: Int(result.syncMetadata.cameraSyncOffsetMs),
-                sha256: "placeholder",
-                sizeBytes: 0
+                sha256: sha256(of: destCameraPath),
+                sizeBytes: fileSize(of: destCameraPath)
             )
         }
 
@@ -52,8 +53,8 @@ extension ProjectStore {
             let systemAudioTrack = Project.Sources.AudioTracks.AudioTrack(
                 path: "sources/\(sysAudioFilename)",
                 syncOffsetMs: Int(result.syncMetadata.systemAudioSyncOffsetMs),
-                sha256: "placeholder",
-                sizeBytes: 0
+                sha256: sha256(of: destSystemAudioPath),
+                sizeBytes: fileSize(of: destSystemAudioPath)
             )
 
             var micAudioTrack: Project.Sources.AudioTracks.AudioTrack?
@@ -64,8 +65,8 @@ extension ProjectStore {
                 micAudioTrack = Project.Sources.AudioTracks.AudioTrack(
                     path: "sources/\(micAudioFilename)",
                     syncOffsetMs: Int(result.syncMetadata.micAudioSyncOffsetMs),
-                    sha256: "placeholder",
-                    sizeBytes: 0
+                    sha256: sha256(of: destMicAudioPath),
+                    sizeBytes: fileSize(of: destMicAudioPath)
                 )
             }
 
@@ -82,8 +83,8 @@ extension ProjectStore {
                 fps: 60.0,
                 size: Project.Sources.Size(w: screenDims?.width ?? 1920, h: screenDims?.height ?? 1080),
                 syncOffsetMs: 0,
-                sha256: "placeholder",
-                sizeBytes: 0
+                sha256: sha256(of: screenPath),
+                sizeBytes: fileSize(of: screenPath)
             ),
             camera: camera,
             audio: audio,

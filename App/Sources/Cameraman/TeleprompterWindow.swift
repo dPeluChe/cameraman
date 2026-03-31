@@ -328,7 +328,7 @@ struct TeleprompterOverlayView: View {
             }
             .pickerStyle(.segmented)
             .frame(width: 130)
-            .onChange(of: viewModel.mode) { _, _ in viewModel.reset() }
+            .onChange(of: viewModel.mode) { _ in viewModel.reset() }
 
             Spacer()
 

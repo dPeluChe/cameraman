@@ -50,7 +50,7 @@ struct TelemetryOverlayView: View {
                 await loadTelemetryData()
             }
         }
-        .onChange(of: project?.projectId) { _, _ in
+        .onChange(of: project?.projectId) { _ in
             Task { @MainActor in
                 await loadTelemetryData()
             }

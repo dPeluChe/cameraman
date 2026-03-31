@@ -15,6 +15,7 @@ struct RightPanel: View {
     @Binding var isLayoutExpanded: Bool
     @Binding var isFormatExpanded: Bool
     @Binding var isCameraExpanded: Bool
+    @Binding var isVideoEffectsExpanded: Bool
     @Binding var isBackgroundExpanded: Bool
     @Binding var isZoomExpanded: Bool
     @Binding var isOverlaysExpanded: Bool
@@ -55,7 +56,14 @@ struct RightPanel: View {
                     }
                     
                     Divider()
-                    
+
+                    // Video Effects Group
+                    ConfigGroup(title: "Video Effects", isExpanded: $isVideoEffectsExpanded) {
+                        VideoEffectsControlsView(editor: editor)
+                    }
+
+                    Divider()
+
                     // Background Group
                     ConfigGroup(title: "Background", isExpanded: $isBackgroundExpanded) {
                         BackgroundControlsView(editor: editor)

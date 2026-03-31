@@ -78,7 +78,7 @@ struct SegmentZoomRow: View {
                 Toggle("", isOn: $isEnabled)
                     .toggleStyle(.switch)
                     .labelsHidden()
-                    .onChange(of: isEnabled) { _, newValue in
+                    .onChange(of: isEnabled) { newValue in
                         Task {
                             await updateSegmentEnabled(newValue)
                         }
@@ -99,7 +99,7 @@ struct SegmentZoomRow: View {
                         Text("Aggressive").tag(2.0)
                     }
                     .pickerStyle(.segmented)
-                    .onChange(of: intensity) { _, _ in
+                    .onChange(of: intensity) { _ in
                         Task {
                             await updateSegmentIntensity()
                         }

@@ -16,6 +16,12 @@ extension Project {
         public var background: Background
         /// Layout preset
         public var layout: Layout
+        /// Corner radius for the video content (0–16 px)
+        public var videoCornerRadius: Double
+        /// Drop shadow intensity on the video content (0–1)
+        public var videoShadowIntensity: Double
+        /// Padding between video content and canvas edges (0–0.3 as fraction of canvas size)
+        public var padding: Double
 
         /// Output format specification
         public struct Format: Codable, Equatable {
@@ -110,11 +116,28 @@ extension Project {
         public init(
             format: Format,
             background: Background,
-            layout: Layout
+            layout: Layout,
+            videoCornerRadius: Double = 0,
+            videoShadowIntensity: Double = 0,
+            padding: Double = 0
         ) {
             self.format = format
             self.background = background
             self.layout = layout
+            self.videoCornerRadius = videoCornerRadius
+            self.videoShadowIntensity = videoShadowIntensity
+            self.padding = padding
+        }
+
+        /// Backward-compatible decoder for projects without new fields
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            format = try container.decode(Format.self, forKey: .format)
+            background = try container.decode(Background.self, forKey: .background)
+            layout = try container.decode(Layout.self, forKey: .layout)
+            videoCornerRadius = try container.decodeIfPresent(Double.self, forKey: .videoCornerRadius) ?? 0
+            videoShadowIntensity = try container.decodeIfPresent(Double.self, forKey: .videoShadowIntensity) ?? 0
+            padding = try container.decodeIfPresent(Double.self, forKey: .padding) ?? 0
         }
     }
 }

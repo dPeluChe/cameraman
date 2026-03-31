@@ -290,22 +290,49 @@ internal class MicAudioRecorder {
         self.outputURL = outputURL
     }
 
+    private let logger = Logger(subsystem: "com.projectstudio.enginekit", category: "MicAudioRecorder")
+
     func startRecording() async throws {
+        try await attemptStart()
+    }
+
+    private func attemptStart() async throws {
         let audioEngine = AVAudioEngine()
         self.audioEngine = audioEngine
 
-        // Get input node
         let inputNode = audioEngine.inputNode
-
-        // Use the input node's native format so the tap buffers match the file's processing format.
-        // Forcing a different sample rate or channel count causes ExtAudioFileWrite error -50.
         let recordingFormat = inputNode.outputFormat(forBus: 0)
 
-        // Create audio file — match AVSampleRateKey/AVNumberOfChannelsKey to recordingFormat
+        // Validate format — invalid format (0 Hz / 0 ch) indicates audio session not ready
+        guard recordingFormat.sampleRate > 0, recordingFormat.channelCount > 0 else {
+            logger.warning("Mic input format invalid (sr=\(recordingFormat.sampleRate), ch=\(recordingFormat.channelCount)), retrying after delay...")
+            self.audioEngine = nil
+            try await Task.sleep(nanoseconds: 300_000_000) // 300ms retry
+
+            // Second attempt with fresh engine
+            let retryEngine = AVAudioEngine()
+            self.audioEngine = retryEngine
+            let retryNode = retryEngine.inputNode
+            let retryFormat = retryNode.outputFormat(forBus: 0)
+
+            guard retryFormat.sampleRate > 0, retryFormat.channelCount > 0 else {
+                logger.error("Mic input format still invalid after retry — no mic available")
+                throw Recorder.RecorderError.failedToStartMicCapture(
+                    NSError(domain: "MicAudioRecorder", code: -1,
+                            userInfo: [NSLocalizedDescriptionKey: "Mic input format invalid after retry"])
+                )
+            }
+            return try await startWithEngine(retryEngine, inputNode: retryNode, format: retryFormat)
+        }
+
+        try await startWithEngine(audioEngine, inputNode: inputNode, format: recordingFormat)
+    }
+
+    private func startWithEngine(_ audioEngine: AVAudioEngine, inputNode: AVAudioInputNode, format: AVAudioFormat) async throws {
         let settings: [String: Any] = [
             AVFormatIDKey: kAudioFormatMPEG4AAC,
-            AVNumberOfChannelsKey: recordingFormat.channelCount,
-            AVSampleRateKey: recordingFormat.sampleRate,
+            AVNumberOfChannelsKey: format.channelCount,
+            AVSampleRateKey: format.sampleRate,
             AVEncoderBitRateKey: 128000
         ]
 
@@ -317,29 +344,24 @@ internal class MicAudioRecorder {
         )
         self.audioFile = audioFile
 
-        // Install tap on input node
         inputNode.installTap(
             onBus: 0,
             bufferSize: 1024,
-            format: recordingFormat
+            format: format
         ) { [weak self] buffer, when in
-            guard let self = self, self.isRecording, !self.isPaused else {
-                return
-            }
-
+            guard let self = self, self.isRecording, !self.isPaused else { return }
             do {
                 guard let audioFile = self.audioFile else { return }
                 try audioFile.write(from: buffer)
             } catch {
-                let log = Logger(subsystem: "com.projectstudio.enginekit", category: "MicAudioRecorder")
-                log.error("Error writing audio buffer: \(error.localizedDescription)")
+                self.logger.error("Error writing audio buffer: \(error.localizedDescription)")
             }
         }
 
-        // Start recording
         try audioEngine.start()
         self.isRecording = true
         self.startTime = Date()
+        logger.debug("Mic recording started (sr=\(format.sampleRate), ch=\(format.channelCount))")
     }
 
     func stopRecording() async throws -> URL {

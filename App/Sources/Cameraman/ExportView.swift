@@ -46,7 +46,7 @@ struct ExportView: View {
         .onAppear {
             viewModel.setupExportEngine()
         }
-        .onChange(of: viewModel.showSavePanel) { _, shouldShow in
+        .onChange(of: viewModel.showSavePanel) { shouldShow in
             if shouldShow {
                 viewModel.saveExportToFile()
             }

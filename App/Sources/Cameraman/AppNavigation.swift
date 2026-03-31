@@ -349,6 +349,10 @@ private extension AppNavigation {
             tagsText = project.tags.joined(separator: ", ")
         }
 
+        Button("Duplicate") {
+            Task { await viewModel.duplicateProject(projectId: project.projectId) }
+        }
+
         Divider()
 
         Button("Delete", role: .destructive) {

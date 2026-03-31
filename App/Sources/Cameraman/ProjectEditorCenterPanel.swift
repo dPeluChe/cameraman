@@ -82,7 +82,7 @@ struct CenterPanel: View {
             NotificationCenter.default.post(name: .togglePlayPause, object: nil)
             return .handled
         }
-        .onChange(of: viewModel.mutedTracks) { _, newValue in
+        .onChange(of: viewModel.mutedTracks) { newValue in
             playerViewModel.applyTrackMutes(mutedTracks: newValue)
         }
     }

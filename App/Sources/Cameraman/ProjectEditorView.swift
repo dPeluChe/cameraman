@@ -95,6 +95,7 @@ struct ProjectEditorView: View {
     @State private var isLayoutExpanded = true
     @State private var isFormatExpanded = true
     @State private var isCameraExpanded = true
+    @State private var isVideoEffectsExpanded = false
     @State private var isBackgroundExpanded = false
     @State private var isZoomExpanded = false
     @State private var isOverlaysExpanded = false
@@ -133,6 +134,7 @@ struct ProjectEditorView: View {
                         isLayoutExpanded: $isLayoutExpanded,
                         isFormatExpanded: $isFormatExpanded,
                         isCameraExpanded: $isCameraExpanded,
+                        isVideoEffectsExpanded: $isVideoEffectsExpanded,
                         isBackgroundExpanded: $isBackgroundExpanded,
                         isZoomExpanded: $isZoomExpanded,
                         isOverlaysExpanded: $isOverlaysExpanded,

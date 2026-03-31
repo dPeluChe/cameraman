@@ -155,6 +155,16 @@ final class AppNavigationViewModel: ObservableObject {
         }
     }
 
+    func duplicateProject(projectId: ProjectId) async {
+        do {
+            let newId = try await library.duplicateProject(projectId: projectId)
+            await loadProjects()
+            selectedItem = .project(newId)
+        } catch {
+            loadErrorMessage = error.localizedDescription
+        }
+    }
+
     func setTags(projectId: ProjectId, tags: [String]) async {
         let cleanedTags = Self.normalizeTags(tags)
         do {

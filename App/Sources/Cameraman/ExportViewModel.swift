@@ -52,6 +52,7 @@ final class ExportViewModel: ObservableObject {
     static let availablePresets: [ExportPreset] = [
         .web1080h264,
         .high1080hevc,
+        .ultra4kHevc,
         .portrait1080h264,
         .animatedGIF
     ]
@@ -218,7 +219,7 @@ final class ExportViewModel: ObservableObject {
     private func startProgressMonitoring(jobId: JobId, engine: ExportEngine, filename: String) {
         print("[ExportViewModel] startProgressMonitoring called with filename: \(filename)")
 
-        progressUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+        progressUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self = self else { return }
 
@@ -309,6 +310,10 @@ final class ExportViewModel: ObservableObject {
                 self.errorMessage = "Failed to save file: \(error.localizedDescription)"
             }
         }
+    }
+
+    deinit {
+        progressUpdateTimer?.invalidate()
     }
 
     func cancelExport() async {

@@ -6,9 +6,11 @@
 //  View model for transcription operations
 //
 
+import AppKit
 import Combine
 import SwiftUI
 import EngineKit
+import UniformTypeIdentifiers
 
 /// View model for transcription operations
 @MainActor
@@ -37,9 +39,10 @@ final class TranscriptionViewModel: ObservableObject {
         case failed
     }
 
-    enum ExportFormat {
+    enum ExportFormat: String {
         case srt
         case vtt
+        case txt
     }
 
     init() {
@@ -168,7 +171,51 @@ final class TranscriptionViewModel: ObservableObject {
     }
 
     func exportCaptions(format: ExportFormat) async {
-        print("Exporting captions in \(format) format (placeholder)")
+        guard let transcript = transcript else { return }
+
+        let content: String
+        switch format {
+        case .txt:
+            content = transcript.segments
+                .map { editedText(for: $0) }
+                .joined(separator: "\n")
+        case .srt:
+            content = transcript.segments.enumerated().map { index, seg in
+                let start = Self.srtTimestamp(seg.start)
+                let end = Self.srtTimestamp(seg.end)
+                return "\(index + 1)\n\(start) --> \(end)\n\(editedText(for: seg))"
+            }.joined(separator: "\n\n")
+        case .vtt:
+            let body = transcript.segments.map { seg in
+                let start = Self.vttTimestamp(seg.start)
+                let end = Self.vttTimestamp(seg.end)
+                return "\(start) --> \(end)\n\(editedText(for: seg))"
+            }.joined(separator: "\n\n")
+            content = "WEBVTT\n\n\(body)"
+        }
+
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "transcript.\(format.rawValue)"
+        panel.allowedContentTypes = [.plainText]
+        let response = await panel.begin()
+        guard response == .OK, let url = panel.url else { return }
+        try? content.write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    private static func srtTimestamp(_ seconds: TimeInterval) -> String {
+        let h = Int(seconds) / 3600
+        let m = (Int(seconds) % 3600) / 60
+        let s = Int(seconds) % 60
+        let ms = Int((seconds.truncatingRemainder(dividingBy: 1)) * 1000)
+        return String(format: "%02d:%02d:%02d,%03d", h, m, s, ms)
+    }
+
+    private static func vttTimestamp(_ seconds: TimeInterval) -> String {
+        let h = Int(seconds) / 3600
+        let m = (Int(seconds) % 3600) / 60
+        let s = Int(seconds) % 60
+        let ms = Int((seconds.truncatingRemainder(dividingBy: 1)) * 1000)
+        return String(format: "%02d:%02d:%02d.%03d", h, m, s, ms)
     }
 }
 

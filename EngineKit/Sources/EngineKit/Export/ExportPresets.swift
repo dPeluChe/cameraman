@@ -90,6 +90,24 @@ public struct ExportPreset: Equatable, Hashable, Sendable {
         )
     )
 
+    /// 4K HEVC preset (high quality, smaller file than H.264 at same quality)
+    public static let ultra4kHevc = ExportPreset(
+        id: "ultra_4k_hevc",
+        name: "4K (HEVC)",
+        output: OutputConfiguration(
+            width: 3840,
+            height: 2160,
+            fps: 60,
+            codec: "hevc",
+            bitrateMbps: 30.0,
+            audioBitrateKbps: 256
+        ),
+        options: PresetOptions(
+            burnCaptions: false,
+            includeCursorHighlight: true
+        )
+    )
+
     /// Animated GIF preset (for short clips and social media)
     public static let animatedGIF = ExportPreset(
         id: "animated_gif",

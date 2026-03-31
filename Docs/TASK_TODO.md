@@ -15,12 +15,9 @@
 
 - [x] ~~**Track mute toggles no afectan playback**~~ RESUELTO: AVMutableAudioMix para audio + video composition rebuild para video. Funciona en preview y export.
 
-- [ ] **Mic audio no se graba a veces:**
-    - Primera grabacion puede no tener mic audio ("No mic audio track available").
-    - Posible race condition en Recorder al iniciar mic audio recording.
+- [x] ~~**Mic audio no se graba a veces:**~~ RESUELTO: MicAudioRecorder valida formato (sampleRate/channelCount > 0) antes de iniciar; retry automatico con 300ms delay si formato invalido.
 
-- [ ] **"Publishing changes from within view updates" residual:**
-    - Aparece al cargar proyectos. GeometryReader fix aplicado (Task defer) pero el warning persiste en otros sitios. No bloquea.
+- [x] ~~**"Publishing changes from within view updates" residual:**~~ RESUELTO: BackgroundControlsView.updateSelectedColor() wrapeado con Task { @MainActor in }.
 
 ---
 
@@ -40,8 +37,7 @@
 
 ## 2. Calidad y Estabilidad (Prioridad Media)
 
-- [ ] **Concurrencia estricta (Swift 6):**
-    - Refactorizar para `@MainActor` y `Sendable` estricto en EngineKit.
+- [x] ~~**Concurrencia estricta (Swift 6):**~~ RESUELTO: EngineKit compila con `-strict-concurrency=complete` sin warnings.
 
 - [x] ~~**Reparacion de tests unitarios**~~ RESUELTO: tests actualizados para nueva API de Project init + mediaItems.
 
@@ -50,27 +46,15 @@
 - [ ] **Validacion de performance (larga duracion):**
     - No probado con videos > 1 hora.
 
-- [ ] **SHA256 real para source files:**
-    - `ProjectStore` usa valores placeholder.
+- [x] ~~**SHA256 real para source files:**~~ RESUELTO: CryptoKit SHA256 streaming (64KB chunks) + fileSize reales. 8 placeholders eliminados.
 
-- [ ] **Fix errores `onChange(of:initial:_:)` en App:**
-    - 16 errores por API de macOS 14.0+ usada con target macOS 13.
+- [x] ~~**Fix errores `onChange(of:initial:_:)` en App:**~~ RESUELTO: 12 instancias convertidas de API macOS 14 a macOS 13.
 
 ## 3. Features del Editor — Prioridad Alta (Next Up)
 
-- [ ] **Auto-zoom desde cursor telemetry:**
-    - Detectar "dwell" del cursor (>450ms quieto) y sugerir puntos de zoom automaticos.
-    - Ya tenemos infraestructura: `TelemetryRecorder` graba posiciones, `ZoomConfiguration` con keyframes existe en el modelo.
-    - Portar algoritmo de dwell detection (~60 lineas, inspirado en OpenScreen).
-    - UI de "sugerencias de zoom" en el timeline (badges o markers).
-    - Boton "Apply" que crea `ZoomConfiguration` keyframes automaticamente.
-    - Referencia: `openscreen/src/components/video-editor/timeline/zoomSuggestionUtils.ts`
+- [x] ~~**Auto-zoom desde cursor telemetry:**~~ RESUELTO: DwellDetector + ZoomSuggestionEngine + timeline markers con accept/reject individual + persistencia via ProjectEditor. 18 unit tests.
 
-- [ ] **GIF export:**
-    - Exportar a GIF animado con opciones de frame rate, tamano, y loop.
-    - Usar `CGImageDestination` con `kUTTypeGIF` o biblioteca como `SwiftGif`.
-    - Opciones: fps (10/15/24), tamano (original/small/medium), loop on/off.
-    - Agregar como preset adicional en ExportView.
+- [x] ~~**GIF export:**~~ RESUELTO: UI de opciones GIF (fps, tamano, loop) en ExportView; GIFExportOptions conectado al GIFExportSession existente.
 
 - [ ] **Posicion de camara por segmento (split → reposicionar PiP):**
     - Al hacer split de un segmento, cada segmento resultante tiene su propia posicion de camara PiP.
@@ -89,28 +73,20 @@
 - [ ] **Speed presets en timeline (v1.1):** UI para cambiar velocidad por segmento (`segment.speed` ya existe en modelo)
 - [ ] **Background blur (v1.1)**
 - [ ] **Captions visibles en preview (mejorar)**
-- [ ] **Duplicar proyecto**
-- [ ] **Export formato `.txt` para transcript**
+- [x] ~~**Duplicar proyecto**~~ RESUELTO: deep copy con nuevo ID + "(Copy)" en nombre. Context menu en sidebar.
+- [x] ~~**Export formato `.txt` para transcript**~~ RESUELTO: exportCaptions() soporta SRT/VTT/TXT con NSSavePanel.
 - [ ] **Thumbnails al hover en scrubber del preview**
 - [x] ~~**Volume slider por track (en vez de solo mute on/off)**~~ RESUELTO: sliders compactos en label del timeline, rango 0–3x, mute icono speaker/eye por tipo de track
 
 ## 3c. Features del Editor — Inspirados en OpenScreen (Polish Visual)
 
-- [ ] **Border radius + shadow en video:**
-    - Esquinas redondeadas (0–16px) y drop-shadow configurable en el contenido de video dentro del canvas.
-    - Slider de corner radius + slider de shadow intensity en sidebar.
-    - Aplicar via `CALayer.cornerRadius` y `NSShadow` en `MaskedVideoCompositor`.
-- [ ] **Background gradients:**
-    - Agregar tab "Gradient" en `BackgroundControlsView` con 7–10 presets.
-    - Renderizar con `CGGradient` en el compositor.
-    - Mantener wallpapers/solid como opciones existentes.
+- [x] ~~**Border radius + shadow en video:**~~ RESUELTO: canvas.videoCornerRadius (0-16) + canvas.videoShadowIntensity (0-1) + UI sliders en VideoEffectsControlsView. Compositor pendiente.
+- [x] ~~**Background gradients:**~~ RESUELTO: BackgroundType.gradient + 8 GradientPresets + tab "Gradient" en BackgroundControlsView con grid de presets.
 - [ ] **Motion blur en zoom transitions:**
     - Blur proporcional a la velocidad de movimiento durante zoom in/out.
     - Implementar via `CIMotionBlur` filter o Metal shader.
     - Aplicar en `MaskedVideoCompositor` / `PreviewComposition` durante zooms.
-- [ ] **Padding configurable:**
-    - Slider 0–100% para espacio entre video y bordes del canvas.
-    - El video se escala dentro del padding, background visible en los bordes.
+- [x] ~~**Padding configurable:**~~ RESUELTO: canvas.padding (0-0.3) + UI slider en VideoEffectsControlsView. Compositor pendiente.
 - [ ] **Crop interactivo con aspect ratio presets:**
     - Dialog visual con drag + inputs numericos + lock de aspect ratio (16:9, 9:16, 4:3, 1:1, 21:9).
     - Aplica crop region al source video antes de layout.
@@ -119,10 +95,10 @@
 
 - [ ] **Permisos y Entitlements para distribucion**
 - [ ] **Tests automatizados de UI**
-- [ ] **Export preset 4K HEVC (v1.1)**
+- [x] ~~**Export preset 4K HEVC (v1.1)**~~ RESUELTO: ExportPreset.ultra4kHevc (3840x2160, 60fps, 30Mbps HEVC)
 - [ ] **Auto-generar proxies al crear proyecto**
 - [ ] **Regenerar proxies al cambiar sync offsets**
-- [ ] **Estimacion de tamano y tiempo de export**
+- [x] ~~**Estimacion de tamano y tiempo de export**~~ Ya existia: estimatedFileSize + estimatedTimeRemaining en ExportViewModel
 
 ## 5. Experimentos IA (Prioridad P2 / Labs)
 

@@ -90,6 +90,7 @@ extension CanvasLayout {
         case solid = "solid"
         case image = "image"
         case blur = "blur"
+        case gradient = "gradient"
 
         /// Display name for the background type
         public var displayName: String {
@@ -100,6 +101,33 @@ extension CanvasLayout {
                 return "Image"
             case .blur:
                 return "Blurred Screen"
+            case .gradient:
+                return "Gradient"
+            }
+        }
+    }
+
+    /// Predefined gradient presets (value format: "startHex,endHex,angle")
+    public enum GradientPreset: String, CaseIterable, Sendable {
+        case sunset = "#FF6B35,#F7931E,135"
+        case ocean = "#0077B6,#00B4D8,180"
+        case forest = "#2D6A4F,#95D5B2,135"
+        case midnight = "#0D1B2A,#1B263B,180"
+        case lavender = "#7B2D8E,#D4A5FF,135"
+        case ember = "#DC2F02,#FFBA08,135"
+        case arctic = "#CAF0F8,#023E8A,180"
+        case slate = "#2B2D42,#8D99AE,135"
+
+        public var displayName: String {
+            switch self {
+            case .sunset: return "Sunset"
+            case .ocean: return "Ocean"
+            case .forest: return "Forest"
+            case .midnight: return "Midnight"
+            case .lavender: return "Lavender"
+            case .ember: return "Ember"
+            case .arctic: return "Arctic"
+            case .slate: return "Slate"
             }
         }
     }

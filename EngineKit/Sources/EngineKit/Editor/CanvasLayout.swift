@@ -84,6 +84,13 @@ public actor CanvasLayout {
                 value: "10", // Blur radius
                 fitMode: nil
             )
+
+        case .gradient:
+            return Project.Canvas.Background(
+                type: type.rawValue,
+                value: GradientPreset.midnight.rawValue,
+                fitMode: nil
+            )
         }
     }
 
@@ -316,6 +323,15 @@ public actor CanvasLayout {
         return Project.Canvas.Background(
             type: BackgroundType.blur.rawValue,
             value: String(radius),
+            fitMode: nil
+        )
+    }
+
+    /// Create a gradient background from a preset
+    public static func createGradientBackground(preset: GradientPreset) -> Project.Canvas.Background {
+        return Project.Canvas.Background(
+            type: BackgroundType.gradient.rawValue,
+            value: preset.rawValue,
             fitMode: nil
         )
     }

@@ -415,10 +415,10 @@ struct TimelineView: View {
                         let w = geo.size.width
                         Task { @MainActor in availableWidth = w }
                     }
-                    .onChange(of: geo.size.width) { _, w in availableWidth = w }
+                    .onChange(of: geo.size.width) { w in availableWidth = w }
             }
         )
-        .onChange(of: projectDirectory) { _, newValue in
+        .onChange(of: projectDirectory) { newValue in
             if let path = newValue?.path {
                 initializeThumbnailCache(projectDirectory: path)
             }
