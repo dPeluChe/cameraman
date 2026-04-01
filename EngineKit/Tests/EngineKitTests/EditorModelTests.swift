@@ -1142,4 +1142,81 @@ final class EditorModelTests: XCTestCase {
             overlays: [overlay]
         )
     }
+
+    // MARK: - Split Propagation Tests
+
+    func testSplit_PropagatesTakeId() async {
+        var project = createTestProject()
+        let takeId = UUID()
+        project.timeline.segments[0].takeId = takeId
+        let editor = EditorModel(project: project)
+
+        let result = await editor.split(segmentId: "seg-1", at: 5.0)
+        guard let updated = result.getProject() else { XCTFail("Split failed: \(result)"); return }
+
+        XCTAssertEqual(updated.timeline.segments[0].takeId, takeId)
+        XCTAssertEqual(updated.timeline.segments[1].takeId, takeId)
+    }
+
+    func testSplit_PropagatesZoom() async {
+        var project = createTestProject()
+        let zoom = Project.Timeline.ZoomConfiguration(enabled: true, intensity: .normal)
+        project.timeline.segments[0].zoom = zoom
+        let editor = EditorModel(project: project)
+
+        let result = await editor.split(segmentId: "seg-1", at: 5.0)
+        guard let updated = result.getProject() else { XCTFail("Split failed: \(result)"); return }
+
+        XCTAssertEqual(updated.timeline.segments[0].zoom?.enabled, true)
+        XCTAssertEqual(updated.timeline.segments[1].zoom?.enabled, true)
+    }
+
+    func testSplit_PropagatesCameraPosition() async {
+        var project = createTestProject()
+        let camera = Project.Canvas.Layout.CameraPosition(x: 0.1, y: 0.2, w: 0.3, h: 0.4, cornerRadius: 8)
+        project.timeline.segments[0].cameraPosition = camera
+        let editor = EditorModel(project: project)
+
+        let result = await editor.split(segmentId: "seg-1", at: 5.0)
+        guard let updated = result.getProject() else { XCTFail("Split failed: \(result)"); return }
+
+        XCTAssertEqual(updated.timeline.segments[0].cameraPosition, camera)
+        XCTAssertEqual(updated.timeline.segments[1].cameraPosition, camera)
+    }
+
+    func testSplit_PropagatesSpeed() async {
+        var project = createTestProject()
+        project.timeline.segments[0].speed = 2.0
+        let editor = EditorModel(project: project)
+
+        let result = await editor.split(segmentId: "seg-1", at: 2.5)
+        guard let updated = result.getProject() else { XCTFail("Split failed: \(result)"); return }
+
+        XCTAssertEqual(updated.timeline.segments[0].speed, 2.0)
+        XCTAssertEqual(updated.timeline.segments[1].speed, 2.0)
+    }
+
+    // MARK: - Segment Model Tests
+
+    func testSegment_CameraPositionDefaultsNil() {
+        let segment = Project.Timeline.Segment(
+            sourceIn: 0, sourceOut: 10, timelineIn: 0
+        )
+        XCTAssertNil(segment.cameraPosition)
+    }
+
+    func testSegment_BackwardCompatibleDecoding() throws {
+        // JSON without cameraPosition field (old project format)
+        let json = """
+        {"id":"seg-1","sourceIn":0,"sourceOut":10,"timelineIn":0,"speed":1.5}
+        """
+        let data = json.data(using: .utf8)!
+        let segment = try JSONDecoder().decode(Project.Timeline.Segment.self, from: data)
+
+        XCTAssertEqual(segment.id, "seg-1")
+        XCTAssertEqual(segment.speed, 1.5)
+        XCTAssertNil(segment.cameraPosition)
+        XCTAssertNil(segment.zoom)
+        XCTAssertNil(segment.takeId)
+    }
 }

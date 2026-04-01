@@ -286,6 +286,26 @@ struct TimelineView: View {
                 .disabled(zoomScale >= maxZoomScale - 0.001)
             }
 
+            // Segment inspector bar (shown when a segment is selected)
+            if let segId = selectedSegmentId,
+               let segment = project.timeline.segments.first(where: { $0.id == segId }) {
+                SegmentInspectorBar(
+                    segment: segment,
+                    projectCamera: project.canvas.layout.camera,
+                    onSpeedChange: { speed in
+                        Task { await editor.updateSegmentSpeed(segmentId: segId, speed: speed) }
+                    },
+                    onCameraOverride: {
+                        // Copy current project camera as per-segment override
+                        let camera = segment.cameraPosition ?? project.canvas.layout.camera
+                        Task { await editor.updateSegmentCameraPosition(segmentId: segId, camera: camera) }
+                    },
+                    onCameraReset: {
+                        Task { await editor.updateSegmentCameraPosition(segmentId: segId, camera: nil) }
+                    }
+                )
+            }
+
             ScrollView(.horizontal) {
                 ZStack(alignment: .topLeading) {
                     VStack(alignment: .leading, spacing: trackSpacing) {
@@ -325,6 +345,14 @@ struct TimelineView: View {
                                         mutedTracks.remove(track.kind)
                                     } else {
                                         mutedTracks.insert(track.kind)
+                                    }
+                                },
+                                onMediaItemDragged: { itemId, deltaX in
+                                    let deltaTime = TimeInterval(deltaX / layout.pixelsPerSecond)
+                                    Task {
+                                        guard let item = editor.project.mediaItems.first(where: { $0.id == itemId }) else { return }
+                                        let newTimelineIn = max(0, item.timelineIn + deltaTime)
+                                        await editor.updateMediaItem(id: itemId, timelineIn: newTimelineIn)
                                     }
                                 }
                             )

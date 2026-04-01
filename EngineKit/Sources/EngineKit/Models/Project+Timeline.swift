@@ -35,6 +35,8 @@ extension Project {
             public var speed: Double
             /// Zoom configuration for this segment (optional, overrides project defaults)
             public var zoom: ZoomConfiguration?
+            /// Per-segment camera position override (nil = use project.canvas.layout.camera)
+            public var cameraPosition: Project.Canvas.Layout.CameraPosition?
 
             public init(
                 id: String = UUID().uuidString,
@@ -43,7 +45,8 @@ extension Project {
                 sourceOut: TimeInterval,
                 timelineIn: TimeInterval,
                 speed: Double = 1.0,
-                zoom: ZoomConfiguration? = nil
+                zoom: ZoomConfiguration? = nil,
+                cameraPosition: Project.Canvas.Layout.CameraPosition? = nil
             ) {
                 self.id = id
                 self.takeId = takeId
@@ -52,6 +55,20 @@ extension Project {
                 self.timelineIn = timelineIn
                 self.speed = speed
                 self.zoom = zoom
+                self.cameraPosition = cameraPosition
+            }
+
+            /// Backward-compatible decoder for projects without cameraPosition
+            public init(from decoder: Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                id = try container.decode(String.self, forKey: .id)
+                takeId = try container.decodeIfPresent(UUID.self, forKey: .takeId)
+                sourceIn = try container.decode(TimeInterval.self, forKey: .sourceIn)
+                sourceOut = try container.decode(TimeInterval.self, forKey: .sourceOut)
+                timelineIn = try container.decode(TimeInterval.self, forKey: .timelineIn)
+                speed = try container.decodeIfPresent(Double.self, forKey: .speed) ?? 1.0
+                zoom = try container.decodeIfPresent(ZoomConfiguration.self, forKey: .zoom)
+                cameraPosition = try container.decodeIfPresent(Project.Canvas.Layout.CameraPosition.self, forKey: .cameraPosition)
             }
         }
 

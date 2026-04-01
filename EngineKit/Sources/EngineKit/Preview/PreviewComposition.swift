@@ -139,7 +139,7 @@ extension PreviewEngine {
             screenLayerInstruction.setTransform(screenTransform, at: .zero)
 
             // PiP camera overlay (skip if camera is muted)
-            if hasCameraTrack && !cameraMuted, let cameraPosition = project.canvas.layout.camera {
+            if hasCameraTrack && !cameraMuted, let defaultCamera = project.canvas.layout.camera {
                 let cameraTrack = videoTracks[1]
                 let camNatural = cameraTrack.naturalSize
                 let camSourceSize = CoreFoundation.CGSize(
@@ -147,46 +147,50 @@ extension PreviewEngine {
                     height: camNatural.height > 0 ? camNatural.height : 720
                 )
 
-                let cameraW = cameraPosition.w * renderSize.width
-                let cameraH = cameraPosition.h * renderSize.height
-                let camScale = min(cameraW / camSourceSize.width, cameraH / camSourceSize.height)
-                let camScaledW = camSourceSize.width * camScale
-                let camScaledH = camSourceSize.height * camScale
-                let camX = cameraPosition.x * renderSize.width + (cameraW - camScaledW) / 2
-                // Flip Y axis: SwiftUI y=0 is top, AVFoundation y=0 is bottom
-                let camYFlipped = (1.0 - cameraPosition.y - cameraPosition.h)
-                let camY = camYFlipped * renderSize.height + (cameraH - camScaledH) / 2
+                // Check if any segment has a per-segment camera override
+                let hasPerSegmentCamera = project.timeline.segments.contains { $0.cameraPosition != nil }
 
-                var cameraTransform = CGAffineTransform.identity
-                cameraTransform = cameraTransform.translatedBy(x: camX, y: camY)
-                cameraTransform = cameraTransform.scaledBy(x: camScale, y: camScale)
+                if hasPerSegmentCamera || defaultCamera.maskShape != .none {
+                    // Use custom compositor with per-segment instructions
+                    var maskedInstructions: [MaskedVideoCompositionInstruction] = []
 
-                // Use custom compositor for masked PiP
-                if cameraPosition.maskShape != .none {
-                    let maskedInstruction = MaskedVideoCompositionInstruction(
-                        timeRange: CMTimeRangeMake(start: .zero, duration: composition.duration),
-                        screenTrackID: screenTrack.trackID,
-                        cameraTrackID: cameraTrack.trackID,
-                        renderSize: renderSize,
-                        screenTransform: screenTransform,
-                        cameraTransform: cameraTransform,
-                        cameraRect: CGRect(
-                            x: cameraPosition.x,
-                            y: cameraPosition.y,
-                            width: cameraPosition.w,
-                            height: cameraPosition.h
-                        ),
-                        maskShape: cameraPosition.maskShape,
-                        cornerRadius: CGFloat(cameraPosition.cornerRadius),
-                        layoutType: layoutType
-                    )
+                    for segment in project.timeline.segments {
+                        let segCamera = segment.cameraPosition ?? defaultCamera
+                        let segCameraTransform = Self.cameraTransform(
+                            position: segCamera, camSourceSize: camSourceSize, renderSize: renderSize
+                        )
+
+                        let segStart = CMTime(seconds: segment.timelineIn, preferredTimescale: 600)
+                        let segDuration = CMTime(seconds: segment.timelineDuration, preferredTimescale: 600)
+
+                        maskedInstructions.append(MaskedVideoCompositionInstruction(
+                            timeRange: CMTimeRangeMake(start: segStart, duration: segDuration),
+                            screenTrackID: screenTrack.trackID,
+                            cameraTrackID: cameraTrack.trackID,
+                            renderSize: renderSize,
+                            screenTransform: screenTransform,
+                            cameraTransform: segCameraTransform,
+                            cameraRect: CGRect(x: segCamera.x, y: segCamera.y, width: segCamera.w, height: segCamera.h),
+                            maskShape: segCamera.maskShape,
+                            cornerRadius: CGFloat(segCamera.cornerRadius),
+                            layoutType: layoutType,
+                            videoCornerRadius: CGFloat(project.canvas.videoCornerRadius),
+                            videoShadowIntensity: CGFloat(project.canvas.videoShadowIntensity),
+                            padding: CGFloat(project.canvas.padding),
+                            backgroundType: project.canvas.background.type,
+                            backgroundValue: project.canvas.background.value
+                        ))
+                    }
 
                     videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
-                    videoComposition.instructions = [maskedInstruction]
+                    videoComposition.instructions = maskedInstructions
                     return videoComposition
                 }
 
-                // Standard PiP (no mask)
+                // Standard PiP (no mask, no per-segment camera)
+                let cameraTransform = Self.cameraTransform(
+                    position: defaultCamera, camSourceSize: camSourceSize, renderSize: renderSize
+                )
                 let cameraLayerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: cameraTrack)
                 cameraLayerInstruction.setTransform(cameraTransform, at: .zero)
                 instruction.layerInstructions = [cameraLayerInstruction, screenLayerInstruction]
@@ -197,6 +201,27 @@ extension PreviewEngine {
 
         videoComposition.instructions = [instruction]
         return videoComposition
+    }
+
+    /// Compute camera transform from a CameraPosition
+    static func cameraTransform(
+        position: Project.Canvas.Layout.CameraPosition,
+        camSourceSize: CGSize,
+        renderSize: CGSize
+    ) -> CGAffineTransform {
+        let cameraW = position.w * renderSize.width
+        let cameraH = position.h * renderSize.height
+        let camScale = min(cameraW / camSourceSize.width, cameraH / camSourceSize.height)
+        let camScaledW = camSourceSize.width * camScale
+        let camScaledH = camSourceSize.height * camScale
+        let camX = position.x * renderSize.width + (cameraW - camScaledW) / 2
+        let camYFlipped = (1.0 - position.y - position.h)
+        let camY = camYFlipped * renderSize.height + (cameraH - camScaledH) / 2
+
+        var transform = CGAffineTransform.identity
+        transform = transform.translatedBy(x: camX, y: camY)
+        transform = transform.scaledBy(x: camScale, y: camScale)
+        return transform
     }
 
     /// Resolve sources for a specific take ID, falling back to primary sources

@@ -319,3 +319,35 @@ extension ProjectEditor {
         project = updatedProject
     }
 }
+
+// MARK: - Per-Segment Operations
+
+extension ProjectEditor {
+    @discardableResult
+    func updateSegmentSpeed(segmentId: String, speed: Double) async -> Bool {
+        let previousProject = project
+        var updatedProject = project
+        guard let index = updatedProject.timeline.segments.firstIndex(where: { $0.id == segmentId }) else { return false }
+        updatedProject.timeline.segments[index].speed = max(0.25, min(4.0, speed))
+        updatedProject.updatedAt = Date()
+
+        await setEditorProject(updatedProject)
+        recordUndo(previousProject)
+        project = updatedProject
+        return true
+    }
+
+    @discardableResult
+    func updateSegmentCameraPosition(segmentId: String, camera: Project.Canvas.Layout.CameraPosition?) async -> Bool {
+        let previousProject = project
+        var updatedProject = project
+        guard let index = updatedProject.timeline.segments.firstIndex(where: { $0.id == segmentId }) else { return false }
+        updatedProject.timeline.segments[index].cameraPosition = camera
+        updatedProject.updatedAt = Date()
+
+        await setEditorProject(updatedProject)
+        recordUndo(previousProject)
+        project = updatedProject
+        return true
+    }
+}

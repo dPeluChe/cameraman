@@ -5,6 +5,27 @@ All notable changes to Cameraman will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-04-01
+
+### Added
+- **Per-segment camera position** — each segment can override the project camera PiP position; "Customize"/"Reset" controls in segment inspector bar
+- **Per-segment speed presets** — speed picker (0.25x–4x) in segment inspector bar; orange speed badge on segments
+- **Segment inspector bar** — appears below timeline toolbar when a segment is selected; shows speed + camera controls
+- **Media item drag to reposition** — drag gesture with live visual feedback; updates timelineIn on drop
+- **Audio drift detection** — `AudioDriftDetector` compares video/audio durations, warns if drift >100ms
+- **Compositor visual effects rendering** — gradient backgrounds (CILinearGradient), blur backgrounds (CIGaussianBlur), video corner radius (CIBlendWithMask), video padding (scale+translate)
+- **Per-segment composition instructions** — PreviewComposition creates separate instructions per segment when camera positions differ
+
+### Fixed
+- **Split bug** — `takeId`, `zoom`, and `cameraPosition` now propagate correctly to both segments on split (were lost before)
+- **Blur background layer ordering** — blurred screen now renders behind padded/rounded video content (was on top)
+- **`contains(where:)` syntax** in AudioDriftDetector
+
+### Technical
+- `PreviewEngine.cameraTransform()` extracted as static helper for reuse between preview and export
+- `MaskedVideoCompositionInstruction` now carries visual effect properties (cornerRadius, shadow, padding, background)
+- 6 new unit tests for split propagation and segment model backward compatibility
+
 ## [0.5.0] - 2026-03-31
 
 ### Added

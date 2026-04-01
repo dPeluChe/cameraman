@@ -27,7 +27,10 @@ struct TimelineTrackRow: View {
     let onSelectSegment: (Project.Timeline.Segment) -> Void
     let onTrimDragChanged: (Project.Timeline.Segment, TimelineTrimEdge, TimelineScalar) -> Void
     let onTrimDragEnded: (Project.Timeline.Segment, TimelineTrimEdge, TimelineScalar) -> Void
+    let onMediaItemDragged: (UUID, TimelineScalar) -> Void
     let onToggleMute: () -> Void
+
+    @State private var mediaItemDragOffset: [UUID: TimelineScalar] = [:]
 
     var body: some View {
         HStack(spacing: 0) {
@@ -70,13 +73,16 @@ struct TimelineTrackRow: View {
                 let width = layout.segmentWidth(for: item.duration)
                 let xPosition = layout.xPosition(for: item.timelineIn) - layout.labelWidth
 
-                VStack(spacing: 1) {
+                HStack(spacing: 2) {
+                    Image(systemName: item.type == .audio ? "waveform" : "photo")
+                        .font(.system(size: 7))
+                        .foregroundStyle(.white.opacity(0.7))
                     Text(item.name)
                         .font(.system(size: 8))
                         .foregroundStyle(.white)
                         .lineLimit(1)
-                        .padding(.horizontal, 3)
                 }
+                .padding(.horizontal, 3)
                 .frame(width: width, height: height - 10)
                 .background(
                     RoundedRectangle(cornerRadius: 4, style: .continuous)
@@ -88,6 +94,18 @@ struct TimelineTrackRow: View {
                 )
                 .opacity(item.isMuted || isMuted ? 0.3 : 1.0)
                 .offset(x: xPosition)
+                .offset(x: mediaItemDragOffset[item.id] ?? 0)
+                .gesture(
+                    DragGesture(minimumDistance: 4)
+                        .onChanged { value in
+                            mediaItemDragOffset[item.id] = value.translation.width
+                        }
+                        .onEnded { value in
+                            mediaItemDragOffset.removeValue(forKey: item.id)
+                            onMediaItemDragged(item.id, value.translation.width)
+                        }
+                )
+                .help("\(item.name) — \(String(format: "%.1fs", item.duration))")
             }
 
             ForEach(track.segments) { segment in
@@ -150,6 +168,25 @@ struct TimelineTrackRow: View {
                                     onTrimDragEnded(segment, .trailing, deltaX)
                                 }
                             )
+                        }
+                    }
+                    .overlay(alignment: .topTrailing) {
+                        if segment.speed != 1.0 {
+                            Text(String(format: "%.1fx", segment.speed))
+                                .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 3)
+                                .padding(.vertical, 1)
+                                .background(Capsule().fill(Color.orange.opacity(0.8)))
+                                .padding(2)
+                        }
+                    }
+                    .overlay(alignment: .topLeading) {
+                        if segment.cameraPosition != nil {
+                            Image(systemName: "camera.circle.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.green)
+                                .padding(2)
                         }
                     }
                     .contentShape(Rectangle())

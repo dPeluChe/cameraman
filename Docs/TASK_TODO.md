@@ -31,9 +31,7 @@
     - Selector de fuentes muestra capturas estaticas.
     - Implementar stream ligero de ScreenCaptureKit para vista previa en movimiento.
 
-- [ ] **Audio drift detection:**
-    - Comparar duracion de pistas audio vs video durante export.
-    - Alertar si drift > 100ms.
+- [x] ~~**Audio drift detection:**~~ RESUELTO: AudioDriftDetector compara duraciones video vs system/mic audio, genera DriftReport con drift en ms y flag hasSignificantDrift (>100ms).
 
 ## 2. Calidad y Estabilidad (Prioridad Media)
 
@@ -56,22 +54,16 @@
 
 - [x] ~~**GIF export:**~~ RESUELTO: UI de opciones GIF (fps, tamano, loop) en ExportView; GIFExportOptions conectado al GIFExportSession existente.
 
-- [ ] **Posicion de camara por segmento (split → reposicionar PiP):**
-    - Al hacer split de un segmento, cada segmento resultante tiene su propia posicion de camara PiP.
-    - Permite: "salir a la izquierda" en segmento 1, luego "salir arriba" en segmento 2.
-    - Modelo: agregar `cameraPosition` (o `pipLayout`) override por segmento en `Project.Timeline.Segment`.
-    - UI: al seleccionar un segmento, los controles de PiP/layout en el sidebar aplican solo a ese segmento.
-    - Compositor: leer `segment.cameraPosition ?? project.canvas.layout` como fallback.
+- [x] ~~**Posicion de camara por segmento (split → reposicionar PiP):**~~ RESUELTO: `segment.cameraPosition` override en modelo, split propaga metadata, SegmentInspectorBar con controles, compositor crea instrucciones per-segment.
 
 ## 3b. Features del Editor — Prioridad Media
 
-- [ ] **Drag para reposicionar media items en timeline:**
-    - Actualmente se insertan al playhead; falta drag para moverlos.
+- [x] ~~**Drag para reposicionar media items en timeline:**~~ RESUELTO: DragGesture con feedback visual en vivo; actualiza timelineIn al soltar.
 - [ ] **Image overlays visibles en preview/export:**
     - MediaItem tipo image se importa pero no se renderiza aun (necesita CALayer + animationTool).
 - [ ] **Reordenar segmentos en timeline (v1.1)**
-- [ ] **Speed presets en timeline (v1.1):** UI para cambiar velocidad por segmento (`segment.speed` ya existe en modelo)
-- [ ] **Background blur (v1.1)**
+- [x] ~~**Speed presets en timeline (v1.1):**~~ RESUELTO: SegmentInspectorBar con picker (0.25x-4x), speed badge en segmentos, updateSegmentSpeed() en editor.
+- [x] ~~**Background blur (v1.1)**~~ RESUELTO: Compositor aplica CIGaussianBlur al screen como fondo cuando backgroundType == "blur".
 - [ ] **Captions visibles en preview (mejorar)**
 - [x] ~~**Duplicar proyecto**~~ RESUELTO: deep copy con nuevo ID + "(Copy)" en nombre. Context menu en sidebar.
 - [x] ~~**Export formato `.txt` para transcript**~~ RESUELTO: exportCaptions() soporta SRT/VTT/TXT con NSSavePanel.
@@ -80,13 +72,13 @@
 
 ## 3c. Features del Editor — Inspirados en OpenScreen (Polish Visual)
 
-- [x] ~~**Border radius + shadow en video:**~~ RESUELTO: canvas.videoCornerRadius (0-16) + canvas.videoShadowIntensity (0-1) + UI sliders en VideoEffectsControlsView. Compositor pendiente.
-- [x] ~~**Background gradients:**~~ RESUELTO: BackgroundType.gradient + 8 GradientPresets + tab "Gradient" en BackgroundControlsView con grid de presets.
+- [x] ~~**Border radius + shadow en video:**~~ RESUELTO: modelo + UI + compositor (CIBlendWithMask para corner radius, padding scale+translate).
+- [x] ~~**Background gradients:**~~ RESUELTO: modelo + UI + compositor (CILinearGradient rendering).
 - [ ] **Motion blur en zoom transitions:**
     - Blur proporcional a la velocidad de movimiento durante zoom in/out.
     - Implementar via `CIMotionBlur` filter o Metal shader.
     - Aplicar en `MaskedVideoCompositor` / `PreviewComposition` durante zooms.
-- [x] ~~**Padding configurable:**~~ RESUELTO: canvas.padding (0-0.3) + UI slider en VideoEffectsControlsView. Compositor pendiente.
+- [x] ~~**Padding configurable:**~~ RESUELTO: modelo + UI + compositor (scale down + translate center).
 - [ ] **Crop interactivo con aspect ratio presets:**
     - Dialog visual con drag + inputs numericos + lock de aspect ratio (16:9, 9:16, 4:3, 1:1, 21:9).
     - Aplica crop region al source video antes de layout.

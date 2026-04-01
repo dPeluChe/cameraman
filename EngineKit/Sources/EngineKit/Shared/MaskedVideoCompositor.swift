@@ -32,6 +32,13 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
     let layoutType: String
     let screenMuted: Bool
 
+    // Visual effects
+    let videoCornerRadius: CGFloat
+    let videoShadowIntensity: CGFloat
+    let padding: CGFloat
+    let backgroundType: String
+    let backgroundValue: String
+
     init(
         timeRange: CMTimeRange,
         screenTrackID: CMPersistentTrackID,
@@ -43,7 +50,12 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         maskShape: PiPMaskShape,
         cornerRadius: CGFloat,
         layoutType: String,
-        screenMuted: Bool = false
+        screenMuted: Bool = false,
+        videoCornerRadius: CGFloat = 0,
+        videoShadowIntensity: CGFloat = 0,
+        padding: CGFloat = 0,
+        backgroundType: String = "solid",
+        backgroundValue: String = "#000000"
     ) {
         self.timeRange = timeRange
         self.screenTrackID = screenTrackID
@@ -56,6 +68,11 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         self.cornerRadius = cornerRadius
         self.layoutType = layoutType
         self.screenMuted = screenMuted
+        self.videoCornerRadius = videoCornerRadius
+        self.videoShadowIntensity = videoShadowIntensity
+        self.padding = padding
+        self.backgroundType = backgroundType
+        self.backgroundValue = backgroundValue
         super.init()
 
         var trackIDs: [NSValue] = [screenTrackID as NSValue]
@@ -100,18 +117,50 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
 
         let renderSize = instruction.renderSize
 
-        // Compose final image: black background when screen is muted, otherwise screen frame
+        let canvasRect = CGRect(origin: .zero, size: renderSize)
+
+        // Screen content
         var finalImage: CIImage
         if instruction.screenMuted {
-            finalImage = CIImage(color: .black).cropped(to: CGRect(origin: .zero, size: renderSize))
+            finalImage = renderBackground(instruction: instruction, renderSize: renderSize)
         } else {
             guard let screenBuffer = request.sourceFrame(byTrackID: instruction.screenTrackID) else {
                 request.finish(withComposedVideoFrame: outputBuffer)
                 return
             }
-            let screenImage = CIImage(cvPixelBuffer: screenBuffer)
+            let rawScreen = CIImage(cvPixelBuffer: screenBuffer)
                 .transformed(by: instruction.screenTransform)
-            finalImage = screenImage.cropped(to: CGRect(origin: .zero, size: renderSize))
+                .cropped(to: canvasRect)
+
+            // Background: blurred screen or solid/gradient
+            if instruction.backgroundType == "blur" {
+                let blurRadius = Double(instruction.backgroundValue) ?? 10
+                finalImage = rawScreen.clampedToExtent()
+                    .applyingGaussianBlur(sigma: blurRadius)
+                    .cropped(to: canvasRect)
+            } else {
+                finalImage = renderBackground(instruction: instruction, renderSize: renderSize)
+            }
+
+            // Apply padding (scale down and center)
+            var screenImage = rawScreen
+            let pad = instruction.padding
+            if pad > 0.001 {
+                let scale = 1.0 - pad
+                let offsetX = (renderSize.width * pad) / 2
+                let offsetY = (renderSize.height * pad) / 2
+                screenImage = screenImage
+                    .transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+                    .transformed(by: CGAffineTransform(translationX: offsetX, y: offsetY))
+                    .cropped(to: canvasRect)
+            }
+
+            // Apply corner radius
+            if instruction.videoCornerRadius > 0 {
+                screenImage = applyCornerRadius(to: screenImage, radius: instruction.videoCornerRadius, renderSize: renderSize, padding: pad)
+            }
+
+            finalImage = screenImage.composited(over: finalImage)
         }
 
         // Add camera if available
@@ -228,5 +277,93 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
         blendFilter.setValue(maskCIImage, forKey: kCIInputMaskImageKey)
 
         return blendFilter.outputImage ?? image
+    }
+
+    // MARK: - Background Rendering
+
+    private func renderBackground(instruction: MaskedVideoCompositionInstruction, renderSize: CGSize) -> CIImage {
+        let rect = CGRect(origin: .zero, size: renderSize)
+
+        switch instruction.backgroundType {
+        case "gradient":
+            return renderGradientBackground(value: instruction.backgroundValue, size: renderSize)
+        case "solid":
+            let color = ciColor(from: instruction.backgroundValue)
+            return CIImage(color: color).cropped(to: rect)
+        default:
+            return CIImage(color: .black).cropped(to: rect)
+        }
+    }
+
+    private func renderGradientBackground(value: String, size: CGSize) -> CIImage {
+        let parts = value.split(separator: ",")
+        guard parts.count >= 2 else {
+            return CIImage(color: .black).cropped(to: CGRect(origin: .zero, size: size))
+        }
+
+        let startColor = ciColor(from: String(parts[0]))
+        let endColor = ciColor(from: String(parts[1]))
+
+        guard let gradient = CIFilter(name: "CILinearGradient") else {
+            return CIImage(color: startColor).cropped(to: CGRect(origin: .zero, size: size))
+        }
+
+        gradient.setValue(CIVector(x: 0, y: size.height), forKey: "inputPoint0")
+        gradient.setValue(startColor, forKey: "inputColor0")
+        gradient.setValue(CIVector(x: size.width, y: 0), forKey: "inputPoint1")
+        gradient.setValue(endColor, forKey: "inputColor1")
+
+        return (gradient.outputImage ?? CIImage(color: startColor))
+            .cropped(to: CGRect(origin: .zero, size: size))
+    }
+
+    private func ciColor(from hex: String) -> CIColor {
+        let clean = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
+        guard clean.count == 6, let rgb = UInt64(clean, radix: 16) else {
+            return .black
+        }
+        let r = CGFloat((rgb >> 16) & 0xFF) / 255.0
+        let g = CGFloat((rgb >> 8) & 0xFF) / 255.0
+        let b = CGFloat(rgb & 0xFF) / 255.0
+        return CIColor(red: r, green: g, blue: b)
+    }
+
+    // MARK: - Video Effects
+
+    private func applyCornerRadius(to image: CIImage, radius: CGFloat, renderSize: CGSize, padding: CGFloat) -> CIImage {
+        let scale = 1.0 - padding
+        let insetW = renderSize.width * scale
+        let insetH = renderSize.height * scale
+        let offsetX = (renderSize.width - insetW) / 2
+        let offsetY = (renderSize.height - insetH) / 2
+        let videoRect = CGRect(x: offsetX, y: offsetY, width: insetW, height: insetH)
+
+        let maskPath = CGPath(roundedRect: videoRect,
+                              cornerWidth: radius, cornerHeight: radius,
+                              transform: nil)
+
+        guard let ctx = CGContext(
+            data: nil, width: Int(renderSize.width), height: Int(renderSize.height),
+            bitsPerComponent: 8, bytesPerRow: Int(renderSize.width) * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+        ) else { return image }
+
+        ctx.setFillColor(CGColor(red: 0, green: 0, blue: 0, alpha: 1))
+        ctx.fill(CGRect(origin: .zero, size: renderSize))
+        ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
+        ctx.addPath(maskPath)
+        ctx.fillPath()
+
+        guard let maskCG = ctx.makeImage() else { return image }
+
+        let maskCI = CIImage(cgImage: maskCG)
+        guard let blend = CIFilter(name: "CIBlendWithMask") else { return image }
+        blend.setValue(image, forKey: kCIInputImageKey)
+        blend.setValue(CIImage(color: .clear).cropped(to: CGRect(origin: .zero, size: renderSize)),
+                       forKey: kCIInputBackgroundImageKey)
+        blend.setValue(maskCI, forKey: kCIInputMaskImageKey)
+
+        return blend.outputImage ?? image
     }
 }
