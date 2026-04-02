@@ -212,54 +212,75 @@ extension ExportEngine {
             }
 
             // Add camera layer instruction if camera track exists (skip if muted)
-            if !cameraMuted, let cameraTrack = cameraTrack, let cameraPosition = project.canvas.layout.camera {
-                logger.debug("Adding camera overlay layer instruction")
-
-                let cameraLayerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: cameraTrack)
-
-                // Use actual track dimensions for correct transform calculation
+            if !cameraMuted, let cameraTrack = cameraTrack, let defaultCamera = project.canvas.layout.camera {
                 let trackSize = cameraTrack.naturalSize
                 let cameraSourceSize = CoreFoundation.CGSize(
                     width: trackSize.width > 0 ? trackSize.width : CGFloat(primarySources.camera?.size.w ?? 1280),
                     height: trackSize.height > 0 ? trackSize.height : CGFloat(primarySources.camera?.size.h ?? 720)
                 )
-                logger.debug("Camera actual size: \(Int(cameraSourceSize.width))x\(Int(cameraSourceSize.height))")
 
-                let cameraTransform = calculateCameraOverlayTransform(
-                    cameraPosition: cameraPosition,
-                    cameraSourceSize: cameraSourceSize,
-                    renderSize: videoComposition.renderSize
-                )
+                let hasPerSegmentCamera = project.timeline.segments.contains { $0.cameraPosition != nil }
 
-                cameraLayerInstruction.setTransform(cameraTransform, at: .zero)
+                if hasPerSegmentCamera || defaultCamera.maskShape != .none {
+                    // Per-segment compositor instructions (same logic as preview)
+                    var maskedInstructions: [MaskedVideoCompositionInstruction] = []
+                    let totalDuration = composition.duration
 
-                // Use custom compositor for masked PiP
-                if cameraPosition.maskShape != .none {
-                    let maskedInstruction = MaskedVideoCompositionInstruction(
-                        timeRange: CMTimeRangeMake(start: .zero, duration: composition.duration),
-                        screenTrackID: videoTrack.trackID,
-                        cameraTrackID: cameraTrack.trackID,
-                        renderSize: videoComposition.renderSize,
-                        screenTransform: transform,
-                        cameraTransform: cameraTransform,
-                        cameraRect: CGRect(
-                            x: cameraPosition.x,
-                            y: cameraPosition.y,
-                            width: cameraPosition.w,
-                            height: cameraPosition.h
-                        ),
-                        maskShape: cameraPosition.maskShape,
-                        cornerRadius: CGFloat(cameraPosition.cornerRadius),
-                        layoutType: project.canvas.layout.type
-                    )
+                    for (i, segment) in project.timeline.segments.enumerated() {
+                        let segCamera = segment.cameraPosition ?? defaultCamera
+                        let segCameraTransform = PreviewEngine.cameraTransform(
+                            position: segCamera, camSourceSize: cameraSourceSize, renderSize: videoComposition.renderSize
+                        )
+
+                        let segStart: CMTime
+                        if let prev = maskedInstructions.last {
+                            segStart = CMTimeRangeGetEnd(prev.timeRange)
+                        } else {
+                            segStart = .zero
+                        }
+                        let segEnd: CMTime
+                        if i == project.timeline.segments.count - 1 {
+                            segEnd = totalDuration
+                        } else {
+                            segEnd = CMTime(seconds: segment.timelineIn + segment.timelineDuration, preferredTimescale: 600)
+                        }
+                        let segDuration = CMTimeSubtract(segEnd, segStart)
+
+                        maskedInstructions.append(MaskedVideoCompositionInstruction(
+                            timeRange: CMTimeRangeMake(start: segStart, duration: segDuration),
+                            screenTrackID: videoTrack.trackID,
+                            cameraTrackID: cameraTrack.trackID,
+                            renderSize: videoComposition.renderSize,
+                            screenTransform: transform,
+                            cameraTransform: segCameraTransform,
+                            cameraRect: CGRect(x: segCamera.x, y: segCamera.y, width: segCamera.w, height: segCamera.h),
+                            maskShape: segCamera.maskShape,
+                            cornerRadius: CGFloat(segCamera.cornerRadius),
+                            layoutType: project.canvas.layout.type,
+                            videoCornerRadius: CGFloat(project.canvas.videoCornerRadius),
+                            videoShadowIntensity: CGFloat(project.canvas.videoShadowIntensity),
+                            padding: CGFloat(project.canvas.padding),
+                            backgroundType: project.canvas.background.type,
+                            backgroundValue: project.canvas.background.value,
+                            cameraBorderWidth: CGFloat(segCamera.borderWidth),
+                            cameraBorderColor: segCamera.borderColor
+                        ))
+                    }
+
                     videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
-                    videoComposition.instructions = [maskedInstruction]
-                    logger.debug("Camera overlay with mask (\(cameraPosition.maskShape.rawValue)) added to export")
+                    videoComposition.instructions = maskedInstructions
+                    logger.debug("Export: \(maskedInstructions.count) per-segment compositor instructions")
                 } else {
-                    // Standard PiP (no mask)
+                    // Standard PiP (no mask, no per-segment)
+                    let cameraTransform = calculateCameraOverlayTransform(
+                        cameraPosition: defaultCamera,
+                        cameraSourceSize: cameraSourceSize,
+                        renderSize: videoComposition.renderSize
+                    )
+                    let cameraLayerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: cameraTrack)
+                    cameraLayerInstruction.setTransform(cameraTransform, at: .zero)
                     instruction.layerInstructions = [cameraLayerInstruction, layerInstruction]
                     videoComposition.instructions = [instruction]
-                    logger.debug("Camera overlay added to composition")
                 }
             } else {
                 instruction.layerInstructions = [layerInstruction]
@@ -327,7 +348,8 @@ extension ExportEngine {
             if let audioMuteState = options.audioMuteState {
                 let audioMix = AudioMixBuilder.buildAudioMix(
                     compositionResult: compositionResult,
-                    muteState: audioMuteState
+                    muteState: audioMuteState,
+                    segments: project.timeline.segments
                 )
                 exportSession.audioMix = audioMix
             }

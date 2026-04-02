@@ -142,14 +142,20 @@ class TeleprompterViewModel: ObservableObject {
 
         if mode == .scroll {
             scrollTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 15.0, repeats: true) { [weak self] _ in
-                guard let self, self.isPlaying else { return }
-                self.scrollOffset += CGFloat(self.scrollSpeed / 15.0)
+                guard let vm = self else { return }
+                Task { @MainActor in
+                    guard vm.isPlaying else { return }
+                    vm.scrollOffset += CGFloat(vm.scrollSpeed / 15.0)
+                }
             }
         }
 
         wordTimer = Timer.scheduledTimer(withTimeInterval: wordInterval, repeats: true) { [weak self] _ in
-            guard let self, self.isPlaying else { return }
-            self.advanceWord()
+            guard let vm = self else { return }
+            Task { @MainActor in
+                guard vm.isPlaying else { return }
+                vm.advanceWord()
+            }
         }
     }
 
@@ -328,7 +334,7 @@ struct TeleprompterOverlayView: View {
             }
             .pickerStyle(.segmented)
             .frame(width: 130)
-            .onChange(of: viewModel.mode) { _ in viewModel.reset() }
+            .onChange(of: viewModel.mode) { _, _ in viewModel.reset() }
 
             Spacer()
 

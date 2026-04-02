@@ -52,7 +52,7 @@ struct RecordingSourceSelectorView: View {
                 Text("Application").tag(SourceSelectorViewModel.SourceTab.application)
             }
             .pickerStyle(.segmented)
-            .onChange(of: viewModel.selectedTab) { newTab in
+            .onChange(of: viewModel.selectedTab) { _, newTab in
                 Task {
                     await viewModel.loadSources(for: newTab)
                 }

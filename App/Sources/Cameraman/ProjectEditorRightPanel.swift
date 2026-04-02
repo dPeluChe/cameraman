@@ -10,7 +10,8 @@ import EngineKit
 
 struct RightPanel: View {
     @ObservedObject var editor: ProjectEditor
-    
+    var selectedSegmentId: String?
+
     // Binding states for expansion
     @Binding var isLayoutExpanded: Bool
     @Binding var isFormatExpanded: Bool
@@ -51,7 +52,7 @@ struct RightPanel: View {
                         
                         // Camera Group
                         ConfigGroup(title: "Camera", isExpanded: $isCameraExpanded) {
-                            PiPConfigurationView(editor: editor)
+                            PiPConfigurationView(editor: editor, selectedSegmentId: selectedSegmentId)
                         }
                     }
                     

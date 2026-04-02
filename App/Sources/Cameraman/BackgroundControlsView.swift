@@ -124,7 +124,7 @@ struct BackgroundControlsView: View {
         .onAppear {
             Task { @MainActor in updateSelectedColor() }
         }
-        .onChange(of: background.value) { _ in
+        .onChange(of: background.value) { _, _ in
             Task { @MainActor in updateSelectedColor() }
         }
     }

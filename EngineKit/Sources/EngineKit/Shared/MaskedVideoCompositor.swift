@@ -39,6 +39,10 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
     let backgroundType: String
     let backgroundValue: String
 
+    // Camera border
+    let cameraBorderWidth: CGFloat
+    let cameraBorderColor: String
+
     init(
         timeRange: CMTimeRange,
         screenTrackID: CMPersistentTrackID,
@@ -55,7 +59,9 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         videoShadowIntensity: CGFloat = 0,
         padding: CGFloat = 0,
         backgroundType: String = "solid",
-        backgroundValue: String = "#000000"
+        backgroundValue: String = "#000000",
+        cameraBorderWidth: CGFloat = 0,
+        cameraBorderColor: String = "#FFFFFF"
     ) {
         self.timeRange = timeRange
         self.screenTrackID = screenTrackID
@@ -73,6 +79,8 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         self.padding = padding
         self.backgroundType = backgroundType
         self.backgroundValue = backgroundValue
+        self.cameraBorderWidth = cameraBorderWidth
+        self.cameraBorderColor = cameraBorderColor
         super.init()
 
         var trackIDs: [NSValue] = [screenTrackID as NSValue]
@@ -97,6 +105,10 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
 
     private var renderContext: AVVideoCompositionRenderContext?
     private let ciContext = CIContext(options: [.useSoftwareRenderer: false])
+
+    // Border cache — avoid CGContext allocation per frame
+    private var cachedBorderImage: CIImage?
+    private var cachedBorderKey: String?
 
     public func renderContextChanged(_ newRenderContext: AVVideoCompositionRenderContext) {
         renderContext = newRenderContext
@@ -174,7 +186,7 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
             // Get the actual extent of the transformed camera image
             let camExtent = cameraImage.extent.intersection(CGRect(origin: .zero, size: renderSize))
 
-            // Apply mask to camera
+            // Apply mask to camera (skip for .none — just crop)
             if instruction.maskShape != .none && !camExtent.isEmpty {
                 let maskedCamera = applyMask(
                     to: cameraImage,
@@ -185,9 +197,28 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
                 )
                 finalImage = maskedCamera.composited(over: finalImage)
             } else {
-                // No mask — composite directly
                 let croppedCamera = cameraImage.cropped(to: CGRect(origin: .zero, size: renderSize))
                 finalImage = croppedCamera.composited(over: finalImage)
+            }
+
+            // Draw border around camera (all shapes including .none = rectangle)
+            if instruction.cameraBorderWidth > 0 && !camExtent.isEmpty {
+                let borderShape = instruction.maskShape == .none ? PiPMaskShape.roundedRect : instruction.maskShape
+                let borderRadius = instruction.maskShape == .none ? CGFloat(0) : instruction.cornerRadius
+                let key = "\(borderShape)_\(camExtent)_\(borderRadius)_\(instruction.cameraBorderWidth)_\(instruction.cameraBorderColor)_\(renderSize)"
+                let borderImage: CIImage
+                if key == cachedBorderKey, let cached = cachedBorderImage {
+                    borderImage = cached
+                } else {
+                    borderImage = renderCameraBorder(
+                        shape: borderShape, rect: camExtent, cornerRadius: borderRadius,
+                        borderWidth: instruction.cameraBorderWidth, borderColor: instruction.cameraBorderColor,
+                        renderSize: renderSize
+                    )
+                    cachedBorderImage = borderImage
+                    cachedBorderKey = key
+                }
+                finalImage = borderImage.composited(over: finalImage)
             }
         }
 
@@ -365,5 +396,64 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
         blend.setValue(maskCI, forKey: kCIInputMaskImageKey)
 
         return blend.outputImage ?? image
+    }
+
+    // MARK: - Camera Border
+
+    private func renderCameraBorder(
+        shape: PiPMaskShape,
+        rect: CGRect,
+        cornerRadius: CGFloat,
+        borderWidth: CGFloat,
+        borderColor: String,
+        renderSize: CGSize
+    ) -> CIImage {
+        let borderPath: CGPath
+        switch shape {
+        case .circle:
+            let diameter = min(rect.width, rect.height)
+            let circleRect = CGRect(
+                x: rect.midX - diameter / 2,
+                y: rect.midY - diameter / 2,
+                width: diameter,
+                height: diameter
+            )
+            borderPath = CGPath(ellipseIn: circleRect, transform: nil)
+        case .roundedRect:
+            let radius = min(cornerRadius, min(rect.width, rect.height) / 2)
+            borderPath = CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil)
+        case .capsule:
+            let radius = min(rect.width, rect.height) / 2
+            borderPath = CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil)
+        case .none:
+            return CIImage(color: .clear).cropped(to: CGRect(origin: .zero, size: renderSize))
+        }
+
+        guard let ctx = CGContext(
+            data: nil, width: Int(renderSize.width), height: Int(renderSize.height),
+            bitsPerComponent: 8, bytesPerRow: Int(renderSize.width) * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+        ) else {
+            return CIImage(color: .clear).cropped(to: CGRect(origin: .zero, size: renderSize))
+        }
+
+        ctx.clear(CGRect(origin: .zero, size: renderSize))
+
+        let color = cgColor(from: borderColor)
+        ctx.setStrokeColor(color)
+        ctx.setLineWidth(borderWidth)
+        ctx.addPath(borderPath)
+        ctx.strokePath()
+
+        guard let cgImage = ctx.makeImage() else {
+            return CIImage(color: .clear).cropped(to: CGRect(origin: .zero, size: renderSize))
+        }
+        return CIImage(cgImage: cgImage)
+    }
+
+    private func cgColor(from hex: String) -> CGColor {
+        let ci = ciColor(from: hex)
+        return CGColor(red: ci.red, green: ci.green, blue: ci.blue, alpha: ci.alpha)
     }
 }

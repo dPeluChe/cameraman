@@ -324,30 +324,36 @@ extension ProjectEditor {
 
 extension ProjectEditor {
     @discardableResult
-    func updateSegmentSpeed(segmentId: String, speed: Double) async -> Bool {
+    private func mutateSegment(segmentId: String, _ mutate: (inout Project.Timeline.Segment) -> Void) async -> Bool {
         let previousProject = project
         var updatedProject = project
         guard let index = updatedProject.timeline.segments.firstIndex(where: { $0.id == segmentId }) else { return false }
-        updatedProject.timeline.segments[index].speed = max(0.25, min(4.0, speed))
+        mutate(&updatedProject.timeline.segments[index])
         updatedProject.updatedAt = Date()
-
         await setEditorProject(updatedProject)
         recordUndo(previousProject)
         project = updatedProject
+        scheduleAutosave()
         return true
     }
 
     @discardableResult
-    func updateSegmentCameraPosition(segmentId: String, camera: Project.Canvas.Layout.CameraPosition?) async -> Bool {
-        let previousProject = project
-        var updatedProject = project
-        guard let index = updatedProject.timeline.segments.firstIndex(where: { $0.id == segmentId }) else { return false }
-        updatedProject.timeline.segments[index].cameraPosition = camera
-        updatedProject.updatedAt = Date()
+    func updateSegmentSpeed(segmentId: String, speed: Double) async -> Bool {
+        await mutateSegment(segmentId: segmentId) { $0.speed = max(0.25, min(4.0, speed)) }
+    }
 
-        await setEditorProject(updatedProject)
-        recordUndo(previousProject)
-        project = updatedProject
-        return true
+    @discardableResult
+    func updateSegmentVolume(segmentId: String, volume: Double?) async -> Bool {
+        await mutateSegment(segmentId: segmentId) { $0.volume = volume }
+    }
+
+    @discardableResult
+    func updateSegmentAudioMuted(segmentId: String, muted: Bool?) async -> Bool {
+        await mutateSegment(segmentId: segmentId) { $0.audioMuted = muted }
+    }
+
+    @discardableResult
+    func updateSegmentCameraPosition(segmentId: String, camera: Project.Canvas.Layout.CameraPosition?) async -> Bool {
+        await mutateSegment(segmentId: segmentId) { $0.cameraPosition = camera }
     }
 }

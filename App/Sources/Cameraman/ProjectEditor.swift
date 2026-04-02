@@ -21,11 +21,26 @@ final class ProjectEditor: ObservableObject {
     private var undoStack: [Project] = []
     private var redoStack: [Project] = []
     private let historyLimit = 50
+    private var autosaveTask: Task<Void, Never>?
 
     init(project: Project) {
         self.project = project
         self.editorModel = EditorModel(project: project)
         updateHistoryState()
+    }
+
+    /// Schedule a debounced autosave (called after edits)
+    func scheduleAutosave() {
+        autosaveTask?.cancel()
+        autosaveTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 1_000_000_000) // 1s debounce
+            guard !Task.isCancelled, let self else { return }
+            do {
+                try await ProjectLibrary.shared.updateProject(self.project)
+            } catch {
+                print("[AUTOSAVE] Failed: \(error.localizedDescription)")
+            }
+        }
     }
 
     func setProject(_ project: Project) async {
@@ -156,6 +171,7 @@ final class ProjectEditor: ObservableObject {
 
         await editorModel.setProject(updatedProject)
         project = updatedProject
+        scheduleAutosave()
 
         if let snapshot {
             recordUndoSnapshot(snapshot)
@@ -297,6 +313,7 @@ final class ProjectEditor: ObservableObject {
         if let updatedProject = result.getProject() {
             recordUndoSnapshot(previousProject)
             project = updatedProject
+            scheduleAutosave()
         }
     }
 

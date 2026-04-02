@@ -22,6 +22,7 @@ public actor Recorder {
     private let captureEngine = CaptureEngine.shared
     private let cameraEngine = CameraEngine.shared
     private let permissionManager = PermissionManager.shared
+    private let telemetryRecorder = TelemetryRecorder()
 
     // MARK: - Initialization
 
@@ -113,6 +114,23 @@ public actor Recorder {
             }
         }
 
+        // Start cursor telemetry (always on by default)
+        if config.captureTelemetry {
+            do {
+                let telemetryDir = outputURL.appendingPathComponent("telemetry")
+                try FileManager.default.createDirectory(at: telemetryDir, withIntermediateDirectories: true)
+                let telemetryConfig = TelemetryRecorder.Configuration(
+                    outputDirectory: telemetryDir
+                )
+                let telemetrySession = try await telemetryRecorder.startRecording(config: telemetryConfig)
+                session.telemetrySession = telemetrySession
+                logger.info("Telemetry recording started")
+            } catch {
+                logger.warning("Failed to start telemetry recording: \(error.localizedDescription)")
+                // Non-fatal: continue recording without telemetry
+            }
+        }
+
         // Mark session as started
         session.markStarted(at: Date())
 
@@ -135,6 +153,7 @@ public actor Recorder {
         var screenResult: CaptureEngine.RecordingResult?
         var cameraResult: CameraEngine.RecordingResult?
         var micAudioPath: URL?
+        var telemetryPath: URL?
 
         // Stop all captures
         if let screenSession = session.getScreenSession() {
@@ -164,6 +183,17 @@ public actor Recorder {
             }
         }
 
+        // Stop telemetry
+        if session.telemetrySession != nil {
+            do {
+                let telemetryResult = try await telemetryRecorder.stopRecording()
+                telemetryPath = telemetryResult.cursorFilePath
+                logger.info("Telemetry recording stopped: \(telemetryResult.eventCount) events")
+            } catch {
+                logger.warning("Failed to stop telemetry: \(error.localizedDescription)")
+            }
+        }
+
         // Mark session as ended
         session.markEnded(at: Date())
 
@@ -189,6 +219,7 @@ public actor Recorder {
             systemAudioPath: screenResult.systemAudioPath,
             cameraVideoPath: cameraResult?.cameraVideoPath,
             micAudioPath: micAudioPath,
+            telemetryPath: telemetryPath,
             duration: session.duration,
             syncMetadata: syncMetadata,
             startTime: screenResult.startTime,

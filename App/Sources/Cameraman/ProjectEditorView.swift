@@ -19,6 +19,7 @@ final class ProjectEditorViewModel: ObservableObject {
     @Published private(set) var isLoading = false
     @Published private(set) var projectDirectory: URL?
     @Published var mutedTracks: Set<TimelineTrackKind> = []
+    @Published var selectedSegmentId: String?
 
     let playerViewModel = PreviewPlayerViewModel()
 
@@ -131,6 +132,7 @@ struct ProjectEditorView: View {
                 if let editor = viewModel.editor {
                     RightPanel(
                         editor: editor,
+                        selectedSegmentId: viewModel.selectedSegmentId,
                         isLayoutExpanded: $isLayoutExpanded,
                         isFormatExpanded: $isFormatExpanded,
                         isCameraExpanded: $isCameraExpanded,

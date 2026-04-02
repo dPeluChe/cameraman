@@ -141,6 +141,8 @@ extension CanvasLayout.BackgroundType {
             return "photo"
         case .blur:
             return "camera.filters"
+        case .gradient:
+            return "circle.lefthalf.filled"
         }
     }
 
@@ -153,6 +155,7 @@ extension CanvasLayout.BackgroundType {
         case .solid: return "Color"
         case .image: return "Image"
         case .blur: return "Blur"
+        case .gradient: return "Gradient"
         }
     }
 }

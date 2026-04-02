@@ -127,7 +127,6 @@ public actor EditorModel {
         let timelineOffset = timelineTime - segment.timelineIn
         let sourceSplitTime = segment.sourceIn + (timelineOffset * segment.speed)
 
-        // Create the first segment — propagate all metadata from original
         let firstSegment = Project.Timeline.Segment(
             id: UUID().uuidString,
             takeId: segment.takeId,
@@ -136,10 +135,11 @@ public actor EditorModel {
             timelineIn: segment.timelineIn,
             speed: segment.speed,
             zoom: segment.zoom,
-            cameraPosition: segment.cameraPosition
+            cameraPosition: segment.cameraPosition,
+            volume: segment.volume,
+            audioMuted: segment.audioMuted
         )
 
-        // Create the second segment — propagate all metadata from original
         let secondSegment = Project.Timeline.Segment(
             id: UUID().uuidString,
             takeId: segment.takeId,
@@ -148,7 +148,9 @@ public actor EditorModel {
             timelineIn: timelineTime,
             speed: segment.speed,
             zoom: segment.zoom,
-            cameraPosition: segment.cameraPosition
+            cameraPosition: segment.cameraPosition,
+            volume: segment.volume,
+            audioMuted: segment.audioMuted
         )
 
         // Replace the original segment with the two new segments

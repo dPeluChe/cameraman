@@ -81,15 +81,20 @@ extension Project {
                 public var h: Double
                 public var cornerRadius: Double
                 public var maskShape: PiPMaskShape
+                /// Border width in points (0 = no border)
+                public var borderWidth: Double
+                /// Border color as hex string (e.g. "#FF0000")
+                public var borderColor: String
 
-                /// Initialize a new camera position
                 public init(
                     x: Double,
                     y: Double,
                     w: Double,
                     h: Double,
                     cornerRadius: Double = 0,
-                    maskShape: PiPMaskShape = .roundedRect
+                    maskShape: PiPMaskShape = .roundedRect,
+                    borderWidth: Double = 0,
+                    borderColor: String = "#FFFFFF"
                 ) {
                     self.x = x
                     self.y = y
@@ -97,9 +102,10 @@ extension Project {
                     self.h = h
                     self.cornerRadius = cornerRadius
                     self.maskShape = maskShape
+                    self.borderWidth = borderWidth
+                    self.borderColor = borderColor
                 }
 
-                /// Custom decoder to handle old projects without maskShape field
                 public init(from decoder: Decoder) throws {
                     let container = try decoder.container(keyedBy: CodingKeys.self)
                     x = try container.decode(Double.self, forKey: .x)
@@ -108,6 +114,8 @@ extension Project {
                     h = try container.decode(Double.self, forKey: .h)
                     cornerRadius = try container.decodeIfPresent(Double.self, forKey: .cornerRadius) ?? 0
                     maskShape = try container.decodeIfPresent(PiPMaskShape.self, forKey: .maskShape) ?? .roundedRect
+                    borderWidth = try container.decodeIfPresent(Double.self, forKey: .borderWidth) ?? 0
+                    borderColor = try container.decodeIfPresent(String.self, forKey: .borderColor) ?? "#FFFFFF"
                 }
             }
         }

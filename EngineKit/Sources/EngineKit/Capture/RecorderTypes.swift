@@ -17,15 +17,19 @@ extension Recorder {
         public let cameraConfig: CameraEngine.CameraConfiguration?
         /// Whether to capture microphone audio
         public let captureMicAudio: Bool
+        /// Whether to capture cursor/click telemetry (always true by default)
+        public let captureTelemetry: Bool
 
         public init(
             screenConfig: CaptureEngine.CaptureConfiguration,
             cameraConfig: CameraEngine.CameraConfiguration? = nil,
-            captureMicAudio: Bool = false
+            captureMicAudio: Bool = false,
+            captureTelemetry: Bool = true
         ) {
             self.screenConfig = screenConfig
             self.cameraConfig = cameraConfig
             self.captureMicAudio = captureMicAudio
+            self.captureTelemetry = captureTelemetry
         }
     }
 
@@ -43,6 +47,7 @@ extension Recorder {
         private var cameraSession: CameraEngine.RecordingSession?
         private var cameraConfig: CameraEngine.CameraConfiguration?
         internal var micAudioSession: MicAudioRecorder?
+        internal var telemetrySession: TelemetryRecorder.RecordingSession?
 
         internal init(id: UUID = UUID()) {
             self.id = id
@@ -114,6 +119,7 @@ extension Recorder {
         public let systemAudioPath: URL?
         public let cameraVideoPath: URL?
         public let micAudioPath: URL?
+        public let telemetryPath: URL?
         public let duration: TimeInterval
         public let syncMetadata: SyncMetadata
         public let startTime: Date

@@ -50,7 +50,8 @@ struct CenterPanel: View {
                     editor: editor,
                     playerViewModel: playerViewModel,
                     projectDirectory: viewModel.projectDirectory,
-                    mutedTracks: $viewModel.mutedTracks
+                    mutedTracks: $viewModel.mutedTracks,
+                    selectedSegmentId: $viewModel.selectedSegmentId
                 )
                 .frame(height: 250)
             } else {
@@ -82,7 +83,7 @@ struct CenterPanel: View {
             NotificationCenter.default.post(name: .togglePlayPause, object: nil)
             return .handled
         }
-        .onChange(of: viewModel.mutedTracks) { newValue in
+        .onChange(of: viewModel.mutedTracks) { _, newValue in
             playerViewModel.applyTrackMutes(mutedTracks: newValue)
         }
     }

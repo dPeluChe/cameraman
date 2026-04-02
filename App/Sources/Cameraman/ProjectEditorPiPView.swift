@@ -11,18 +11,58 @@ import CoreGraphics
 
 struct PiPConfigurationView: View {
     @ObservedObject var editor: ProjectEditor
+    var selectedSegmentId: String? = nil
     @State private var cornerSnapshot: Project?
 
+    /// Whether we're editing a segment's camera override vs project camera
+    private var isEditingSegment: Bool {
+        guard let segId = selectedSegmentId else { return false }
+        return editor.project.timeline.segments.first(where: { $0.id == segId })?.cameraPosition != nil
+    }
+
+    /// The active camera to display/edit
+    private var activeCamera: Project.Canvas.Layout.CameraPosition? {
+        if let segId = selectedSegmentId,
+           let segCam = editor.project.timeline.segments.first(where: { $0.id == segId })?.cameraPosition {
+            return segCam
+        }
+        return editor.project.canvas.layout.camera
+    }
+
+    /// Unified update: routes to segment or project camera
+    private func updateCamera(_ camera: Project.Canvas.Layout.CameraPosition, recordUndo: Bool = false) {
+        Task {
+            if let segId = selectedSegmentId {
+                _ = await editor.updateSegmentCameraPosition(segmentId: segId, camera: camera)
+            } else if recordUndo {
+                _ = await editor.updateCameraPosition(camera, recordUndoFrom: editor.project)
+            } else {
+                _ = await editor.updateCameraPosition(camera)
+            }
+        }
+    }
+
     var body: some View {
-        if let camera = editor.project.canvas.layout.camera {
+        if let camera = activeCamera {
             let format = editor.project.canvas.format
             let aspectRatio = Double(format.w) / Double(format.h)
 
             VStack(alignment: .leading, spacing: 12) {
+                if selectedSegmentId != nil {
+                    HStack {
+                        Image(systemName: "camera.circle.fill")
+                            .foregroundStyle(isEditingSegment ? .green : .orange)
+                        Text(isEditingSegment ? "Segment camera (custom)" : "Segment camera (drag to customize)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 PiPCanvasEditor(
                     editor: editor,
                     camera: camera,
-                    aspectRatio: aspectRatio
+                    aspectRatio: aspectRatio,
+                    selectedSegmentId: selectedSegmentId
                 )
                 .frame(maxWidth: .infinity)
                 .frame(height: 140)
@@ -35,9 +75,7 @@ struct PiPConfigurationView: View {
                         ForEach(PiPPreset.allCases, id: \.self) { preset in
                             Button(preset.rawValue) {
                                 let updated = PiPLayoutHelper.presetPosition(preset, camera: camera)
-                                Task {
-                                    _ = await editor.updateCameraPosition(updated, recordUndoFrom: editor.project)
-                                }
+                                updateCamera(updated, recordUndo: true)
                             }
                             .buttonStyle(.bordered)
                             .controlSize(.small)
@@ -55,9 +93,7 @@ struct PiPConfigurationView: View {
                             Button {
                                 var updated = camera
                                 updated.maskShape = shape
-                                Task {
-                                    _ = await editor.updateCameraPosition(updated, recordUndoFrom: editor.project)
-                                }
+                                updateCamera(updated, recordUndo: true)
                             } label: {
                                 VStack(spacing: 2) {
                                     Image(systemName: shapeIcon(shape))
@@ -90,28 +126,81 @@ struct PiPConfigurationView: View {
                             set: { newValue in
                                 var updated = camera
                                 updated.cornerRadius = newValue
-                                Task {
-                                    _ = await editor.updateCameraPosition(updated)
-                                }
+                                updateCamera(updated)
                             }
                         ),
                         in: 0...40,
                         onEditingChanged: { isEditing in
                             if isEditing {
                                 cornerSnapshot = editor.project
-                            } else if let snapshot = cornerSnapshot,
-                                      let currentCamera = editor.project.canvas.layout.camera {
-                                Task {
-                                    _ = await editor.updateCameraPosition(currentCamera, recordUndoFrom: snapshot)
+                            } else if let currentCamera = activeCamera {
+                                if let snapshot = cornerSnapshot {
+                                    if isEditingSegment, let segId = selectedSegmentId {
+                                        Task { _ = await editor.updateSegmentCameraPosition(segmentId: segId, camera: currentCamera) }
+                                    } else {
+                                        Task { _ = await editor.updateCameraPosition(currentCamera, recordUndoFrom: snapshot) }
+                                    }
                                 }
                                 cornerSnapshot = nil
                             }
                         }
                     )
                 }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Border")
+                            .font(.subheadline)
+                        Spacer()
+                        Text(camera.borderWidth > 0 ? "\(Int(camera.borderWidth))px" : "Off")
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Slider(
+                        value: Binding(
+                            get: { camera.borderWidth },
+                            set: { newValue in
+                                var updated = camera
+                                updated.borderWidth = newValue
+                                updateCamera(updated)
+                            }
+                        ),
+                        in: 0...8,
+                        step: 0.5
+                    )
+                    .controlSize(.small)
+
+                    if camera.borderWidth > 0 {
+                        HStack(spacing: 6) {
+                            ForEach(borderColorPresets, id: \.self) { hex in
+                                let isSelected = camera.borderColor == hex
+                                Button {
+                                    var updated = camera
+                                    updated.borderColor = hex
+                                    updateCamera(updated, recordUndo: true)
+                                } label: {
+                                    RoundedRectangle(cornerRadius: 3)
+                                        .fill(Color(hex: hex))
+                                        .frame(width: 20, height: 20)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 3)
+                                                .stroke(isSelected ? Color.accentColor : Color.primary.opacity(0.15), lineWidth: isSelected ? 2 : 0.5)
+                                        )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
             }
         }
     }
+
+    private let borderColorPresets: [String] = [
+        "#FFFFFF", "#000000", "#FF3B30", "#FF9500", "#FFCC00",
+        "#34C759", "#007AFF", "#5856D6", "#AF52DE", "#FF2D55"
+    ]
 
     private func shapeIcon(_ shape: PiPMaskShape) -> String {
         switch shape {
@@ -136,25 +225,41 @@ struct PiPCanvasEditor: View {
     @ObservedObject var editor: ProjectEditor
     let camera: Project.Canvas.Layout.CameraPosition
     let aspectRatio: Double
+    var selectedSegmentId: String? = nil
 
     @State private var dragStartCamera: Project.Canvas.Layout.CameraPosition?
     @State private var dragSnapshot: Project?
     @State private var resizeStartCamera: Project.Canvas.Layout.CameraPosition?
     @State private var resizeSnapshot: Project?
 
+    private var isEditingSegment: Bool {
+        guard let segId = selectedSegmentId else { return false }
+        return editor.project.timeline.segments.first(where: { $0.id == segId })?.cameraPosition != nil
+    }
+
+    private func updateCamera(_ cam: Project.Canvas.Layout.CameraPosition, recordUndo: Bool = false, from snapshot: Project? = nil) {
+        Task {
+            if let segId = selectedSegmentId {
+                // Auto-create per-segment override when dragging with segment selected
+                _ = await editor.updateSegmentCameraPosition(segmentId: segId, camera: cam)
+            } else if recordUndo, let snapshot {
+                _ = await editor.updateCameraPosition(cam, recordUndoFrom: snapshot)
+            } else {
+                _ = await editor.updateCameraPosition(cam)
+            }
+        }
+    }
+
     var body: some View {
         GeometryReader { proxy in
             let size = proxy.size
-            let layout = editor.project.canvas.layout
-            let ekCameraFrame = CanvasLayout.calculateCameraFrame(
-                layout: layout,
-                canvasWidth: Int(size.width),
-                canvasHeight: Int(size.height)
+            // Use the camera prop (segment-aware) to calculate frame, not project layout
+            let cameraFrame = CoreGraphics.CGRect(
+                x: CGFloat(camera.x) * size.width,
+                y: CGFloat(camera.y) * size.height,
+                width: CGFloat(camera.w) * size.width,
+                height: CGFloat(camera.h) * size.height
             )
-            
-            let cameraFrame = ekCameraFrame.map { ekFrame in
-                CoreGraphics.CGRect(x: CGFloat(ekFrame.minX), y: CGFloat(ekFrame.minY), width: CGFloat(ekFrame.width), height: CGFloat(ekFrame.height))
-            } ?? CoreGraphics.CGRect.zero
 
             ZStack {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -229,9 +334,7 @@ struct PiPCanvasEditor: View {
                     deltaX: Double(value.translation.width / size.width),
                     deltaY: Double(value.translation.height / size.height)
                 )
-                Task {
-                    _ = await editor.updateCameraPosition(updated)
-                }
+                updateCamera(updated)
             }
             .onEnded { value in
                 let base = dragStartCamera ?? camera
@@ -241,9 +344,7 @@ struct PiPCanvasEditor: View {
                     deltaY: Double(value.translation.height / size.height)
                 )
                 if let snapshot = dragSnapshot {
-                    Task {
-                        _ = await editor.updateCameraPosition(updated, recordUndoFrom: snapshot)
-                    }
+                    updateCamera(updated, recordUndo: true, from: snapshot)
                 }
                 dragStartCamera = nil
                 dragSnapshot = nil
@@ -265,9 +366,7 @@ struct PiPCanvasEditor: View {
                     deltaX: Double(value.translation.width / size.width),
                     deltaY: Double(value.translation.height / size.height)
                 )
-                Task {
-                    _ = await editor.updateCameraPosition(updated)
-                }
+                updateCamera(updated)
             }
             .onEnded { value in
                 let base = resizeStartCamera ?? camera
@@ -278,9 +377,7 @@ struct PiPCanvasEditor: View {
                     deltaY: Double(value.translation.height / size.height)
                 )
                 if let snapshot = resizeSnapshot {
-                    Task {
-                        _ = await editor.updateCameraPosition(updated, recordUndoFrom: snapshot)
-                    }
+                    updateCamera(updated, recordUndo: true, from: snapshot)
                 }
                 resizeStartCamera = nil
                 resizeSnapshot = nil

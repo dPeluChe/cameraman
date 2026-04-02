@@ -39,6 +39,9 @@ public actor PreviewEngine {
     /// Which video tracks are currently muted (hidden) in preview
     var mutedVideoTracks: Set<VideoTrackID> = []
 
+    /// Last applied audio mute state (preserved across rebuilds)
+    var lastAudioMuteState: AudioMixBuilder.TrackMuteState = .init()
+
     /// Current playback state
     var playbackState: PlaybackState = .stopped
 
@@ -228,13 +231,12 @@ public actor PreviewEngine {
     public func updateProject(_ project: Project) async throws {
         let oldFormat = self.project?.canvas.format
         let oldSegmentCount = self.project?.timeline.segments.count
-
         self.project = project
 
-        let formatChanged = oldFormat != project.canvas.format
-        let segmentsChanged = oldSegmentCount != project.timeline.segments.count
+        let needsFullRebuild = oldFormat != project.canvas.format
+            || oldSegmentCount != project.timeline.segments.count
 
-        if formatChanged || segmentsChanged {
+        if needsFullRebuild {
             // Full rebuild needed (different tracks or render size)
             let wasPlaying = playbackState == .playing
             let savedTime = currentTime
@@ -270,8 +272,17 @@ public actor PreviewEngine {
 
         let videoComposition = buildVideoComposition(for: project, composition: composition)
         self.videoCompositionConfig = videoComposition
-
         currentItem.videoComposition = videoComposition
+
+        // Also rebuild audio mix to pick up per-segment volume changes
+        if let compositionResult = compositionResult {
+            let audioMix = AudioMixBuilder.buildAudioMix(
+                compositionResult: compositionResult,
+                muteState: lastAudioMuteState,
+                segments: project.timeline.segments
+            )
+            currentItem.audioMix = audioMix
+        }
     }
 
     /// Unload the current project

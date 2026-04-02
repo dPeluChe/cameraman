@@ -153,15 +153,29 @@ extension PreviewEngine {
                 if hasPerSegmentCamera || defaultCamera.maskShape != .none {
                     // Use custom compositor with per-segment instructions
                     var maskedInstructions: [MaskedVideoCompositionInstruction] = []
+                    let totalDuration = composition.duration
 
-                    for segment in project.timeline.segments {
+                    for (i, segment) in project.timeline.segments.enumerated() {
                         let segCamera = segment.cameraPosition ?? defaultCamera
                         let segCameraTransform = Self.cameraTransform(
                             position: segCamera, camSourceSize: camSourceSize, renderSize: renderSize
                         )
 
-                        let segStart = CMTime(seconds: segment.timelineIn, preferredTimescale: 600)
-                        let segDuration = CMTime(seconds: segment.timelineDuration, preferredTimescale: 600)
+                        // Use previous instruction's end as start to guarantee contiguity
+                        let segStart: CMTime
+                        if let prev = maskedInstructions.last {
+                            segStart = CMTimeRangeGetEnd(prev.timeRange)
+                        } else {
+                            segStart = .zero
+                        }
+                        // Last segment extends to composition end to avoid gaps
+                        let segEnd: CMTime
+                        if i == project.timeline.segments.count - 1 {
+                            segEnd = totalDuration
+                        } else {
+                            segEnd = CMTime(seconds: segment.timelineIn + segment.timelineDuration, preferredTimescale: 600)
+                        }
+                        let segDuration = CMTimeSubtract(segEnd, segStart)
 
                         maskedInstructions.append(MaskedVideoCompositionInstruction(
                             timeRange: CMTimeRangeMake(start: segStart, duration: segDuration),
@@ -178,12 +192,15 @@ extension PreviewEngine {
                             videoShadowIntensity: CGFloat(project.canvas.videoShadowIntensity),
                             padding: CGFloat(project.canvas.padding),
                             backgroundType: project.canvas.background.type,
-                            backgroundValue: project.canvas.background.value
+                            backgroundValue: project.canvas.background.value,
+                            cameraBorderWidth: CGFloat(segCamera.borderWidth),
+                            cameraBorderColor: segCamera.borderColor
                         ))
                     }
 
                     videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
                     videoComposition.instructions = maskedInstructions
+                    logger.debug("Built \(maskedInstructions.count) per-segment compositor instructions")
                     return videoComposition
                 }
 
@@ -298,7 +315,8 @@ extension PreviewEngine {
         if let currentItem = player?.currentItem {
             let defaultMix = AudioMixBuilder.buildAudioMix(
                 compositionResult: result,
-                muteState: AudioMixBuilder.TrackMuteState()
+                muteState: AudioMixBuilder.TrackMuteState(),
+                segments: project.timeline.segments
             )
             await MainActor.run {
                 currentItem.audioMix = defaultMix
@@ -337,9 +355,12 @@ extension PreviewEngine {
         guard let compositionResult = compositionResult,
               let currentItem = player?.currentItem else { return }
 
+        lastAudioMuteState = muteState
+
         let audioMix = AudioMixBuilder.buildAudioMix(
             compositionResult: compositionResult,
-            muteState: muteState
+            muteState: muteState,
+            segments: project?.timeline.segments ?? []
         )
 
         await MainActor.run {

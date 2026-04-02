@@ -73,6 +73,23 @@ extension ProjectStore {
             audio = Project.Sources.AudioTracks(system: systemAudioTrack, mic: micAudioTrack)
         }
 
+        // Move telemetry files
+        var telemetry: Project.Sources.TelemetryTracks?
+        if let telemetrySrc = result.telemetryPath {
+            let telemetryDir = sourcesPath.deletingLastPathComponent().appendingPathComponent("telemetry", isDirectory: true)
+            let cursorFilename = "\(prefix)_cursor.jsonl"
+            let destCursorPath = telemetryDir.appendingPathComponent(cursorFilename)
+            do {
+                try fileManager.moveItem(at: telemetrySrc, to: destCursorPath)
+                telemetry = Project.Sources.TelemetryTracks(
+                    cursor: Project.Sources.TelemetryTracks.TelemetryTrack(path: "telemetry/\(cursorFilename)"),
+                    keys: nil
+                )
+            } catch {
+                // Telemetry file missing — non-fatal, continue without it
+            }
+        }
+
         // Detect actual video dimensions
         let screenDims = await detectVideoDimensions(at: screenPath)
 
@@ -88,7 +105,7 @@ extension ProjectStore {
             ),
             camera: camera,
             audio: audio,
-            telemetry: nil
+            telemetry: telemetry
         )
     }
 

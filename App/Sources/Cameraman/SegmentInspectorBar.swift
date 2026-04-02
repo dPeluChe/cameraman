@@ -15,12 +15,13 @@ struct SegmentInspectorBar: View {
     let onSpeedChange: (Double) -> Void
     let onCameraOverride: () -> Void
     let onCameraReset: () -> Void
+    let onVolumeChange: (Double?) -> Void
+    let onMuteToggle: (Bool?) -> Void
 
     private let speedPresets: [Double] = [0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0]
 
     var body: some View {
         HStack(spacing: 16) {
-            // Segment info
             HStack(spacing: 4) {
                 Image(systemName: "film")
                     .font(.caption2)
@@ -32,7 +33,7 @@ struct SegmentInspectorBar: View {
 
             Divider().frame(height: 16)
 
-            // Speed control
+            // Speed
             HStack(spacing: 6) {
                 Text("Speed:")
                     .font(.caption)
@@ -53,9 +54,53 @@ struct SegmentInspectorBar: View {
 
             Divider().frame(height: 16)
 
-            // Camera position
+            // Audio
             HStack(spacing: 6) {
-                Text("Camera:")
+                let isMuted = segment.audioMuted ?? false
+
+                Button {
+                    onMuteToggle(!isMuted)
+                } label: {
+                    Image(systemName: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                        .font(.caption)
+                        .foregroundStyle(isMuted ? .red : .secondary)
+                }
+                .buttonStyle(.borderless)
+                .help("Mute/unmute audio for this segment")
+
+                Slider(
+                    value: Binding(
+                        get: { segment.volume ?? 1.0 },
+                        set: { onVolumeChange($0) }
+                    ),
+                    in: 0...3
+                )
+                .frame(width: 80)
+                .controlSize(.mini)
+
+                Text(String(format: "%.0f%%", (segment.volume ?? 1.0) * 100))
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(width: 32, alignment: .trailing)
+
+                if segment.volume != nil || segment.audioMuted != nil {
+                    Button {
+                        onVolumeChange(nil)
+                        onMuteToggle(nil)
+                    } label: {
+                        Image(systemName: "arrow.uturn.backward.circle")
+                            .font(.caption2)
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Reset to global audio")
+                }
+            }
+
+            Divider().frame(height: 16)
+
+            // Camera
+            HStack(spacing: 6) {
+                Text("Cam:")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
@@ -63,8 +108,6 @@ struct SegmentInspectorBar: View {
                     HStack(spacing: 4) {
                         Image(systemName: "camera.circle.fill")
                             .foregroundStyle(.green)
-                            .font(.caption)
-                        Text("Custom")
                             .font(.caption)
 
                         Button {
@@ -77,22 +120,16 @@ struct SegmentInspectorBar: View {
                         .help("Reset to project default camera position")
                     }
                 } else {
-                    HStack(spacing: 4) {
-                        Text("Default")
+                    Button {
+                        onCameraOverride()
+                    } label: {
+                        Text("Custom")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
-
-                        Button {
-                            onCameraOverride()
-                        } label: {
-                            Text("Customize")
-                                .font(.caption)
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.mini)
-                        .disabled(projectCamera == nil)
-                        .help("Set a custom camera position for this segment")
                     }
+                    .buttonStyle(.bordered)
+                    .controlSize(.mini)
+                    .disabled(projectCamera == nil)
+                    .help("Set a custom camera position for this segment")
                 }
             }
 

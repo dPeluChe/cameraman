@@ -69,7 +69,7 @@ struct ZoomControlsView: View {
             // Zoom toggle
             HStack {
                 Toggle("Enable Auto-Zoom", isOn: $isEnabled)
-                    .onChange(of: isEnabled) { newValue in
+                    .onChange(of: isEnabled) { _, newValue in
                         Task {
                             await updateZoomEnabled(newValue)
                         }

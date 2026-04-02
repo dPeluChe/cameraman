@@ -37,6 +37,10 @@ extension Project {
             public var zoom: ZoomConfiguration?
             /// Per-segment camera position override (nil = use project.canvas.layout.camera)
             public var cameraPosition: Project.Canvas.Layout.CameraPosition?
+            /// Per-segment volume override (nil = use global, range 0.0–3.0)
+            public var volume: Double?
+            /// Per-segment audio mute (nil = use global)
+            public var audioMuted: Bool?
 
             public init(
                 id: String = UUID().uuidString,
@@ -46,7 +50,9 @@ extension Project {
                 timelineIn: TimeInterval,
                 speed: Double = 1.0,
                 zoom: ZoomConfiguration? = nil,
-                cameraPosition: Project.Canvas.Layout.CameraPosition? = nil
+                cameraPosition: Project.Canvas.Layout.CameraPosition? = nil,
+                volume: Double? = nil,
+                audioMuted: Bool? = nil
             ) {
                 self.id = id
                 self.takeId = takeId
@@ -56,9 +62,10 @@ extension Project {
                 self.speed = speed
                 self.zoom = zoom
                 self.cameraPosition = cameraPosition
+                self.volume = volume
+                self.audioMuted = audioMuted
             }
 
-            /// Backward-compatible decoder for projects without cameraPosition
             public init(from decoder: Decoder) throws {
                 let container = try decoder.container(keyedBy: CodingKeys.self)
                 id = try container.decode(String.self, forKey: .id)
@@ -69,6 +76,8 @@ extension Project {
                 speed = try container.decodeIfPresent(Double.self, forKey: .speed) ?? 1.0
                 zoom = try container.decodeIfPresent(ZoomConfiguration.self, forKey: .zoom)
                 cameraPosition = try container.decodeIfPresent(Project.Canvas.Layout.CameraPosition.self, forKey: .cameraPosition)
+                volume = try container.decodeIfPresent(Double.self, forKey: .volume)
+                audioMuted = try container.decodeIfPresent(Bool.self, forKey: .audioMuted)
             }
         }
 

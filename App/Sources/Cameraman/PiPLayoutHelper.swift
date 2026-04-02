@@ -39,7 +39,9 @@ struct PiPLayoutHelper {
             w: camera.w,
             h: camera.h,
             cornerRadius: camera.cornerRadius,
-            maskShape: camera.maskShape
+            maskShape: camera.maskShape,
+            borderWidth: camera.borderWidth,
+            borderColor: camera.borderColor
         )
     }
 
@@ -84,7 +86,9 @@ struct PiPLayoutHelper {
             w: w,
             h: h,
             cornerRadius: camera.cornerRadius,
-            maskShape: camera.maskShape
+            maskShape: camera.maskShape,
+            borderWidth: camera.borderWidth,
+            borderColor: camera.borderColor
         )
     }
 
@@ -118,7 +122,9 @@ struct PiPLayoutHelper {
             w: camera.w,
             h: camera.h,
             cornerRadius: camera.cornerRadius,
-            maskShape: camera.maskShape
+            maskShape: camera.maskShape,
+            borderWidth: camera.borderWidth,
+            borderColor: camera.borderColor
         )
     }
 
