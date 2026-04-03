@@ -37,12 +37,12 @@ extension TelemetryParser {
         public let includeOtherClicks: Bool
 
         public init(
-            timeWindowSize: TimeInterval = 2.0,
-            minClicksPerWindow: Int = 2,
-            maxClickInterval: TimeInterval = 1.0,
-            minMovementDistance: Double = 50.0,
+            timeWindowSize: TimeInterval = 2.5,
+            minClicksPerWindow: Int = 1,
+            maxClickInterval: TimeInterval = 1.5,
+            minMovementDistance: Double = 20.0,
             includeLeftClicks: Bool = true,
-            includeRightClicks: Bool = false,
+            includeRightClicks: Bool = true,
             includeOtherClicks: Bool = false
         ) {
             self.timeWindowSize = timeWindowSize

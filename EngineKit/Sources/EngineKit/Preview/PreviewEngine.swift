@@ -69,6 +69,7 @@ public actor PreviewEngine {
     /// Set the zoom plan from external callers (e.g. suggestion engine)
     public func setZoomPlan(_ plan: ZoomPlanGenerator.ZoomPlan?) {
         self.zoomPlan = plan
+        MaskedVideoCompositor.activeZoomPlan = plan
     }
 
     /// Whether zoom rendering is enabled

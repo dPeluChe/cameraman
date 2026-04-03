@@ -71,7 +71,7 @@ public struct ZoomSuggestion: Identifiable, Sendable {
 /// Stateless namespace for zoom suggestion generation and application.
 public enum ZoomSuggestionEngine {
 
-    private static let deduplicationWindow: TimeInterval = 1.5
+    private static let deduplicationWindow: TimeInterval = 0.8
 
     /// Generate zoom suggestions from raw telemetry events.
     /// Combines click-based detection (via TelemetryParser) and dwell-based detection.

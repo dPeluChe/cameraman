@@ -215,6 +215,10 @@ struct TimelineView: View {
             if let path = projectDirectory?.path {
                 initializeThumbnailCache(projectDirectory: path)
             }
+            // Auto-generate zoom suggestions if telemetry is available
+            if hasCursorTelemetry && zoomSuggestions.isEmpty && !isGeneratingSuggestions {
+                generateZoomSuggestions()
+            }
         }
         .onDeleteCommand {
             deleteSelectedSegment()

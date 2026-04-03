@@ -31,9 +31,9 @@ public struct DwellDetector {
 
         public static func `default`(screenWidth: Double = 1920, screenHeight: Double = 1080) -> Configuration {
             Configuration(
-                minDwellDuration: 0.45,
-                maxDwellDuration: 2.6,
-                moveThreshold: 0.02,
+                minDwellDuration: 0.3,
+                maxDwellDuration: 4.0,
+                moveThreshold: 0.03,
                 screenWidth: screenWidth,
                 screenHeight: screenHeight
             )

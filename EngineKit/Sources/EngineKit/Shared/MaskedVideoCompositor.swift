@@ -110,6 +110,9 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
     private var cachedBorderImage: CIImage?
     private var cachedBorderKey: String?
 
+    /// Zoom plan for auto-zoom (set externally before playback)
+    public static var activeZoomPlan: ZoomPlanGenerator.ZoomPlan?
+
     public func renderContextChanged(_ newRenderContext: AVVideoCompositionRenderContext) {
         renderContext = newRenderContext
     }
@@ -219,6 +222,26 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
                     cachedBorderKey = key
                 }
                 finalImage = borderImage.composited(over: finalImage)
+            }
+        }
+
+        // Apply zoom if active
+        if let zoomPlan = MaskedVideoCompositor.activeZoomPlan {
+            let time = request.compositionTime.seconds
+            let zoomLevel = zoomPlan.zoomLevel(at: time)
+            if zoomLevel > 1.001 {
+                let focusPoint = zoomPlan.focusPoint(at: time)
+                let canvasRect = CGRect(origin: .zero, size: renderSize)
+                let scale = CGFloat(zoomLevel)
+                // Focus point is normalized (0-1), Y is top-down but CIImage is bottom-up
+                let focusX = CGFloat(focusPoint.x) * renderSize.width
+                let focusY = (1.0 - CGFloat(focusPoint.y)) * renderSize.height
+                // Scale around focus point: translate focus to origin, scale, translate back
+                let tx = focusX - focusX * scale
+                let ty = focusY - focusY * scale
+                finalImage = finalImage
+                    .transformed(by: CGAffineTransform(a: scale, b: 0, c: 0, d: scale, tx: tx, ty: ty))
+                    .cropped(to: canvasRect)
             }
         }
 
