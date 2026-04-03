@@ -5,6 +5,32 @@ All notable changes to Cameraman will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-04-02
+
+### Added
+- **Camera border** — configurable width (0–8px) and color (10 presets) on PiP camera overlay
+- **Per-segment audio** — volume slider (0–300%) and mute toggle per segment in inspector bar
+- **Telemetry recording** — cursor/click telemetry always captured during recording (captureTelemetry=true default)
+- **Autosave** — 1s debounced save after every edit via ProjectLibrary
+- **Auto-zoom rendering** — zoom plan applied per-frame in MaskedVideoCompositor (scale around focus point)
+- **Auto-show zoom suggestions** — markers appear automatically when project has telemetry data
+- **Auto-apply zoom plan** — zoom effect active immediately without manual "Apply" button
+- **Per-segment export** — export now renders per-segment camera positions, visual effects, and audio
+
+### Fixed
+- **Black video after splits** — compositor instructions now guaranteed contiguous (prev.end = next.start)
+- **Export ignored per-segment edits** — was using single global instruction; now uses per-segment instructions
+- **Audio mute state lost on rebuild** — lastAudioMuteState preserved across light composition rebuilds
+- **Camera position reset on move/resize/shape** — PiPLayoutHelper now preserves borderWidth/borderColor
+- **Missing undo on volume/mute** — all segment mutations now record undo via generic mutateSegment()
+- **Auto-create camera override** — dragging camera with segment selected auto-creates override (no "Custom" button needed)
+
+### Changed
+- Zoom suggestion thresholds tuned for lighter recordings (minClicksPerWindow: 2→1, minMovementDistance: 50→20px)
+- DwellDetector more sensitive (minDwellDuration: 0.45→0.3s, maxDwellDuration: 2.6→4.0s)
+- 11 onChange(of:) calls migrated to macOS 14+ API
+- TimelineView body split into extracted sub-views (fixes Swift type-checker timeout)
+
 ## [0.6.0] - 2026-04-01
 
 ### Added

@@ -1,6 +1,6 @@
 # Backlog de Tareas Pendientes
 
-> Actualizado: 2026-03-31
+> Actualizado: 2026-04-02
 > Solo features y mejoras NO implementadas. Para trabajo completado ver `TASK_COMPLETED/`.
 
 ---
@@ -50,11 +50,39 @@
 
 ## 3. Features del Editor — Prioridad Alta (Next Up)
 
-- [x] ~~**Auto-zoom desde cursor telemetry:**~~ RESUELTO: DwellDetector + ZoomSuggestionEngine + timeline markers con accept/reject individual + persistencia via ProjectEditor. 18 unit tests.
+- [x] ~~**Auto-zoom desde cursor telemetry:**~~ RESUELTO: DwellDetector + ZoomSuggestionEngine + timeline markers con accept/reject individual + auto-apply zoom plan + rendering en MaskedVideoCompositor. 18 unit tests.
 
 - [x] ~~**GIF export:**~~ RESUELTO: UI de opciones GIF (fps, tamano, loop) en ExportView; GIFExportOptions conectado al GIFExportSession existente.
 
-- [x] ~~**Posicion de camara por segmento (split → reposicionar PiP):**~~ RESUELTO: `segment.cameraPosition` override en modelo, split propaga metadata, SegmentInspectorBar con controles, compositor crea instrucciones per-segment.
+- [x] ~~**Posicion de camara por segmento (split → reposicionar PiP):**~~ RESUELTO: auto-override al drag, per-segment en preview + export, instrucciones contiguas, autosave.
+
+- [x] ~~**Camera border (color + ancho):**~~ RESUELTO: borderWidth/borderColor en CameraPosition, 10 presets de color, rendering via CGPath en compositor con cache.
+
+- [x] ~~**Per-segment audio (volumen/mute):**~~ RESUELTO: volume/audioMuted en Segment, AudioMixBuilder con setVolumeRamp per-segment, UI en SegmentInspectorBar.
+
+- [x] ~~**Telemetry recording integrado:**~~ RESUELTO: TelemetryRecorder en Recorder start/stop, captureTelemetry=true default, cursor.jsonl movido al proyecto.
+
+- [x] ~~**Autosave:**~~ RESUELTO: scheduleAutosave() con 1s debounce despues de cada edicion via ProjectLibrary.
+
+## 3a. Features del Editor — Pendientes de esta sesion
+
+- [ ] **Zoom animation tuning:**
+    - Hold duration, velocidad de zoom in/out, transiciones suaves entre puntos.
+    - El zoom-out entre dos puntos se siente abrupto; evaluar blend o crossfade.
+- [ ] **Toast de "proyecto guardado":**
+    - Notificacion visual breve al hacer autosave exitoso.
+- [ ] **UI del export flow:**
+    - Ventana de opciones se descuadra.
+    - Doble seleccion de path para guardar.
+    - Alert innecesario despues del export.
+- [ ] **Separar archivos >400 LOC:**
+    - 6 archivos App + 14 EngineKit superan 400 lineas.
+    - Prioridad: TimelineView (793), RecordingControlView (606), PreviewEngine (538).
+- [ ] **Noise gate / echo cancellation en mic:**
+    - Filtrar audio de bocinas capturado por el mic.
+    - Voice activity detection para grabar mic solo con voz.
+- [ ] **Zoom auto-apply con toggle para desactivar:**
+    - Actualmente auto-aplica; agregar toggle en Zoom controls para desactivar globalmente.
 
 ## 3b. Features del Editor — Prioridad Media
 

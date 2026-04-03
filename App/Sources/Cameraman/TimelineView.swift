@@ -763,6 +763,19 @@ struct TimelineView: View {
 
             print("[ZOOM] Generated \(suggestions.count) suggestions")
 
+            // Auto-apply zoom plan if suggestions found
+            if !suggestions.isEmpty {
+                if let plan = try? await ZoomSuggestionEngine.applyAsPlan(
+                    suggestions: suggestions,
+                    screenWidth: Double(proj.canvas.format.w),
+                    screenHeight: Double(proj.canvas.format.h),
+                    timelineDuration: proj.timeline.duration
+                ) {
+                    await playerViewModel.previewEngine?.setZoomPlan(plan)
+                    print("[ZOOM] Auto-applied zoom plan with \(plan.keyframes.count) keyframes")
+                }
+            }
+
             await MainActor.run {
                 zoomSuggestions = suggestions
                 isGeneratingSuggestions = false
