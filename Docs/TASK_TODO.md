@@ -11,7 +11,7 @@
 > Cosas rapidas que previenen crashes, memory leaks, o trabajo desperdiciado. Base para todo lo demas.
 
 - [x] ~~**Eliminar `fatalError` en TelemetryParser.swift:270:**~~ RESUELTO: ya no existe
-- [x] ~~**Reemplazar `print()` por LoggingSystem en capa App:**~~ RESUELTO: no hay prints en App/Sources
+- [x] ~~**Reemplazar `print()` por LoggingSystem en capa App:**~~ RESUELTO: 100+ print() reemplazados con LogInfo/LogWarning/LogDebug/LogError en App layer
 - [x] ~~**Cancelar thumbnail generation al cambiar de proyecto:**~~ RESUELTO: ya tiene Task.isCancelled check
 - [x] **Auditar `[weak self]` en callbacks async:**
     - `CaptureEngine`, `PreviewEngine`, `TimelineView` usan closures con `[weak self]` y `Task {}` interno.
