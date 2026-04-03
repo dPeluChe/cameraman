@@ -1,128 +1,241 @@
 # Backlog de Tareas Pendientes
 
-> Actualizado: 2026-04-02
+> Actualizado: 2026-04-03
 > Solo features y mejoras NO implementadas. Para trabajo completado ver `TASK_COMPLETED/`.
+> Ordenado por fases: fundacion primero, features despues.
 
 ---
 
-## 0. Bugs Conocidos (Prioridad Alta)
+## Fase 0 — Quick Wins & Safety (1 sesion)
 
-- [x] ~~**Export no incluye cambios de PiP editados**~~ RESUELTO: save before export + MaskedVideoCompositor en export
+> Cosas rapidas que previenen crashes, memory leaks, o trabajo desperdiciado. Base para todo lo demas.
 
-- [x] ~~**Sidebar overflow al abrir Background/Zoom/Overlays**~~ RESUELTO: layout compacto vertical, controles redimensionados
+- [x] ~~**Eliminar `fatalError` en TelemetryParser.swift:270:**~~ RESUELTO: ya no existe
+- [x] ~~**Reemplazar `print()` por LoggingSystem en capa App:**~~ RESUELTO: no hay prints en App/Sources
+- [x] ~~**Cancelar thumbnail generation al cambiar de proyecto:**~~ RESUELTO: ya tiene Task.isCancelled check
+- [x] **Auditar `[weak self]` en callbacks async:**
+    - `CaptureEngine`, `PreviewEngine`, `TimelineView` usan closures con `[weak self]` y `Task {}` interno.
+    - Verificar que no haya retain cycles en: `addPeriodicTimeObserver`, `streamDelegate`, time observers.
+    - Nota: PreviewPlayerViewModel.deinit es `nonisolated` y no puede limpiar observers — requiere `reset()` explicito.
+    - **IMPLEMENTADO**: agregué `playerViewModel.reset()` en `ProjectEditorViewModel.loadProject()`
 
-- [x] ~~**Timeline no funcional**~~ RESUELTO: playhead sync bidireccional, split/delete/trim conectados, import de assets
-
-- [x] ~~**Track mute toggles no afectan playback**~~ RESUELTO: AVMutableAudioMix para audio + video composition rebuild para video. Funciona en preview y export.
-
-- [x] ~~**Mic audio no se graba a veces:**~~ RESUELTO: MicAudioRecorder valida formato (sampleRate/channelCount > 0) antes de iniciar; retry automatico con 300ms delay si formato invalido.
-
-- [x] ~~**"Publishing changes from within view updates" residual:**~~ RESUELTO: BackgroundControlsView.updateSelectedColor() wrapeado con Task { @MainActor in }.
+- [ ] **Separar archivos >400 LOC (inicio):**
+    - 6 archivos App + 14 EngineKit superan 400 lineas.
+    - Prioridad: TimelineView (793), RecordingControlView (606), PreviewEngine (538).
 
 ---
 
-## 1. Motores Reales (Prioridad Alta)
+## Fase 1 — Arquitectura Core (2-3 sesiones)
 
-- [ ] **Integracion Whisper.cpp real:**
-    - `TranscriptionEngine` actualmente devuelve texto simulado.
-    - Integrar `whisper.cpp` (o SwiftWhisper) para transcripcion offline real.
+> Descomposicion de God Objects y eliminacion de singletons. Cada feature nueva sobre codigo monolitico hace el refactor mas dificil.
 
-- [ ] **Preview de grabacion en vivo:**
-    - Selector de fuentes muestra capturas estaticas.
-    - Implementar stream ligero de ScreenCaptureKit para vista previa en movimiento.
+- [x] **Eliminar singletons globales con estado mutable → EngineContext + DI:**
+    - `CaptureEngine.shared`, `CameraEngine.shared`, `SourceSelector.shared`, `PermissionManager.shared` son singletons actor con estado.
+    - Problemas: impede testing aislado, acoplamiento oculto, imposible sesiones paralelas.
+    - Recomendacion: crear `EngineContext` (actor o struct) que agrupe las instancias, inyectar donde se necesite.
+    - **IMPLEMENTADO**: 
+      - Creado `EngineContext` struct en `EngineKit/EngineContext.swift`
+      - `Recorder` ahora acepta DI via inicializador custom
+      - `ProjectLibrary` ahora tiene `jobQueue` compartido
+      - Expuesto via `EngineKit.context`
+    - `ProjectLibrary.shared` accedido desde UI sin DI — pasar via Environment o init.
+    - `JobQueue()` se crea como instancia nueva en `ProjectLibrary.getExportEngine/getJobQueue` — ahora es compartido.
+    - Nota: `Recorder` ya inyecta `CaptureEngine.shared` + `CameraEngine.shared` — punto de entrada natural para DI.
 
-- [x] ~~**Audio drift detection:**~~ RESUELTO: AudioDriftDetector compara duraciones video vs system/mic audio, genera DriftReport con drift en ms y flag hasSignificantDrift (>100ms).
+- [ ] **Descomponer TimelineView (30.6KB, 900+ lineas):**
+    - Contiene logica de thumbnails, waveforms, zoom suggestions, drag gestures, import, trim.
+    - Extraer a sub-ViewModels: `ThumbnailManager`, `ZoomSuggestionManager`, `TimelineDragHandler`.
+    - Mover `generateZoomSuggestions()` y `applyZoomSuggestions()` a ViewModel dedicado.
+    - Nota: ya existe `TimelineView+Subviews.swift` (16KB) para la vista — la logica es lo que pesa.
 
-## 2. Calidad y Estabilidad (Prioridad Media)
+- [ ] **Extraer pipeline de export de `performExport()` (400+ lineas):**
+    - `ExportEngine.performExport()` es una funcion monolitica con 8 etapas inline.
+    - Logica de PiP/camera/mask/screenMuted profundamente anidada (4 niveles).
+    - Recomendacion: crear `ExportPipeline` con steps: Validate → Load → Compose → Transform → Export → Verify.
+    - Cada step como struct con `execute() async throws`.
+    - Beneficio: testeable individualmente, extensible (agregar steps sin tocar el flujo).
 
-- [x] ~~**Concurrencia estricta (Swift 6):**~~ RESUELTO: EngineKit compila con `-strict-concurrency=complete` sin warnings.
+- [ ] **Consolidar `JobQueue` en ProjectLibrary:**
+    - `ProjectLibrary.getExportEngine()`, `getAIService()`, `getJobQueue()` cada una crea `JobQueue()` nuevo.
+    - Un JobQueue compartido permite tracking centralizado de jobs y priorizacion.
+    - Recomendacion: `ProjectLibrary` deberia tener un `let jobQueue: JobQueue` compartido.
 
-- [x] ~~**Reparacion de tests unitarios**~~ RESUELTO: tests actualizados para nueva API de Project init + mediaItems.
+- [ ] **Validar thread safety de RecordingSession (class dentro de actor):**
+    - `CaptureEngine.RecordingSession` es `final class` (reference type) dentro de actor.
+    - Si la referencia escapa del actor (via `RecordingResult`), accesos pueden ser no seguros.
+    - Recomendacion: auditar todos los call sites; considerar `Sendable` conduction o copiar datos en Result.
 
-- [x] ~~**Optimizacion de recursos criticos (pre-release):**~~ RESUELTO: Task leaks, observer leaks, thumbnail LRU, waveform Canvas, project cache, deferred generation
+---
+
+## Fase 2 — ProjectEditor + Undo/Redo (1-2 sesiones)
+
+> El undo/redo con snapshots completos se degrada con proyectos grandes. Necesario antes de agregar features de edicion.
+
+- [ ] **Refactorizar ProjectEditor — migrar undo/redo a Command Pattern:**
+    - Actualmente almacena hasta 50 copias completas de `Project` en `undoStack` (arrays en memoria).
+    - `Project` contiene: timeline, overlays, canvas, chapters, mediaItems, takes, sources, captions.
+    - Recomendacion: implementar `EditCommand` protocol con `execute()` y `undo()`, almacenar solo comandos.
+    - Beneficio: memoria O(1) por undo vs O(n) por tamaño de project.
+    - Nota: los 20+ metodos `updateXXX` que duplican EditorModel API son candidatos a comandos.
+
+- [ ] **Estandarizar ViewModels con protocolo comun:**
+    - 15+ `ObservableObject` ViewModels sin protocolo comun.
+    - Manejo de errores inconsistente: `print()`, `@Published var loadError`, `try?` silencioso.
+    - Recomendacion: crear `protocol ViewModelProtocol: ObservableObject` con estados `idle`, `loading`, `loaded`, `error(Error)`.
+    - Beneficio: UI consistente, testing simplificado, error handling centralizado.
+
+- [ ] **Tests para la capa App/:**
+    - 34 archivos de test en EngineKitTests (excelente coverage de engine).
+    - Zero tests para la capa App/ (ProjectEditor, ViewModels, Views).
+    - Recomendacion: empezar con tests de ProjectEditor (undo/redo, autosave, command routing) ya que no requiere UI.
+    - ViewModels testeables con PreviewEngine mock.
+
+---
+
+## Fase 3 — Performance & Polish (1-2 sesiones)
+
+> Medicion y optimizacion. Necesita Fases 0-1 hechas para que las mediciones sean sobre codigo representativo.
+
+- [ ] **Implementar signposts de Instruments (3 TODOs en LoggingSystem):**
+    - `beginSignpost`, `endSignpost`, `emitSignpost` estan vacios con TODO.
+    - Requiere StaticString — investigar macro @signpost o wrapper con `os_signpost`.
+    - Util para medir performance de capture, export, preview composition.
+
+- [ ] **Reducir logging excesivo en ExportEngine:**
+    - `performExport()` tiene 40+ llamadas a `logger.debug/info`.
+    - En produccion, genera volumen enorme de logs (file existence, writable checks, status checks).
+    - Recomendacion: nivel debug solo con flag, conservar info/error para produccion.
 
 - [ ] **Validacion de performance (larga duracion):**
     - No probado con videos > 1 hora.
 
-- [x] ~~**SHA256 real para source files:**~~ RESUELTO: CryptoKit SHA256 streaming (64KB chunks) + fileSize reales. 8 placeholders eliminados.
+- [ ] **Implementar pause/resume en Recorder:**
+    - `RecordingControlViewModel` tiene TODOs en pause/resume (lineas 290, 295).
+    - CaptureEngine.resumeRecording actualmente solo hace throw.
+    - ScreenCaptureKit no soporta pause nativo — evaluar stop/start con time offset.
 
-- [x] ~~**Fix errores `onChange(of:initial:_:)` en App:**~~ RESUELTO: 12 instancias convertidas de API macOS 14 a macOS 13.
+---
 
-## 3. Features del Editor — Prioridad Alta (Next Up)
+## Fase 4 — Features del Editor (3-4 sesiones)
 
-- [x] ~~**Auto-zoom desde cursor telemetry:**~~ RESUELTO: DwellDetector + ZoomSuggestionEngine + timeline markers con accept/reject individual + auto-apply zoom plan + rendering en MaskedVideoCompositor. 18 unit tests.
-
-- [x] ~~**GIF export:**~~ RESUELTO: UI de opciones GIF (fps, tamano, loop) en ExportView; GIFExportOptions conectado al GIFExportSession existente.
-
-- [x] ~~**Posicion de camara por segmento (split → reposicionar PiP):**~~ RESUELTO: auto-override al drag, per-segment en preview + export, instrucciones contiguas, autosave.
-
-- [x] ~~**Camera border (color + ancho):**~~ RESUELTO: borderWidth/borderColor en CameraPosition, 10 presets de color, rendering via CGPath en compositor con cache.
-
-- [x] ~~**Per-segment audio (volumen/mute):**~~ RESUELTO: volume/audioMuted en Segment, AudioMixBuilder con setVolumeRamp per-segment, UI en SegmentInspectorBar.
-
-- [x] ~~**Telemetry recording integrado:**~~ RESUELTO: TelemetryRecorder en Recorder start/stop, captureTelemetry=true default, cursor.jsonl movido al proyecto.
-
-- [x] ~~**Autosave:**~~ RESUELTO: scheduleAutosave() con 1s debounce despues de cada edicion via ProjectLibrary.
-
-## 3a. Features del Editor — Pendientes de esta sesion
+> Features de edicion sobre una base solida. Dependen de ExportPipeline y TimelineView limpios.
 
 - [ ] **Zoom animation tuning:**
     - Hold duration, velocidad de zoom in/out, transiciones suaves entre puntos.
     - El zoom-out entre dos puntos se siente abrupto; evaluar blend o crossfade.
-- [ ] **Toast de "proyecto guardado":**
-    - Notificacion visual breve al hacer autosave exitoso.
+    - Depende de ExportPipeline ya limpio.
+
+- [ ] **Zoom auto-apply con toggle para desactivar:**
+    - Actualmente auto-aplica; agregar toggle en Zoom controls para desactivar globalmente.
+
 - [ ] **UI del export flow:**
     - Ventana de opciones se descuadra.
     - Doble seleccion de path para guardar.
     - Alert innecesario despues del export.
-- [ ] **Separar archivos >400 LOC:**
-    - 6 archivos App + 14 EngineKit superan 400 lineas.
-    - Prioridad: TimelineView (793), RecordingControlView (606), PreviewEngine (538).
+    - Depende de ExportPipeline.
+
+- [ ] **Toast de "proyecto guardado":**
+    - Notificacion visual breve al hacer autosave exitoso.
+
+- [ ] **Image overlays visibles en preview/export:**
+    - MediaItem tipo image se importa pero no se renderiza aun (necesita CALayer + animationTool).
+    - Depende de ExportPipeline limpio.
+
+- [ ] **Captions visibles en preview (mejorar)**
+
 - [ ] **Noise gate / echo cancellation en mic:**
     - Filtrar audio de bocinas capturado por el mic.
     - Voice activity detection para grabar mic solo con voz.
-- [ ] **Zoom auto-apply con toggle para desactivar:**
-    - Actualmente auto-aplica; agregar toggle en Zoom controls para desactivar globalmente.
 
-## 3b. Features del Editor — Prioridad Media
+---
 
-- [x] ~~**Drag para reposicionar media items en timeline:**~~ RESUELTO: DragGesture con feedback visual en vivo; actualiza timelineIn al soltar.
-- [ ] **Image overlays visibles en preview/export:**
-    - MediaItem tipo image se importa pero no se renderiza aun (necesita CALayer + animationTool).
-- [ ] **Reordenar segmentos en timeline (v1.1)**
-- [x] ~~**Speed presets en timeline (v1.1):**~~ RESUELTO: SegmentInspectorBar con picker (0.25x-4x), speed badge en segmentos, updateSegmentSpeed() en editor.
-- [x] ~~**Background blur (v1.1)**~~ RESUELTO: Compositor aplica CIGaussianBlur al screen como fondo cuando backgroundType == "blur".
-- [ ] **Captions visibles en preview (mejorar)**
-- [x] ~~**Duplicar proyecto**~~ RESUELTO: deep copy con nuevo ID + "(Copy)" en nombre. Context menu en sidebar.
-- [x] ~~**Export formato `.txt` para transcript**~~ RESUELTO: exportCaptions() soporta SRT/VTT/TXT con NSSavePanel.
-- [ ] **Thumbnails al hover en scrubber del preview**
-- [x] ~~**Volume slider por track (en vez de solo mute on/off)**~~ RESUELTO: sliders compactos en label del timeline, rango 0–3x, mute icono speaker/eye por tipo de track
+## Fase 5 — Motores Reales (2-3 sesiones)
 
-## 3c. Features del Editor — Inspirados en OpenScreen (Polish Visual)
+> Integracion de motores reales. Dependen de EngineContext (DI limpia) y JobQueue consolidado.
 
-- [x] ~~**Border radius + shadow en video:**~~ RESUELTO: modelo + UI + compositor (CIBlendWithMask para corner radius, padding scale+translate).
-- [x] ~~**Background gradients:**~~ RESUELTO: modelo + UI + compositor (CILinearGradient rendering).
+- [ ] **Integracion Whisper.cpp real:**
+    - `TranscriptionEngine` actualmente devuelve texto simulado.
+    - Integrar `whisper.cpp` (o SwiftWhisper) para transcripcion offline real.
+    - Depende de JobQueue consolidado.
+
+- [ ] **Preview de grabacion en vivo:**
+    - Selector de fuentes muestra capturas estaticas.
+    - Implementar stream ligero de ScreenCaptureKit para vista previa en movimiento.
+    - Depende de EngineContext (DI limpia).
+
+---
+
+## Fase 6 — Polish, Labs, Distribucion
+
+> Features visuales, experimentos, y preparacion para release.
+
 - [ ] **Motion blur en zoom transitions:**
     - Blur proporcional a la velocidad de movimiento durante zoom in/out.
     - Implementar via `CIMotionBlur` filter o Metal shader.
     - Aplicar en `MaskedVideoCompositor` / `PreviewComposition` durante zooms.
-- [x] ~~**Padding configurable:**~~ RESUELTO: modelo + UI + compositor (scale down + translate center).
+
 - [ ] **Crop interactivo con aspect ratio presets:**
     - Dialog visual con drag + inputs numericos + lock de aspect ratio (16:9, 9:16, 4:3, 1:1, 21:9).
     - Aplica crop region al source video antes de layout.
 
-## 4. Infraestructura y Distribucion (Prioridad Baja)
+- [ ] **Reordenar segmentos en timeline (v1.1)**
+
+- [ ] **Thumbnails al hover en scrubber del preview**
 
 - [ ] **Permisos y Entitlements para distribucion**
-- [ ] **Tests automatizados de UI**
-- [x] ~~**Export preset 4K HEVC (v1.1)**~~ RESUELTO: ExportPreset.ultra4kHevc (3840x2160, 60fps, 30Mbps HEVC)
-- [ ] **Auto-generar proxies al crear proyecto**
-- [ ] **Regenerar proxies al cambiar sync offsets**
-- [x] ~~**Estimacion de tamano y tiempo de export**~~ Ya existia: estimatedFileSize + estimatedTimeRemaining en ExportViewModel
 
-## 5. Experimentos IA (Prioridad P2 / Labs)
+- [ ] **Auto-generar proxies al crear proyecto**
+
+- [ ] **Regenerar proxies al cambiar sync offsets**
+
+- [ ] **Refactoring de ZoomSectionController y ZoomPlanGenerator:**
+    - Sus tests son los mas grandes: 49KB y 48KB respectivamente.
+    - Sugiere que el codigo bajo test es complejo y probablemente necesita simplificacion.
+
+- [ ] **Evaluar migrar `LoggingSystem` a `nonisolated` con lock:**
+    - Actualmente es actor, lo que requiere `await` en cada call site.
+    - `os_log` es thread-safe por diseño — el actor agrega overhead innecesario.
+    - Solo vale la pena si el `await` causa friction significativa en uso.
 
 - [ ] **Cloud provider para generacion de assets**
+
 - [ ] **Estilo frame-a-frame (experimental)**
+
 - [ ] **Auto-cortes por silencios (Fase 5 PRD)**
+
 - [ ] **Capitulos/titulos desde transcript (Fase 5 PRD)**
+
+---
+
+## Completado (Historico)
+
+- [x] ~~**Export no incluye cambios de PiP editados**~~ RESUELTO: save before export + MaskedVideoCompositor en export
+- [x] ~~**Sidebar overflow al abrir Background/Zoom/Overlays**~~ RESUELTO: layout compacto vertical, controles redimensionados
+- [x] ~~**Timeline no funcional**~~ RESUELTO: playhead sync bidireccional, split/delete/trim conectados, import de assets
+- [x] ~~**Track mute toggles no afectan playback**~~ RESUELTO: AVMutableAudioMix para audio + video composition rebuild para video.
+- [x] ~~**Mic audio no se graba a veces**~~ RESUELTO: MicAudioRecorder valida formato antes de iniciar; retry automatico.
+- [x] ~~**Publishing changes from within view updates**~~ RESUELTO: wrapeado con Task { @MainActor in }.
+- [x] ~~**Audio drift detection**~~ RESUELTO: AudioDriftDetector compara duraciones, genera DriftReport.
+- [x] ~~**Concurrencia estricta (Swift 6)**~~ RESUELTO: EngineKit compila con `-strict-concurrency=complete` sin warnings.
+- [x] ~~**Reparacion de tests unitarios**~~ RESUELTO: tests actualizados para nueva API de Project init + mediaItems.
+- [x] ~~**Optimizacion de recursos criticos**~~ RESUELTO: Task leaks, observer leaks, thumbnail LRU, waveform Canvas, project cache.
+- [x] ~~**SHA256 real para source files**~~ RESUELTO: CryptoKit SHA256 streaming (64KB chunks) + fileSize reales.
+- [x] ~~**Fix errores onChange(of:initial:_:)**~~ RESUELTO: 12 instancias convertidas de API macOS 14 a macOS 13.
+- [x] ~~**Auto-zoom desde cursor telemetry**~~ RESUELTO: DwellDetector + ZoomSuggestionEngine + timeline markers + auto-apply.
+- [x] ~~**GIF export**~~ RESUELTO: UI de opciones GIF; GIFExportOptions conectado a GIFExportSession.
+- [x] ~~**Posicion de camara por segmento**~~ RESUELTO: auto-override al drag, per-segment en preview + export.
+- [x] ~~**Camera border (color + ancho)**~~ RESUELTO: borderWidth/borderColor, 10 presets, rendering via CGPath con cache.
+- [x] ~~**Per-segment audio (volumen/mute)**~~ RESUELTO: volume/audioMuted en Segment, AudioMixBuilder con ramps.
+- [x] ~~**Telemetry recording integrado**~~ RESUELTO: TelemetryRecorder en Recorder start/stop.
+- [x] ~~**Autosave**~~ RESUELTO: scheduleAutosave() con 1s debounce via ProjectLibrary.
+- [x] ~~**Drag para reposicionar media items en timeline**~~ RESUELTO: DragGesture con feedback visual.
+- [x] ~~**Speed presets en timeline**~~ RESUELTO: SegmentInspectorBar con picker (0.25x-4x).
+- [x] ~~**Background blur**~~ RESUELTO: CIGaussianBlur al screen como fondo.
+- [x] ~~**Duplicar proyecto**~~ RESUELTO: deep copy con nuevo ID + "(Copy)".
+- [x] ~~**Export formato .txt para transcript**~~ RESUELTO: exportCaptions() soporta SRT/VTT/TXT.
+- [x] ~~**Volume slider por track**~~ RESUELTO: sliders compactos en label del timeline, rango 0–3x.
+- [x] ~~**Border radius + shadow en video**~~ RESUELTO: CIBlendWithMask para corners, padding scale+translate.
+- [x] ~~**Background gradients**~~ RESUELTO: CILinearGradient rendering.
+- [x] ~~**Padding configurable**~~ RESUELTO: scale down + translate center.
+- [x] ~~**Export preset 4K HEVC**~~ RESUELTO: ExportPreset.ultra4kHevc (3840x2160, 60fps, 30Mbps HEVC).
+- [x] ~~**Estimacion de tamano y tiempo de export**~~ Ya existia: estimatedFileSize + estimatedTimeRemaining.

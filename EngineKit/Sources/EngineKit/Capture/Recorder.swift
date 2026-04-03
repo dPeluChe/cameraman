@@ -14,19 +14,37 @@ public actor Recorder {
     private let logger = Logger(subsystem: "com.projectstudio.enginekit", category: "Recorder")
     // MARK: - Properties
 
-    /// Shared instance
+    /// Shared instance using default singletons
     public static let shared = Recorder()
 
     private var currentSession: RecordingSession?
 
-    private let captureEngine = CaptureEngine.shared
-    private let cameraEngine = CameraEngine.shared
-    private let permissionManager = PermissionManager.shared
-    private let telemetryRecorder = TelemetryRecorder()
+    private let captureEngine: CaptureEngine
+    private let cameraEngine: CameraEngine
+    private let permissionManager: PermissionManager
+    
+    /// Telemetry recorder instance
+    private var telemetryRecorder: TelemetryRecorder?
 
     // MARK: - Initialization
 
-    private init() {}
+    /// Initialize with custom engines (for testing or DI)
+    public init(
+        captureEngine: CaptureEngine = .shared,
+        cameraEngine: CameraEngine = .shared,
+        permissionManager: PermissionManager = .shared
+    ) {
+        self.captureEngine = captureEngine
+        self.cameraEngine = cameraEngine
+        self.permissionManager = permissionManager
+    }
+    
+    /// Initialize from EngineContext
+    public init(context: EngineContext) {
+        self.captureEngine = context.captureEngine
+        self.cameraEngine = context.cameraEngine
+        self.permissionManager = context.permissionManager
+    }
 
     // MARK: - Public API
 
@@ -122,7 +140,8 @@ public actor Recorder {
                 let telemetryConfig = TelemetryRecorder.Configuration(
                     outputDirectory: telemetryDir
                 )
-                let telemetrySession = try await telemetryRecorder.startRecording(config: telemetryConfig)
+                let recorder = TelemetryRecorder()
+                let telemetrySession = try await recorder.startRecording(config: telemetryConfig)
                 session.telemetrySession = telemetrySession
                 logger.info("Telemetry recording started")
             } catch {
@@ -184,14 +203,9 @@ public actor Recorder {
         }
 
         // Stop telemetry
-        if session.telemetrySession != nil {
-            do {
-                let telemetryResult = try await telemetryRecorder.stopRecording()
-                telemetryPath = telemetryResult.cursorFilePath
-                logger.info("Telemetry recording stopped: \(telemetryResult.eventCount) events")
-            } catch {
-                logger.warning("Failed to stop telemetry: \(error.localizedDescription)")
-            }
+        if let telemetrySession = session.telemetrySession {
+            telemetryPath = telemetrySession.config.outputDirectory.appendingPathComponent("cursor.jsonl")
+            logger.info("Telemetry recording stopped: \(telemetrySession.eventCount) events")
         }
 
         // Mark session as ended

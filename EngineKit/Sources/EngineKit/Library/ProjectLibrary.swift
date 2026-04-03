@@ -14,11 +14,15 @@ public actor ProjectLibrary {
 
     /// Project store for persistence
     private let store: ProjectStore
+    
+    /// Shared job queue for background operations (single instance for all consumers)
+    private let jobQueue: JobQueue
 
     /// Initialize a new ProjectLibrary
     /// - Parameter store: ProjectStore to use (defaults to shared)
     public init(store: ProjectStore = ProjectStore()) {
         self.store = store
+        self.jobQueue = JobQueue()
     }
 
     /// List all projects with optional filtering and sorting
@@ -313,14 +317,12 @@ public actor ProjectLibrary {
     /// Get the ExportEngine for exporting projects
     /// - Returns: ExportEngine instance
     public func getExportEngine() async throws -> ExportEngine {
-        let jobQueue = JobQueue()
         return ExportEngine(jobQueue: jobQueue, projectStore: store)
     }
 
     /// Create an AIService instance for the project library
     /// - Returns: Configured AIService
     public func getAIService() async throws -> AIService {
-        let jobQueue = JobQueue()
         let service = AIService(jobQueue: jobQueue, projectStore: store)
         return service
     }
@@ -328,7 +330,7 @@ public actor ProjectLibrary {
     /// Get the shared job queue for operations
     /// - Returns: JobQueue instance
     public func getJobQueue() async throws -> JobQueue {
-        return JobQueue()
+        return jobQueue
     }
 }
 

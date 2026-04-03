@@ -47,6 +47,12 @@ public enum EngineKit {
         return CrashReporter.shared
     }
     
+    /// Default context for dependency injection
+    /// Use this to access core engines with DI support
+    public static var context: EngineContext {
+        return EngineContext.shared
+    }
+    
     /// Initialize EngineKit infrastructure (logging, crash reporting)
     /// Call this at app startup
     public static func initialize(

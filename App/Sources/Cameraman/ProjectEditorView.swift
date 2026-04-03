@@ -51,7 +51,10 @@ final class ProjectEditorViewModel: ObservableObject {
 
     func loadProject() async {
         guard !isLoading else { return }
-
+        
+        // Reset player state before loading new project to prevent leaks
+        playerViewModel.reset()
+        
         // Fetch data outside of view update cycle
         let result: (Project, URL)?
         do {

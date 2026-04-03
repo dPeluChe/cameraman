@@ -68,7 +68,12 @@ public actor CrashReporter {
     private let maxCrashReports = 50
     
     /// Whether crash reporting is enabled
-    private(set) var isEnabled: Bool = true
+    private var _isEnabled: Bool = true
+    
+    /// Whether crash reporting is enabled
+    var isEnabled: Bool {
+        return _isEnabled
+    }
     
     /// Metadata to include in all crash reports
     private var globalMetadata: [String: String] = [:]
@@ -82,9 +87,16 @@ public actor CrashReporter {
             in: .userDomainMask
         ).first!
         
-        self.crashReportsDirectory = appSupport
+        let directory = appSupport
             .appendingPathComponent("ProjectStudio")
             .appendingPathComponent("CrashReports")
+        
+        self.init(crashReportsDirectory: directory)
+    }
+    
+    /// Internal initializer for testing with custom directory
+    init(crashReportsDirectory: URL) {
+        self.crashReportsDirectory = crashReportsDirectory
         
         // Create directory if needed
         try? FileManager.default.createDirectory(
@@ -92,19 +104,14 @@ public actor CrashReporter {
             withIntermediateDirectories: true
         )
         
-        // Set up crash handlers
-        Task {
-            await setupCrashHandlers()
-        }
-        
-        logger.info("CrashReporter initialized")
+        logger.info("CrashReporter initialized with directory: \(crashReportsDirectory.path)")
     }
     
     // MARK: - Public API
     
     /// Enable or disable crash reporting
     public func setEnabled(_ enabled: Bool) {
-        isEnabled = enabled
+        _isEnabled = enabled
         logger.info("Crash reporting \(enabled ? "enabled" : "disabled")")
     }
     
@@ -126,7 +133,7 @@ public actor CrashReporter {
         stackTrace: String? = nil,
         metadata: [String: String] = [:]
     ) {
-        guard isEnabled else { return }
+        guard _isEnabled else { return }
         
         // Merge global and local metadata
         var allMetadata = globalMetadata
@@ -198,7 +205,7 @@ public actor CrashReporter {
     
     /// Get all crash reports
     public func getAllCrashReports() -> [CrashReport] {
-        guard isEnabled else { return [] }
+        guard self._isEnabled else { return [] }
         
         do {
             let files = try FileManager.default.contentsOfDirectory(
@@ -209,7 +216,9 @@ public actor CrashReporter {
             var reports: [CrashReport] = []
             for file in files where file.pathExtension == "json" {
                 let data = try Data(contentsOf: file)
-                let report = try JSONDecoder().decode(CrashReport.self, from: data)
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .iso8601
+                let report = try decoder.decode(CrashReport.self, from: data)
                 reports.append(report)
             }
             

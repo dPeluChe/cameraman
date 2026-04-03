@@ -42,7 +42,7 @@ class RecordingControlViewModel: ObservableObject {
 
     private func log(_ message: String) {
         if debugLoggingEnabled {
-            print("[DEBUG-REC] \(message)")
+            LogDebug(.capture, "[REC] \(message)")
         }
     }
 
@@ -208,7 +208,7 @@ class RecordingControlViewModel: ObservableObject {
             // Show recording indicator
             recordingIndicator = RecordingIndicatorWindow()
             recordingIndicator?.show()
-            if debugLoggingEnabled { print("📹 Recording indicator shown") }
+            if debugLoggingEnabled { LogDebug(.capture, "Recording indicator shown") }
 
         } catch {
             statusText = "Error: \(error.localizedDescription)"
@@ -238,15 +238,14 @@ class RecordingControlViewModel: ObservableObject {
 
             lastRecordingURL = result.screenVideoPath
             statusText = "Saved: \(result.screenVideoPath.lastPathComponent)"
-            print("✅ Recording saved to: \(result.screenVideoPath)")
-            print("   Duration: \(result.duration)s")
+            LogInfo(.capture, "Recording saved to: \(result.screenVideoPath) (\(result.duration)s)")
 
             let library = ProjectLibrary.shared
             
             if let targetId = targetProjectId {
                 _ = try await library.addTake(projectId: targetId, recordingResult: result)
                 statusText = "Take added to project"
-                print("✅ Take added to project: \(targetId)")
+                LogInfo(.capture, "Take added to project: \(targetId)")
                 
                 // Notify editor to refresh
                 NotificationCenter.default.post(name: .projectUpdated, object: targetId)
@@ -261,14 +260,14 @@ class RecordingControlViewModel: ObservableObject {
             }
 
             if let cameraPath = result.cameraVideoPath {
-                print("   Camera: \(cameraPath.lastPathComponent)")
+                LogDebug(.capture, "Camera: \(cameraPath.lastPathComponent)")
             }
             if let micPath = result.micAudioPath {
-                print("   Mic audio: \(micPath.lastPathComponent)")
+                LogDebug(.capture, "Mic audio: \(micPath.lastPathComponent)")
             }
         } catch {
             statusText = "Error: \(error.localizedDescription)"
-            print("❌ Failed to stop recording: \(error)")
+            LogError(.capture, "Failed to stop recording: \(error)")
         }
 
         isRecording = false
@@ -279,22 +278,31 @@ class RecordingControlViewModel: ObservableObject {
         // Hide recording indicator
         recordingIndicator?.hide()
         recordingIndicator = nil
-        print("📹 Recording indicator hidden")
+        LogDebug(.capture, "Recording indicator hidden")
     }
 
     func pauseResumeRecording() async {
-        guard isRecording, recordingSession != nil else { return }
+        guard isRecording, let session = recordingSession else { return }
 
-        if isPaused {
-            statusText = "Resuming..."
-            // TODO: Implement pause/resume in Recorder
-            isPaused = false
-            statusText = "Recording..."
-        } else {
-            statusText = "Pausing..."
-            // TODO: Implement pause/resume in Recorder
-            isPaused = true
-            statusText = "Paused"
+        do {
+            let recorder = Recorder.shared
+            
+            if isPaused {
+                statusText = "Resuming..."
+                try await recorder.resumeRecording(session: session)
+                isPaused = false
+                statusText = "Recording..."
+                LogInfo(.capture, "Recording resumed")
+            } else {
+                statusText = "Pausing..."
+                try await recorder.pauseRecording(session: session)
+                isPaused = true
+                statusText = "Paused"
+                LogInfo(.capture, "Recording paused")
+            }
+        } catch {
+            statusText = "Error: \(error.localizedDescription)"
+            LogError(.capture, "Failed to pause/resume recording: \(error)")
         }
     }
 
@@ -312,7 +320,7 @@ class RecordingControlViewModel: ObservableObject {
 
     func showLastRecordingInFinder() {
         guard let url = lastRecordingURL else {
-            print("No recording to show")
+            LogWarning(.capture, "No recording to show")
             return
         }
         NSWorkspace.shared.activateFileViewerSelecting([url])
