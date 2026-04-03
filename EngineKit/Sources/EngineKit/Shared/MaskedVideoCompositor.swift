@@ -95,11 +95,11 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
 
 /// Compositor that renders screen + masked camera PiP
 public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
-    public var sourcePixelBufferAttributes: [String: Any]? = [
+    nonisolated(unsafe) public let sourcePixelBufferAttributes: [String: Any]? = [
         kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
     ]
 
-    public var requiredPixelBufferAttributesForRenderContext: [String: Any] = [
+    nonisolated(unsafe) public let requiredPixelBufferAttributesForRenderContext: [String: Any] = [
         kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
     ]
 

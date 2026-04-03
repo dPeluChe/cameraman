@@ -301,9 +301,11 @@ extension PreviewEngine {
         let videoComposition = buildVideoComposition(for: project, composition: composition)
 
         // Create player item
+        nonisolated(unsafe) let unsafeComposition = composition
+        nonisolated(unsafe) let unsafeVideoComposition = videoComposition
         let playerItem = await MainActor.run {
-            let item = AVPlayerItem(asset: composition)
-            item.videoComposition = videoComposition
+            let item = AVPlayerItem(asset: unsafeComposition)
+            item.videoComposition = unsafeVideoComposition
             return item
         }
         player = AVPlayer(playerItem: playerItem)
@@ -318,8 +320,9 @@ extension PreviewEngine {
                 muteState: AudioMixBuilder.TrackMuteState(),
                 segments: project.timeline.segments
             )
+            nonisolated(unsafe) let unsafeDefaultMix = defaultMix
             await MainActor.run {
-                currentItem.audioMix = defaultMix
+                currentItem.audioMix = unsafeDefaultMix
             }
         }
 
@@ -363,8 +366,9 @@ extension PreviewEngine {
             segments: project?.timeline.segments ?? []
         )
 
+        nonisolated(unsafe) let unsafeAudioMix = audioMix
         await MainActor.run {
-            currentItem.audioMix = audioMix
+            currentItem.audioMix = unsafeAudioMix
         }
     }
 }

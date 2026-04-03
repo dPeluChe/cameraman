@@ -10,7 +10,7 @@ import CoreGraphics
 
 extension ZoomPlanGenerator {
     /// A single zoom keyframe
-    public struct ZoomKeyframe: Codable, Identifiable, Equatable {
+    public struct ZoomKeyframe: Codable, Identifiable, Equatable, Sendable {
         /// Unique identifier
         public let id: UUID
         /// Timestamp in seconds from recording start
@@ -42,7 +42,7 @@ extension ZoomPlanGenerator {
     }
 
     /// A zoom event representing a complete zoom-in, hold, and zoom-out cycle
-    public struct ZoomEvent: Identifiable, Codable, Equatable {
+    public struct ZoomEvent: Identifiable, Codable, Equatable, Sendable {
         /// Unique identifier
         public let id: UUID
         /// Zoom-in start timestamp
@@ -262,7 +262,7 @@ extension ZoomPlanGenerator {
     }
 
     /// Statistics about a zoom plan
-    public struct ZoomPlanStats: Codable, Equatable {
+    public struct ZoomPlanStats: Codable, Equatable, Sendable {
         /// Total number of zoom events
         public let totalZoomEvents: Int
         /// Total number of keyframes

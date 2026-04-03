@@ -38,7 +38,7 @@ final class ProjectEditor: ObservableObject {
             do {
                 try await ProjectLibrary.shared.updateProject(self.project)
             } catch {
-                print("[AUTOSAVE] Failed: \(error.localizedDescription)")
+                LogError(.editor, "[AUTOSAVE] Failed: \(error.localizedDescription)")
             }
         }
     }

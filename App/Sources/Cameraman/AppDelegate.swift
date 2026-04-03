@@ -107,16 +107,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Register default hotkeys
         do {
             try hotkeyManager?.registerDefaultHotkeys()
-            print("✅ Default hotkeys registered successfully")
+            LogInfo(.ui, "Default hotkeys registered successfully")
         } catch {
-            print("❌ Failed to register hotkeys: \(error.localizedDescription)")
+            LogError(.ui, "Failed to register hotkeys: \(error.localizedDescription)")
         }
     }
 
     private func handleHotkeyAction(_ action: HotkeyManager.Action) {
         Task { @MainActor in
             guard let viewModel = RecordingStateManager.shared.viewModel else {
-                print("⚠️ Recording view model not available")
+                LogWarning(.ui, "Recording view model not available for hotkey")
                 return
             }
 
@@ -125,38 +125,38 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 if !viewModel.isRecording {
                     await viewModel.startRecording()
                     professionalMenuBar?.isRecording = true
-                    print("▶️ Started recording via hotkey")
+                    LogInfo(.capture, "Started recording via hotkey")
                 } else {
-                    print("⚠️ Recording already in progress")
+                    LogWarning(.capture, "Recording already in progress")
                 }
 
             case .stopRecording:
                 if viewModel.isRecording {
                     await viewModel.stopRecording()
                     professionalMenuBar?.isRecording = false
-                    print("⏹️ Stopped recording via hotkey")
+                    LogInfo(.capture, "Stopped recording via hotkey")
                 } else {
-                    print("⚠️ No recording in progress")
+                    LogWarning(.capture, "No recording in progress")
                 }
 
             case .pauseResumeRecording:
                 if viewModel.isRecording {
                     await viewModel.pauseResumeRecording()
                     professionalMenuBar?.isPaused = viewModel.isPaused
-                    print(viewModel.isPaused ? "⏸️ Paused recording via hotkey" : "▶️ Resumed recording via hotkey")
+                    LogInfo(.capture, viewModel.isPaused ? "Paused recording via hotkey" : "Resumed recording via hotkey")
                 } else {
-                    print("⚠️ No recording in progress")
+                    LogWarning(.capture, "No recording in progress")
                 }
 
             case .toggleCamera:
                 viewModel.includeCamera.toggle()
                 professionalMenuBar?.includeCamera = viewModel.includeCamera
-                print("📷 Camera toggled: \(viewModel.includeCamera ? "enabled" : "disabled")")
+                LogDebug(.capture, "Camera toggled: \(viewModel.includeCamera ? "enabled" : "disabled")")
 
             case .toggleMicrophone:
                 viewModel.includeMicrophone.toggle()
                 professionalMenuBar?.includeMicrophone = viewModel.includeMicrophone
-                print("🎤 Microphone toggled: \(viewModel.includeMicrophone ? "enabled" : "disabled")")
+                LogDebug(.capture, "Microphone toggled: \(viewModel.includeMicrophone ? "enabled" : "disabled")")
             }
         }
     }

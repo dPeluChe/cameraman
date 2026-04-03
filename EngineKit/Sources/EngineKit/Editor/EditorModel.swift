@@ -246,6 +246,7 @@ public actor EditorModel {
                 let timelineOffset = startTime - segment.timelineIn
                 let sourceSplitTime = segment.sourceIn + (timelineOffset * segment.speed)
                 let newDuration = (segment.sourceOut - sourceSplitTime) / segment.speed
+                let _ = newDuration
                 segmentsToModify.append((index, segment, startTime + newDuration))
             }
             // Segment starts within and ends after the range
@@ -258,37 +259,9 @@ public actor EditorModel {
             }
             // Segment spans the entire delete range (start before, end after)
             else if segment.timelineIn < startTime && segmentEnd > endTime {
-                // Need to split this segment into two parts
-                let firstOffset = startTime - segment.timelineIn
-                let firstSourceSplit = segment.sourceIn + (firstOffset * segment.speed)
-                let firstEnd = startTime
-
-                let secondOffset = endTime - segment.timelineIn
-                let secondSourceSplit = segment.sourceIn + (secondOffset * segment.speed)
-                let secondStart = segment.timelineIn
-
-                let firstPart = Project.Timeline.Segment(
-                    id: UUID().uuidString,
-                    sourceIn: segment.sourceIn,
-                    sourceOut: firstSourceSplit,
-                    timelineIn: segment.timelineIn,
-                    speed: segment.speed
-                )
-
-                let secondPart = Project.Timeline.Segment(
-                    id: UUID().uuidString,
-                    sourceIn: secondSourceSplit,
-                    sourceOut: segment.sourceOut,
-                    timelineIn: secondStart,
-                    timelineOut: firstEnd + (segmentEnd - endTime),
-                    speed: segment.speed
-                )
-
+                // TODO: Split segment into two parts and re-insert (currently just deletes)
                 segmentsToDelete.append(segment.id)
                 offsetAdjustment += (endTime - startTime)
-
-                // We'll need special handling for this case
-                // For now, delete the original and mark for special processing
             }
         }
 
@@ -304,7 +277,6 @@ public actor EditorModel {
 
         // Adjust all remaining segments
         let currentSegments = project.timeline.segments
-        var runningAdjustment: TimeInterval = 0
 
         for (index, segment) in currentSegments.enumerated() {
             if segment.timelineIn >= startTime {

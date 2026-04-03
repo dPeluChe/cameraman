@@ -9,7 +9,7 @@ import Foundation
 
 extension ZoomPlanGenerator {
     /// Configuration for zoom plan generation
-    public struct Configuration: Equatable {
+    public struct Configuration: Equatable, Sendable {
         /// Minimum zoom level (1.0 = no zoom)
         /// Default: 1.0 - no zoom out beyond original
         public let minZoomLevel: Double

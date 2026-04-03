@@ -261,7 +261,7 @@ struct ExportView: View {
 
             if let tempURL = viewModel.temporaryExportURL, viewModel.exportState == .completed {
                 Button("Play Video (Temporary)") {
-                    print("🎬 [ExportView] Opening temporary file: \(tempURL.path)")
+                    LogDebug(.export, "Opening temporary file: \(tempURL.path)")
                     NSWorkspace.shared.open(tempURL)
                 }
                 .font(.caption)

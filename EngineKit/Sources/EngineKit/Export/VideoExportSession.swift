@@ -409,9 +409,8 @@ extension ExportEngine {
 
                     // Try to get more error details
                     let nsError = error as NSError
-                    if let userInfo = nsError.userInfo as? [String: Any] {
-                        logger.error("Export error userInfo: \(userInfo)")
-                    }
+                    let userInfo = nsError.userInfo
+                    logger.error("Export error userInfo: \(userInfo)")
                 }
 
                 // Check if output file exists despite error

@@ -51,7 +51,7 @@ final class TranscriptionViewModel: ObservableObject {
 
     func checkTranscriptionStatus(project: Project) {
         if project.captions != nil {
-            print("Project has existing captions")
+            LogDebug(.transcription, "Project has existing captions")
         }
     }
 
@@ -129,7 +129,7 @@ final class TranscriptionViewModel: ObservableObject {
             let data = mockTranscriptJSON.data(using: .utf8)!
             transcript = try JSONDecoder().decode(TranscriptionEngine.Transcript.self, from: data)
         } catch {
-            print("Failed to decode mock transcript: \(error)")
+            LogError(.transcription, "Failed to decode mock transcript: \(error)")
         }
 
         transcriptionState = .completed

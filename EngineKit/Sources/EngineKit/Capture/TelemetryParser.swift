@@ -267,7 +267,16 @@ public actor TelemetryParser {
         windowId: UUID
     ) -> ClickWindow {
         guard !clicks.isEmpty else {
-            fatalError("Cannot create window from empty clicks array")
+            assertionFailure("createWindow called with empty clicks — caller should guard")
+            return ClickWindow(
+                id: windowId,
+                startTime: startTime,
+                endTime: startTime,
+                clicks: [],
+                centerPoint: .zero,
+                boundingBox: BoundingBox(minX: 0, maxX: 0, minY: 0, maxY: 0),
+                importanceScore: 0
+            )
         }
 
         let endTime = clicks.map { $0.timestamp }.max() ?? startTime

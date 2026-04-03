@@ -42,7 +42,7 @@ class SourceSelectorViewModel: ObservableObject {
 
                 let status = await permissionManager.checkScreenRecordingPermission()
                 if status != .authorized {
-                    print("Screen recording permission missing, capture will fail")
+                    LogWarning(.capture, "Screen recording permission missing, capture will fail")
                 }
 
             case .window:
@@ -65,7 +65,7 @@ class SourceSelectorViewModel: ObservableObject {
                     errorMessage = "Failed to load sources: \(error.localizedDescription)"
                 }
             }
-            print("Error loading sources: \(error)")
+            LogError(.capture, "Error loading sources: \(error)")
         }
     }
 
@@ -110,7 +110,7 @@ class DisplayHighlighter {
         stopHighlight()
 
         guard let screen = NSScreen.screen(withDisplayID: displayID) else {
-            print("Could not find screen for ID: \(displayID)")
+            LogWarning(.capture, "Could not find screen for ID: \(displayID)")
             return
         }
 

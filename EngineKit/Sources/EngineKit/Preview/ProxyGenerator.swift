@@ -83,7 +83,6 @@ public actor ProxyGenerator {
 
         // Get source video dimensions
         let naturalSize = try await videoTrack.load(.naturalSize)
-        let nominalFrameRate = try await videoTrack.load(.nominalFrameRate)
 
         // Calculate output dimensions (preserve aspect ratio if enabled)
         let outputSize = calculateOutputSize(

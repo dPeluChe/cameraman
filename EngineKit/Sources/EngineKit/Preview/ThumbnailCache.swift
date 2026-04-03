@@ -59,7 +59,7 @@ public actor ThumbnailCache {
     // MARK: - LRU Helpers
 
     private func insertThumbnail(_ thumbnail: CachedThumbnail, at time: TimeInterval) {
-        insertThumbnail(thumbnail, at: time)
+        thumbnailCache[time] = thumbnail
         thumbnailAccessOrder.removeAll { $0 == time }
         thumbnailAccessOrder.append(time)
         evictThumbnailsIfNeeded()

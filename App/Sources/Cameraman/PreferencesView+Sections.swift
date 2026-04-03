@@ -445,7 +445,7 @@ class HotkeysPreferencesViewModel: ObservableObject {
                 try hotkeyManager.registerDefaultHotkeys()
                 hotkeysEnabled = true
             } catch {
-                print("Failed to register hotkeys: \(error)")
+                LogError(.ui, "Failed to register hotkeys: \(error)")
             }
         }
         registeredHotkeys = hotkeyManager.getRegisteredHotkeys()

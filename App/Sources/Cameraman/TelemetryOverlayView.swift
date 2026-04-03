@@ -276,7 +276,7 @@ struct TelemetryOverlayView: View {
             }
         } catch {
             // Silently fail if telemetry is not available
-            print("Failed to load cursor telemetry: \(error.localizedDescription)")
+            LogWarning(.telemetry, "Failed to load cursor telemetry: \(error.localizedDescription)")
         }
     }
 
@@ -300,7 +300,7 @@ struct TelemetryOverlayView: View {
             }
         } catch {
             // Silently fail if keystroke telemetry is not available
-            print("Failed to load keystroke telemetry: \(error.localizedDescription)")
+            LogWarning(.telemetry, "Failed to load keystroke telemetry: \(error.localizedDescription)")
         }
     }
 }

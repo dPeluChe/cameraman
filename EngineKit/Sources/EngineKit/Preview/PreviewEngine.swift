@@ -273,7 +273,9 @@ public actor PreviewEngine {
 
         let videoComposition = buildVideoComposition(for: project, composition: composition)
         self.videoCompositionConfig = videoComposition
-        currentItem.videoComposition = videoComposition
+        await MainActor.run {
+            currentItem.videoComposition = videoComposition
+        }
 
         // Also rebuild audio mix to pick up per-segment volume changes
         if let compositionResult = compositionResult {
@@ -282,7 +284,10 @@ public actor PreviewEngine {
                 muteState: lastAudioMuteState,
                 segments: project.timeline.segments
             )
-            currentItem.audioMix = audioMix
+            nonisolated(unsafe) let unsafeAudioMix = audioMix
+            await MainActor.run {
+                currentItem.audioMix = unsafeAudioMix
+            }
         }
     }
 

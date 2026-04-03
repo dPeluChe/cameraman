@@ -9,7 +9,7 @@ import Foundation
 
 extension ZoomPlanGenerator {
     /// Easing functions for smooth zoom animations
-    public enum EasingFunction: String, Codable {
+    public enum EasingFunction: String, Codable, Sendable {
         case linear
         case easeIn
         case easeOut

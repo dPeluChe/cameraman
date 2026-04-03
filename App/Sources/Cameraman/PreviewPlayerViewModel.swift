@@ -151,7 +151,7 @@ final class PreviewPlayerViewModel: ObservableObject {
                     }
                 }
             } catch {
-                print("[PREVIEW-DEBUG] Failed to refresh preview: \(error.localizedDescription)")
+                LogError(.preview, "Failed to refresh preview: \(error.localizedDescription)")
             }
         }
     }

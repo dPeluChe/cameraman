@@ -36,6 +36,7 @@ struct TimelineView: View {
     @State private var zoomSuggestions: [ZoomSuggestion] = []
     @State private var dismissedSuggestionIds: Set<UUID> = []
     @State private var isGeneratingSuggestions = false
+    @State private var thumbnailTask: Task<Void, Never>?
 
     // Thumbnail cache
     @State private var thumbnailCache: ThumbnailCache?
@@ -54,9 +55,11 @@ struct TimelineView: View {
     // MARK: - Thumbnail Management
 
     private func initializeThumbnailCache(projectDirectory: String) {
+        thumbnailTask?.cancel()
         let cache = ThumbnailCache(configuration: .default)
-        Task {
+        thumbnailTask = Task {
             await cache.setProject(project, projectDirectory: projectDirectory)
+            guard !Task.isCancelled else { return }
             await MainActor.run {
                 self.thumbnailCache = cache
             }
@@ -80,6 +83,7 @@ struct TimelineView: View {
         var newThumbnails: [TimeInterval: NSImage] = [:]
 
         for i in 0..<thumbnailCount {
+            guard !Task.isCancelled else { return }
             let time = Double(i) * interval
 
             // Check if already loaded
@@ -708,14 +712,14 @@ struct TimelineView: View {
     private func generateZoomSuggestions() {
         guard let cursorTrack = project.primarySources?.telemetry?.cursor,
               let projDir = projectDirectory else {
-            print("[ZOOM] No cursor telemetry or project directory")
+            LogDebug(.telemetry, "No cursor telemetry or project directory")
             return
         }
 
         isGeneratingSuggestions = true
         let cursorURL = projDir.appendingPathComponent(cursorTrack.path)
         let proj = project
-        print("[ZOOM] Loading telemetry from: \(cursorURL.path)")
+        LogDebug(.telemetry, "Loading telemetry from: \(cursorURL.path)")
 
         Task {
             let parser = TelemetryParser()
@@ -725,22 +729,22 @@ struct TimelineView: View {
             do {
                 let result = try await parser.parse(telemetryFile: cursorURL)
                 parseResult = result
-                print("[ZOOM] Parser found \(result.importantClicks.count) clicks, \(result.windows.count) windows")
+                LogDebug(.telemetry, "Parser found \(result.importantClicks.count) clicks, \(result.windows.count) windows")
 
                 let data = try String(contentsOf: cursorURL, encoding: .utf8)
                 let decoder = JSONDecoder()
                 events = data.split(separator: "\n").compactMap { line in
                     try? decoder.decode(TelemetryRecorder.Event.self, from: Data(line.utf8))
                 }
-                print("[ZOOM] Decoded \(events.count) raw events")
+                LogDebug(.telemetry, "Decoded \(events.count) raw events")
             } catch {
-                print("[ZOOM] Parse error: \(error.localizedDescription)")
+                LogError(.telemetry, "Parse error: \(error.localizedDescription)")
                 parseResult = nil
                 events = []
             }
 
             guard !events.isEmpty else {
-                print("[ZOOM] No events — aborting")
+                LogWarning(.telemetry, "No events — aborting zoom suggestion generation")
                 await MainActor.run { isGeneratingSuggestions = false }
                 return
             }
@@ -761,7 +765,7 @@ struct TimelineView: View {
                 timelineDuration: proj.timeline.duration
             )
 
-            print("[ZOOM] Generated \(suggestions.count) suggestions")
+            LogInfo(.telemetry, "Generated \(suggestions.count) zoom suggestions")
 
             // Auto-apply zoom plan if suggestions found
             if !suggestions.isEmpty {
@@ -772,7 +776,7 @@ struct TimelineView: View {
                     timelineDuration: proj.timeline.duration
                 ) {
                     await playerViewModel.previewEngine?.setZoomPlan(plan)
-                    print("[ZOOM] Auto-applied zoom plan with \(plan.keyframes.count) keyframes")
+                    LogInfo(.telemetry, "Auto-applied zoom plan with \(plan.keyframes.count) keyframes")
                 }
             }
 

@@ -217,7 +217,7 @@ final class ExportViewModel: ObservableObject {
     }
 
     private func startProgressMonitoring(jobId: JobId, engine: ExportEngine, filename: String) {
-        print("[ExportViewModel] startProgressMonitoring called with filename: \(filename)")
+        LogDebug(.export, "[ExportViewModel] startProgressMonitoring called with filename: \(filename)")
 
         progressUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
             Task { @MainActor in
@@ -241,7 +241,7 @@ final class ExportViewModel: ObservableObject {
                         .appendingPathComponent("renders", isDirectory: true)
                         .appendingPathComponent(filename)
 
-                    print("[ExportViewModel] Export success, temporary path: \(tempPath.path)")
+                    LogInfo(.export, "Export success, temporary path: \(tempPath.path)")
                     self.exportState = .completed
                     self.progress = 1.0
                     self.progressMessage = "Export complete!"
