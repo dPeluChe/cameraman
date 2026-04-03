@@ -703,35 +703,40 @@ struct TimelineView: View {
 
     private func generateZoomSuggestions() {
         guard let cursorTrack = project.primarySources?.telemetry?.cursor,
-              let projDir = projectDirectory else { return }
+              let projDir = projectDirectory else {
+            print("[ZOOM] No cursor telemetry or project directory")
+            return
+        }
 
         isGeneratingSuggestions = true
         let cursorURL = projDir.appendingPathComponent(cursorTrack.path)
         let proj = project
+        print("[ZOOM] Loading telemetry from: \(cursorURL.path)")
 
         Task {
-            // Load events once via TelemetryParser (avoids double file read)
             let parser = TelemetryParser()
             var parseResult: TelemetryParser.ParseResult?
             var events: [TelemetryRecorder.Event]
 
             do {
-                // parse() loads and decodes the JSONL file internally
                 let result = try await parser.parse(telemetryFile: cursorURL)
                 parseResult = result
+                print("[ZOOM] Parser found \(result.importantClicks.count) clicks, \(result.windows.count) windows")
 
-                // Re-load events for dwell detection (parser doesn't expose raw events)
                 let data = try String(contentsOf: cursorURL, encoding: .utf8)
                 let decoder = JSONDecoder()
                 events = data.split(separator: "\n").compactMap { line in
                     try? decoder.decode(TelemetryRecorder.Event.self, from: Data(line.utf8))
                 }
+                print("[ZOOM] Decoded \(events.count) raw events")
             } catch {
+                print("[ZOOM] Parse error: \(error.localizedDescription)")
                 parseResult = nil
                 events = []
             }
 
             guard !events.isEmpty else {
+                print("[ZOOM] No events — aborting")
                 await MainActor.run { isGeneratingSuggestions = false }
                 return
             }
@@ -751,6 +756,8 @@ struct TimelineView: View {
                 screenHeight: Double(proj.canvas.format.h),
                 timelineDuration: proj.timeline.duration
             )
+
+            print("[ZOOM] Generated \(suggestions.count) suggestions")
 
             await MainActor.run {
                 zoomSuggestions = suggestions
