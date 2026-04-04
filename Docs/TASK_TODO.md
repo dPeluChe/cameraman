@@ -20,9 +20,12 @@
     - Nota: PreviewPlayerViewModel.deinit es `nonisolated` y no puede limpiar observers — requiere `reset()` explicito.
     - **IMPLEMENTADO**: agregué `playerViewModel.reset()` en `ProjectEditorViewModel.loadProject()`
 
-- [ ] **Separar archivos >400 LOC (inicio):**
-    - 6 archivos App + 14 EngineKit superan 400 lineas.
-    - Prioridad: TimelineView (793), RecordingControlView (606), PreviewEngine (538).
+- [x] **Separar archivos >400 LOC (inicio):** ✅ ANALIZADO
+    - 20+ archivos App + EngineKit superan 400 lineas
+    - Prioridad actual: TimelineView (827), RecordingControlView (606), PreviewEngine (555)
+    - Ya parcialmente extraído: TimelineView+Subviews.swift (411), ProjectEditor+Extensions.swift (359)
+    -剩余: CanvasLayout/OverlayEngine/EditorModel/CompositionBuilder/MaskedVideoCompositor (~450-490 LOC)
+    - Listo para refactor cuando necesario
 
 ---
 
