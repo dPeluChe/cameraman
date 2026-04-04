@@ -120,7 +120,8 @@ public actor Recorder {
         if config.captureMicAudio {
             do {
                 let micRecorder = MicAudioRecorder(
-                    outputURL: outputURL.appendingPathComponent("mic_audio.m4a")
+                    outputURL: outputURL.appendingPathComponent("mic_audio.m4a"),
+                    audioProcessing: config.audioProcessing
                 )
                 try await micRecorder.startRecording()
                 session.setMicAudioSession(micRecorder)
@@ -330,9 +331,24 @@ internal class MicAudioRecorder {
     private var isRecording = false
     private var isPaused = false
     private var startTime: Date?
+    private let audioProcessor: AudioProcessor?
+    private let audioProcessingConfig: AudioProcessingConfiguration
 
-    init(outputURL: URL) {
+    init(outputURL: URL, audioProcessing: AudioProcessingConfiguration) {
         self.outputURL = outputURL
+        self.audioProcessingConfig = audioProcessing
+        
+        if audioProcessing.noiseGateEnabled || audioProcessing.echoCancellationEnabled {
+            self.audioProcessor = AudioProcessor(configuration: AudioProcessor.Configuration(
+                noiseGateThreshold: audioProcessing.noiseGateThreshold,
+                noiseGateAttack: 0.01,
+                noiseGateRelease: 0.1,
+                echoCancellationEnabled: audioProcessing.echoCancellationEnabled,
+                echoCancellationLevel: audioProcessing.echoCancellationIntensity
+            ))
+        } else {
+            self.audioProcessor = nil
+        }
     }
 
     private let logger = Logger(subsystem: "com.projectstudio.enginekit", category: "MicAudioRecorder")
@@ -397,7 +413,12 @@ internal class MicAudioRecorder {
             guard let self = self, self.isRecording, !self.isPaused else { return }
             do {
                 guard let audioFile = self.audioFile else { return }
-                try audioFile.write(from: buffer)
+                
+                if let processor = self.audioProcessor, let processedBuffer = processor.process(buffer: buffer) {
+                    try audioFile.write(from: processedBuffer)
+                } else {
+                    try audioFile.write(from: buffer)
+                }
             } catch {
                 self.logger.error("Error writing audio buffer: \(error.localizedDescription)")
             }

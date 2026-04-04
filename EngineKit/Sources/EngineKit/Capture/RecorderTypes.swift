@@ -19,17 +19,21 @@ extension Recorder {
         public let captureMicAudio: Bool
         /// Whether to capture cursor/click telemetry (always true by default)
         public let captureTelemetry: Bool
+        /// Audio processing configuration (noise gate, echo cancellation)
+        public let audioProcessing: AudioProcessingConfiguration
 
         public init(
             screenConfig: CaptureEngine.CaptureConfiguration,
             cameraConfig: CameraEngine.CameraConfiguration? = nil,
             captureMicAudio: Bool = false,
-            captureTelemetry: Bool = true
+            captureTelemetry: Bool = true,
+            audioProcessing: AudioProcessingConfiguration = .default
         ) {
             self.screenConfig = screenConfig
             self.cameraConfig = cameraConfig
             self.captureMicAudio = captureMicAudio
             self.captureTelemetry = captureTelemetry
+            self.audioProcessing = audioProcessing
         }
     }
 

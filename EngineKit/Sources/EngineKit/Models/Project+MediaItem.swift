@@ -67,6 +67,51 @@ extension Project {
         case audio   // MP3, WAV, M4A — mixed into audio composition
     }
 
+    /// Preset positions for image overlays (mirrors camera position presets)
+    public enum MediaPositionPreset: String, Codable, Sendable, CaseIterable {
+        case topLeft = "top-left"
+        case topRight = "top-right"
+        case bottomLeft = "bottom-left"
+        case bottomRight = "bottom-right"
+        case center = "center"
+        case splitLeft = "split-left"
+        case splitRight = "split-right"
+        
+        public var displayName: String {
+            switch self {
+            case .topLeft: return "Top Left"
+            case .topRight: return "Top Right"
+            case .bottomLeft: return "Bottom Left"
+            case .bottomRight: return "Bottom Right"
+            case .center: return "Center"
+            case .splitLeft: return "Split Left"
+            case .splitRight: return "Split Right"
+            }
+        }
+        
+        public func toPosition(w: Double = 0.25, h: Double = 0.25) -> MediaPosition {
+            let width = w
+            let height = h
+            
+            switch self {
+            case .topLeft:
+                return MediaPosition(x: 0.02, y: 0.02, w: width, h: height)
+            case .topRight:
+                return MediaPosition(x: 1 - width - 0.02, y: 0.02, w: width, h: height)
+            case .bottomLeft:
+                return MediaPosition(x: 0.02, y: 1 - height - 0.02, w: width, h: height)
+            case .bottomRight:
+                return MediaPosition(x: 1 - width - 0.02, y: 1 - height - 0.02, w: width, h: height)
+            case .center:
+                return MediaPosition(x: (1 - width) / 2, y: (1 - height) / 2, w: width, h: height)
+            case .splitLeft:
+                return MediaPosition(x: 0, y: 0, w: 0.5, h: 1.0)
+            case .splitRight:
+                return MediaPosition(x: 0.5, y: 0, w: 0.5, h: 1.0)
+            }
+        }
+    }
+
     /// Normalized position for image overlays on the canvas
     public struct MediaPosition: Codable, Equatable, Sendable {
         public var x: Double  // 0-1 normalized
