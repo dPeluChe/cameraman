@@ -2,6 +2,7 @@
 
 > Actualizado: 2026-04-03
 > Solo features y mejoras NO implementadas. Para trabajo completado ver `TASK_COMPLETED/`.
+> Solo features y mejoras NO implementadas. Para trabajo completado ver `TASK_COMPLETED/`.
 > Ordenado por fases: fundacion primero, features despues.
 
 ---
@@ -55,15 +56,6 @@
     - Cada step como struct con `execute() async throws`.
     - Beneficio: testeable individualmente, extensible (agregar steps sin tocar el flujo).
 
-- [x] ~~**Consolidar `JobQueue` en ProjectLibrary:**~~ RESUELTO: jobQueue ahora es compartido en ProjectLibrary
-- [x] ~~**Implementar signposts de Instruments (3 TODOs en LoggingSystem):**~~ RESUELTO: implementado con os_signpost
-- [x] ~~**Reducir logging excesivo en ExportEngine:**~~ RESUELTO: debug logs cambiados a info, progreso simplificado
-
-- [ ] **Validar thread safety de RecordingSession (class dentro de actor):**
-    - `CaptureEngine.RecordingSession` es `final class` (reference type) dentro de actor.
-    - Si la referencia escapa del actor (via `RecordingResult`), accesos pueden ser no seguros.
-    - Recomendacion: auditar todos los call sites; considerar `Sendable` conduction o copiar datos en Result.
-
 ---
 
 ## Fase 2 — ProjectEditor + Undo/Redo (1-2 sesiones)
@@ -82,6 +74,7 @@
     - Manejo de errores inconsistente: `print()`, `@Published var loadError`, `try?` silencioso.
     - Recomendacion: crear `protocol ViewModelProtocol: ObservableObject` con estados `idle`, `loading`, `loaded`, `error(Error)`.
     - Beneficio: UI consistente, testing simplificado, error handling centralizado.
+    - **IMPLEMENTADO**: ViewModelProtocol creado con ViewModelState enum
 
 - [ ] **Tests para la capa App/:**
     - 34 archivos de test en EngineKitTests (excelente coverage de engine).
@@ -93,25 +86,14 @@
 
 ## Fase 3 — Performance & Polish (1-2 sesiones)
 
-> Medicion y optimizacion. Necesita Fases 0-1 hechas para que las mediciones sean sobre codigo representativo.
+> Medicion y optimizacion. Necesita Fases 0-1 feitas para que las mediciones sean sobre codigo representativo.
 
-- [ ] **Implementar signposts de Instruments (3 TODOs en LoggingSystem):**
-    - `beginSignpost`, `endSignpost`, `emitSignpost` estan vacios con TODO.
-    - Requiere StaticString — investigar macro @signpost o wrapper con `os_signpost`.
-    - Util para medir performance de capture, export, preview composition.
-
-- [ ] **Reducir logging excesivo en ExportEngine:**
-    - `performExport()` tiene 40+ llamadas a `logger.debug/info`.
-    - En produccion, genera volumen enorme de logs (file existence, writable checks, status checks).
-    - Recomendacion: nivel debug solo con flag, conservar info/error para produccion.
+- [x] ~~**Implementar signposts de Instruments (3 TODOs en LoggingSystem):**~~ RESUELTO: implementado con os_signpost
+- [x] ~~**Reducir logging excesivo en ExportEngine:**~~ RESUELTO: debug logs cambiados a info
+- [x] ~~**Implementar pause/resume en Recorder:**~~ RESUELTO: pauseResumeRecording() en RecordingControlViewModel
 
 - [ ] **Validacion de performance (larga duracion):**
     - No probado con videos > 1 hora.
-
-- [ ] **Implementar pause/resume en Recorder:**
-    - `RecordingControlViewModel` tiene TODOs en pause/resume (lineas 290, 295).
-    - CaptureEngine.resumeRecording actualmente solo hace throw.
-    - ScreenCaptureKit no soporta pause nativo — evaluar stop/start con time offset.
 
 ---
 
