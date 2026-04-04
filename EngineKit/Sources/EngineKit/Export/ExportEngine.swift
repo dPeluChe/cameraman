@@ -63,13 +63,13 @@ public actor ExportEngine {
     /// Initialize export stage tracking for a job
     func initializeExportStages(for jobId: JobId, project: Project, preset: ExportPreset) {
         exportStages[jobId] = .validation
-        logger.debug("Initialized export stages for job \(jobId.uuidString): \(preset.name)")
+        logger.info("Initialized export stages for job \(jobId.uuidString): \(preset.name)")
     }
 
     /// Update export stage with logging
     func updateExportStage(jobId: JobId, stage: ExportStage, progress: Double) async {
         exportStages[jobId] = stage
-        logger.debug("Export stage: \(stage.description) (progress: \(Int(progress * 100))%) jobId: \(jobId.uuidString)")
+        logger.info("Export progress: \(stage.description) (\(Int(progress * 100))%)")
         await jobQueue.updateJobProgress(jobId: jobId, progress: progress)
     }
 
@@ -94,7 +94,7 @@ public actor ExportEngine {
 
     /// Cleanup export resources
     func cleanupExport(jobId: JobId) async {
-        logger.debug("Cleaning up export resources for job: \(jobId.uuidString)")
+        logger.info("Cleaning up export resources for job: \(jobId.uuidString)")
         exportStages.removeValue(forKey: jobId)
     }
 

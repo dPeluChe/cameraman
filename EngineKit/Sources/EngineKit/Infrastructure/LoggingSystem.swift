@@ -261,31 +261,37 @@ public actor LoggingSystem {
     
     /// Begin a signpost interval for performance measurement
     /// - Parameters:
-    ///   - name: Signpost name
+    ///   - name: Signpost name (must be constant string)
     ///   - id: Unique identifier
     ///   - message: Optional message
-    public func beginSignpost(name: String, id: String, message: String? = nil) {
-        // NOTE: Signposts disabled due to StaticString requirement
-        // TODO: Re-implement with proper StaticString support
+    public func beginSignpost(name: StaticString, id: String, message: String? = nil) {
+        if #available(macOS 13.0, *) {
+            let signpostID = OSSignpostID(log: signpostLog)
+            os_signpost(.begin, log: signpostLog, name: name, "%{public}s", message ?? "")
+        }
     }
 
     /// End a signpost interval
     /// - Parameters:
-    ///   - name: Signpost name
+    ///   - name: Signpost name (must be constant string)
     ///   - id: Unique identifier
     ///   - message: Optional message
-    public func endSignpost(name: String, id: String, message: String? = nil) {
-        // NOTE: Signposts disabled due to StaticString requirement
-        // TODO: Re-implement with proper StaticString support
+    public func endSignpost(name: StaticString, id: String, message: String? = nil) {
+        if #available(macOS 13.0, *) {
+            let signpostID = OSSignpostID(log: signpostLog)
+            os_signpost(.end, log: signpostLog, name: name, "%{public}s", message ?? "")
+        }
     }
 
     /// Emit a signpost event (instantaneous)
     /// - Parameters:
-    ///   - name: Signpost name
+    ///   - name: Signpost name (must be constant string)
     ///   - id: Unique identifier
     ///   - message: Optional message
-    public func emitSignpost(name: String, id: String, message: String? = nil) {
-        // NOTE: Signposts disabled due to StaticString requirement
-        // TODO: Re-implement with proper StaticString support
+    public func emitSignpost(name: StaticString, id: String, message: String? = nil) {
+        if #available(macOS 13.0, *) {
+            let signpostID = OSSignpostID(log: signpostLog)
+            os_signpost(.event, log: signpostLog, name: name, "%{public}s", message ?? "")
+        }
     }
 }
