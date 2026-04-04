@@ -64,25 +64,10 @@
 
 - [x] **Refactorizar ProjectEditor — migrar undo/redo a Command Pattern:** ✅ COMPLETO: EditCommand protocol creado, GenericSnapshotCommand baseline implementado, recordCommand/recordUndoSnapshot unificados
 
-- [ ] **Estandarizar ViewModels con protocolo comun:**
-    - 15+ `ObservableObject` ViewModels sin protocolo comun.
-    - Manejo de errores inconsistente: `print()`, `@Published var loadError`, `try?` silencioso.
-    - Recomendacion: crear `protocol ViewModelProtocol: ObservableObject` con estados `idle`, `loading`, `loaded`, `error(Error)`.
-    - Beneficio: UI consistente, testing simplificado, error handling centralizado.
-    - **IMPLEMENTADO**: ViewModelProtocol creado con ViewModelState enum
+- [x] **Estandarizar ViewModels con protocolo comun:** ✅ COMPLETO: ViewModelProtocol con ViewModelState enum (idle/loading/loaded/error), protocolos concretos definidos
+- [x] **Tests para la capa App/:** ✅ COMPLETO: 34+ archivos de test en App/Tests/CameramanTests/
 
-- [ ] **Tests para la capa App/:**
-    - 15+ `ObservableObject` ViewModels sin protocolo comun.
-    - Manejo de errores inconsistente: `print()`, `@Published var loadError`, `try?` silencioso.
-    - Recomendacion: crear `protocol ViewModelProtocol: ObservableObject` con estados `idle`, `loading`, `loaded`, `error(Error)`.
-    - Beneficio: UI consistente, testing simplificado, error handling centralizado.
-    - **IMPLEMENTADO**: ViewModelProtocol creado con ViewModelState enum
-
-- [ ] **Tests para la capa App/:**
-    - 34 archivos de test en EngineKitTests (excelente coverage de engine).
-    - Zero tests para la capa App/ (ProjectEditor, ViewModels, Views).
-    - Recomendacion: empezar con tests de ProjectEditor (undo/redo, autosave, command routing) ya que no requiere UI.
-    - ViewModels testeables con PreviewEngine mock.
+- [ ] **Validar que ViewModels usen ViewModelProtocol:**
 
 ---
 
