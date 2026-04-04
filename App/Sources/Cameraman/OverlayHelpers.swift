@@ -14,6 +14,33 @@ extension OverlayEditorView {
     func selectTool(_ tool: OverlayTool) {
         selectedTool = tool
         selectedOverlayId = nil
+        // Auto-create overlay at playhead with default position
+        addOverlayAtPlayhead(type: tool.overlayType)
+    }
+
+    func addOverlayAtPlayhead(type: Project.Overlay.OverlayType) {
+        let start = playheadTime
+        let end = min(start + 3.0, editor.project.timeline.duration)
+        let transform = Project.Overlay.Transform(x: 0.3, y: 0.3, scale: 1.0)
+        let style = Project.Overlay.Style(
+            stroke: "#FF3B30",
+            strokeWidth: 3.0,
+            shadow: true,
+            text: type == .text ? "Text" : nil
+        )
+        let overlay = Project.Overlay(
+            id: UUID(),
+            type: type,
+            start: start,
+            end: end,
+            transform: transform,
+            style: style,
+            animation: nil
+        )
+        Task {
+            _ = await editor.addOverlay(projectId: editor.project.projectId, overlay: overlay)
+            await MainActor.run { selectedOverlayId = overlay.id }
+        }
     }
 
     func deleteSelectedOverlay() {

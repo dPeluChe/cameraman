@@ -233,10 +233,15 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
                 let focusPoint = zoomPlan.focusPoint(at: time)
                 let canvasRect = CGRect(origin: .zero, size: renderSize)
                 let scale = CGFloat(zoomLevel)
-                // Focus point is normalized (0-1), Y is top-down but CIImage is bottom-up
-                let focusX = CGFloat(focusPoint.x) * renderSize.width
-                let focusY = (1.0 - CGFloat(focusPoint.y)) * renderSize.height
-                // Scale around focus point: translate focus to origin, scale, translate back
+                // Focus point is normalized (0-1) in screen-source space (top-down Y).
+                // Apply screenTransform to map into canvas space (CIImage bottom-up Y).
+                let t = instruction.screenTransform
+                let srcW = (t.a > 0) ? renderSize.width / t.a : renderSize.width
+                let srcH = (t.d > 0) ? renderSize.height / t.d : renderSize.height
+                let rawX = CGFloat(focusPoint.x) * srcW
+                let rawY = (1.0 - CGFloat(focusPoint.y)) * srcH
+                let focusX = rawX * t.a + t.tx
+                let focusY = rawY * t.d + t.ty
                 let tx = focusX - focusX * scale
                 let ty = focusY - focusY * scale
                 finalImage = finalImage

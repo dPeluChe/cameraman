@@ -230,7 +230,7 @@ struct TimelineView: View {
         }
         .fileImporter(
             isPresented: $showImportPanel,
-            allowedContentTypes: [.audio, .mp3, .wav, .aiff, .mpeg4Audio, .image, .png, .jpeg, .heic, .tiff, .webP],
+            allowedContentTypes: [.audio, .image],
             allowsMultipleSelection: false
         ) { result in
             handleImportedFile(result)
