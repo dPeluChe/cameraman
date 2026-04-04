@@ -31,6 +31,7 @@ final class ProjectEditor: ObservableObject {
     }
 
     /// Schedule a debounced autosave (called after edits)
+    /// Shows a brief toast notification when save completes
     func scheduleAutosave() {
         autosaveTask?.cancel()
         autosaveTask = Task { [weak self] in
@@ -38,11 +39,16 @@ final class ProjectEditor: ObservableObject {
             guard !Task.isCancelled, let self else { return }
             do {
                 try await ProjectLibrary.shared.updateProject(self.project)
+                await MainActor.run {
+                    self.showAutosaveToast = true
+                }
             } catch {
                 LogError(.editor, "[AUTOSAVE] Failed: \(error.localizedDescription)")
             }
         }
     }
+
+    @Published var showAutosaveToast = false
 
     func setProject(_ project: Project) async {
         await editorModel.setProject(project)
