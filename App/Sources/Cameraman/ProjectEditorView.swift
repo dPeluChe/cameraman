@@ -156,6 +156,10 @@ struct ProjectEditorView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(Color(NSColor.windowBackgroundColor))
+        .toast(Binding(
+            get: { viewModel.editor?.showAutosaveToast ?? false },
+            set: { viewModel.editor?.showAutosaveToast = $0 }
+        ), message: "Project saved", icon: "checkmark.circle.fill")
         .task {
             // Yield to avoid view update issues
             await Task.yield()

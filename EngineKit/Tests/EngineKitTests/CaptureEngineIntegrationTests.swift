@@ -86,7 +86,7 @@ final class CaptureEngineIntegrationTests: XCTestCase {
         XCTAssertNotNil(result.endTime, "Result should have end time")
         XCTAssertGreaterThan(result.duration, 0, "Duration should be greater than 0")
         XCTAssertTrue(result.duration < 5.0, "Duration should be less than 5 seconds")
-        XCTAssertEqual(result.session.id, session.id, "Result session should match")
+        XCTAssertEqual(result.sessionId, session.id, "Result session should match")
 
         // Verify screen video file exists
         XCTAssertTrue(FileManager.default.fileExists(atPath: result.screenVideoPath.path), "Screen video file should exist")
@@ -309,7 +309,7 @@ final class CaptureEngineIntegrationTests: XCTestCase {
         XCTAssertNotEqual(result1.screenVideoPath, result2.screenVideoPath, "Each recording should have unique file path")
         XCTAssertTrue(FileManager.default.fileExists(atPath: result1.screenVideoPath.path), "First video file should exist")
         XCTAssertTrue(FileManager.default.fileExists(atPath: result2.screenVideoPath.path), "Second video file should exist")
-        XCTAssertNotEqual(result1.session.id, result2.session.id, "Each session should have unique ID")
+        XCTAssertNotEqual(result1.sessionId, result2.sessionId, "Each session should have unique ID")
     }
 
     // MARK: - File Output Validation Tests

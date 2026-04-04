@@ -10,15 +10,12 @@ import SwiftUI
 struct ToastView: View {
     let message: String
     let icon: String
-    let duration: TimeInterval
-    
-    @State private var isVisible = false
-    
+
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.system(size: 14))
-            
+
             Text(message)
                 .font(.system(size: 13, weight: .medium))
         }
@@ -27,36 +24,43 @@ struct ToastView: View {
         .background(.ultraThinMaterial)
         .cornerRadius(8)
         .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
-        .scaleEffect(isVisible ? 1 : 0.9)
-        .opacity(isVisible ? 1 : 0)
-        .onAppear {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                isVisible = true
+    }
+}
+
+struct ToastModifier: ViewModifier {
+    @Binding var isPresented: Bool
+    let message: String
+    let icon: String
+    let duration: TimeInterval
+
+    @State private var isVisible = false
+
+    func body(content: Content) -> some View {
+        content.overlay(alignment: .bottom) {
+            if isVisible {
+                ToastView(message: message, icon: icon)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .padding(.bottom, 60)
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
-                withAnimation(.easeOut(duration: 0.2)) {
-                    isVisible = false
+        }
+        .onChange(of: isPresented) { _, show in
+            if show {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    isVisible = true
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        isVisible = false
+                    }
+                    isPresented = false
                 }
             }
         }
     }
 }
 
-struct ToastModifier: ViewModifier {
-    let message: String
-    let icon: String
-    let duration: TimeInterval
-    
-    func body(content: Content) -> some View {
-        content.overlay(alignment: .bottom) {
-            ToastView(message: message, icon: icon, duration: duration)
-                .padding(.bottom, 60)
-        }
-    }
-}
-
 extension View {
-    func toast(message: String, icon: String = "checkmark.circle.fill", duration: TimeInterval = 2.0) -> some View {
-        modifier(ToastModifier(message: message, icon: icon, duration: duration))
+    func toast(_ isPresented: Binding<Bool>, message: String, icon: String = "checkmark.circle.fill", duration: TimeInterval = 1.5) -> some View {
+        modifier(ToastModifier(isPresented: isPresented, message: message, icon: icon, duration: duration))
     }
 }
