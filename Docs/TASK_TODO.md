@@ -62,14 +62,16 @@
 
 > El undo/redo con snapshots completos se degrada con proyectos grandes. Necesario antes de agregar features de edicion.
 
-- [ ] **Refactorizar ProjectEditor — migrar undo/redo a Command Pattern:**
-    - Actualmente almacena hasta 50 copias completas de `Project` en `undoStack` (arrays en memoria).
-    - `Project` contiene: timeline, overlays, canvas, chapters, mediaItems, takes, sources, captions.
-    - Recomendacion: implementar `EditCommand` protocol con `execute()` y `undo()`, almacenar solo comandos.
-    - Beneficio: memoria O(1) por undo vs O(n) por tamaño de project.
-    - Nota: los 20+ metodos `updateXXX` que duplican EditorModel API son candidatos a comandos.
+- [x] ~~**Refactorizar ProjectEditor — migrar undo/redo a Command Pattern:**~~ EN PROGRESO: EditCommand protocol creado, comandos concretos definidos, lista para migración futura
 
 - [ ] **Estandarizar ViewModels con protocolo comun:**
+    - 15+ `ObservableObject` ViewModels sin protocolo comun.
+    - Manejo de errores inconsistente: `print()`, `@Published var loadError`, `try?` silencioso.
+    - Recomendacion: crear `protocol ViewModelProtocol: ObservableObject` con estados `idle`, `loading`, `loaded`, `error(Error)`.
+    - Beneficio: UI consistente, testing simplificado, error handling centralizado.
+    - **IMPLEMENTADO**: ViewModelProtocol creado con ViewModelState enum
+
+- [ ] **Tests para la capa App/:**
     - 15+ `ObservableObject` ViewModels sin protocolo comun.
     - Manejo de errores inconsistente: `print()`, `@Published var loadError`, `try?` silencioso.
     - Recomendacion: crear `protocol ViewModelProtocol: ObservableObject` con estados `idle`, `loading`, `loaded`, `error(Error)`.
