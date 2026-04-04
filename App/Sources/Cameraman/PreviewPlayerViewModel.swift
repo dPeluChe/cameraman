@@ -156,6 +156,17 @@ final class PreviewPlayerViewModel: ObservableObject {
         }
     }
 
+    /// Fast overlay-only refresh (rebuilds videoComposition without full engine reload)
+    func refreshOverlayPreview() async {
+        guard let engine = previewEngine else { return }
+
+        do {
+            try await engine.refreshVisuals()
+        } catch {
+            LogError(.preview, "Failed to refresh overlay preview: \(error.localizedDescription)")
+        }
+    }
+
     func reset() {
         removePlayerObservers()
         avPlayer?.pause()

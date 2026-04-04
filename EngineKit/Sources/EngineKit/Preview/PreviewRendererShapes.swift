@@ -3,6 +3,7 @@
 //  EngineKit
 //
 //  Extracted from PreviewRenderer.swift — individual shape render methods
+//  Uses OverlayBaseSize for consistent sizing across preview/export/compositor.
 //
 
 import Foundation
@@ -20,8 +21,7 @@ extension PreviewEngine {
         let strokeColor = parseColor(overlay.style.stroke)
         let strokeWidth = CGFloat(overlay.style.strokeWidth)
 
-        // Arrow shape: pointing right by default
-        // Arrow consists of a line and a triangular head
+        // Arrow shape: pointing right, drawn within ~100px unit box
         let arrowLength: CGFloat = 100
         let headLength: CGFloat = 30
         let headWidth: CGFloat = 20
@@ -45,17 +45,13 @@ extension PreviewEngine {
     }
 
     /// Render a rectangle overlay
-    /// - Parameters:
-    ///   - overlay: Overlay to render
-    ///   - context: Graphics context
-    /// - Throws: PreviewError if rendering fails
     func renderRectangle(_ overlay: Project.Overlay, in context: CGContext) throws {
         let strokeColor = parseColor(overlay.style.stroke)
         let strokeWidth = CGFloat(overlay.style.strokeWidth)
 
-        // Default rectangle size
-        let rectWidth: CGFloat = 200
-        let rectHeight: CGFloat = 150
+        // Rectangle drawn within ~100px unit box (aspect ratio preserved via scale)
+        let rectWidth: CGFloat = 100
+        let rectHeight: CGFloat = 100
         let cornerRadius: CGFloat = 10
 
         let rect = CoreFoundation.CGRect(
@@ -68,29 +64,23 @@ extension PreviewEngine {
         context.setStrokeColor(strokeColor)
         context.setLineWidth(strokeWidth)
 
-        // Create rounded rectangle path
         let path = CGPath(roundedRect: rect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
         context.addPath(path)
         context.strokePath()
     }
 
     /// Render a line overlay
-    /// - Parameters:
-    ///   - overlay: Overlay to render
-    ///   - context: Graphics context
-    /// - Throws: PreviewError if rendering fails
     func renderLine(_ overlay: Project.Overlay, in context: CGContext) throws {
         let strokeColor = parseColor(overlay.style.stroke)
         let strokeWidth = CGFloat(overlay.style.strokeWidth)
 
-        // Default line dimensions (horizontal line)
-        let lineLength: CGFloat = 200
+        // Line drawn within ~100px unit box (horizontal)
+        let lineLength: CGFloat = 100
 
         context.setStrokeColor(strokeColor)
         context.setLineWidth(strokeWidth)
         context.setLineCap(.round)
 
-        // Draw line centered at origin
         context.move(to: CGPoint(x: -lineLength / 2, y: 0))
         context.addLine(to: CGPoint(x: lineLength / 2, y: 0))
 

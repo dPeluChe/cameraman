@@ -46,24 +46,13 @@ struct OverlayPopoverContent: View {
                     VStack(alignment: .leading, spacing: 16) {
                         // Position
                         popoverSection("Position") {
-                            // Preset grid
-                            Grid(horizontalSpacing: 4, verticalSpacing: 4) {
-                                GridRow {
-                                    presetBtn(.topLeft, overlay)
-                                    presetBtn(.topCenter, overlay)
-                                    presetBtn(.topRight, overlay)
+                            // Mini canvas for visual positioning
+                            OverlayPositionCanvas(
+                                overlay: overlay,
+                                onPositionChange: { x, y in
+                                    mutate(overlay) { $0.transform.x = x; $0.transform.y = y }
                                 }
-                                GridRow {
-                                    presetBtn(.centerLeft, overlay)
-                                    presetBtn(.center, overlay)
-                                    presetBtn(.centerRight, overlay)
-                                }
-                                GridRow {
-                                    presetBtn(.bottomLeft, overlay)
-                                    presetBtn(.bottomCenter, overlay)
-                                    presetBtn(.bottomRight, overlay)
-                                }
-                            }
+                            )
 
                             // Fine-tune sliders
                             labeledSlider("X", value: sliderBinding(overlay, \.transform.x), range: 0...1,
@@ -294,5 +283,79 @@ enum PositionPreset: CaseIterable {
         case .bottomCenter: return "Bottom Center"
         case .bottomRight: return "Bottom Right"
         }
+    }
+}
+
+// MARK: - Mini Position Canvas
+
+struct OverlayPositionCanvas: View {
+    let overlay: Project.Overlay
+    let onPositionChange: (Double, Double) -> Void
+
+    @State private var isDragging = false
+    @State private var dragX: Double?
+    @State private var dragY: Double?
+
+    private var displayX: Double { dragX ?? overlay.transform.x }
+    private var displayY: Double { dragY ?? overlay.transform.y }
+
+    var body: some View {
+        GeometryReader { geo in
+            let size = geo.size
+            let dotSize: CGFloat = 16
+            let dotX = displayX * (size.width - dotSize) + dotSize / 2
+            let dotY = displayY * (size.height - dotSize) + dotSize / 2
+
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.primary.opacity(0.04))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.primary.opacity(0.1), lineWidth: 1)
+                    )
+
+                // Grid lines (thirds)
+                Path { path in
+                    for i in 1...2 {
+                        let xPos = size.width * CGFloat(i) / 3
+                        path.move(to: CGPoint(x: xPos, y: 0))
+                        path.addLine(to: CGPoint(x: xPos, y: size.height))
+                        let yPos = size.height * CGFloat(i) / 3
+                        path.move(to: CGPoint(x: 0, y: yPos))
+                        path.addLine(to: CGPoint(x: size.width, y: yPos))
+                    }
+                }
+                .stroke(Color.primary.opacity(0.06), lineWidth: 0.5)
+
+                // Draggable dot — updates local state during drag, commits on end
+                Circle()
+                    .fill(isDragging ? Color.accentColor : Color.cyan)
+                    .frame(width: dotSize, height: dotSize)
+                    .shadow(color: .black.opacity(0.3), radius: 3, x: 0, y: 1)
+                    .position(x: dotX, y: dotY)
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                isDragging = true
+                                dragX = max(0, min(1, Double((value.location.x - dotSize / 2) / (size.width - dotSize))))
+                                dragY = max(0, min(1, Double((value.location.y - dotSize / 2) / (size.height - dotSize))))
+                            }
+                            .onEnded { _ in
+                                if let x = dragX, let y = dragY {
+                                    onPositionChange(x, y)
+                                }
+                                isDragging = false
+                                dragX = nil
+                                dragY = nil
+                            }
+                    )
+
+                Text(String(format: "%.0f%%, %.0f%%", displayX * 100, displayY * 100))
+                    .font(.system(size: 8, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .position(x: size.width / 2, y: size.height - 8)
+            }
+        }
+        .frame(height: 100)
     }
 }

@@ -112,7 +112,7 @@ extension PreviewEngine {
         imageSize: CoreFoundation.CGSize,
         canvasSize: CoreFoundation.CGSize
     ) throws {
-        // Calculate actual position and size based on canvas format
+        // Calculate actual position based on canvas format
         let x = overlay.transform.x * CGFloat(canvasSize.width)
         let y = overlay.transform.y * CGFloat(canvasSize.height)
 
@@ -120,12 +120,20 @@ extension PreviewEngine {
         let scaleX = imageSize.width / CGFloat(canvasSize.width)
         let scaleY = imageSize.height / CGFloat(canvasSize.height)
 
+        // Get base size for this overlay type (relative to canvas)
+        let baseSize = OverlayBaseSize.size(for: overlay.type, canvasSize: canvasSize)
+
+        // Calculate the scale factor to apply so baseSize maps to the shape's expected unit size
+        let shapeUnitSize: CGFloat = 100 // All shapes draw within ~100px unit
+        let sizeScaleX = (baseSize.width * scaleX) / shapeUnitSize
+        let sizeScaleY = (baseSize.height * scaleY) / shapeUnitSize
+
         // Save context state
         context.saveGState()
 
-        // Apply transformations
-        context.translateBy(x: x * scaleX, y: y * scaleY)
-        context.scaleBy(x: overlay.transform.scale * scaleX, y: overlay.transform.scale * scaleY)
+        // Apply transformations: position, size scale, user scale, rotation
+        context.translateBy(x: x, y: y)
+        context.scaleBy(x: sizeScaleX * overlay.transform.scale, y: sizeScaleY * overlay.transform.scale)
         context.rotate(by: overlay.transform.rotation * .pi / 180.0)
 
         // Apply shadow if enabled

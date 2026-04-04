@@ -149,6 +149,7 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
 
     private var renderContext: AVVideoCompositionRenderContext?
     private let ciContext = CIContext(options: [.useSoftwareRenderer: false])
+    private let cacheLock = NSLock()
 
     // Border cache — avoid CGContext allocation per frame
     private var cachedBorderImage: CIImage?
@@ -258,16 +259,22 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
                 let borderRadius = instruction.maskShape == .none ? CGFloat(0) : instruction.cornerRadius
                 let key = "\(borderShape)_\(camExtent)_\(borderRadius)_\(instruction.cameraBorderWidth)_\(instruction.cameraBorderColor)_\(renderSize)"
                 let borderImage: CIImage
+                cacheLock.lock()
                 if key == cachedBorderKey, let cached = cachedBorderImage {
                     borderImage = cached
+                    cacheLock.unlock()
                 } else {
-                    borderImage = renderCameraBorder(
+                    cacheLock.unlock()
+                    let rendered = renderCameraBorder(
                         shape: borderShape, rect: camExtent, cornerRadius: borderRadius,
                         borderWidth: instruction.cameraBorderWidth, borderColor: instruction.cameraBorderColor,
                         renderSize: renderSize
                     )
-                    cachedBorderImage = borderImage
+                    cacheLock.lock()
+                    cachedBorderImage = rendered
                     cachedBorderKey = key
+                    cacheLock.unlock()
+                    borderImage = rendered
                 }
                 finalImage = borderImage.composited(over: finalImage)
             }
@@ -304,14 +311,22 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
             currentTime >= overlay.start && currentTime <= overlay.end
         }
         if !activeOverlays.isEmpty {
-            let overlayKey = activeOverlays.map { $0.id }.joined(separator: ",")
+            let overlayKey = activeOverlays.map {
+                "\($0.id)_\($0.x)_\($0.y)_\($0.scale)_\($0.rotation)_\($0.stroke)"
+            }.joined(separator: "|")
             let overlayLayer: CIImage
+            cacheLock.lock()
             if overlayKey == cachedOverlayKey, let cached = cachedOverlayImage {
                 overlayLayer = cached
+                cacheLock.unlock()
             } else {
-                overlayLayer = renderOverlayLayer(activeOverlays, renderSize: renderSize)
-                cachedOverlayImage = overlayLayer
+                cacheLock.unlock()
+                let rendered = renderOverlayLayer(activeOverlays, renderSize: renderSize)
+                cacheLock.lock()
+                cachedOverlayImage = rendered
                 cachedOverlayKey = overlayKey
+                cacheLock.unlock()
+                overlayLayer = rendered
             }
             finalImage = overlayLayer.composited(over: finalImage)
         }
