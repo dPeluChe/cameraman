@@ -119,6 +119,26 @@ struct OverlayPopoverContent: View {
                             }
                         }
 
+                        // Timing
+                        popoverSection("Timing") {
+                            let maxDuration = editor.project.timeline.duration
+                            labeledSlider("Start", value: timingBinding(overlay, isStart: true, maxDuration: maxDuration),
+                                          range: 0...maxDuration,
+                                          display: String(format: "%.1fs", overlay.start))
+                            labeledSlider("End", value: timingBinding(overlay, isStart: false, maxDuration: maxDuration),
+                                          range: 0...maxDuration,
+                                          display: String(format: "%.1fs", overlay.end))
+                            HStack {
+                                Text("Duration")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Text(String(format: "%.1fs", overlay.end - overlay.start))
+                                    .font(.system(size: 11).monospacedDigit())
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
                         // Delete
                         Button(role: .destructive) {
                             Task {
@@ -225,6 +245,29 @@ struct OverlayPopoverContent: View {
         Binding(
             get: { overlay[keyPath: kp] ?? defaultVal },
             set: { val in mutate(overlay) { $0[keyPath: kp] = val } }
+        )
+    }
+
+    private func timingBinding(_ overlay: Project.Overlay, isStart: Bool, maxDuration: TimeInterval) -> Binding<Double> {
+        Binding(
+            get: { isStart ? overlay.start : overlay.end },
+            set: { val in
+                Task {
+                    if isStart {
+                        let newStart = max(0, min(val, overlay.end - 0.1))
+                        _ = await editor.updateOverlay(
+                            projectId: editor.project.projectId, overlayId: overlayId,
+                            start: newStart
+                        )
+                    } else {
+                        let newEnd = max(overlay.start + 0.1, min(val, maxDuration))
+                        _ = await editor.updateOverlay(
+                            projectId: editor.project.projectId, overlayId: overlayId,
+                            end: newEnd
+                        )
+                    }
+                }
+            }
         )
     }
 
