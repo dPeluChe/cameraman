@@ -206,75 +206,20 @@ struct RecordingControlView: View {
         .cornerRadius(10)
     }
 
-    // MARK: - Quality & Area Rows
+    // MARK: - Quality & Area Rows (extracted to RecordingControlView+Configure.swift)
 
     private var qualityRow: some View {
-        HStack {
-            Image(systemName: "sparkles")
-                .font(.system(size: 14))
-                .frame(width: 22)
-
-            Text("Quality")
-                .font(.system(size: 13))
-
-            Spacer()
-
-            Picker("", selection: $viewModel.recordingQuality) {
-                ForEach(RecordingQuality.allCases, id: \.self) { q in
-                    Text(q.rawValue).tag(q)
-                }
-            }
-            .pickerStyle(.segmented)
-            .frame(width: 160)
-        }
+        RecordingQualityRow(recordingQuality: $viewModel.recordingQuality)
     }
 
     private var captureAreaRow: some View {
-        HStack {
-            Image(systemName: "crop")
-                .font(.system(size: 14))
-                .frame(width: 22)
-
-            if let area = viewModel.selectedArea {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("Area")
-                        .font(.system(size: 13))
-                    Text("\(Int(area.width)) × \(Int(area.height))")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-            } else {
-                Text("Capture Area")
-                    .font(.system(size: 13))
+        CaptureAreaRow(
+            selectedArea: $viewModel.selectedArea,
+            selectedDisplaySource: viewModel.selectedDisplaySource,
+            onAreaSelected: { rect in
+                viewModel.selectedArea = rect
             }
-
-            Spacer()
-
-            if viewModel.selectedArea != nil {
-                Button {
-                    viewModel.selectedArea = nil
-                    AreaHighlightController.shared.hide()
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
-
-            Button(viewModel.selectedArea == nil ? "Select" : "Change") {
-                if let displaySource = viewModel.selectedDisplaySource {
-                    ScreenAreaSelectorController.shared.show(for: displaySource) { rect in
-                        viewModel.selectedArea = rect
-                        if let rect {
-                            AreaHighlightController.shared.show(rect: rect, on: displaySource)
-                        }
-                    }
-                }
-            }
-            .font(.caption)
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-        }
+        )
     }
 
     // MARK: - Recording View
