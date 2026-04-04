@@ -21,6 +21,7 @@ final class ProjectEditorViewModel: ObservableObject {
     @Published var mutedTracks: Set<TimelineTrackKind> = []
     @Published var selectedSegmentId: String?
     @Published var selectedMediaItemId: UUID?
+    @Published var selectedOverlayId: UUID?
 
     let playerViewModel = PreviewPlayerViewModel()
 

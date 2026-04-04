@@ -18,6 +18,7 @@ struct TimelineView: View {
     @Binding var mutedTracks: Set<TimelineTrackKind>
     @Binding var selectedSegmentId: String?
     @Binding var selectedMediaItemId: UUID?
+    @Binding var selectedOverlayId: UUID?
 
     private let trackHeight: TimelineScalar = 34
     private let trackSpacing: TimelineScalar = 8
@@ -420,54 +421,86 @@ struct TimelineView: View {
     }
 
     private func timelineTracks(layout: TimelineLayout, tracks: [TimelineTrack]) -> some View {
-        VStack(alignment: .leading, spacing: trackSpacing) {
-            ForEach(tracks) { track in
-                let trackWaveform = getWaveformForTrack(track.kind)
-
-                TimelineTrackRow(
-                    track: track,
-                    layout: layout,
-                    height: trackHeight,
-                    selectedSegmentId: selectedSegmentId,
-                    isInteractive: track.kind == .screen,
-                    isMuted: mutedTracks.contains(track.kind),
-                    showThumbnails: showThumbnails && track.kind == .screen,
-                    thumbnails: thumbnails,
-                    showWaveforms: showWaveforms && track.kind.isAudioTrack,
-                    waveformSamples: trackWaveform,
-                    volumeBinding: volumeBinding(for: track.kind),
-                    onSelectSegment: { segment in
-                        selectedSegmentId = segment.id
-                        playerViewModel.seek(to: segment.timelineIn)
-                    },
-                    onTrimDragChanged: { _, _, _ in
-                        isTrimming = true
-                    },
-                    onTrimDragEnded: { segment, edge, deltaX in
-                        isTrimming = false
-                        applyTrim(for: segment, edge: edge, deltaX: deltaX, layout: layout)
-                    },
-                    onMediaItemDragged: { itemId, deltaX in
-                        let deltaTime = TimeInterval(deltaX / layout.pixelsPerSecond)
-                        Task {
-                            guard let item = editor.project.mediaItems.first(where: { $0.id == itemId }) else { return }
-                            let newTimelineIn = max(0, item.timelineIn + deltaTime)
-                            await editor.updateMediaItem(id: itemId, timelineIn: newTimelineIn)
-                        }
-                    },
-                    onSelectMediaItem: { itemId in
-                        selectedMediaItemId = itemId
-                    },
-                    onToggleMute: {
-                        if mutedTracks.contains(track.kind) {
-                            mutedTracks.remove(track.kind)
-                        } else {
-                            mutedTracks.insert(track.kind)
-                        }
-                    }
-                )
-                .frame(width: layout.contentWidth, alignment: .leading)
+        let allTracks = tracks
+        return VStack(alignment: .leading, spacing: trackSpacing) {
+            ForEach(allTracks) { track in
+                timelineTrackContent(for: track, layout: layout)
+                    .frame(width: layout.contentWidth, alignment: .leading)
             }
+        }
+    }
+
+    @ViewBuilder
+    private func timelineTrackContent(for track: TimelineTrack, layout: TimelineLayout) -> some View {
+        let trackWaveform = getWaveformForTrack(track.kind)
+
+        if track.kind == .overlay {
+            TimelineOverlayTrackRow(
+                overlays: track.overlays,
+                layout: layout,
+                height: trackHeight,
+                selectedOverlayId: selectedOverlayId,
+                onSelectOverlay: { id in
+                    selectedOverlayId = id
+                },
+                onOverlayDragged: { overlayId, deltaX in
+                    let item = editor.project.overlays.first { $0.id == overlayId }
+                    guard let item else { return }
+                    let newStart = max(0, item.start + deltaX)
+                    let duration = item.end - item.start
+                    Task {
+                        await editor.updateOverlay(
+                            projectId: editor.project.projectId,
+                            overlayId: overlayId,
+                            start: newStart,
+                            end: newStart + duration
+                        )
+                    }
+                }
+            )
+        } else {
+            TimelineTrackRow(
+                track: track,
+                layout: layout,
+                height: trackHeight,
+                selectedSegmentId: selectedSegmentId,
+                isInteractive: track.kind == .screen,
+                isMuted: mutedTracks.contains(track.kind),
+                showThumbnails: showThumbnails && track.kind == .screen,
+                thumbnails: thumbnails,
+                showWaveforms: showWaveforms && track.kind.isAudioTrack,
+                waveformSamples: trackWaveform,
+                volumeBinding: volumeBinding(for: track.kind),
+                onSelectSegment: { segment in
+                    selectedSegmentId = segment.id
+                    playerViewModel.seek(to: segment.timelineIn)
+                },
+                onTrimDragChanged: { _, _, _ in
+                    isTrimming = true
+                },
+                onTrimDragEnded: { segment, edge, deltaX in
+                    isTrimming = false
+                    applyTrim(for: segment, edge: edge, deltaX: deltaX, layout: layout)
+                },
+                onMediaItemDragged: { itemId, deltaX in
+                    let deltaTime = TimeInterval(deltaX / layout.pixelsPerSecond)
+                    Task {
+                        guard let item = editor.project.mediaItems.first(where: { $0.id == itemId }) else { return }
+                        let newTimelineIn = max(0, item.timelineIn + deltaTime)
+                        await editor.updateMediaItem(id: itemId, timelineIn: newTimelineIn)
+                    }
+                },
+                onSelectMediaItem: { itemId in
+                    selectedMediaItemId = itemId
+                },
+                onToggleMute: {
+                    if mutedTracks.contains(track.kind) {
+                        mutedTracks.remove(track.kind)
+                    } else {
+                        mutedTracks.insert(track.kind)
+                    }
+                }
+            )
         }
     }
 

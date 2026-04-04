@@ -323,55 +323,32 @@ extension ExportEngine {
                 logger.error("Output directory does not exist or is not a directory: \(outputDir.path)")
             }
 
-            // Apply burn-in captions if enabled
-            if options.burnCaptions || preset.options.burnCaptions {
-                logger.debug("Burn-in captions enabled, applying caption layer")
-                do {
-                    let animationTool = try await createCaptionLayer(
-                        for: project,
-                        projectId: projectId,
-                        renderSize: videoComposition.renderSize,
-                        compositionDuration: composition.duration
-                    )
-                    videoComposition.animationTool = animationTool
-                    exportSession.videoComposition = videoComposition
-                    logger.debug("Caption layer applied successfully")
-                } catch {
-                    logger.error("Failed to apply caption layer: \(error.localizedDescription)")
-                    // Continue export without captions if caption layer fails
-                }
-            }
-
-            // Apply image overlays if any
+            // Apply burn-in captions, image overlays, and shape overlays using a combined layer
+            let hasCaptions = options.burnCaptions || preset.options.burnCaptions
             let hasImageOverlays = !project.mediaItems.filter { $0.type == .image }.isEmpty
-            if hasImageOverlays {
-                logger.debug("Image overlays found, applying image overlay layer")
+            let hasShapeOverlays = !project.overlays.isEmpty
+
+            if hasCaptions || hasImageOverlays || hasShapeOverlays {
+                logger.debug("Creating combined overlay layer (captions: \(hasCaptions), images: \(hasImageOverlays), shapes: \(hasShapeOverlays))")
                 do {
-                    let imageOverlayTool = try await createImageOverlayLayer(
+                    let combinedTool = try await createCombinedOverlayLayer(
                         for: project,
                         projectId: projectId,
                         renderSize: videoComposition.renderSize,
-                        compositionDuration: composition.duration
+                        compositionDuration: composition.duration,
+                        burnCaptions: hasCaptions
                     )
-                    if let tool = imageOverlayTool {
-                        // Merge with existing animation tool if present
-                        if let existingTool = videoComposition.animationTool {
-                            let mergedTool = mergeAnimationTools(existing: existingTool, new: tool)
-                            videoComposition.animationTool = mergedTool
-                        } else {
-                            videoComposition.animationTool = tool
-                        }
+                    if let tool = combinedTool {
+                        videoComposition.animationTool = tool
                     }
-                    exportSession.videoComposition = videoComposition
-                    logger.debug("Image overlay layer applied successfully")
+                    logger.debug("Combined overlay layer applied successfully")
                 } catch {
-                    logger.error("Failed to apply image overlay layer: \(error.localizedDescription)")
+                    logger.error("Failed to apply combined overlay layer: \(error.localizedDescription)")
                 }
             }
 
-            if !options.burnCaptions && !preset.options.burnCaptions {
-                exportSession.videoComposition = videoComposition
-            }
+            // Always assign videoComposition (carries compositor, render size, per-segment instructions)
+            exportSession.videoComposition = videoComposition
 
             // Apply audio mix for per-track mute/volume
             if let audioMuteState = options.audioMuteState {

@@ -63,6 +63,7 @@ extension PreviewEngine {
 
             let maskShape = project.canvas.layout.camera?.maskShape ?? .none
             let cornerRadius = project.canvas.layout.camera?.cornerRadius ?? 0
+            let overlayConfigs = project.overlays.map { OverlayConfig(overlay: $0) }
 
             if maskShape != .none {
                 let maskedInstruction = MaskedVideoCompositionInstruction(
@@ -76,7 +77,8 @@ extension PreviewEngine {
                     maskShape: maskShape,
                     cornerRadius: CGFloat(cornerRadius),
                     layoutType: "fullscreenCamera",
-                    screenMuted: true
+                    screenMuted: true,
+                    overlays: overlayConfigs
                 )
                 videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
                 videoComposition.instructions = [maskedInstruction]
@@ -154,6 +156,7 @@ extension PreviewEngine {
                     // Use custom compositor with per-segment instructions
                     var maskedInstructions: [MaskedVideoCompositionInstruction] = []
                     let totalDuration = composition.duration
+                    let overlayConfigs = project.overlays.map { OverlayConfig(overlay: $0) }
 
                     for (i, segment) in project.timeline.segments.enumerated() {
                         let segCamera = segment.cameraPosition ?? defaultCamera
@@ -194,7 +197,8 @@ extension PreviewEngine {
                             backgroundType: project.canvas.background.type,
                             backgroundValue: project.canvas.background.value,
                             cameraBorderWidth: CGFloat(segCamera.borderWidth),
-                            cameraBorderColor: segCamera.borderColor
+                            cameraBorderColor: segCamera.borderColor,
+                            overlays: overlayConfigs
                         ))
                     }
 

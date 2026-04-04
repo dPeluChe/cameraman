@@ -410,6 +410,79 @@ struct ZoomSuggestionMarker: View {
                       suggestion.source == .dwell ? "Dwell" : "Click",
                       suggestion.timelineTime,
                       suggestion.zoomLevel,
-                      isDismissed ? " (dismissed)" : " — click to dismiss"))
+                       isDismissed ? " (dismissed)" : " — click to dismiss"))
+    }
+}
+
+// MARK: - Timeline Overlay Track Row
+
+struct TimelineOverlayTrackRow: View {
+    let overlays: [Project.Overlay]
+    let layout: TimelineLayout
+    let height: TimelineScalar
+    let selectedOverlayId: UUID?
+    let onSelectOverlay: (UUID?) -> Void
+    let onOverlayDragged: (UUID, TimeInterval) -> Void
+
+    @State private var overlayDragOffset: [UUID: TimelineScalar] = [:]
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(Color.primary.opacity(0.06))
+
+            ForEach(overlays) { overlay in
+                let duration = overlay.end - overlay.start
+                let width = layout.segmentWidth(for: duration)
+                let xPosition = layout.xPosition(for: overlay.start) - layout.labelWidth
+                let isSelected = overlay.id == selectedOverlayId
+
+                HStack(spacing: 2) {
+                    Image(systemName: overlayIcon(overlay.type))
+                        .font(.system(size: 8))
+                        .foregroundStyle(.white.opacity(0.8))
+                    Text(overlayTypeName(overlay.type))
+                        .font(.system(size: 8))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 4)
+                .frame(width: max(width, 30), height: height - 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(Color.cyan.opacity(0.75))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .stroke(isSelected ? Color.white.opacity(0.9) : Color.white.opacity(0.3),
+                                lineWidth: isSelected ? 2 : 1)
+                )
+                .offset(x: xPosition + (overlayDragOffset[overlay.id] ?? 0))
+                .onTapGesture {
+                    onSelectOverlay(isSelected ? nil : overlay.id)
+                }
+                .highPriorityGesture(
+                    DragGesture(minimumDistance: 4)
+                        .onChanged { value in
+                            overlayDragOffset[overlay.id] = value.translation.width
+                        }
+                        .onEnded { value in
+                            let deltaX = value.translation.width
+                            overlayDragOffset.removeValue(forKey: overlay.id)
+                            let deltaTime = TimeInterval(deltaX / layout.pixelsPerSecond)
+                            onOverlayDragged(overlay.id, deltaTime)
+                        }
+                )
+                .help(String(format: "%@ — %.1fs to %.1fs", overlayTypeName(overlay.type), overlay.start, overlay.end))
+            }
+        }
+    }
+
+    private func overlayIcon(_ type: Project.Overlay.OverlayType) -> String {
+        OverlayDisplayInfo.icon(for: type)
+    }
+
+    private func overlayTypeName(_ type: Project.Overlay.OverlayType) -> String {
+        OverlayDisplayInfo.label(for: type)
     }
 }
