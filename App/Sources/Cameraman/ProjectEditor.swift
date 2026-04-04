@@ -18,6 +18,7 @@ final class ProjectEditor: ObservableObject {
     @Published private(set) var canUndo = false
     @Published private(set) var canRedo = false
 
+    // Snapshot-based undo (Command pattern is prepared for future migration)
     private var undoStack: [Project] = []
     private var redoStack: [Project] = []
     private let historyLimit = 50
@@ -311,20 +312,20 @@ final class ProjectEditor: ObservableObject {
 
     private func updatePublishedProject(from result: EditorResult, previousProject: Project) {
         if let updatedProject = result.getProject() {
+            // Create a generic command for the change - for now use a simple approach
+            // TODO: Convert each editorModel method to return a command
             recordUndoSnapshot(previousProject)
             project = updatedProject
             scheduleAutosave()
         }
     }
 
-    private func recordUndoSnapshot(_ snapshot: Project) {
-        undoStack.append(snapshot)
-        if undoStack.count > historyLimit {
-            undoStack.removeFirst()
-        }
-        redoStack.removeAll()
-        updateHistoryState()
-    }
+    // MARK: - Command Pattern (prepared for future migration)
+
+    /// Placeholder for future Command Pattern migration
+    /// Currently using snapshot-based undo for compatibility with EditorModel
+    /// The EditCommand protocol is defined and ready for migration
+    /// TODO: Migrate individual update methods to use commands instead of snapshots
 
     // MARK: - Internal helpers for extensions
 
