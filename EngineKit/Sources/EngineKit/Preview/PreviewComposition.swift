@@ -129,6 +129,35 @@ extension PreviewEngine {
 
             instruction.layerInstructions = [cameraLayerInstruction, screenLayerInstruction]
 
+            // If there are overlays, use the custom compositor
+            if !project.overlays.isEmpty {
+                let overlayConfigs = project.overlays.map { OverlayConfig(overlay: $0) }
+                let maskedInstruction = MaskedVideoCompositionInstruction(
+                    timeRange: instruction.timeRange,
+                    screenTrackID: screenTrack.trackID,
+                    cameraTrackID: cameraTrack.trackID,
+                    renderSize: renderSize,
+                    screenTransform: screenTransform,
+                    cameraTransform: cameraTransform,
+                    cameraRect: nil,
+                    maskShape: .none,
+                    cornerRadius: 0,
+                    layoutType: "sideBySide",
+                    screenMuted: screenMuted,
+                    videoCornerRadius: CGFloat(project.canvas.videoCornerRadius),
+                    videoShadowIntensity: CGFloat(project.canvas.videoShadowIntensity),
+                    padding: CGFloat(project.canvas.padding),
+                    backgroundType: project.canvas.background.type,
+                    backgroundValue: project.canvas.background.value,
+                    cameraBorderWidth: 0,
+                    cameraBorderColor: "#FFFFFF",
+                    overlays: overlayConfigs
+                )
+                videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
+                videoComposition.instructions = [maskedInstruction]
+                return videoComposition
+            }
+
         } else {
             // Default / PiP / Fullscreen: screen fills canvas
             let scale = min(renderSize.width / screenSourceSize.width, renderSize.height / screenSourceSize.height)
@@ -215,8 +244,66 @@ extension PreviewEngine {
                 let cameraLayerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: cameraTrack)
                 cameraLayerInstruction.setTransform(cameraTransform, at: .zero)
                 instruction.layerInstructions = [cameraLayerInstruction, screenLayerInstruction]
+
+                // If there are overlays, use the custom compositor so they render during playback
+                if !project.overlays.isEmpty {
+                    let overlayConfigs = project.overlays.map { OverlayConfig(overlay: $0) }
+                    let maskedInstruction = MaskedVideoCompositionInstruction(
+                        timeRange: instruction.timeRange,
+                        screenTrackID: screenTrack.trackID,
+                        cameraTrackID: cameraTrack.trackID,
+                        renderSize: renderSize,
+                        screenTransform: screenTransform,
+                        cameraTransform: cameraTransform,
+                        cameraRect: nil,
+                        maskShape: defaultCamera.maskShape,
+                        cornerRadius: CGFloat(defaultCamera.cornerRadius),
+                        layoutType: layoutType,
+                        screenMuted: screenMuted,
+                        videoCornerRadius: CGFloat(project.canvas.videoCornerRadius),
+                        videoShadowIntensity: CGFloat(project.canvas.videoShadowIntensity),
+                        padding: CGFloat(project.canvas.padding),
+                        backgroundType: project.canvas.background.type,
+                        backgroundValue: project.canvas.background.value,
+                        cameraBorderWidth: CGFloat(defaultCamera.borderWidth),
+                        cameraBorderColor: defaultCamera.borderColor,
+                        overlays: overlayConfigs
+                    )
+                    videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
+                    videoComposition.instructions = [maskedInstruction]
+                    return videoComposition
+                }
             } else {
                 instruction.layerInstructions = [screenLayerInstruction]
+
+                // If there are overlays but no camera, use custom compositor
+                if !project.overlays.isEmpty {
+                    let overlayConfigs = project.overlays.map { OverlayConfig(overlay: $0) }
+                    let maskedInstruction = MaskedVideoCompositionInstruction(
+                        timeRange: instruction.timeRange,
+                        screenTrackID: screenTrack.trackID,
+                        cameraTrackID: nil,
+                        renderSize: renderSize,
+                        screenTransform: screenTransform,
+                        cameraTransform: nil,
+                        cameraRect: nil,
+                        maskShape: .none,
+                        cornerRadius: 0,
+                        layoutType: layoutType,
+                        screenMuted: screenMuted,
+                        videoCornerRadius: CGFloat(project.canvas.videoCornerRadius),
+                        videoShadowIntensity: CGFloat(project.canvas.videoShadowIntensity),
+                        padding: CGFloat(project.canvas.padding),
+                        backgroundType: project.canvas.background.type,
+                        backgroundValue: project.canvas.background.value,
+                        cameraBorderWidth: 0,
+                        cameraBorderColor: "#FFFFFF",
+                        overlays: overlayConfigs
+                    )
+                    videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
+                    videoComposition.instructions = [maskedInstruction]
+                    return videoComposition
+                }
             }
         }
 

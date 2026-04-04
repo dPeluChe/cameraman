@@ -460,6 +460,8 @@ extension ExportEngine {
     }
 
     /// Create shape overlay layer for burn-in shape overlays (arrow/rect/line/text)
+    /// Deprecated: use createCombinedOverlayLayer instead
+    @available(*, deprecated, message: "Use createCombinedOverlayLayer to build a unified layer tree")
     func createShapeOverlayLayer(
         for project: Project,
         renderSize: CoreFoundation.CGSize,
@@ -555,17 +557,16 @@ extension ExportEngine {
         case .arrow:
             let path = CGMutablePath()
             let shaftW = scaledW * 0.7
-            let shaftH = scaledH * 0.3
-            let headW = scaledW * 0.3
+            let shaftH = scaledH * 0.2
             let headH = scaledH * 0.8
-            let origin = CGPoint(x: -scaledW / 2, y: -scaledH / 2)
-            path.move(to: origin)
-            path.addLine(to: CGPoint(x: origin.x + shaftW, y: origin.y + shaftH / 2))
-            path.addLine(to: CGPoint(x: origin.x + shaftW, y: origin.y - headH / 2))
-            path.addLine(to: CGPoint(x: origin.x + scaledW, y: origin.y + scaledH / 2))
-            path.addLine(to: CGPoint(x: origin.x + shaftW, y: origin.y + scaledH + headH / 2))
-            path.addLine(to: CGPoint(x: origin.x + shaftW, y: origin.y + scaledH - shaftH / 2))
-            path.addLine(to: CGPoint(x: origin.x, y: origin.y + scaledH))
+
+            path.move(to: CGPoint(x: -scaledW / 2, y: -shaftH / 2))
+            path.addLine(to: CGPoint(x: shaftW / 2, y: -shaftH / 2))
+            path.addLine(to: CGPoint(x: shaftW / 2, y: -headH / 2))
+            path.addLine(to: CGPoint(x: scaledW / 2, y: 0))
+            path.addLine(to: CGPoint(x: shaftW / 2, y: headH / 2))
+            path.addLine(to: CGPoint(x: shaftW / 2, y: shaftH / 2))
+            path.addLine(to: CGPoint(x: -scaledW / 2, y: shaftH / 2))
             path.closeSubpath()
 
             let shapePathLayer = CAShapeLayer()
@@ -615,7 +616,7 @@ extension ExportEngine {
 
         shapeLayer.addSublayer(containerLayer)
 
-        // Animate visibility
+        // Animate visibility using AVCoreAnimationBeginTimeAtZero for proper video composition timing
         let animation = overlay.animation
         switch animation?.type ?? .none {
         case .none:
@@ -626,7 +627,7 @@ extension ExportEngine {
             fadeIn.fromValue = 0.0
             fadeIn.toValue = 1.0
             fadeIn.duration = animation?.fadeInDuration ?? 0.3
-            fadeIn.beginTime = startTime.seconds
+            fadeIn.beginTime = AVCoreAnimationBeginTimeAtZero + startTime.seconds
             fadeIn.isRemovedOnCompletion = false
             fadeIn.fillMode = .forwards
             shapeLayer.add(fadeIn, forKey: "fadeIn_\(overlay.id.uuidString)")
@@ -636,7 +637,7 @@ extension ExportEngine {
             fadeOut.fromValue = 1.0
             fadeOut.toValue = 0.0
             fadeOut.duration = animation?.fadeOutDuration ?? 0.3
-            fadeOut.beginTime = endTime.seconds - (animation?.fadeOutDuration ?? 0.3)
+            fadeOut.beginTime = AVCoreAnimationBeginTimeAtZero + endTime.seconds - (animation?.fadeOutDuration ?? 0.3)
             fadeOut.isRemovedOnCompletion = false
             fadeOut.fillMode = .forwards
             shapeLayer.add(fadeOut, forKey: "fadeOut_\(overlay.id.uuidString)")
@@ -646,7 +647,7 @@ extension ExportEngine {
             fadeIn.fromValue = 0.0
             fadeIn.toValue = 1.0
             fadeIn.duration = animation?.fadeInDuration ?? 0.3
-            fadeIn.beginTime = startTime.seconds
+            fadeIn.beginTime = AVCoreAnimationBeginTimeAtZero + startTime.seconds
             fadeIn.isRemovedOnCompletion = false
             fadeIn.fillMode = .forwards
             shapeLayer.add(fadeIn, forKey: "fadeIn_\(overlay.id.uuidString)")
@@ -655,7 +656,7 @@ extension ExportEngine {
             fadeOut.fromValue = 1.0
             fadeOut.toValue = 0.0
             fadeOut.duration = animation?.fadeOutDuration ?? 0.3
-            fadeOut.beginTime = endTime.seconds - (animation?.fadeOutDuration ?? 0.3)
+            fadeOut.beginTime = AVCoreAnimationBeginTimeAtZero + endTime.seconds - (animation?.fadeOutDuration ?? 0.3)
             fadeOut.isRemovedOnCompletion = false
             fadeOut.fillMode = .forwards
             shapeLayer.add(fadeOut, forKey: "fadeOut_\(overlay.id.uuidString)")
