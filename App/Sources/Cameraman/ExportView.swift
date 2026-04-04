@@ -153,20 +153,22 @@ struct ExportView: View {
                 Text("Destination")
                     .font(.headline)
 
-                HStack(spacing: 12) {
-                    TextField("Output Filename", text: $viewModel.outputFilename)
-                        .textFieldStyle(.roundedBorder)
-
-                    Button("Browse...") {
+                HStack {
+                    Text(viewModel.outputURL.deletingLastPathComponent().lastPathComponent)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    
+                    Spacer()
+                    
+                    Button("Choose Location...") {
                         viewModel.showFilePicker = true
                     }
                     .buttonStyle(.bordered)
                 }
 
-                Text("Save to: \(viewModel.outputURL.path)")
+                Text(viewModel.outputURL.lastPathComponent)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
             }
 
             Spacer()
@@ -272,19 +274,6 @@ struct ExportView: View {
         }
         .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .alert("Export Complete", isPresented: $viewModel.showSuccessAlert) {
-            Button("OK") {
-                dismiss()
-                onExportComplete(viewModel.exportResult)
-            }
-            Button("Reveal in Finder") {
-                if let url = viewModel.exportResult {
-                    NSWorkspace.shared.activateFileViewerSelecting([url])
-                }
-            }
-        } message: {
-            Text("Your video has been exported successfully!")
-        }
     }
 }
 
