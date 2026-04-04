@@ -105,14 +105,13 @@
 
 - [x] **Toast de "proyecto guardado":** ✅ COMPLETO - ToastView.swift implementado
 
-- [ ] **Overlays en timeline + preview (branch: feature/overlays-timeline):**
-    - Overlays (flechas, rects, text) no se ven en el preview al agregarlos.
-    - Necesitan un track dedicado en el timeline (como los media items) para visualizar duración y posición.
-    - Drag para mover/redimensionar overlays en el timeline.
-    - Rendering en MaskedVideoCompositor (CIImage drawing de shapes).
-    - Export: incluir overlays en el video exportado.
-    - Image overlays (MediaItem tipo image) tampoco se renderizan aun en preview — ImageOverlayRenderer existe pero no está conectado al compositor.
-    - mergeAnimationTools necesita composición real (actualmente captions se pierden si hay image overlays).
+- [ ] **Overlays polish (branches: feature/overlays-timeline, feature/overlay-inspector):**
+    - **Timing**: overlays aparecen en rangos incorrectos en el preview — el start/end del overlay no coincide con cuándo se renderiza en el compositor. Debuggear el filtro `currentTime >= overlay.start && currentTime <= overlay.end` en MaskedVideoCompositor.
+    - **Edición no se refleja**: cambios de posición/escala/rotación desde el popover no se ven en el preview. Verificar que `rebuildVideoComposition` pase overlays actualizados y que el cache de overlay layer se invalide al cambiar propiedades.
+    - **Canvas visual para posicionar**: los presets de 9 posiciones son limitados. Implementar un mini-canvas (como PiP editor) donde se pueda arrastrar el overlay visualmente sobre una miniatura del frame.
+    - **Stacking en timeline**: múltiples overlays se empalman en un solo row — necesitan stacking visual o rows separadas.
+    - **Overlay rendering quality**: la flecha/rect se ven pero el tamaño y posición no corresponden con lo configurado.
+    - Lo que SÍ funciona: track en timeline, drag para mover, popover con controles, rendering básico de shapes en compositor y export.
 
 - [ ] **Captions visibles en preview (mejorar)**
 
