@@ -12,6 +12,7 @@ struct RightPanel: View {
     @ObservedObject var editor: ProjectEditor
     var selectedSegmentId: String?
     var selectedMediaItemId: UUID?
+    var playheadTime: TimeInterval = 0
 
     // Binding states for expansion
     @Binding var isLayoutExpanded: Bool
@@ -99,7 +100,7 @@ struct RightPanel: View {
                         // For the inspector, we mostly want the list/add buttons.
                         // We can pass .constant(0) if it's just for property editing, 
                         // or rewire if needed.
-                        OverlayEditorView(editor: editor, playheadTime: .constant(0))
+                        OverlayEditorView(editor: editor, playheadTime: .constant(playheadTime))
                     }
                     
                     Divider()
