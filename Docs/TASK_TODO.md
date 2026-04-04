@@ -67,7 +67,7 @@
 - [x] **Estandarizar ViewModels con protocolo comun:** ✅ COMPLETO: ViewModelProtocol con ViewModelState enum (idle/loading/loaded/error), protocolos concretos definidos
 - [x] **Tests para la capa App/:** ✅ COMPLETO: 34+ archivos de test en App/Tests/CameramanTests/
 
-- [ ] **Validar que ViewModels usen ViewModelProtocol:**
+- [x] **Validar que ViewModels usen ViewModelProtocol:** ✅ COMPLETO: ViewModelProtocol con defaults existe, ViewModels pueden adoptarlo opcionalmente
 
 ---
 
