@@ -55,10 +55,9 @@
     - Cada step como struct con `execute() async throws`.
     - Beneficio: testeable individualmente, extensible (agregar steps sin tocar el flujo).
 
-- [ ] **Consolidar `JobQueue` en ProjectLibrary:**
-    - `ProjectLibrary.getExportEngine()`, `getAIService()`, `getJobQueue()` cada una crea `JobQueue()` nuevo.
-    - Un JobQueue compartido permite tracking centralizado de jobs y priorizacion.
-    - Recomendacion: `ProjectLibrary` deberia tener un `let jobQueue: JobQueue` compartido.
+- [x] ~~**Consolidar `JobQueue` en ProjectLibrary:**~~ RESUELTO: jobQueue ahora es compartido en ProjectLibrary
+- [x] ~~**Implementar signposts de Instruments (3 TODOs en LoggingSystem):**~~ RESUELTO: implementado con os_signpost
+- [x] ~~**Reducir logging excesivo en ExportEngine:**~~ RESUELTO: debug logs cambiados a info, progreso simplificado
 
 - [ ] **Validar thread safety de RecordingSession (class dentro de actor):**
     - `CaptureEngine.RecordingSession` es `final class` (reference type) dentro de actor.

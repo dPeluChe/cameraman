@@ -286,21 +286,23 @@ final class CaptureEngineTests: XCTestCase {
 
         // When
         let result = CaptureEngine.RecordingResult(
-            session: session,
             screenVideoPath: screenVideoPath,
             systemAudioPath: systemAudioPath,
             duration: 10.0,
             startTime: startTime,
-            endTime: endTime
+            endTime: endTime,
+            sessionId: session.id,
+            sessionIsRecording: true
         )
 
         // Then
-        XCTAssertEqual(result.session.id, session.id)
+        XCTAssertEqual(result.sessionId, session.id)
         XCTAssertEqual(result.screenVideoPath, screenVideoPath)
         XCTAssertEqual(result.systemAudioPath, systemAudioPath)
         XCTAssertEqual(result.duration, 10.0)
         XCTAssertEqual(result.startTime, startTime)
         XCTAssertEqual(result.endTime, endTime)
+        XCTAssertTrue(result.sessionIsRecording)
     }
 
     // MARK: - Concurrency Tests
@@ -508,12 +510,13 @@ final class CaptureEngineTests: XCTestCase {
 
         // When
         let result = CaptureEngine.RecordingResult(
-            session: session,
             screenVideoPath: screenVideoPath,
             systemAudioPath: nil,
             duration: 10.0,
             startTime: Date(),
-            endTime: Date().addingTimeInterval(10.0)
+            endTime: Date().addingTimeInterval(10.0),
+            sessionId: session.id,
+            sessionIsRecording: true
         )
 
         // Then

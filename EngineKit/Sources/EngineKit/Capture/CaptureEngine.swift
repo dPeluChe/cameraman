@@ -192,13 +192,17 @@ public actor CaptureEngine {
     }
 
     /// Result of a completed recording
-    public struct RecordingResult {
-        public let session: RecordingSession
+    /// Note: Contains copied data from session to avoid Sendable issues
+    public struct RecordingResult: Sendable {
         public let screenVideoPath: URL
         public let systemAudioPath: URL?
         public let duration: TimeInterval
         public let startTime: Date
         public let endTime: Date
+        
+        // Session data copied to avoid escaping actor reference
+        public let sessionId: UUID
+        public let sessionIsRecording: Bool
     }
 
     // MARK: - Properties
@@ -389,12 +393,13 @@ public actor CaptureEngine {
         }
 
         let result = RecordingResult(
-            session: session,
             screenVideoPath: screenVideoPath,
             systemAudioPath: session.getAudioOutputURL(),
             duration: session.duration,
             startTime: session.startTime ?? Date(),
-            endTime: Date()
+            endTime: Date(),
+            sessionId: session.id,
+            sessionIsRecording: session.isRecording
         )
 
         currentSession = nil
