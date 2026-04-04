@@ -51,7 +51,8 @@ struct CenterPanel: View {
                     playerViewModel: playerViewModel,
                     projectDirectory: viewModel.projectDirectory,
                     mutedTracks: $viewModel.mutedTracks,
-                    selectedSegmentId: $viewModel.selectedSegmentId
+                    selectedSegmentId: $viewModel.selectedSegmentId,
+                    selectedMediaItemId: $viewModel.selectedMediaItemId
                 )
                 .frame(height: 250)
             } else {

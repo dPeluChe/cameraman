@@ -17,6 +17,7 @@ struct TimelineView: View {
     let projectDirectory: URL?
     @Binding var mutedTracks: Set<TimelineTrackKind>
     @Binding var selectedSegmentId: String?
+    @Binding var selectedMediaItemId: UUID?
 
     private let trackHeight: TimelineScalar = 34
     private let trackSpacing: TimelineScalar = 8
@@ -453,6 +454,9 @@ struct TimelineView: View {
                             let newTimelineIn = max(0, item.timelineIn + deltaTime)
                             await editor.updateMediaItem(id: itemId, timelineIn: newTimelineIn)
                         }
+                    },
+                    onSelectMediaItem: { itemId in
+                        selectedMediaItemId = itemId
                     },
                     onToggleMute: {
                         if mutedTracks.contains(track.kind) {

@@ -28,6 +28,7 @@ struct TimelineTrackRow: View {
     let onTrimDragChanged: (Project.Timeline.Segment, TimelineTrimEdge, TimelineScalar) -> Void
     let onTrimDragEnded: (Project.Timeline.Segment, TimelineTrimEdge, TimelineScalar) -> Void
     let onMediaItemDragged: (UUID, TimelineScalar) -> Void
+    let onSelectMediaItem: (UUID?) -> Void
     let onToggleMute: () -> Void
 
     @State private var mediaItemDragOffset: [UUID: TimelineScalar] = [:]
@@ -95,7 +96,10 @@ struct TimelineTrackRow: View {
                 .opacity(item.isMuted || isMuted ? 0.3 : 1.0)
                 .offset(x: xPosition)
                 .offset(x: mediaItemDragOffset[item.id] ?? 0)
-                .gesture(
+                .onTapGesture {
+                    onSelectMediaItem(item.id)
+                }
+                .highPriorityGesture(
                     DragGesture(minimumDistance: 4)
                         .onChanged { value in
                             mediaItemDragOffset[item.id] = value.translation.width

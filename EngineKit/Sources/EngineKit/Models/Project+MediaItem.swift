@@ -126,9 +126,15 @@ extension Project {
             self.h = h
         }
 
+        /// Default overlay size (25% of canvas)
+        public static let defaultOverlaySize: Double = 0.25
+
         /// Centered position with given size
         public static func centered(w: Double, h: Double) -> MediaPosition {
             MediaPosition(x: (1 - w) / 2, y: (1 - h) / 2, w: w, h: h)
         }
+
+        /// Default centered position
+        public static let defaultOverlay = centered(w: defaultOverlaySize, h: defaultOverlaySize)
     }
 }

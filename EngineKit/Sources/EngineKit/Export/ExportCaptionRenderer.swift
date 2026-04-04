@@ -10,6 +10,7 @@ import AVFoundation
 import CoreGraphics
 import CoreText
 import AppKit
+import ImageIO
 
 extension ExportEngine {
     /// Create caption layer for burn-in captions
@@ -231,5 +232,134 @@ extension ExportEngine {
         }
 
         return lines.joined(separator: "\n") as NSString
+    }
+
+    /// Create image overlay layer for burn-in image overlays
+    func createImageOverlayLayer(
+        for project: Project,
+        projectId: ProjectId,
+        renderSize: CoreFoundation.CGSize,
+        compositionDuration: CMTime
+    ) async throws -> AVVideoCompositionCoreAnimationTool? {
+        let imageItems = project.mediaItems.filter { $0.type == .image }
+        guard !imageItems.isEmpty else {
+            logger.debug("No image overlays in project, skipping")
+            return nil
+        }
+
+        logger.debug("Creating image overlay layer for \(imageItems.count) images")
+
+        let projectDirectory = getProjectDirectory(for: projectId)
+        let renderer = ImageOverlayRenderer(projectDirectory: projectDirectory)
+
+        // Create layer hierarchy: parent -> video + images
+        let parentLayer = CALayer()
+        parentLayer.frame = CoreFoundation.CGRect(origin: .zero, size: renderSize)
+
+        let videoLayer = CALayer()
+        videoLayer.frame = CoreFoundation.CGRect(origin: .zero, size: renderSize)
+        parentLayer.addSublayer(videoLayer)
+
+        let imageLayer = CALayer()
+        imageLayer.frame = CoreFoundation.CGRect(origin: .zero, size: renderSize)
+        parentLayer.addSublayer(imageLayer)
+
+        for item in imageItems {
+            guard let layer = buildImageLayer(
+                item: item,
+                renderer: renderer,
+                renderSize: renderSize,
+                compositionDuration: compositionDuration
+            ) else { continue }
+            imageLayer.addSublayer(layer)
+        }
+
+        let animationTool = AVVideoCompositionCoreAnimationTool(
+            postProcessingAsVideoLayer: videoLayer,
+            in: parentLayer
+        )
+
+        logger.debug("Image overlay layer created with \(imageItems.count) images")
+        return animationTool
+    }
+
+    /// Build a single image layer with visibility animations
+    private func buildImageLayer(
+        item: Project.MediaItem,
+        renderer: ImageOverlayRenderer,
+        renderSize: CoreFoundation.CGSize,
+        compositionDuration: CMTime
+    ) -> CALayer? {
+        guard let projectDir = renderer.projectDirectory else { return nil }
+
+        let imageURL = projectDir.appendingPathComponent(item.path)
+        guard let source = CGImageSourceCreateWithURL(imageURL as CFURL, nil),
+              let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+            logger.warning("Failed to load image: \(item.path)")
+            return nil
+        }
+
+        let position = item.position ?? .defaultOverlay
+        let x = CGFloat(position.x) * renderSize.width
+        // CALayer origin is bottom-left, position.y is top-down normalized
+        let y = (1.0 - CGFloat(position.y) - CGFloat(position.h)) * renderSize.height
+        let w = CGFloat(position.w) * renderSize.width
+        let h = CGFloat(position.h) * renderSize.height
+
+        let imageLayer = CALayer()
+        imageLayer.contents = cgImage
+        imageLayer.frame = CoreFoundation.CGRect(x: x, y: y, width: w, height: h)
+        imageLayer.opacity = Float(item.opacity)
+
+        // Animate visibility based on timeline position
+        let startTime = CMTime(seconds: item.timelineIn, preferredTimescale: 600)
+        let endTime = CMTime(seconds: item.timelineOut, preferredTimescale: 600)
+
+        let fadeIn = CABasicAnimation(keyPath: "opacity")
+        fadeIn.fromValue = 0.0
+        fadeIn.toValue = Float(item.opacity)
+        fadeIn.duration = 0.2
+        fadeIn.beginTime = startTime.seconds
+        fadeIn.isRemovedOnCompletion = false
+        fadeIn.fillMode = .forwards
+
+        let hold = CABasicAnimation(keyPath: "opacity")
+        hold.fromValue = Float(item.opacity)
+        hold.toValue = Float(item.opacity)
+        hold.beginTime = startTime.seconds + 0.2
+        hold.duration = max(0, item.duration - 0.4)
+        hold.isRemovedOnCompletion = false
+        hold.fillMode = .forwards
+
+        let fadeOut = CABasicAnimation(keyPath: "opacity")
+        fadeOut.fromValue = Float(item.opacity)
+        fadeOut.toValue = 0.0
+        fadeOut.duration = 0.2
+        fadeOut.beginTime = max(startTime.seconds + 0.2, endTime.seconds - 0.2)
+        fadeOut.isRemovedOnCompletion = false
+        fadeOut.fillMode = .forwards
+
+        let group = CAAnimationGroup()
+        group.animations = [fadeIn, hold, fadeOut]
+        group.duration = compositionDuration.seconds
+        group.isRemovedOnCompletion = false
+        group.fillMode = .both
+        group.beginTime = AVCoreAnimationBeginTimeAtZero
+
+        imageLayer.add(group, forKey: "image_\(item.id.uuidString)")
+
+        return imageLayer
+    }
+
+    /// Merge two animation tools (captions + image overlays)
+    func mergeAnimationTools(
+        existing: AVVideoCompositionCoreAnimationTool,
+        new: AVVideoCompositionCoreAnimationTool
+    ) -> AVVideoCompositionCoreAnimationTool? {
+        // AVVideoCompositionCoreAnimationTool doesn't expose layers directly
+        // When both captions and overlays exist, overlays take priority — captions are lost
+        // TODO: Implement proper merge by composing both into a shared parent CALayer
+        logger.warning("Image overlays and burn-in captions cannot be combined yet — captions will be omitted in this export")
+        return new
     }
 }

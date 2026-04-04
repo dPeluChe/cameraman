@@ -20,6 +20,7 @@ final class ProjectEditorViewModel: ObservableObject {
     @Published private(set) var projectDirectory: URL?
     @Published var mutedTracks: Set<TimelineTrackKind> = []
     @Published var selectedSegmentId: String?
+    @Published var selectedMediaItemId: UUID?
 
     let playerViewModel = PreviewPlayerViewModel()
 
@@ -136,6 +137,7 @@ struct ProjectEditorView: View {
                     RightPanel(
                         editor: editor,
                         selectedSegmentId: viewModel.selectedSegmentId,
+                        selectedMediaItemId: viewModel.selectedMediaItemId,
                         isLayoutExpanded: $isLayoutExpanded,
                         isFormatExpanded: $isFormatExpanded,
                         isCameraExpanded: $isCameraExpanded,
@@ -159,7 +161,7 @@ struct ProjectEditorView: View {
         .toast(Binding(
             get: { viewModel.editor?.showAutosaveToast ?? false },
             set: { viewModel.editor?.showAutosaveToast = $0 }
-        ), message: "Project saved", icon: "checkmark.circle.fill")
+        ), message: "Project saved")
         .task {
             // Yield to avoid view update issues
             await Task.yield()

@@ -340,7 +340,36 @@ extension ExportEngine {
                     logger.error("Failed to apply caption layer: \(error.localizedDescription)")
                     // Continue export without captions if caption layer fails
                 }
-            } else {
+            }
+
+            // Apply image overlays if any
+            let hasImageOverlays = !project.mediaItems.filter { $0.type == .image }.isEmpty
+            if hasImageOverlays {
+                logger.debug("Image overlays found, applying image overlay layer")
+                do {
+                    let imageOverlayTool = try await createImageOverlayLayer(
+                        for: project,
+                        projectId: projectId,
+                        renderSize: videoComposition.renderSize,
+                        compositionDuration: composition.duration
+                    )
+                    if let tool = imageOverlayTool {
+                        // Merge with existing animation tool if present
+                        if let existingTool = videoComposition.animationTool {
+                            let mergedTool = mergeAnimationTools(existing: existingTool, new: tool)
+                            videoComposition.animationTool = mergedTool
+                        } else {
+                            videoComposition.animationTool = tool
+                        }
+                    }
+                    exportSession.videoComposition = videoComposition
+                    logger.debug("Image overlay layer applied successfully")
+                } catch {
+                    logger.error("Failed to apply image overlay layer: \(error.localizedDescription)")
+                }
+            }
+
+            if !options.burnCaptions && !preset.options.burnCaptions {
                 exportSession.videoComposition = videoComposition
             }
 

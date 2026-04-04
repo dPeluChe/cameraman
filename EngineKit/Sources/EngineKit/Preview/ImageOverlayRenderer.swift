@@ -9,9 +9,10 @@ import Foundation
 import CoreGraphics
 import ImageIO
 
-public final class ImageOverlayRenderer {
+public final class ImageOverlayRenderer: @unchecked Sendable {
     private var cache: [String: CGImage] = [:]
-    private let projectDirectory: URL?
+    private let lock = NSLock()
+    public let projectDirectory: URL?
 
     public init(projectDirectory: URL?) {
         self.projectDirectory = projectDirectory
@@ -28,7 +29,7 @@ public final class ImageOverlayRenderer {
 
         guard let overlayImage = loadImage(path: mediaItem.path) else { return }
 
-        let position = mediaItem.position ?? Project.MediaPosition.centered(w: 0.25, h: 0.25)
+        let position = mediaItem.position ?? .defaultOverlay
 
         let x = CGFloat(position.x) * canvasSize.width
         let y = (1 - CGFloat(position.y) - CGFloat(position.h)) * canvasSize.height
@@ -42,11 +43,14 @@ public final class ImageOverlayRenderer {
         context.draw(overlayImage, in: drawRect)
     }
 
-    /// Load image with caching
+    /// Load image with thread-safe caching
     private func loadImage(path: String) -> CGImage? {
+        lock.lock()
         if let cached = cache[path] {
+            lock.unlock()
             return cached
         }
+        lock.unlock()
 
         guard let projectDir = projectDirectory else { return nil }
         let imageURL = projectDir.appendingPathComponent(path)
@@ -56,10 +60,12 @@ public final class ImageOverlayRenderer {
             return nil
         }
 
-        if cache.count > 10 {
-            cache.removeAll()
+        lock.lock()
+        if cache.count >= 10, let oldest = cache.keys.first {
+            cache.removeValue(forKey: oldest)
         }
         cache[path] = cgImage
+        lock.unlock()
 
         return cgImage
     }

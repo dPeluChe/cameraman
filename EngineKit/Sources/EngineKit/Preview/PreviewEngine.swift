@@ -63,6 +63,9 @@ public actor PreviewEngine {
     /// Captions manager for displaying captions overlay
     var captionsManager: CaptionsManager
 
+    /// Image overlay renderer for rendering imported images
+    var imageOverlayRenderer: ImageOverlayRenderer?
+
     /// Zoom plan for auto-zoom rendering
     var zoomPlan: ZoomPlanGenerator.ZoomPlan?
 
@@ -212,6 +215,13 @@ public actor PreviewEngine {
 
         self.project = project
         self.projectDirectory = projectDirectory
+
+        // Initialize image overlay renderer
+        if let projectDir = projectDirectory {
+            self.imageOverlayRenderer = ImageOverlayRenderer(projectDirectory: URL(fileURLWithPath: projectDir))
+        } else {
+            self.imageOverlayRenderer = nil
+        }
         self.currentTime = 0
         self.playbackState = .stopped
 

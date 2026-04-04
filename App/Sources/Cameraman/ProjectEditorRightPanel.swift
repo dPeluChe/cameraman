@@ -11,6 +11,7 @@ import EngineKit
 struct RightPanel: View {
     @ObservedObject var editor: ProjectEditor
     var selectedSegmentId: String?
+    var selectedMediaItemId: UUID?
 
     // Binding states for expansion
     @Binding var isLayoutExpanded: Bool
@@ -78,6 +79,18 @@ struct RightPanel: View {
                     }
                     
                     Divider()
+                    
+                    // Media Items (Image Overlays)
+                    if !editor.project.mediaItems.isEmpty {
+                        ConfigGroup(title: "Media Items", isExpanded: .constant(true)) {
+                            MediaItemInspectorView(
+                                editor: editor,
+                                selectedMediaItemId: selectedMediaItemId
+                            )
+                        }
+                        
+                        Divider()
+                    }
                     
                     // Overlays Group
                     ConfigGroup(title: "Overlays", isExpanded: $isOverlaysExpanded) {

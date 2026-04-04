@@ -27,11 +27,16 @@ extension PreviewEngine {
             time >= overlay.start && time <= overlay.end
         }
 
+        // Get active image overlays at current time
+        let activeImageItems = project.mediaItems.filter { item in
+            item.type == .image && time >= item.timelineIn && time <= item.timelineOut
+        }
+
         // Get active caption at current time
         let activeCaption = await captionsManager.getCaption(at: time)
 
-        // If no active overlays or captions, return original image (or zoomed image)
-        if activeOverlays.isEmpty && activeCaption == nil {
+        // If no active overlays, captions, or image items, return original image (or zoomed image)
+        if activeOverlays.isEmpty && activeCaption == nil && activeImageItems.isEmpty {
             // Apply zoom if enabled
             if zoomEnabled, let zoomPlan = zoomPlan {
                 return try await applyZoom(to: image, at: time, zoomPlan: zoomPlan, canvasSize: CoreFoundation.CGSize(width: CGFloat(canvasWidth), height: CGFloat(canvasHeight)))
@@ -75,6 +80,15 @@ extension PreviewEngine {
         // Render caption if active
         if let caption = activeCaption {
             try await renderCaption(caption, in: context, imageSize: CoreFoundation.CGSize(width: CGFloat(image.width), height: CGFloat(image.height)), canvasSize: CoreFoundation.CGSize(width: CGFloat(canvasWidth), height: CGFloat(canvasHeight)))
+        }
+
+        // Render image overlays if active
+        if !activeImageItems.isEmpty, let renderer = imageOverlayRenderer {
+            let canvasSizeCG = CoreFoundation.CGSize(width: CGFloat(canvasWidth), height: CGFloat(canvasHeight))
+            let imageSizeCG = CoreFoundation.CGSize(width: CGFloat(image.width), height: CGFloat(image.height))
+            for item in activeImageItems {
+                try renderer.render(mediaItem: item, in: context, canvasSize: canvasSizeCG, imageSize: imageSizeCG)
+            }
         }
 
         // Extract final image
