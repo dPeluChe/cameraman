@@ -436,13 +436,11 @@ struct TimelineView: View {
 
         if track.kind == .overlay {
             TimelineOverlayTrackRow(
+                editor: editor,
                 overlays: track.overlays,
                 layout: layout,
                 height: trackHeight,
-                selectedOverlayId: selectedOverlayId,
-                onSelectOverlay: { id in
-                    selectedOverlayId = id
-                },
+                selectedOverlayId: $selectedOverlayId,
                 onOverlayDragged: { overlayId, deltaX in
                     let item = editor.project.overlays.first { $0.id == overlayId }
                     guard let item else { return }
