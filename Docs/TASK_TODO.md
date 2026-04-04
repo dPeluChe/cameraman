@@ -78,6 +78,7 @@
 - [x] ~~**Implementar signposts de Instruments (3 TODOs en LoggingSystem):**~~ RESUELTO: implementado con os_signpost
 - [x] ~~**Reducir logging excesivo en ExportEngine:**~~ RESUELTO: debug logs cambiados a info
 - [x] ~~**Implementar pause/resume en Recorder:**~~ RESUELTO: pauseResumeRecording() en RecordingControlViewModel
+- [x] ~~**Zoom auto-apply con toggle para desactivar:**~~ RESUELTO: ya existe toggle en ZoomControlsView (isEnabled)
 
 - [ ] **Validacion de performance (larga duracion):**
     - No probado con videos > 1 hora.
@@ -93,9 +94,7 @@
     - El zoom-out entre dos puntos se siente abrupto; evaluar blend o crossfade.
     - Depende de ExportPipeline ya limpio.
 
-- [ ] **Zoom auto-apply con toggle para desactivar:**
-    - Actualmente auto-aplica; agregar toggle en Zoom controls para desactivar globalmente.
-    - Ya existe toggle en ZoomControlsView (isEnabled) - verificar que funciona
+- [x] **Zoom auto-apply con toggle para desactivar:** ✅ COMPLETO: ya existe toggle en ZoomControlsView (isEnabled) - verificar que funciona
 
 - [x] ~~**UI del export flow:**~~ RESUELTO: simplificado destination UI, eliminado alert redundante
 
