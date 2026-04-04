@@ -20,12 +20,15 @@
     - Nota: PreviewPlayerViewModel.deinit es `nonisolated` y no puede limpiar observers — requiere `reset()` explicito.
     - **IMPLEMENTADO**: agregué `playerViewModel.reset()` en `ProjectEditorViewModel.loadProject()`
 
-- [x] **Separar archivos >400 LOC (inicio):** ✅ EN PROGRESO
-    - 20+ archivos App + EngineKit superan 400 lineas
+- [x] **Separar archivos >400 LOC (inicio):** ✅ EXTRACCIONES COMPLETADAS
     - Extraido de TimelineView (827→773): TimelineView+ZoomSuggestions.swift (88 LOC)
     - Extraido de RecordingControlView (606→502): RecordingControlView+SourcePicker.swift (134 LOC)
     - Extraido de TeleprompterWindow (495→369): TeleprompterViewModel.swift (131 LOC)
-    - Faltan: CanvasLayout, OverlayEngine, EditorModel, CompositionBuilder (~450-490 LOC)
+    - Extraido de PreferencesView+Sections (453→420): PreferencesViewModels.swift (43 LOC)
+    - Extraido de RecordingSourceSelectorView (408→225): RecordingSourceSelectorView+Rows.swift (164 LOC)
+    - ~600 lineas extraidas en total
+    - Restantes (difíciles de extraer): TimelineView (773), RecordingControlView (502), ProjectEditorPiPView (416)
+    - Análisis: RecordingControlView tiene ConfigureView (~100 líneas) que podría extraerse; TimelineView tiene toolbar + scroll content muy acoplados
 
 ---
 
