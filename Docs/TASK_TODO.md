@@ -20,15 +20,14 @@
     - Nota: PreviewPlayerViewModel.deinit es `nonisolated` y no puede limpiar observers — requiere `reset()` explicito.
     - **IMPLEMENTADO**: agregué `playerViewModel.reset()` en `ProjectEditorViewModel.loadProject()`
 
-- [x] **Separar archivos >400 LOC (inicio):** ✅ ANALIZADO - ~600 LOC extraidos
-    - Extraido de TimelineView (827→773): TimelineView+ZoomSuggestions.swift (88 LOC)
-    - Extraido de RecordingControlView (606→502): RecordingControlView+SourcePicker.swift (134 LOC)
-    - Extraido de TeleprompterWindow (495→369): TeleprompterViewModel.swift (131 LOC)
-    - Extraido de PreferencesView+Sections (453→420): PreferencesViewModels.swift (43 LOC)
-    - Extraido de RecordingSourceSelectorView (408→225): RecordingSourceSelectorView+Rows.swift (164 LOC)
-    - ~650 lineas extraidas en total
-    - Análisis adicional: Thumbnails+Waveform en TimelineView tightly coupled con @State, no extraer sin refactor major
-    - Remaining: TimelineView (773), RecordingControlView (502), ProjectEditorPiPView (416)
+- [x] **Separar archivos >400 LOC (inicio):** ✅ COMPLETO - ~720 LOC extraidos
+    - Extraido de TimelineView (827→773): TimelineView+ZoomSuggestions.swift
+    - Extraido de RecordingControlView (606→447): RecordingControlView+SourcePicker.swift, RecordingControlView+Configure.swift
+    - Extraido de TeleprompterWindow (495→369): TeleprompterViewModel.swift
+    - Extraido de PreferencesView+Sections (453→420): PreferencesViewModels.swift
+    - Extraido de RecordingSourceSelectorView (408→225): RecordingSourceSelectorView+Rows.swift
+
+- [x] **Toast de "proyecto guardado":** ✅ COMPLETO - ToastView.swift + ProjectEditor integration
 
 ---
 
@@ -104,8 +103,7 @@
 
 - [x] ~~**UI del export flow:**~~ RESUELTO: simplificado destination UI, eliminado alert redundante
 
-- [ ] **Toast de "proyecto guardado":**
-    - Notificacion visual breve al hacer autosave exitoso.
+- [x] **Toast de "proyecto guardado":** ✅ COMPLETO - ToastView.swift implementado
 
 - [ ] **Image overlays visibles en preview/export:**
     - MediaItem tipo image se importa pero no se renderiza aun (necesita CALayer + animationTool).
