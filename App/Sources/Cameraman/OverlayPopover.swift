@@ -2,7 +2,7 @@
 //  OverlayPopover.swift
 //  App
 //
-//  Compact popover for editing overlay properties.
+//  Popover for editing overlay properties.
 //  Appears on second click of an overlay in the timeline.
 //
 
@@ -19,141 +19,198 @@ struct OverlayPopoverContent: View {
 
     var body: some View {
         if let overlay {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 0) {
                 // Header
-                HStack {
+                HStack(spacing: 8) {
                     Image(systemName: OverlayDisplayInfo.icon(for: overlay.type))
+                        .font(.system(size: 16))
+                        .foregroundStyle(.cyan)
                     Text(OverlayDisplayInfo.label(for: overlay.type))
-                        .font(.headline)
+                        .font(.system(size: 14, weight: .semibold))
                     Spacer()
                     Text(String(format: "%.1fs", overlay.end - overlay.start))
-                        .font(.caption.monospacedDigit())
+                        .font(.system(size: 11).monospacedDigit())
                         .foregroundStyle(.secondary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.primary.opacity(0.08))
+                        .cornerRadius(4)
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+                .padding(.bottom, 10)
 
                 Divider()
 
-                // Position presets (3x3 grid)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Position")
-                        .font(.caption.bold())
-                        .foregroundStyle(.secondary)
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 16) {
+                        // Position
+                        popoverSection("Position") {
+                            // Preset grid
+                            Grid(horizontalSpacing: 4, verticalSpacing: 4) {
+                                GridRow {
+                                    presetBtn(.topLeft, overlay)
+                                    presetBtn(.topCenter, overlay)
+                                    presetBtn(.topRight, overlay)
+                                }
+                                GridRow {
+                                    presetBtn(.centerLeft, overlay)
+                                    presetBtn(.center, overlay)
+                                    presetBtn(.centerRight, overlay)
+                                }
+                                GridRow {
+                                    presetBtn(.bottomLeft, overlay)
+                                    presetBtn(.bottomCenter, overlay)
+                                    presetBtn(.bottomRight, overlay)
+                                }
+                            }
 
-                    HStack(spacing: 2) {
-                        ForEach(Array(PositionPreset.allCases.prefix(3)), id: \.self) { p in
-                            presetButton(p, overlay)
+                            // Fine-tune sliders
+                            labeledSlider("X", value: sliderBinding(overlay, \.transform.x), range: 0...1,
+                                          display: String(format: "%.0f%%", overlay.transform.x * 100))
+                            labeledSlider("Y", value: sliderBinding(overlay, \.transform.y), range: 0...1,
+                                          display: String(format: "%.0f%%", overlay.transform.y * 100))
                         }
-                        Spacer()
-                        // X/Y values
-                        Text(String(format: "%.0f%%, %.0f%%", overlay.transform.x * 100, overlay.transform.y * 100))
-                            .font(.caption2.monospacedDigit())
-                            .foregroundStyle(.tertiary)
-                    }
-                    HStack(spacing: 2) {
-                        ForEach(Array(PositionPreset.allCases.dropFirst(3).prefix(3)), id: \.self) { p in
-                            presetButton(p, overlay)
+
+                        // Transform
+                        popoverSection("Transform") {
+                            labeledSlider("Scale", value: sliderBinding(overlay, \.transform.scale), range: 0.2...3.0,
+                                          display: String(format: "%.1fx", overlay.transform.scale))
+                            labeledSlider("Rotation", value: sliderBinding(overlay, \.transform.rotation), range: -180...180,
+                                          display: String(format: "%.0f°", overlay.transform.rotation))
                         }
-                    }
-                    HStack(spacing: 2) {
-                        ForEach(Array(PositionPreset.allCases.suffix(3)), id: \.self) { p in
-                            presetButton(p, overlay)
+
+                        // Style
+                        popoverSection("Style") {
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Color")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(.secondary)
+                                    ColorPicker("", selection: Binding(
+                                        get: { Color(hex: overlay.style.stroke) },
+                                        set: { newColor in
+                                            mutate(overlay) { $0.style.stroke = hexString(from: newColor) }
+                                        }
+                                    ))
+                                    .labelsHidden()
+                                }
+
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Shadow")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(.secondary)
+                                    Toggle("", isOn: Binding(
+                                        get: { overlay.style.shadow },
+                                        set: { val in mutate(overlay) { $0.style.shadow = val } }
+                                    ))
+                                    .toggleStyle(.switch)
+                                    .controlSize(.mini)
+                                    .labelsHidden()
+                                }
+                            }
+
+                            labeledSlider("Stroke", value: sliderBinding(overlay, \.style.strokeWidth), range: 1...10,
+                                          display: String(format: "%.1f", overlay.style.strokeWidth))
                         }
-                    }
-                }
 
-                // Scale + Rotation
-                HStack(spacing: 8) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Scale \(String(format: "%.1fx", overlay.transform.scale))")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                        Slider(value: sliderBinding(overlay, \.transform.scale), in: 0.2...3.0)
-                            .controlSize(.mini)
-                    }
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Rotate \(String(format: "%.0f°", overlay.transform.rotation))")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                        Slider(value: sliderBinding(overlay, \.transform.rotation), in: -180...180)
-                            .controlSize(.mini)
-                    }
-                }
+                        // Text (only for text type)
+                        if overlay.type == .text {
+                            popoverSection("Text") {
+                                TextField("Content", text: Binding(
+                                    get: { overlay.style.text ?? "" },
+                                    set: { val in mutate(overlay) { $0.style.text = val } }
+                                ))
+                                .textFieldStyle(.roundedBorder)
+                                .font(.system(size: 12))
 
-                Divider()
-
-                // Style row
-                HStack(spacing: 8) {
-                    ColorPicker("", selection: Binding(
-                        get: { Color(hex: overlay.style.stroke) },
-                        set: { newColor in
-                            let hex = hexString(from: newColor)
-                            mutate(overlay) { $0.style.stroke = hex }
+                                labeledSlider("Size", value: optionalSliderBinding(overlay, \.style.size, default: 24),
+                                              range: 12...72,
+                                              display: String(format: "%.0fpt", overlay.style.size ?? 24))
+                            }
                         }
-                    ))
-                    .labelsHidden()
-                    .frame(width: 24)
 
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("Width")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                        Slider(value: sliderBinding(overlay, \.style.strokeWidth), in: 1...10, step: 0.5)
-                            .controlSize(.mini)
+                        // Delete
+                        Button(role: .destructive) {
+                            Task {
+                                _ = await editor.deleteOverlay(projectId: editor.project.projectId, overlayId: overlayId)
+                            }
+                        } label: {
+                            HStack {
+                                Image(systemName: "trash")
+                                Text("Delete Overlay")
+                            }
+                            .font(.system(size: 12))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.red)
                     }
-
-                    Toggle("", isOn: Binding(
-                        get: { overlay.style.shadow },
-                        set: { val in mutate(overlay) { $0.style.shadow = val } }
-                    ))
-                    .toggleStyle(.checkbox)
-                    .labelsHidden()
-                    .help("Shadow")
+                    .padding(16)
                 }
-
-                // Text content (only for text overlays)
-                if overlay.type == .text {
-                    TextField("Text", text: Binding(
-                        get: { overlay.style.text ?? "" },
-                        set: { val in mutate(overlay) { $0.style.text = val } }
-                    ))
-                    .textFieldStyle(.roundedBorder)
-                    .font(.caption)
-                }
-
-                Divider()
-
-                // Delete
-                Button(role: .destructive) {
-                    Task {
-                        _ = await editor.deleteOverlay(projectId: editor.project.projectId, overlayId: overlayId)
-                    }
-                } label: {
-                    Label("Delete", systemImage: "trash")
-                        .font(.caption)
-                }
-                .buttonStyle(.borderless)
             }
-            .padding(10)
-            .frame(width: 220)
+            .frame(width: 260)
+            .frame(maxHeight: 480)
         }
     }
 
-    // MARK: - Helpers
+    // MARK: - Components
 
-    private func presetButton(_ preset: PositionPreset, _ overlay: Project.Overlay) -> some View {
-        let isActive = abs(overlay.transform.x - preset.x) < 0.05 && abs(overlay.transform.y - preset.y) < 0.05
+    private func popoverSection(_ title: String, @ViewBuilder content: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+            content()
+        }
+    }
+
+    private func labeledSlider(_ label: String, value: Binding<Double>, range: ClosedRange<Double>, step: Double? = nil, display: String) -> some View {
+        HStack(spacing: 8) {
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .frame(width: 52, alignment: .leading)
+
+            if let step {
+                Slider(value: value, in: range, step: step)
+                    .controlSize(.small)
+            } else {
+                Slider(value: value, in: range)
+                    .controlSize(.small)
+            }
+
+            Text(display)
+                .font(.system(size: 10).monospacedDigit())
+                .foregroundStyle(.tertiary)
+                .frame(width: 36, alignment: .trailing)
+        }
+    }
+
+    private func presetBtn(_ preset: PositionPreset, _ overlay: Project.Overlay) -> some View {
+        let isActive = abs(overlay.transform.x - preset.x) < 0.06 && abs(overlay.transform.y - preset.y) < 0.06
         return Button {
             mutate(overlay) { $0.transform.x = preset.x; $0.transform.y = preset.y }
         } label: {
             Image(systemName: preset.icon)
-                .font(.system(size: 9))
-                .frame(width: 22, height: 22)
-                .background(isActive ? Color.accentColor.opacity(0.3) : Color.clear)
-                .cornerRadius(4)
+                .font(.system(size: 11))
+                .frame(width: 28, height: 28)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(isActive ? Color.accentColor.opacity(0.25) : Color.primary.opacity(0.06))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(isActive ? Color.accentColor : Color.clear, lineWidth: 1)
+                )
         }
         .buttonStyle(.plain)
         .help(preset.label)
     }
+
+    // MARK: - Helpers
 
     private func mutate(_ overlay: Project.Overlay, _ block: (inout Project.Overlay) -> Void) {
         var updated = overlay
@@ -171,6 +228,13 @@ struct OverlayPopoverContent: View {
     private func sliderBinding(_ overlay: Project.Overlay, _ kp: WritableKeyPath<Project.Overlay, Double>) -> Binding<Double> {
         Binding(
             get: { overlay[keyPath: kp] },
+            set: { val in mutate(overlay) { $0[keyPath: kp] = val } }
+        )
+    }
+
+    private func optionalSliderBinding(_ overlay: Project.Overlay, _ kp: WritableKeyPath<Project.Overlay, Double?>, default defaultVal: Double) -> Binding<Double> {
+        Binding(
+            get: { overlay[keyPath: kp] ?? defaultVal },
             set: { val in mutate(overlay) { $0[keyPath: kp] = val } }
         )
     }
