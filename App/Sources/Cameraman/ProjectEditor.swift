@@ -149,9 +149,16 @@ final class ProjectEditor: ObservableObject {
             return false
         }
 
+        // Use generic snapshot command for complex changes
+        let command = GenericSnapshotCommand(
+            description: "Set layout preset: \(preset.rawValue)",
+            previousProject: previousProject
+        )
+        
         await editorModel.setProject(updatedProject)
-        recordUndoSnapshot(previousProject)
         project = updatedProject
+        recordCommand(command)
+        
         return true
     }
 
@@ -160,8 +167,10 @@ final class ProjectEditor: ObservableObject {
         _ camera: Project.Canvas.Layout.CameraPosition,
         recordUndoFrom snapshot: Project? = nil
     ) async -> Bool {
+        let previousProject = project
         let hasCamera = project.primarySources?.camera != nil
         var updatedProject = project
+
         updatedProject.canvas.layout.camera = camera
 
         do {
@@ -170,14 +179,18 @@ final class ProjectEditor: ObservableObject {
             return false
         }
 
+        // Use generic snapshot command
+        let command = GenericSnapshotCommand(
+            description: "Update camera position",
+            previousProject: previousProject
+        )
+        
         await editorModel.setProject(updatedProject)
         project = updatedProject
         scheduleAutosave()
 
-        if let snapshot {
-            recordUndoSnapshot(snapshot)
-        }
-
+        recordCommand(command)
+        
         return true
     }
 
@@ -188,6 +201,7 @@ final class ProjectEditor: ObservableObject {
         let currentFitMode = CanvasLayout.ImageFitMode(
             rawValue: project.canvas.background.fitMode ?? CanvasLayout.ImageFitMode.fill.rawValue
         ) ?? .fill
+        let oldBackground = project.canvas.background
         updatedProject.canvas.background = CanvasLayout.defaultBackground(for: type, fitMode: currentFitMode)
 
         do {
@@ -196,9 +210,16 @@ final class ProjectEditor: ObservableObject {
             return false
         }
 
+        // Use snapshot command
+        let command = GenericSnapshotCommand(
+            description: "Set background type: \(type.rawValue)",
+            previousProject: previousProject
+        )
+        
         await editorModel.setProject(updatedProject)
-        recordUndoSnapshot(previousProject)
         project = updatedProject
+        recordCommand(command)
+        
         return true
     }
 
@@ -214,9 +235,16 @@ final class ProjectEditor: ObservableObject {
             return false
         }
 
+        // Use snapshot command
+        let command = GenericSnapshotCommand(
+            description: "Update background color",
+            previousProject: previousProject
+        )
+        
         await editorModel.setProject(updatedProject)
-        recordUndoSnapshot(previousProject)
         project = updatedProject
+        recordCommand(command)
+        
         return true
     }
 
@@ -379,6 +407,19 @@ final class ProjectEditor: ObservableObject {
     private func updateHistoryState() {
         canUndo = !undoStack.isEmpty
         canRedo = !redoStack.isEmpty
+    }
+
+    private func recordUndoSnapshot(_ project: Project) {
+        undoStack.append(project)
+        if undoStack.count > historyLimit {
+            undoStack.removeFirst()
+        }
+        redoStack.removeAll()
+        updateHistoryState()
+    }
+
+    private func recordCommand(_ command: GenericSnapshotCommand) {
+        recordUndoSnapshot(command.previousProject)
     }
 }
 

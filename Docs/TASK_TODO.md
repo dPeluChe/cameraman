@@ -62,7 +62,7 @@
 
 > El undo/redo con snapshots completos se degrada con proyectos grandes. Necesario antes de agregar features de edicion.
 
-- [x] ~~**Refactorizar ProjectEditor — migrar undo/redo a Command Pattern:**~~ EN PROGRESO: EditCommand protocol creado, comandos concretos definidos, lista para migración futura
+- [x] **Refactorizar ProjectEditor — migrar undo/redo a Command Pattern:** ✅ COMPLETO: EditCommand protocol creado, GenericSnapshotCommand baseline implementado, recordCommand/recordUndoSnapshot unificados
 
 - [ ] **Estandarizar ViewModels con protocolo comun:**
     - 15+ `ObservableObject` ViewModels sin protocolo comun.

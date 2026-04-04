@@ -30,7 +30,7 @@ protocol ViewModelProtocol: ObservableObject {
 
 /// Default implementations
 extension ViewModelProtocol {
-    var errorMessage: String {
+    var errorMessage: String? {
         if case .error(let message) = state {
             return message
         }
