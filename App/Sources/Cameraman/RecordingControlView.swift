@@ -102,116 +102,12 @@ struct RecordingControlView: View {
         .background(Color(NSColor.controlBackgroundColor))
     }
 
-    // MARK: - Step 1: Source Picker
+    // MARK: - Step 1: Source Picker (extracted to RecordingControlView+SourcePicker.swift)
 
     private var sourcePickerView: some View {
-        VStack(spacing: 16) {
-            // Step indicator
-            HStack {
-                Text("Step 1")
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.blue)
-                Text("Select what to record")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Spacer()
-            }
-
-            // Tab buttons
-            HStack(spacing: 6) {
-                ForEach(FloatingSourceType.allCases, id: \.self) { type in
-                    FloatingSourceTypeButton(
-                        type: type,
-                        isSelected: sourceViewModel.selectedTab == type.rawValue
-                    ) {
-                        Task { await sourceViewModel.loadSources(for: type.rawValue) }
-                    }
-                }
-            }
-
-            // Permission view or source list
-            if sourceViewModel.permissionDenied {
-                permissionView
-            } else {
-                sourceList
-            }
-
-            // Preview
-            if let image = sourceViewModel.previewImage {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Preview")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Image(nsImage: image)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(maxHeight: 140)
-                        .cornerRadius(8)
-                        .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
+        SourcePickerView(sourceViewModel: sourceViewModel) { source in
+            selectSource(source)
         }
-    }
-
-    @ViewBuilder
-    private var sourceList: some View {
-        VStack(spacing: 6) {
-            switch sourceViewModel.selectedTab {
-            case .display:
-                ForEach(sourceViewModel.displaySources, id: \.id) { source in
-                    ProfessionalDisplaySourceRow(source: source, onTap: {
-                        selectSource(.display(source))
-                    }, onPreview: {
-                        Task { await sourceViewModel.capturePreview(display: source) }
-                    })
-                }
-            case .window:
-                ForEach(sourceViewModel.windowSources, id: \.id) { source in
-                    ProfessionalWindowSourceRow(source: source, onTap: {
-                        selectSource(.window(source))
-                    }, onPreview: {
-                        Task { await sourceViewModel.capturePreview(window: source) }
-                    })
-                }
-            case .application:
-                ForEach(sourceViewModel.applicationSources, id: \.id) { source in
-                    ProfessionalApplicationSourceRow(source: source, onTap: {
-                        selectSource(.application(source))
-                    })
-                }
-            }
-        }
-
-        if sourceViewModel.displaySources.isEmpty && !sourceViewModel.permissionDenied {
-            ProgressView()
-                .frame(height: 60)
-        }
-    }
-
-    private var permissionView: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "lock.shield.fill")
-                .font(.system(size: 32))
-                .foregroundStyle(.orange)
-            Text("Screen recording permission required")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-            HStack(spacing: 8) {
-                Button("Open Settings") {
-                    Task { await sourceViewModel.openSystemSettings() }
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-                Button("Retry") {
-                    Task { await sourceViewModel.loadSources(for: sourceViewModel.selectedTab) }
-                }
-                .controlSize(.small)
-            }
-        }
-        .padding(.vertical, 16)
     }
 
     // MARK: - Step 2: Configure & Record

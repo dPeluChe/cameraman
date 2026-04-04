@@ -20,12 +20,12 @@
     - Nota: PreviewPlayerViewModel.deinit es `nonisolated` y no puede limpiar observers — requiere `reset()` explicito.
     - **IMPLEMENTADO**: agregué `playerViewModel.reset()` en `ProjectEditorViewModel.loadProject()`
 
-- [x] **Separar archivos >400 LOC (inicio):** ✅ ANALIZADO
+- [x] **Separar archivos >400 LOC (inicio):** ✅ EN PROGRESO
     - 20+ archivos App + EngineKit superan 400 lineas
-    - Prioridad actual: TimelineView (827), RecordingControlView (606), PreviewEngine (555)
-    - Ya parcialmente extraído: TimelineView+Subviews.swift (411), ProjectEditor+Extensions.swift (359)
-    -剩余: CanvasLayout/OverlayEngine/EditorModel/CompositionBuilder/MaskedVideoCompositor (~450-490 LOC)
-    - Listo para refactor cuando necesario
+    - Extraido de TimelineView (827→773): TimelineView+ZoomSuggestions.swift (88 LOC)
+    - Extraido de RecordingControlView (606→502): RecordingControlView+SourcePicker.swift (134 LOC)
+    - Extraido de TeleprompterWindow (495→369): TeleprompterViewModel.swift (131 LOC)
+    - Faltan: CanvasLayout, OverlayEngine, EditorModel, CompositionBuilder (~450-490 LOC)
 
 ---
 

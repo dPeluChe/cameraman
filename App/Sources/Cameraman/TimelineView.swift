@@ -699,7 +699,11 @@ struct TimelineView: View {
         }
     }
 
-    // MARK: - Zoom Suggestions
+    // MARK: - Zoom Suggestions (moved to TimelineView+ZoomSuggestions.swift)
+
+    private var zoomSuggestionGenerator: ZoomSuggestionGenerator {
+        ZoomSuggestionGenerator(project: project, projectDirectory: projectDirectory)
+    }
 
     private var hasCursorTelemetry: Bool {
         project.primarySources?.telemetry?.cursor != nil
@@ -710,71 +714,19 @@ struct TimelineView: View {
     }
 
     private func generateZoomSuggestions() {
-        guard let cursorTrack = project.primarySources?.telemetry?.cursor,
-              let projDir = projectDirectory else {
+        guard hasCursorTelemetry, let projDir = projectDirectory else {
             LogDebug(.telemetry, "No cursor telemetry or project directory")
             return
         }
 
         isGeneratingSuggestions = true
-        let cursorURL = projDir.appendingPathComponent(cursorTrack.path)
-        let proj = project
-        LogDebug(.telemetry, "Loading telemetry from: \(cursorURL.path)")
 
         Task {
-            let parser = TelemetryParser()
-            var parseResult: TelemetryParser.ParseResult?
-            var events: [TelemetryRecorder.Event]
+            let generator = ZoomSuggestionGenerator(project: project, projectDirectory: projDir)
+            let suggestions = await generator.generate()
 
-            do {
-                let result = try await parser.parse(telemetryFile: cursorURL)
-                parseResult = result
-                LogDebug(.telemetry, "Parser found \(result.importantClicks.count) clicks, \(result.windows.count) windows")
-
-                let data = try String(contentsOf: cursorURL, encoding: .utf8)
-                let decoder = JSONDecoder()
-                events = data.split(separator: "\n").compactMap { line in
-                    try? decoder.decode(TelemetryRecorder.Event.self, from: Data(line.utf8))
-                }
-                LogDebug(.telemetry, "Decoded \(events.count) raw events")
-            } catch {
-                LogError(.telemetry, "Parse error: \(error.localizedDescription)")
-                parseResult = nil
-                events = []
-            }
-
-            guard !events.isEmpty else {
-                LogWarning(.telemetry, "No events — aborting zoom suggestion generation")
-                await MainActor.run { isGeneratingSuggestions = false }
-                return
-            }
-
-            let emptyStats = TelemetryParser.ParseStats(
-                totalEvents: events.count, totalClicks: 0, importantClickCount: 0,
-                windowCount: 0, clicksPerSecond: 0, timeRange: 0...proj.timeline.duration
-            )
-            let result = parseResult ?? TelemetryParser.ParseResult(
-                importantClicks: [], windows: [], stats: emptyStats
-            )
-
-            let suggestions = ZoomSuggestionEngine.generateSuggestions(
-                events: events,
-                parseResult: result,
-                screenWidth: Double(proj.canvas.format.w),
-                screenHeight: Double(proj.canvas.format.h),
-                timelineDuration: proj.timeline.duration
-            )
-
-            LogInfo(.telemetry, "Generated \(suggestions.count) zoom suggestions")
-
-            // Auto-apply zoom plan if suggestions found
             if !suggestions.isEmpty {
-                if let plan = try? await ZoomSuggestionEngine.applyAsPlan(
-                    suggestions: suggestions,
-                    screenWidth: Double(proj.canvas.format.w),
-                    screenHeight: Double(proj.canvas.format.h),
-                    timelineDuration: proj.timeline.duration
-                ) {
+                if let plan = try? await generator.applyAsPlan(suggestions) {
                     await playerViewModel.previewEngine?.setZoomPlan(plan)
                     LogInfo(.telemetry, "Auto-applied zoom plan with \(plan.keyframes.count) keyframes")
                 }
@@ -789,20 +741,14 @@ struct TimelineView: View {
 
     private func applyZoomSuggestions() {
         let suggestions = activeSuggestions
-        let proj = project
+        guard !suggestions.isEmpty else { return }
 
         Task {
-            // Generate and apply zoom plan to preview engine
-            if let plan = try? await ZoomSuggestionEngine.applyAsPlan(
-                suggestions: suggestions,
-                screenWidth: Double(proj.canvas.format.w),
-                screenHeight: Double(proj.canvas.format.h),
-                timelineDuration: proj.timeline.duration
-            ) {
+            let generator = ZoomSuggestionGenerator(project: project, projectDirectory: projectDirectory)
+            if let plan = try? await generator.applyAsPlan(suggestions) {
                 await playerViewModel.previewEngine?.setZoomPlan(plan)
             }
 
-            // Persist: enable zoom on all segments so it's saved in project.json
             await enableZoomOnAllSegments()
 
             await MainActor.run {
