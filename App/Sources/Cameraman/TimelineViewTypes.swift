@@ -19,6 +19,7 @@ enum TimelineTrackKind: String, CaseIterable, Identifiable, Hashable {
     case micAudio
     case additionalAudio
     case imageOverlay
+    case overlay
 
     var id: String { rawValue }
 
@@ -40,6 +41,8 @@ enum TimelineTrackKind: String, CaseIterable, Identifiable, Hashable {
             return "Music / Audio"
         case .imageOverlay:
             return "Images"
+        case .overlay:
+            return "Overlays"
         }
     }
 
@@ -57,6 +60,8 @@ enum TimelineTrackKind: String, CaseIterable, Identifiable, Hashable {
             return Color.purple.opacity(0.85)
         case .imageOverlay:
             return Color.yellow.opacity(0.85)
+        case .overlay:
+            return Color.cyan.opacity(0.85)
         }
     }
 }
@@ -66,15 +71,17 @@ struct TimelineTrack: Identifiable {
     let kind: TimelineTrackKind
     let segments: [Project.Timeline.Segment]
     let mediaItems: [Project.MediaItem]
+    let overlays: [Project.Overlay]
 
     var id: TimelineTrackKind { kind }
     var label: String { kind.label }
     var color: Color { kind.color }
 
-    init(kind: TimelineTrackKind, segments: [Project.Timeline.Segment], mediaItems: [Project.MediaItem] = []) {
+    init(kind: TimelineTrackKind, segments: [Project.Timeline.Segment], mediaItems: [Project.MediaItem] = [], overlays: [Project.Overlay] = []) {
         self.kind = kind
         self.segments = segments
         self.mediaItems = mediaItems
+        self.overlays = overlays
     }
 }
 
@@ -106,6 +113,11 @@ enum TimelineTrackBuilder {
         let imageItems = project.mediaItems.filter { $0.type == .image }
         if !imageItems.isEmpty {
             tracks.append(TimelineTrack(kind: .imageOverlay, segments: [], mediaItems: imageItems))
+        }
+
+        // Shape overlay track (arrows, rects, lines, text)
+        if !project.overlays.isEmpty {
+            tracks.append(TimelineTrack(kind: .overlay, segments: [], overlays: project.overlays))
         }
 
         return tracks

@@ -52,7 +52,8 @@ struct CenterPanel: View {
                     projectDirectory: viewModel.projectDirectory,
                     mutedTracks: $viewModel.mutedTracks,
                     selectedSegmentId: $viewModel.selectedSegmentId,
-                    selectedMediaItemId: $viewModel.selectedMediaItemId
+                    selectedMediaItemId: $viewModel.selectedMediaItemId,
+                    selectedOverlayId: $viewModel.selectedOverlayId
                 )
                 .frame(height: 250)
             } else {

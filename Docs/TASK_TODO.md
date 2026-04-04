@@ -105,9 +105,14 @@
 
 - [x] **Toast de "proyecto guardado":** ✅ COMPLETO - ToastView.swift implementado
 
-- [ ] **Image overlays visibles en preview/export:**
-    - MediaItem tipo image se importa pero no se renderiza aun (necesita CALayer + animationTool).
-    - Depende de ExportPipeline limpio.
+- [ ] **Overlays en timeline + preview (branch: feature/overlays-timeline):**
+    - Overlays (flechas, rects, text) no se ven en el preview al agregarlos.
+    - Necesitan un track dedicado en el timeline (como los media items) para visualizar duración y posición.
+    - Drag para mover/redimensionar overlays en el timeline.
+    - Rendering en MaskedVideoCompositor (CIImage drawing de shapes).
+    - Export: incluir overlays en el video exportado.
+    - Image overlays (MediaItem tipo image) tampoco se renderizan aun en preview — ImageOverlayRenderer existe pero no está conectado al compositor.
+    - mergeAnimationTools necesita composición real (actualmente captions se pierden si hay image overlays).
 
 - [ ] **Captions visibles en preview (mejorar)**
 
