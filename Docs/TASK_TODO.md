@@ -108,12 +108,9 @@
 
 - [ ] **Zoom auto-apply con toggle para desactivar:**
     - Actualmente auto-aplica; agregar toggle en Zoom controls para desactivar globalmente.
+    - Ya existe toggle en ZoomControlsView (isEnabled) - verificar que funciona
 
-- [ ] **UI del export flow:**
-    - Ventana de opciones se descuadra.
-    - Doble seleccion de path para guardar.
-    - Alert innecesario despues del export.
-    - Depende de ExportPipeline.
+- [x] ~~**UI del export flow:**~~ RESUELTO: simplificado destination UI, eliminado alert redundante
 
 - [ ] **Toast de "proyecto guardado":**
     - Notificacion visual breve al hacer autosave exitoso.
