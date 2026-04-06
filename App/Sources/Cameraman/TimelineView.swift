@@ -424,10 +424,66 @@ struct TimelineView: View {
         let allTracks = tracks
         return VStack(alignment: .leading, spacing: trackSpacing) {
             ForEach(allTracks) { track in
-                timelineTrackContent(for: track, layout: layout)
+                if track.kind == .overlay {
+                    // Stack overlays into non-overlapping rows
+                    let overlayRows = Self.computeOverlayRows(overlays: track.overlays)
+                    VStack(spacing: 4) {
+                        ForEach(Array(overlayRows.enumerated()), id: \.offset) { rowIndex, rowOverlays in
+                            TimelineOverlayTrackRow(
+                                editor: editor,
+                                overlays: rowOverlays,
+                                layout: layout,
+                                height: trackHeight,
+                                selectedOverlayId: $selectedOverlayId,
+                                onOverlayDragged: { overlayId, deltaX in
+                                    let item = editor.project.overlays.first { $0.id == overlayId }
+                                    guard let item else { return }
+                                    let newStart = max(0, item.start + deltaX)
+                                    let duration = item.end - item.start
+                                    Task {
+                                        await editor.updateOverlay(
+                                            projectId: editor.project.projectId,
+                                            overlayId: overlayId,
+                                            start: newStart,
+                                            end: newStart + duration
+                                        )
+                                    }
+                                }
+                            )
+                            .frame(height: trackHeight)
+                        }
+                    }
                     .frame(width: layout.contentWidth, alignment: .leading)
+                } else {
+                    timelineTrackContent(for: track, layout: layout)
+                        .frame(width: layout.contentWidth, alignment: .leading)
+                }
             }
         }
+    }
+
+    /// Greedy algorithm to split overlays into non-overlapping rows
+    static func computeOverlayRows(overlays: [Project.Overlay]) -> [[Project.Overlay]] {
+        var rows: [[Project.Overlay]] = []
+        let sorted = overlays.sorted { $0.start < $1.start }
+
+        for overlay in sorted {
+            var placed = false
+            for (i, row) in rows.enumerated() {
+                let overlaps = row.contains { rowOverlay in
+                    overlay.start < rowOverlay.end && overlay.end > rowOverlay.start
+                }
+                if !overlaps {
+                    rows[i].append(overlay)
+                    placed = true
+                    break
+                }
+            }
+            if !placed {
+                rows.append([overlay])
+            }
+        }
+        return rows
     }
 
     @ViewBuilder
@@ -436,13 +492,11 @@ struct TimelineView: View {
 
         if track.kind == .overlay {
             TimelineOverlayTrackRow(
+                editor: editor,
                 overlays: track.overlays,
                 layout: layout,
                 height: trackHeight,
-                selectedOverlayId: selectedOverlayId,
-                onSelectOverlay: { id in
-                    selectedOverlayId = id
-                },
+                selectedOverlayId: $selectedOverlayId,
                 onOverlayDragged: { overlayId, deltaX in
                     let item = editor.project.overlays.first { $0.id == overlayId }
                     guard let item else { return }

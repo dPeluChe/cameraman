@@ -105,14 +105,13 @@
 
 - [x] **Toast de "proyecto guardado":** ✅ COMPLETO - ToastView.swift implementado
 
-- [ ] **Overlays en timeline + preview (branch: feature/overlays-timeline):**
-    - Overlays (flechas, rects, text) no se ven en el preview al agregarlos.
-    - Necesitan un track dedicado en el timeline (como los media items) para visualizar duración y posición.
-    - Drag para mover/redimensionar overlays en el timeline.
-    - Rendering en MaskedVideoCompositor (CIImage drawing de shapes).
-    - Export: incluir overlays en el video exportado.
-    - Image overlays (MediaItem tipo image) tampoco se renderizan aun en preview — ImageOverlayRenderer existe pero no está conectado al compositor.
-    - mergeAnimationTools necesita composición real (actualmente captions se pierden si hay image overlays).
+- [ ] **Overlays polish (branches: feature/overlays-timeline, feature/overlay-inspector):**
+    - **Timing**: overlays aparecen en rangos incorrectos en el preview — el start/end del overlay no coincide con cuándo se renderiza en el compositor. Debuggear el filtro `currentTime >= overlay.start && currentTime <= overlay.end` en MaskedVideoCompositor.
+    - **Edición no se refleja**: cambios de posición/escala/rotación desde el popover no se ven en el preview. Verificar que `rebuildVideoComposition` pase overlays actualizados y que el cache de overlay layer se invalide al cambiar propiedades.
+    - **Canvas visual para posicionar**: los presets de 9 posiciones son limitados. Implementar un mini-canvas (como PiP editor) donde se pueda arrastrar el overlay visualmente sobre una miniatura del frame.
+    - **Stacking en timeline**: múltiples overlays se empalman en un solo row — necesitan stacking visual o rows separadas.
+    - **Overlay rendering quality**: la flecha/rect se ven pero el tamaño y posición no corresponden con lo configurado.
+    - Lo que SÍ funciona: track en timeline, drag para mover, popover con controles, rendering básico de shapes en compositor y export.
 
 - [ ] **Captions visibles en preview (mejorar)**
 
@@ -146,6 +145,13 @@
     - Blur proporcional a la velocidad de movimiento durante zoom in/out.
     - Implementar via `CIMotionBlur` filter o Metal shader.
     - Aplicar en `MaskedVideoCompositor` / `PreviewComposition` durante zooms.
+
+- [ ] **Ocultar iconos del desktop al grabar:**
+    - Toggle en RecordingControlView: "Hide desktop icons"
+    - Al iniciar grabacion: `defaults write com.apple.finder CreateDesktop -bool false && killall Finder`
+    - Al parar grabacion: restaurar `CreateDesktop -bool true && killall Finder`
+    - Guardar estado previo por si el usuario ya los tenia ocultos.
+    - Nota: requiere que Finder se reinicie (breve flash visual).
 
 - [ ] **Crop interactivo con aspect ratio presets:**
     - Dialog visual con drag + inputs numericos + lock de aspect ratio (16:9, 9:16, 4:3, 1:1, 21:9).

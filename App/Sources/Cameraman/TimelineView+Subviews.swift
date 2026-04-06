@@ -417,14 +417,15 @@ struct ZoomSuggestionMarker: View {
 // MARK: - Timeline Overlay Track Row
 
 struct TimelineOverlayTrackRow: View {
+    @ObservedObject var editor: ProjectEditor
     let overlays: [Project.Overlay]
     let layout: TimelineLayout
     let height: TimelineScalar
-    let selectedOverlayId: UUID?
-    let onSelectOverlay: (UUID?) -> Void
+    @Binding var selectedOverlayId: UUID?
     let onOverlayDragged: (UUID, TimeInterval) -> Void
 
     @State private var overlayDragOffset: [UUID: TimelineScalar] = [:]
+    @State private var popoverOverlayId: UUID?
 
     var body: some View {
         ZStack(alignment: .leading) {
@@ -450,7 +451,7 @@ struct TimelineOverlayTrackRow: View {
                 .frame(width: max(width, 30), height: height - 10)
                 .background(
                     RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(Color.cyan.opacity(0.75))
+                        .fill(Color.cyan.opacity(isSelected ? 1.0 : 0.75))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 4, style: .continuous)
@@ -459,7 +460,18 @@ struct TimelineOverlayTrackRow: View {
                 )
                 .offset(x: xPosition + (overlayDragOffset[overlay.id] ?? 0))
                 .onTapGesture {
-                    onSelectOverlay(isSelected ? nil : overlay.id)
+                    if isSelected {
+                        // Second tap opens popover
+                        popoverOverlayId = overlay.id
+                    } else {
+                        selectedOverlayId = overlay.id
+                    }
+                }
+                .popover(isPresented: Binding(
+                    get: { popoverOverlayId == overlay.id },
+                    set: { if !$0 { popoverOverlayId = nil } }
+                ), arrowEdge: .top) {
+                    OverlayPopoverContent(editor: editor, overlayId: overlay.id)
                 }
                 .highPriorityGesture(
                     DragGesture(minimumDistance: 4)
@@ -473,7 +485,7 @@ struct TimelineOverlayTrackRow: View {
                             onOverlayDragged(overlay.id, deltaTime)
                         }
                 )
-                .help(String(format: "%@ — %.1fs to %.1fs", overlayTypeName(overlay.type), overlay.start, overlay.end))
+                .help("Click to select, click again to edit properties")
             }
         }
     }

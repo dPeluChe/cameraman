@@ -271,9 +271,13 @@ public actor PreviewEngine {
         }
     }
 
+    /// Refresh overlays and visual effects without recreating the player
+    public func refreshVisuals() async throws {
+        try await rebuildVideoComposition()
+    }
+
     /// Rebuild only the videoComposition without recreating tracks/player
-    /// Used for fast PiP position, camera size, and background changes
-    private func rebuildVideoComposition() async throws {
+    func rebuildVideoComposition() async throws {
         guard let project = project,
               let player = player,
               let currentItem = player.currentItem,
