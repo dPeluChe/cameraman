@@ -146,6 +146,13 @@
     - Implementar via `CIMotionBlur` filter o Metal shader.
     - Aplicar en `MaskedVideoCompositor` / `PreviewComposition` durante zooms.
 
+- [ ] **Ocultar iconos del desktop al grabar:**
+    - Toggle en RecordingControlView: "Hide desktop icons"
+    - Al iniciar grabacion: `defaults write com.apple.finder CreateDesktop -bool false && killall Finder`
+    - Al parar grabacion: restaurar `CreateDesktop -bool true && killall Finder`
+    - Guardar estado previo por si el usuario ya los tenia ocultos.
+    - Nota: requiere que Finder se reinicie (breve flash visual).
+
 - [ ] **Crop interactivo con aspect ratio presets:**
     - Dialog visual con drag + inputs numericos + lock de aspect ratio (16:9, 9:16, 4:3, 1:1, 21:9).
     - Aplica crop region al source video antes de layout.
