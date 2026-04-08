@@ -1,91 +1,86 @@
-# labs-cameraman (Project Studio / Cameraman)
+# Cameraman
 
-macOS local‑first screen recorder + editor.
+Open source screen recorder & editor for macOS. Swift native. Local-first. Free.
 
-**Version**: 0.2.0 (January 22, 2026)
+**Version**: 0.7.0 | **Platform**: macOS 13+ (Ventura) | **License**: Open Source
 
-## Current functional status
+## What it does
+
+Record your screen, camera, and audio as separate tracks. Edit with a timeline editor. Export with per-segment effects and smart auto-zoom.
 
 ### Recording
-Recording is functional with **separate tracks**:
+- Screen capture via ScreenCaptureKit
+- Camera (webcam) overlay
+- System audio + microphone (separate tracks)
+- Cursor/click telemetry for auto-zoom
 
-- `screen.mov` (ScreenCaptureKit video)
-- `system_audio.m4a` (system audio)
-- `camera.mov` (camera video)
-- `mic_audio.m4a` (microphone)
+### Editing
+- Timeline with trim, split, delete, drag-and-drop
+- Per-segment speed control (0.25x-4x)
+- Per-segment camera PiP positioning with borders (circle, rounded rect, capsule)
+- Per-segment audio volume (0-300%) and mute
+- Overlays: arrows, rectangles, lines, text with timing controls
+- Canvas effects: background gradients, blur, padding, corner radius
+- Auto-zoom suggestions from cursor telemetry (click + dwell detection)
+- Undo/redo with autosave
+- Non-destructive editing (source files never modified)
 
-Outputs are written inside app container (sandbox):
+### Export
+- **Web 1080p (H.264)** — optimized for web sharing
+- **High 1080p (HEVC)** — smaller files, better quality
+- **4K (HEVC)** — 3840x2160, 60fps
+- **Portrait 1080p (H.264)** — vertical format
+- **Animated GIF** — configurable fps, size, loop
+- Per-segment camera positions, visual effects, and audio included in export
 
-- `~/Library/Containers/com.dpeluchestudios.CameramanApp/Data/Documents/Recordings/recording_<ISO8601>/`
-
-### Editing & Export
-Project editor is now functional with:
-
-- **Timeline visualization** with drag-and-drop clips
-- **Trim and cut** operations for screen and audio tracks
-- **Zoom controls** for timeline navigation
-- **Export system** with save panel for user-selected destination
-- **Export presets**: Web 1080p (H.264), High 1080p (HEVC), Portrait 1080p (H.264), Animated GIF
-- **Progress tracking** with detailed export stages
-- **Temporary file management** within sandbox before user saves
-- **Play button** to preview exported video directly
-
-## Build / Run
-
-- Open: `CameramanApp/CameramanApp.xcodeproj`
-- Scheme: `CameramanApp`
-- Run on: `My Mac`
-
-EngineKit can be built standalone:
+## Build & Run
 
 ```bash
-cd EngineKit
-swift build
+# Clone
+git clone https://github.com/anthropics/labs-cameraman.git
+cd labs-cameraman
+
+# Open in Xcode
+open CameramanApp/CameramanApp.xcodeproj
+# Select scheme "CameramanApp" → Run on "My Mac"
+
+# Or build EngineKit standalone
+cd EngineKit && swift build
 ```
 
-## Permissions / Entitlements (IMPORTANT)
+**Requirements**: macOS 13+, Xcode 15+. Grant Screen Recording, Camera, and Microphone permissions when prompted.
 
-Because app runs with **App Sandbox**, camera/microphone/file access require entitlements:
+## Architecture
 
-- `CameramanApp/CameramanApp.entitlements`
-  - `com.apple.security.device.camera = true`
-  - `com.apple.security.device.audio-input = true`
-  - `com.apple.security.files.user-selected.read-write = true` (for export)
-  - `com.apple.security.files.downloads.read-write = true` (for export)
+```
+App/Sources/Cameraman/     — SwiftUI app layer (~16K LOC)
+EngineKit/Sources/          — Modular engine (~22K LOC)
+  Capture/                  — Screen/camera/mic recording, telemetry
+  Editor/                   — Non-destructive editing model
+  Preview/                  — Playback with edits, proxy generation
+  Export/                   — Video/GIF export with presets
+  Zoom/                     — Auto-zoom pipeline (dwell + click detection)
+  Shared/                   — Compositor, audio mix builder
+```
 
-And the Xcode target must reference it via `CODE_SIGN_ENTITLEMENTS`.
+Total: ~38.6K LOC implementation, ~32.2K LOC tests.
 
-Also ensure Info.plist usage strings exist:
+## Permissions
 
-- `NSCameraUsageDescription`
-- `NSMicrophoneUsageDescription`
-- `NSScreenCaptureUsageDescription`
+App Sandbox is enabled. Required entitlements:
+- `com.apple.security.device.camera`
+- `com.apple.security.device.audio-input`
+- `com.apple.security.files.user-selected.read-write`
+- `com.apple.security.files.downloads.read-write`
 
-## Troubleshooting
+Info.plist usage strings: `NSCameraUsageDescription`, `NSMicrophoneUsageDescription`, `NSScreenCaptureUsageDescription`.
 
-- If camera/mic show `denied` even after enabling in System Settings:
-  - Verify entitlements are present and referenced by target.
-  - Quit the app completely and run again.
-  - Check System Settings:
-    - Privacy & Security → Camera
-    - Privacy & Security → Microphone
-    - Privacy & Security → Screen Recording
+## Status
 
-- If a track file is created with `0 bytes`:
-  - For camera, verify that the capture output delegate is strongly retained for the duration of the session.
+**Beta**. Core recording, editing, and export workflows are functional. Overlay system, auto-zoom, and per-segment editing are working. Actively developed.
 
-- If export fails with "Cannot Save":
-  - Verify that the entitlements are correct in the target settings.
-  - Restart Xcode after modifying entitlements.
-  - Check the export logs for detailed error information.
+See [CHANGELOG](Docs/CHANGELOG.md) for version history. See [TASK_TODO](Docs/TASK_TODO.md) for planned work.
 
-## Known Issues
+## Built by
 
-- Exported videos may show black bars/letterboxing (aspect ratio issue)
-- Frame counter warnings during recording startup (non-critical)
-
-## Notes
-
-This project intentionally records audio/video tracks separately (later export can mux them if desired).
-
-For detailed changes, see [CHANGELOG.md](CHANGELOG.md).
+[Iteris](https://iteris.tech)
