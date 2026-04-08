@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cameraman — Open Source Screen Recorder & Editor for macOS</title>
+    <meta name="description" content="Free, open source screen recorder and video editor for macOS. Swift native. Local-first. Smart auto-zoom. Per-segment editing.">
+    <style>
+        :root {
+            --bg: #0d0d0d;
+            --bg-alt: #141414;
+            --bg-card: #1a1a1a;
+            --text: #e8e8e8;
+            --text-muted: #888;
+            --text-dim: #555;
+            --accent: #0a84ff;
+            --accent-soft: rgba(10, 132, 255, 0.12);
+            --green: #30d158;
+            --orange: #ff9f0a;
+            --border: #2a2a2a;
+            --radius: 12px;
+            --max-w: 1080px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container { max-width: var(--max-w); margin: 0 auto; padding: 0 24px; }
+
+        /* Nav */
+        nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(13, 13, 13, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+        }
+        nav .container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 56px;
+        }
+        nav .logo {
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        nav .logo span { color: var(--accent); }
+        nav .links { display: flex; gap: 24px; align-items: center; }
+        nav .links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+        nav .links a:hover { color: var(--text); }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+        .btn-primary:hover { background: #0070e0; }
+        .btn-ghost {
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .btn-ghost:hover { border-color: var(--text-dim); }
+
+        /* Hero */
+        .hero {
+            padding: 100px 0 80px;
+            text-align: center;
+        }
+        .hero .badges {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+        .badge {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+        }
+        .badge.green { color: var(--green); border-color: rgba(48, 209, 88, 0.3); }
+        .badge.blue { color: var(--accent); border-color: rgba(10, 132, 255, 0.3); }
+        .badge.orange { color: var(--orange); border-color: rgba(255, 159, 10, 0.3); }
+        .hero h1 {
+            font-size: 56px;
+            font-weight: 800;
+            letter-spacing: -2px;
+            line-height: 1.1;
+            margin-bottom: 16px;
+        }
+        .hero .tagline {
+            font-size: 20px;
+            color: var(--text-muted);
+            max-width: 540px;
+            margin: 0 auto 32px;
+        }
+        .hero .ctas { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+
+        .hero-preview {
+            margin-top: 60px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px;
+            text-align: center;
+        }
+        .hero-preview .placeholder {
+            background: var(--bg-alt);
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 80px 40px;
+            color: var(--text-dim);
+            font-size: 14px;
+        }
+
+        /* Sections */
+        section { padding: 80px 0; }
+        section:nth-child(even) { background: var(--bg-alt); }
+        .section-title {
+            font-size: 36px;
+            font-weight: 700;
+            letter-spacing: -1px;
+            margin-bottom: 12px;
+        }
+        .section-subtitle {
+            font-size: 16px;
+            color: var(--text-muted);
+            margin-bottom: 48px;
+            max-width: 600px;
+        }
+
+        /* Why */
+        .why-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+        }
+        .why-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+        }
+        .why-card .icon {
+            font-size: 28px;
+            margin-bottom: 12px;
+        }
+        .why-card h3 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .why-card p {
+            font-size: 14px;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        /* Features */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 16px;
+        }
+        .feature {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 16px;
+            border-radius: 10px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+        }
+        .feature .f-icon {
+            flex-shrink: 0;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            background: var(--accent-soft);
+            color: var(--accent);
+            font-size: 16px;
+        }
+        .feature h4 { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+        .feature p { font-size: 13px; color: var(--text-muted); }
+
+        /* Comparison */
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        .comparison-table th,
+        .comparison-table td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        .comparison-table th {
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .comparison-table td:first-child { font-weight: 500; }
+        .comparison-table .yes { color: var(--green); }
+        .comparison-table .no { color: var(--text-dim); }
+        .comparison-table .price { color: var(--orange); font-weight: 600; }
+        .comparison-table .highlight { background: rgba(10, 132, 255, 0.06); }
+        .comparison-table tr:hover { background: rgba(255,255,255,0.02); }
+
+        /* Tech */
+        .tech-stats {
+            display: flex;
+            gap: 40px;
+            flex-wrap: wrap;
+            margin-bottom: 32px;
+        }
+        .stat { text-align: center; }
+        .stat .num {
+            font-size: 32px;
+            font-weight: 800;
+            letter-spacing: -1px;
+            color: var(--accent);
+        }
+        .stat .label {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .tech-list {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .tech-tag {
+            font-size: 13px;
+            padding: 6px 14px;
+            border-radius: 8px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+        }
+
+        /* Status */
+        .status-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 32px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: rgba(255, 159, 10, 0.15);
+            color: var(--orange);
+            margin-bottom: 16px;
+        }
+
+        /* Install */
+        .code-block {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px 24px;
+            font-family: 'SF Mono', 'Menlo', monospace;
+            font-size: 13px;
+            color: var(--text-muted);
+            overflow-x: auto;
+            line-height: 1.7;
+        }
+        .code-block .comment { color: var(--text-dim); }
+        .code-block .cmd { color: var(--green); }
+
+        /* Footer */
+        footer {
+            border-top: 1px solid var(--border);
+            padding: 40px 0;
+            text-align: center;
+        }
+        footer p {
+            font-size: 14px;
+            color: var(--text-dim);
+        }
+        footer a {
+            color: var(--text-muted);
+            text-decoration: none;
+        }
+        footer a:hover { color: var(--text); }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 36px; }
+            .hero .tagline { font-size: 17px; }
+            .section-title { font-size: 28px; }
+            .tech-stats { gap: 24px; }
+            nav .links { gap: 12px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+    <div class="container">
+        <div class="logo"><span>C</span>ameraman</div>
+        <div class="links">
+            <a href="#features">Features</a>
+            <a href="#comparison">Compare</a>
+            <a href="#install">Install</a>
+            <a href="https://github.com/anthropics/labs-cameraman" class="btn btn-ghost">GitHub</a>
+        </div>
+    </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+    <div class="container">
+        <div class="badges">
+            <span class="badge blue">Swift</span>
+            <span class="badge">macOS 13+</span>
+            <span class="badge green">Open Source</span>
+            <span class="badge green">Free</span>
+            <span class="badge orange">v0.7.0 Beta</span>
+        </div>
+        <h1>Screen recorder &<br>editor for macOS</h1>
+        <p class="tagline">Record your screen, camera, and audio. Edit with per-segment controls. Export with smart auto-zoom. All local, all free.</p>
+        <div class="ctas">
+            <a href="#install" class="btn btn-primary">Get Started</a>
+            <a href="https://github.com/anthropics/labs-cameraman" class="btn btn-ghost">View Source</a>
+        </div>
+
+        <div class="hero-preview">
+            <div class="placeholder">
+                Screenshots coming soon<br>
+                <span style="font-size: 12px; color: var(--text-dim);">3-panel editor: sidebar + preview + timeline with per-segment PiP, overlays, and auto-zoom markers</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Why -->
+<section id="why">
+    <div class="container">
+        <h2 class="section-title">Why Cameraman</h2>
+        <p class="section-subtitle">A screen recorder that doesn't cost $89 or require a PhD to use.</p>
+        <div class="why-grid">
+            <div class="why-card">
+                <div class="icon">&#x1F4B0;</div>
+                <h3>Free & Open Source</h3>
+                <p>Screen Studio charges $89. OBS is free but has no editor. Cameraman is both free and includes a full timeline editor.</p>
+            </div>
+            <div class="why-card">
+                <div class="icon">&#x1F4BB;</div>
+                <h3>Local-First, Zero Cloud</h3>
+                <p>Everything stays on your Mac. No accounts, no uploads, no subscriptions. Your recordings, your data.</p>
+            </div>
+            <div class="why-card">
+                <div class="icon">&#x1F50D;</div>
+                <h3>Smart Auto-Zoom</h3>
+                <p>Records cursor telemetry and automatically suggests zoom points based on clicks and pauses. No manual keyframing.</p>
+            </div>
+            <div class="why-card">
+                <div class="icon">&#x2702;&#xFE0F;</div>
+                <h3>Per-Segment Editing</h3>
+                <p>Split your video and control speed, camera position, audio volume, and overlays independently per segment.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features -->
+<section id="features">
+    <div class="container">
+        <h2 class="section-title">Features</h2>
+        <p class="section-subtitle">What's actually built and working right now.</p>
+        <div class="features-grid">
+            <div class="feature">
+                <div class="f-icon">&#x23FA;</div>
+                <div>
+                    <h4>Multi-Track Recording</h4>
+                    <p>Screen, camera, system audio, and mic recorded simultaneously as separate tracks.</p>
+                </div>
+            </div>
+            <div class="feature">
+                <div class="f-icon">&#x2702;</div>
+                <div>
+                    <h4>Timeline Editor</h4>
+                    <p>Trim, split, delete segments. Drag media items. Undo/redo with autosave.</p>
+                </div>
+            </div>
+            <div class="feature">
+                <div class="f-icon">&#x23E9;</div>
+                <div>
+                    <h4>Per-Segment Speed</h4>
+                    <p>0.25x to 4x speed per segment. Speed badge visible on timeline.</p>
+                </div>
+            </div>
+            <div class="feature">
+                <div class="f-icon">&#x1F4F7;</div>
+                <div>
+                    <h4>Camera PiP</h4>
+                    <p>Circle, rounded rect, capsule masks. Color border. Position per segment. Drag to place.</p>
+                </div>
+            </div>
+            <div class="feature">
+                <div class="f-icon">&#x1F509;</div>
+                <div>
+                    <h4>Per-Segment Audio</h4>
+                    <p>Independent volume (0-300%) and mute per segment. Global track volume sliders.</p>
+                </div>
+            </div>
+            <div class="feature">
+                <div class="f-icon">&#x1F50D;</div>
+                <div>
+                    <h4>Auto-Zoom</h4>
+                    <p>Cursor telemetry detects clicks and pauses. Zoom suggestions appear automatically. Click to dismiss.</p>
+                </div>
+            </div>
+            <div class="feature">
+                <div class="f-icon">&#x1F3A8;</div>
+                <div>
+                    <h4>Canvas Effects</h4>
+                    <p>Background gradients, blur, solid colors. Video padding, corner radius, shadow.</p>
+                </div>
+            </div>
+            <div class="feature">
+                <div class="f-icon">&#x1F4DD;</div>
+                <div>
+                    <h4>Overlays</h4>
+                    <p>Arrows, rectangles, lines, text. Drag in timeline. Popover inspector for position, scale, rotation, color.</p>
+                </div>
+            </div>
+            <div class="feature">
+                <div class="f-icon">&#x1F4E4;</div>
+                <div>
+                    <h4>Export Presets</h4>
+                    <p>H.264, HEVC, 4K, Portrait, Animated GIF. Per-segment effects included in export.</p>
+                </div>
+            </div>
+            <div class="feature">
+                <div class="f-icon">&#x1F4BE;</div>
+                <div>
+                    <h4>Non-Destructive</h4>
+                    <p>All edits stored in project.json. Source files never modified. Autosave with undo/redo.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Comparison -->
+<section id="comparison">
+    <div class="container">
+        <h2 class="section-title">How it compares</h2>
+        <p class="section-subtitle">Honest comparison with tools you might already know.</p>
+        <div style="overflow-x: auto;">
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Feature</th>
+                        <th class="highlight">Cameraman</th>
+                        <th>Screen Studio</th>
+                        <th>Kap</th>
+                        <th>OBS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Price</td>
+                        <td class="highlight yes">Free</td>
+                        <td class="price">$89</td>
+                        <td class="yes">Free</td>
+                        <td class="yes">Free</td>
+                    </tr>
+                    <tr>
+                        <td>Open source</td>
+                        <td class="highlight yes">Yes</td>
+                        <td class="no">No</td>
+                        <td class="yes">Yes</td>
+                        <td class="yes">Yes</td>
+                    </tr>
+                    <tr>
+                        <td>Timeline editor</td>
+                        <td class="highlight yes">Yes</td>
+                        <td class="yes">Yes</td>
+                        <td class="no">No</td>
+                        <td class="no">No</td>
+                    </tr>
+                    <tr>
+                        <td>Per-segment speed</td>
+                        <td class="highlight yes">Yes</td>
+                        <td class="yes">Yes</td>
+                        <td class="no">No</td>
+                        <td class="no">No</td>
+                    </tr>
+                    <tr>
+                        <td>Auto-zoom</td>
+                        <td class="highlight yes">Telemetry-based</td>
+                        <td>Manual keyframes</td>
+                        <td class="no">No</td>
+                        <td class="no">No</td>
+                    </tr>
+                    <tr>
+                        <td>Camera PiP</td>
+                        <td class="highlight yes">Per-segment</td>
+                        <td class="yes">Global</td>
+                        <td class="no">No</td>
+                        <td class="no">No</td>
+                    </tr>
+                    <tr>
+                        <td>GIF export</td>
+                        <td class="highlight yes">Yes</td>
+                        <td class="yes">Yes</td>
+                        <td class="yes">Yes</td>
+                        <td class="no">No</td>
+                    </tr>
+                    <tr>
+                        <td>4K export</td>
+                        <td class="highlight yes">Yes</td>
+                        <td class="yes">Yes</td>
+                        <td class="no">No</td>
+                        <td class="yes">Yes</td>
+                    </tr>
+                    <tr>
+                        <td>Overlays</td>
+                        <td class="highlight yes">Shapes + text</td>
+                        <td class="yes">Yes</td>
+                        <td class="no">No</td>
+                        <td class="no">No</td>
+                    </tr>
+                    <tr>
+                        <td>Local-first</td>
+                        <td class="highlight yes">Yes</td>
+                        <td class="yes">Yes</td>
+                        <td class="yes">Yes</td>
+                        <td class="yes">Yes</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<!-- Tech -->
+<section id="tech">
+    <div class="container">
+        <h2 class="section-title">Under the hood</h2>
+        <div class="tech-stats">
+            <div class="stat">
+                <div class="num">38.6K</div>
+                <div class="label">Lines of Code</div>
+            </div>
+            <div class="stat">
+                <div class="num">32.2K</div>
+                <div class="label">Lines of Tests</div>
+            </div>
+            <div class="stat">
+                <div class="num">5</div>
+                <div class="label">Export Presets</div>
+            </div>
+            <div class="stat">
+                <div class="num">v0.7.0</div>
+                <div class="label">Current Version</div>
+            </div>
+        </div>
+        <div class="tech-list">
+            <span class="tech-tag">Swift 5.9+</span>
+            <span class="tech-tag">SwiftUI</span>
+            <span class="tech-tag">ScreenCaptureKit</span>
+            <span class="tech-tag">AVFoundation</span>
+            <span class="tech-tag">CoreImage</span>
+            <span class="tech-tag">macOS 13+ (Ventura)</span>
+            <span class="tech-tag">EngineKit (modular engine)</span>
+            <span class="tech-tag">App Sandbox</span>
+        </div>
+    </div>
+</section>
+
+<!-- Status -->
+<section id="status">
+    <div class="container">
+        <div class="status-box">
+            <div class="status-badge">Beta</div>
+            <h2 class="section-title" style="font-size: 24px;">Project Status</h2>
+            <p style="color: var(--text-muted); margin-top: 8px; max-width: 600px;">
+                Core recording, editing, and export workflows are functional. Overlay system, auto-zoom, and per-segment editing are working.
+                Actively developed. Some rough edges remain in the overlay inspector and zoom animation tuning.
+            </p>
+        </div>
+    </div>
+</section>
+
+<!-- Install -->
+<section id="install">
+    <div class="container">
+        <h2 class="section-title">Build from source</h2>
+        <p class="section-subtitle">No binary download yet. Build it yourself in Xcode.</p>
+        <div class="code-block">
+            <span class="comment"># Clone the repo</span><br>
+            <span class="cmd">git clone</span> https://github.com/anthropics/labs-cameraman.git<br>
+            <span class="cmd">cd</span> labs-cameraman<br>
+            <br>
+            <span class="comment"># Open in Xcode</span><br>
+            <span class="cmd">open</span> CameramanApp/CameramanApp.xcodeproj<br>
+            <br>
+            <span class="comment"># Select scheme "CameramanApp" → Run on "My Mac"</span><br>
+            <br>
+            <span class="comment"># Or build EngineKit standalone</span><br>
+            <span class="cmd">cd</span> EngineKit && <span class="cmd">swift build</span>
+        </div>
+        <p style="color: var(--text-dim); font-size: 13px; margin-top: 16px;">
+            Requires macOS 13 (Ventura) or later. Xcode 15+. Grant Screen Recording, Camera, and Microphone permissions when prompted.
+        </p>
+    </div>
+</section>
+
+<!-- Footer -->
+<footer>
+    <div class="container">
+        <p>Built with code & caffeine by <a href="https://iteris.tech">Iteris</a> &middot; <a href="https://github.com/anthropics/labs-cameraman">Source on GitHub</a></p>
+    </div>
+</footer>
+
+</body>
+</html>
