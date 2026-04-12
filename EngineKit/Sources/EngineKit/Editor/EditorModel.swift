@@ -233,7 +233,7 @@ public actor EditorModel {
         }
 
         var clipsToDelete: [String] = []
-        var offsetAdjustment: TimeInterval = 0
+        let rangeWidth = endTime - startTime
 
         for clip in project.timeline.tracks[trackIndex].clips {
             let clipEnd = clip.timelineOut
@@ -244,67 +244,49 @@ public actor EditorModel {
             }
             // Clip spans the entire delete range (start before, end after)
             else if clip.timelineIn < startTime && clipEnd > endTime {
-                // Split: keep parts outside the range
-                if case .recording(let ref) = clip.content {
-                    let preOffset = startTime - clip.timelineIn
-                    let postOffset = endTime - clip.timelineIn
-                    let preSplitSource = ref.sourceIn + (preOffset * clip.speed)
-                    let postSplitSource = ref.sourceIn + (postOffset * clip.speed)
+                // Use splitContent to handle any clip type generically
+                let preOffset = startTime - clip.timelineIn
+                let postOffset = endTime - clip.timelineIn
 
-                    // Replace with two clips: before range and after range
-                    if let idx = project.timeline.tracks[trackIndex].clips.firstIndex(where: { $0.id == clip.id }) {
-                        let preClip = Project.TimelineClip(
-                            timelineIn: clip.timelineIn,
-                            content: .recording(Project.RecordingClipRef(
-                                takeId: ref.takeId,
-                                sourceIn: ref.sourceIn,
-                                sourceOut: preSplitSource,
-                                zoom: ref.zoom,
-                                cameraPosition: ref.cameraPosition,
-                                audioMuted: ref.audioMuted
-                            )),
-                            speed: clip.speed,
-                            volume: clip.volume
-                        )
-                        let postClip = Project.TimelineClip(
-                            timelineIn: startTime, // will shift after adjustment
-                            content: .recording(Project.RecordingClipRef(
-                                takeId: ref.takeId,
-                                sourceIn: postSplitSource,
-                                sourceOut: ref.sourceOut,
-                                zoom: ref.zoom,
-                                cameraPosition: ref.cameraPosition,
-                                audioMuted: ref.audioMuted
-                            )),
-                            speed: clip.speed,
-                            volume: clip.volume
-                        )
+                let (preContent, _) = splitContent(clip.content, at: preOffset, speed: clip.speed)
+                let (_, postContent) = splitContent(clip.content, at: postOffset, speed: clip.speed)
 
-                        project.timeline.tracks[trackIndex].clips.remove(at: idx)
-                        project.timeline.tracks[trackIndex].clips.insert(postClip, at: idx)
-                        project.timeline.tracks[trackIndex].clips.insert(preClip, at: idx)
-                        offsetAdjustment += (endTime - startTime)
-                    }
-                    continue
+                if let idx = project.timeline.tracks[trackIndex].clips.firstIndex(where: { $0.id == clip.id }) {
+                    let preClip = Project.TimelineClip(
+                        timelineIn: clip.timelineIn,
+                        content: preContent,
+                        speed: clip.speed,
+                        volume: clip.volume,
+                        opacity: clip.opacity,
+                        position: clip.position
+                    )
+                    let postClip = Project.TimelineClip(
+                        timelineIn: startTime, // will shift down by rangeWidth below
+                        content: postContent,
+                        speed: clip.speed,
+                        volume: clip.volume,
+                        opacity: clip.opacity,
+                        position: clip.position
+                    )
+
+                    project.timeline.tracks[trackIndex].clips.remove(at: idx)
+                    project.timeline.tracks[trackIndex].clips.insert(postClip, at: idx)
+                    project.timeline.tracks[trackIndex].clips.insert(preClip, at: idx)
                 }
-                clipsToDelete.append(clip.id)
-                offsetAdjustment += (endTime - startTime)
             }
         }
 
         // Delete fully-enclosed clips
         for clipId in clipsToDelete {
             if let idx = project.timeline.tracks[trackIndex].clips.firstIndex(where: { $0.id == clipId }) {
-                let clip = project.timeline.tracks[trackIndex].clips[idx]
                 project.timeline.tracks[trackIndex].clips.remove(at: idx)
-                offsetAdjustment += clip.duration
             }
         }
 
-        // Adjust remaining clips after the deleted range
+        // Shift all clips after the deleted range left by the range width
         for i in 0..<project.timeline.tracks[trackIndex].clips.count {
             if project.timeline.tracks[trackIndex].clips[i].timelineIn >= startTime {
-                project.timeline.tracks[trackIndex].clips[i].timelineIn -= offsetAdjustment
+                project.timeline.tracks[trackIndex].clips[i].timelineIn -= rangeWidth
             }
         }
 
@@ -684,7 +666,7 @@ public actor EditorModel {
         case .primary:
             // Primary track accepts recording, image, video, color
             if case .audio = clip.content {
-                return .invalidTrackType(expected: "audio", got: "primary")
+                return .invalidClipContent(reason: "Primary track does not accept audio clips")
             }
             return nil
         case .video:
@@ -735,8 +717,9 @@ public actor EditorModel {
             return (.image(first), .image(second))
 
         case .audio(let ref):
+            // offset is in timeline time; convert to source time for sourceIn adjustment
             let sourceOffset = offset * speed
-            let first = Project.AudioClipRef(path: ref.path, duration: offset * speed, sourceIn: ref.sourceIn)
+            let first = Project.AudioClipRef(path: ref.path, duration: sourceOffset, sourceIn: ref.sourceIn)
             let second = Project.AudioClipRef(path: ref.path, duration: ref.duration - sourceOffset, sourceIn: ref.sourceIn + sourceOffset)
             return (.audio(first), .audio(second))
 

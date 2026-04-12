@@ -312,6 +312,115 @@ extension PreviewEngine {
             }
         }
 
+        // If there are static clips (image/color), use the custom compositor
+        // to render them during their time ranges
+        if !staticClips.isEmpty {
+            let screenTrack = composition.tracks(withMediaType: .video).first
+            let overlayConfigs = project.overlays.map { OverlayConfig(overlay: $0) }
+            var allInstructions: [AVVideoCompositionInstructionProtocol] = []
+
+            // Build a timeline of instructions: normal video + static content
+            let totalDuration = composition.duration
+            var coveredEnd = CMTime.zero
+
+            for info in staticClips {
+                let staticStart = info.timeRange.start
+                let staticEnd = CMTimeAdd(info.timeRange.start, info.timeRange.duration)
+
+                // Gap before this static clip: normal video
+                if CMTimeCompare(coveredEnd, staticStart) < 0 {
+                    let gapRange = CMTimeRangeMake(start: coveredEnd, duration: CMTimeSubtract(staticStart, coveredEnd))
+                    if let screenTrackID = screenTrack?.trackID {
+                        let normalInstruction = MaskedVideoCompositionInstruction(
+                            timeRange: gapRange,
+                            screenTrackID: screenTrackID,
+                            cameraTrackID: nil,
+                            renderSize: renderSize,
+                            screenTransform: instruction.layerInstructions.isEmpty
+                                ? .identity
+                                : (instruction.layerInstructions.first as? AVMutableVideoCompositionLayerInstruction)
+                                    .flatMap { _ in CGAffineTransform.identity } ?? .identity,
+                            cameraTransform: nil,
+                            cameraRect: nil,
+                            maskShape: .none,
+                            cornerRadius: 0,
+                            layoutType: project.canvas.layout.type,
+                            videoCornerRadius: CGFloat(project.canvas.videoCornerRadius),
+                            videoShadowIntensity: CGFloat(project.canvas.videoShadowIntensity),
+                            padding: CGFloat(project.canvas.padding),
+                            backgroundType: project.canvas.background.type,
+                            backgroundValue: project.canvas.background.value,
+                            overlays: overlayConfigs
+                        )
+                        allInstructions.append(normalInstruction)
+                    }
+                }
+
+                // Static clip instruction
+                let staticContent: MaskedVideoCompositionInstruction.StaticClipContent
+                switch info.clip.content {
+                case .image(let ref):
+                    let projectDir = self.projectDirectory ?? ""
+                    let fullPath = URL(fileURLWithPath: projectDir).appendingPathComponent(ref.path).path
+                    staticContent = .image(path: fullPath)
+                case .color(let ref):
+                    staticContent = .color(hexColor: ref.hexColor)
+                default:
+                    coveredEnd = staticEnd
+                    continue
+                }
+
+                let staticInstruction = MaskedVideoCompositionInstruction(
+                    timeRange: info.timeRange,
+                    screenTrackID: screenTrack?.trackID ?? 1,
+                    cameraTrackID: nil,
+                    renderSize: renderSize,
+                    screenTransform: .identity,
+                    cameraTransform: nil,
+                    cameraRect: nil,
+                    maskShape: .none,
+                    cornerRadius: 0,
+                    layoutType: "static",
+                    backgroundType: project.canvas.background.type,
+                    backgroundValue: project.canvas.background.value,
+                    overlays: overlayConfigs,
+                    staticContent: staticContent
+                )
+                allInstructions.append(staticInstruction)
+                coveredEnd = staticEnd
+            }
+
+            // Remaining time after last static clip
+            if CMTimeCompare(coveredEnd, totalDuration) < 0 {
+                let remainingRange = CMTimeRangeMake(start: coveredEnd, duration: CMTimeSubtract(totalDuration, coveredEnd))
+                if let screenTrackID = screenTrack?.trackID {
+                    let normalInstruction = MaskedVideoCompositionInstruction(
+                        timeRange: remainingRange,
+                        screenTrackID: screenTrackID,
+                        cameraTrackID: nil,
+                        renderSize: renderSize,
+                        screenTransform: .identity,
+                        cameraTransform: nil,
+                        cameraRect: nil,
+                        maskShape: .none,
+                        cornerRadius: 0,
+                        layoutType: project.canvas.layout.type,
+                        videoCornerRadius: CGFloat(project.canvas.videoCornerRadius),
+                        videoShadowIntensity: CGFloat(project.canvas.videoShadowIntensity),
+                        padding: CGFloat(project.canvas.padding),
+                        backgroundType: project.canvas.background.type,
+                        backgroundValue: project.canvas.background.value,
+                        overlays: overlayConfigs
+                    )
+                    allInstructions.append(normalInstruction)
+                }
+            }
+
+            videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
+            videoComposition.instructions = allInstructions
+            return videoComposition
+        }
+
         videoComposition.instructions = [instruction]
         return videoComposition
     }

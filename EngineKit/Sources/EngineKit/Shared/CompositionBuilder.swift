@@ -555,7 +555,8 @@ public struct CompositionBuilder {
         for track in tracks where !track.isMuted {
             for clip in track.clips {
                 guard case .audio(let ref) = clip.content else { continue }
-                if let isMuted = clip.volume, isMuted == 0 { continue }
+                // Don't skip muted clips — they still occupy timeline space.
+                // AudioMixBuilder will set their volume to 0.
 
                 let audioURL = resolver.projectDirectory.appendingPathComponent(ref.path)
                 guard fileManager.fileExists(atPath: audioURL.path) else {
