@@ -96,18 +96,21 @@ Infrastructure/ - Logging (LoggingSystem), crash reporting (CrashReporter)
 Store/          - Project persistence (ProjectStore, summary cache with mod-date invalidation)
 Queue/          - Background job orchestration (JobQueue)
 Library/        - Project listing, search, tags (ProjectLibrary)
-Models/         - Core types: Project, Job, Segment, Overlay, MediaItem, ZoomConfiguration
+Models/         - Core types: Project, Job, Overlay, MediaItem, ZoomConfiguration
+                - Timeline: TimelineTrack, TimelineClip, ClipContent (recording/image/video/audio/color)
+                - Clip refs: RecordingClipRef, ImageClipRef, VideoClipRef, AudioClipRef, ColorClipRef
+                - Legacy compat: Timeline.Segment (computed from primary track clips)
 ```
 
 ### Key Design Patterns
 
 1. **Non-destructive editing:** All edits stored in `project.json` metadata; source files never modified
-2. **Segment-based timeline:** Edits represented as segments with `source_in/out` and `timeline_in`; each segment can have per-segment zoom config
+2. **Multi-track timeline:** Typed tracks (primary/video/audio) contain universal clips; ClipContent enum supports recording, image, video, audio, color. Primary track holds recording segments; overlay tracks hold B-roll, images, music. Backward-compatible `segments` accessor on Timeline
 3. **Job-based processing:** Export, transcription, proxy generation run as async background jobs
 4. **Actor model:** `CaptureEngine`, `CameraEngine`, `PreviewEngine`, `ThumbnailCache` use Swift actors for thread-safe state
 5. **Engine/UI separation:** EngineKit exposes stable API; UI layer is replaceable
 6. **Zoom pipeline:** Telemetry → Parser (click windows) + DwellDetector (pauses) → ZoomSuggestionEngine (merge/dedup) → ZoomPlanGenerator (keyframes with easing) → PreviewRenderer (frame transform)
-7. **Per-track audio:** AudioMixBuilder constructs AVMutableAudioMix with independent volume/mute per track; used in both preview and export
+7. **Per-track audio:** AudioMixBuilder constructs AVMutableAudioMix with independent volume/mute per track (recording tracks + imported audio clip tracks); used in both preview and export
 
 ### Project File Structure
 

@@ -150,21 +150,72 @@ Se derivan de `project.json` (y se indexan en DB ligera opcional):
     }
   },
   "timeline": {
-    "duration": 85.5,
-    "segments": [
+    "duration": 95.5,
+    "tracks": [
       {
-        "id": "seg-1",
-        "source_in": 0.8,
-        "source_out": 35.2,
-        "timeline_in": 0,
-        "speed": 1.0
+        "id": "00000000-0000-0000-0000-000000000001",
+        "name": "Recording",
+        "type": "primary",
+        "isMuted": false,
+        "isLocked": false,
+        "volume": 1.0,
+        "opacity": 1.0,
+        "clips": [
+          {
+            "id": "clip-1",
+            "timelineIn": 0,
+            "content": {
+              "recording": {
+                "takeId": "take-uuid",
+                "sourceIn": 0.8,
+                "sourceOut": 35.2
+              }
+            },
+            "speed": 1.0
+          },
+          {
+            "id": "clip-2",
+            "timelineIn": 34.4,
+            "content": {
+              "image": { "path": "assets/slide1.png", "duration": 5.0 }
+            },
+            "speed": 1.0,
+            "opacity": 1.0,
+            "position": { "x": 0, "y": 0, "w": 1, "h": 1 }
+          },
+          {
+            "id": "clip-3",
+            "timelineIn": 39.4,
+            "content": {
+              "recording": {
+                "takeId": "take-uuid",
+                "sourceIn": 39.9,
+                "sourceOut": 95.9
+              }
+            },
+            "speed": 1.0
+          }
+        ]
       },
       {
-        "id": "seg-2",
-        "source_in": 39.9,
-        "source_out": 121.4,
-        "timeline_in": 34.4,
-        "speed": 1.0
+        "id": "audio-track-uuid",
+        "name": "Background Music",
+        "type": "audio",
+        "isMuted": false,
+        "isLocked": false,
+        "volume": 0.3,
+        "opacity": 1.0,
+        "clips": [
+          {
+            "id": "music-1",
+            "timelineIn": 0,
+            "content": {
+              "audio": { "path": "assets/music.mp3", "duration": 95.5, "sourceIn": 0 }
+            },
+            "speed": 1.0,
+            "volume": 0.3
+          }
+        ]
       }
     ]
   },
