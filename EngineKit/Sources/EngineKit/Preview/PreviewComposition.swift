@@ -183,19 +183,29 @@ extension PreviewEngine {
                     height: camNatural.height > 0 ? camNatural.height : 720
                 )
 
-                // Check if any segment has a per-segment camera override
-                let hasPerSegmentCamera = project.timeline.segments.contains { $0.cameraPosition != nil }
+                // Check if any clip in primary track has a per-clip camera override
+                let primaryClips = project.timeline.primaryTrack?.clips ?? []
+                let hasPerClipCamera = primaryClips.contains { clip in
+                    if case .recording(let ref) = clip.content { return ref.cameraPosition != nil }
+                    return false
+                }
 
-                if hasPerSegmentCamera || defaultCamera.maskShape != .none {
-                    // Use custom compositor with per-segment instructions
+                if hasPerClipCamera || defaultCamera.maskShape != .none {
+                    // Use custom compositor with per-clip instructions
                     var maskedInstructions: [MaskedVideoCompositionInstruction] = []
                     let totalDuration = composition.duration
                     let overlayConfigs = project.overlays.map { OverlayConfig(overlay: $0) }
 
-                    for (i, segment) in project.timeline.segments.enumerated() {
-                        let segCamera = segment.cameraPosition ?? defaultCamera
-                        let segCameraTransform = Self.cameraTransform(
-                            position: segCamera, camSourceSize: camSourceSize, renderSize: renderSize
+                    for (i, clip) in primaryClips.enumerated() {
+                        // For non-recording clips, use default camera
+                        let clipCamera: Project.Canvas.Layout.CameraPosition
+                        if case .recording(let ref) = clip.content {
+                            clipCamera = ref.cameraPosition ?? defaultCamera
+                        } else {
+                            clipCamera = defaultCamera
+                        }
+                        let clipCameraTransform = Self.cameraTransform(
+                            position: clipCamera, camSourceSize: camSourceSize, renderSize: renderSize
                         )
 
                         // Use previous instruction's end as start to guarantee contiguity
@@ -205,12 +215,12 @@ extension PreviewEngine {
                         } else {
                             segStart = .zero
                         }
-                        // Last segment extends to composition end to avoid gaps
+                        // Last clip extends to composition end to avoid gaps
                         let segEnd: CMTime
-                        if i == project.timeline.segments.count - 1 {
+                        if i == primaryClips.count - 1 {
                             segEnd = totalDuration
                         } else {
-                            segEnd = CMTime(seconds: segment.timelineIn + segment.timelineDuration, preferredTimescale: 600)
+                            segEnd = CMTime(seconds: clip.timelineOut, preferredTimescale: 600)
                         }
                         let segDuration = CMTimeSubtract(segEnd, segStart)
 
@@ -220,18 +230,18 @@ extension PreviewEngine {
                             cameraTrackID: cameraTrack.trackID,
                             renderSize: renderSize,
                             screenTransform: screenTransform,
-                            cameraTransform: segCameraTransform,
-                            cameraRect: CGRect(x: segCamera.x, y: segCamera.y, width: segCamera.w, height: segCamera.h),
-                            maskShape: segCamera.maskShape,
-                            cornerRadius: CGFloat(segCamera.cornerRadius),
+                            cameraTransform: clipCameraTransform,
+                            cameraRect: CGRect(x: clipCamera.x, y: clipCamera.y, width: clipCamera.w, height: clipCamera.h),
+                            maskShape: clipCamera.maskShape,
+                            cornerRadius: CGFloat(clipCamera.cornerRadius),
                             layoutType: layoutType,
                             videoCornerRadius: CGFloat(project.canvas.videoCornerRadius),
                             videoShadowIntensity: CGFloat(project.canvas.videoShadowIntensity),
                             padding: CGFloat(project.canvas.padding),
                             backgroundType: project.canvas.background.type,
                             backgroundValue: project.canvas.background.value,
-                            cameraBorderWidth: CGFloat(segCamera.borderWidth),
-                            cameraBorderColor: segCamera.borderColor,
+                            cameraBorderWidth: CGFloat(clipCamera.borderWidth),
+                            cameraBorderColor: clipCamera.borderColor,
                             overlays: overlayConfigs
                         ))
                     }
@@ -312,110 +322,15 @@ extension PreviewEngine {
             }
         }
 
-        // If there are static clips (image/color), use the custom compositor
-        // to render them during their time ranges
+        // If there are static clips (image/color), delegate to extension
         if !staticClips.isEmpty {
-            let screenTrack = composition.tracks(withMediaType: .video).first
-            let overlayConfigs = project.overlays.map { OverlayConfig(overlay: $0) }
-            var allInstructions: [AVVideoCompositionInstructionProtocol] = []
-
-            // Build a timeline of instructions: normal video + static content
-            let totalDuration = composition.duration
-            var coveredEnd = CMTime.zero
-
-            for info in staticClips {
-                let staticStart = info.timeRange.start
-                let staticEnd = CMTimeAdd(info.timeRange.start, info.timeRange.duration)
-
-                // Gap before this static clip: normal video
-                if CMTimeCompare(coveredEnd, staticStart) < 0 {
-                    let gapRange = CMTimeRangeMake(start: coveredEnd, duration: CMTimeSubtract(staticStart, coveredEnd))
-                    if let screenTrackID = screenTrack?.trackID {
-                        let normalInstruction = MaskedVideoCompositionInstruction(
-                            timeRange: gapRange,
-                            screenTrackID: screenTrackID,
-                            cameraTrackID: nil,
-                            renderSize: renderSize,
-                            screenTransform: instruction.layerInstructions.isEmpty
-                                ? .identity
-                                : (instruction.layerInstructions.first as? AVMutableVideoCompositionLayerInstruction)
-                                    .flatMap { _ in CGAffineTransform.identity } ?? .identity,
-                            cameraTransform: nil,
-                            cameraRect: nil,
-                            maskShape: .none,
-                            cornerRadius: 0,
-                            layoutType: project.canvas.layout.type,
-                            videoCornerRadius: CGFloat(project.canvas.videoCornerRadius),
-                            videoShadowIntensity: CGFloat(project.canvas.videoShadowIntensity),
-                            padding: CGFloat(project.canvas.padding),
-                            backgroundType: project.canvas.background.type,
-                            backgroundValue: project.canvas.background.value,
-                            overlays: overlayConfigs
-                        )
-                        allInstructions.append(normalInstruction)
-                    }
-                }
-
-                // Static clip instruction
-                let staticContent: MaskedVideoCompositionInstruction.StaticClipContent
-                switch info.clip.content {
-                case .image(let ref):
-                    let projectDir = self.projectDirectory ?? ""
-                    let fullPath = URL(fileURLWithPath: projectDir).appendingPathComponent(ref.path).path
-                    staticContent = .image(path: fullPath)
-                case .color(let ref):
-                    staticContent = .color(hexColor: ref.hexColor)
-                default:
-                    coveredEnd = staticEnd
-                    continue
-                }
-
-                let staticInstruction = MaskedVideoCompositionInstruction(
-                    timeRange: info.timeRange,
-                    screenTrackID: screenTrack?.trackID ?? 1,
-                    cameraTrackID: nil,
-                    renderSize: renderSize,
-                    screenTransform: .identity,
-                    cameraTransform: nil,
-                    cameraRect: nil,
-                    maskShape: .none,
-                    cornerRadius: 0,
-                    layoutType: "static",
-                    backgroundType: project.canvas.background.type,
-                    backgroundValue: project.canvas.background.value,
-                    overlays: overlayConfigs,
-                    staticContent: staticContent
-                )
-                allInstructions.append(staticInstruction)
-                coveredEnd = staticEnd
-            }
-
-            // Remaining time after last static clip
-            if CMTimeCompare(coveredEnd, totalDuration) < 0 {
-                let remainingRange = CMTimeRangeMake(start: coveredEnd, duration: CMTimeSubtract(totalDuration, coveredEnd))
-                if let screenTrackID = screenTrack?.trackID {
-                    let normalInstruction = MaskedVideoCompositionInstruction(
-                        timeRange: remainingRange,
-                        screenTrackID: screenTrackID,
-                        cameraTrackID: nil,
-                        renderSize: renderSize,
-                        screenTransform: .identity,
-                        cameraTransform: nil,
-                        cameraRect: nil,
-                        maskShape: .none,
-                        cornerRadius: 0,
-                        layoutType: project.canvas.layout.type,
-                        videoCornerRadius: CGFloat(project.canvas.videoCornerRadius),
-                        videoShadowIntensity: CGFloat(project.canvas.videoShadowIntensity),
-                        padding: CGFloat(project.canvas.padding),
-                        backgroundType: project.canvas.background.type,
-                        backgroundValue: project.canvas.background.value,
-                        overlays: overlayConfigs
-                    )
-                    allInstructions.append(normalInstruction)
-                }
-            }
-
+            let allInstructions = buildStaticClipInstructions(
+                project: project,
+                composition: composition,
+                staticClips: staticClips,
+                renderSize: renderSize,
+                baseInstruction: instruction
+            )
             videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
             videoComposition.instructions = allInstructions
             return videoComposition
@@ -514,7 +429,7 @@ extension PreviewEngine {
 
         // Create player item
         nonisolated(unsafe) let unsafeComposition = composition
-        nonisolated(unsafe) let unsafeVideoComposition = videoComposition
+        let unsafeVideoComposition = videoComposition
         let playerItem = await MainActor.run {
             let item = AVPlayerItem(asset: unsafeComposition)
             item.videoComposition = unsafeVideoComposition

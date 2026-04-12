@@ -24,7 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Project schema version** — bumped to 2
 
 ### Fixed
-- **`deleteRange` for spanning clips** — now properly splits any clip type (not just recordings) using generic `splitContent`, fixes double-counting of offset adjustment
+- **`deleteRange` partial overlap** — clips partially overlapping the delete range at either edge are now trimmed correctly (not silently ignored)
+- **`deleteRange` for spanning clips** — properly splits any clip type using generic `splitContent`, fixes double-counting of offset adjustment
+- **Timeline duration with muted tracks** — muted tracks now contribute to duration (muting hides playback, not timeline extent)
+- **Legacy segment ops respect `isLocked`** — trimIn, trimOut, split, delete, addSegment, deleteRange now check primary track lock state
+- **Camera instructions for mixed clips** — PreviewComposition iterates all primary track clips (not just recording segments) for per-clip camera overrides
+- **Hex color alpha support** — MaskedVideoCompositor now parses 8-character hex colors (e.g. `#FF5500AA`)
+- **Stable clip ordering** — segments setter uses deterministic sort (by timelineIn, then by id) to prevent ordering flips
 - **Audio clip sync** — clips with volume=0 no longer skipped from composition, preserving timeline alignment
 
 ## [0.7.0] - 2026-04-02

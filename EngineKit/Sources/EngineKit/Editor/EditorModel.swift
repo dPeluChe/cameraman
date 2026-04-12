@@ -17,282 +17,18 @@ public actor EditorModel {
     /// - Parameter project: The project to edit
     public init(project: Project) {
         self.project = project
-        // Ensure the timeline has a primary track
         self.project.timeline.ensurePrimaryTrack()
     }
 
     /// Get the current project state
-    /// - Returns: The edited project
     public func getProject() -> Project {
         return project
     }
 
     /// Update the project (for loading a different project)
-    /// - Parameter project: The new project to edit
     public func setProject(_ project: Project) {
         self.project = project
         self.project.timeline.ensurePrimaryTrack()
-    }
-
-    // MARK: - Segment Operations (backward compatible, delegates to primary track)
-
-    /// Trim the beginning of a segment (adjust sourceIn)
-    public func trimIn(segmentId: String, newSourceIn: TimeInterval) async -> EditorResult {
-        guard let trackIndex = project.timeline.primaryTrackIndex else {
-            return .failure(.trackNotFound("primary"))
-        }
-        guard let clipIndex = project.timeline.tracks[trackIndex].clips.firstIndex(where: { $0.id == segmentId }) else {
-            return .failure(.segmentNotFound(segmentId))
-        }
-
-        var clip = project.timeline.tracks[trackIndex].clips[clipIndex]
-        guard case .recording(var ref) = clip.content else {
-            return .failure(.invalidClipContent(reason: "trimIn only applies to recording clips"))
-        }
-
-        guard newSourceIn >= 0 && newSourceIn < ref.sourceOut else {
-            return .failure(.invalidTrimTime(
-                sourceIn: newSourceIn,
-                sourceOut: ref.sourceOut,
-                reason: "newSourceIn must be >= 0 and < sourceOut"
-            ))
-        }
-
-        let oldDuration = (ref.sourceOut - ref.sourceIn) / clip.speed
-        ref.sourceIn = newSourceIn
-        clip.content = .recording(ref)
-        let newDuration = (ref.sourceOut - ref.sourceIn) / clip.speed
-        let durationDelta = oldDuration - newDuration
-
-        project.timeline.tracks[trackIndex].clips[clipIndex] = clip
-
-        adjustSubsequentClips(trackIndex: trackIndex, from: clipIndex + 1, by: -durationDelta)
-        recalculateTimelineDuration()
-
-        return .success(project)
-    }
-
-    /// Trim the end of a segment (adjust sourceOut)
-    public func trimOut(segmentId: String, newSourceOut: TimeInterval) async -> EditorResult {
-        guard let trackIndex = project.timeline.primaryTrackIndex else {
-            return .failure(.trackNotFound("primary"))
-        }
-        guard let clipIndex = project.timeline.tracks[trackIndex].clips.firstIndex(where: { $0.id == segmentId }) else {
-            return .failure(.segmentNotFound(segmentId))
-        }
-
-        var clip = project.timeline.tracks[trackIndex].clips[clipIndex]
-        guard case .recording(var ref) = clip.content else {
-            return .failure(.invalidClipContent(reason: "trimOut only applies to recording clips"))
-        }
-
-        guard newSourceOut > ref.sourceIn else {
-            return .failure(.invalidTrimTime(
-                sourceIn: ref.sourceIn,
-                sourceOut: newSourceOut,
-                reason: "newSourceOut must be > sourceIn"
-            ))
-        }
-
-        let oldDuration = (ref.sourceOut - ref.sourceIn) / clip.speed
-        ref.sourceOut = newSourceOut
-        clip.content = .recording(ref)
-        let newDuration = (ref.sourceOut - ref.sourceIn) / clip.speed
-        let durationDelta = oldDuration - newDuration
-
-        project.timeline.tracks[trackIndex].clips[clipIndex] = clip
-
-        adjustSubsequentClips(trackIndex: trackIndex, from: clipIndex + 1, by: -durationDelta)
-        recalculateTimelineDuration()
-
-        return .success(project)
-    }
-
-    /// Split a segment into two parts at a specified timeline time
-    public func split(segmentId: String, at timelineTime: TimeInterval) async -> EditorResult {
-        guard let trackIndex = project.timeline.primaryTrackIndex else {
-            return .failure(.trackNotFound("primary"))
-        }
-        guard let clipIndex = project.timeline.tracks[trackIndex].clips.firstIndex(where: { $0.id == segmentId }) else {
-            return .failure(.segmentNotFound(segmentId))
-        }
-
-        let clip = project.timeline.tracks[trackIndex].clips[clipIndex]
-        guard case .recording(let ref) = clip.content else {
-            return .failure(.invalidClipContent(reason: "split only applies to recording clips"))
-        }
-
-        guard timelineTime > clip.timelineIn && timelineTime < clip.timelineOut else {
-            return .failure(.invalidSplitTime(
-                segmentId: segmentId,
-                timelineIn: clip.timelineIn,
-                timelineOut: clip.timelineOut,
-                requestedTime: timelineTime
-            ))
-        }
-
-        let timelineOffset = timelineTime - clip.timelineIn
-        let sourceSplitTime = ref.sourceIn + (timelineOffset * clip.speed)
-
-        let firstClip = Project.TimelineClip(
-            id: UUID().uuidString,
-            timelineIn: clip.timelineIn,
-            content: .recording(Project.RecordingClipRef(
-                takeId: ref.takeId,
-                sourceIn: ref.sourceIn,
-                sourceOut: sourceSplitTime,
-                zoom: ref.zoom,
-                cameraPosition: ref.cameraPosition,
-                audioMuted: ref.audioMuted
-            )),
-            speed: clip.speed,
-            volume: clip.volume
-        )
-
-        let secondClip = Project.TimelineClip(
-            id: UUID().uuidString,
-            timelineIn: timelineTime,
-            content: .recording(Project.RecordingClipRef(
-                takeId: ref.takeId,
-                sourceIn: sourceSplitTime,
-                sourceOut: ref.sourceOut,
-                zoom: ref.zoom,
-                cameraPosition: ref.cameraPosition,
-                audioMuted: ref.audioMuted
-            )),
-            speed: clip.speed,
-            volume: clip.volume
-        )
-
-        project.timeline.tracks[trackIndex].clips.remove(at: clipIndex)
-        project.timeline.tracks[trackIndex].clips.insert(secondClip, at: clipIndex)
-        project.timeline.tracks[trackIndex].clips.insert(firstClip, at: clipIndex)
-
-        recalculateTimelineDuration()
-
-        return .successWithInfo(project, .splitCreated(newSegmentId: secondClip.id))
-    }
-
-    /// Add a new segment to the timeline (recording clip to primary track)
-    public func addSegment(
-        takeId: UUID,
-        sourceIn: TimeInterval,
-        sourceOut: TimeInterval,
-        timelineIn: TimeInterval
-    ) async -> EditorResult {
-        guard project.takes.contains(where: { $0.id == takeId }) else {
-            return .failure(.takeNotFound(takeId.uuidString))
-        }
-
-        let newClip = Project.TimelineClip(
-            timelineIn: timelineIn,
-            content: .recording(Project.RecordingClipRef(
-                takeId: takeId,
-                sourceIn: sourceIn,
-                sourceOut: sourceOut
-            ))
-        )
-
-        project.timeline.ensurePrimaryTrack()
-        let trackIndex = project.timeline.primaryTrackIndex!
-        project.timeline.tracks[trackIndex].clips.append(newClip)
-        project.timeline.tracks[trackIndex].clips.sort { $0.timelineIn < $1.timelineIn }
-
-        recalculateTimelineDuration()
-
-        return .successWithInfo(project, .segmentAdded(segmentId: newClip.id))
-    }
-
-    /// Delete a segment from the timeline
-    public func delete(segmentId: String) async -> EditorResult {
-        guard let trackIndex = project.timeline.primaryTrackIndex else {
-            return .failure(.trackNotFound("primary"))
-        }
-        guard let clipIndex = project.timeline.tracks[trackIndex].clips.firstIndex(where: { $0.id == segmentId }) else {
-            return .failure(.segmentNotFound(segmentId))
-        }
-
-        let clip = project.timeline.tracks[trackIndex].clips[clipIndex]
-        let duration = clip.duration
-
-        project.timeline.tracks[trackIndex].clips.remove(at: clipIndex)
-
-        adjustSubsequentClips(trackIndex: trackIndex, from: clipIndex, by: -duration)
-        recalculateTimelineDuration()
-
-        return .success(project)
-    }
-
-    /// Delete all segments within a timeline time range
-    public func deleteRange(from startTime: TimeInterval, to endTime: TimeInterval) async -> EditorResult {
-        guard startTime < endTime else {
-            return .failure(.invalidRange(start: startTime, end: endTime))
-        }
-        guard let trackIndex = project.timeline.primaryTrackIndex else {
-            return .failure(.trackNotFound("primary"))
-        }
-
-        var clipsToDelete: [String] = []
-        let rangeWidth = endTime - startTime
-
-        for clip in project.timeline.tracks[trackIndex].clips {
-            let clipEnd = clip.timelineOut
-
-            // Clip is completely within the delete range
-            if clip.timelineIn >= startTime && clipEnd <= endTime {
-                clipsToDelete.append(clip.id)
-            }
-            // Clip spans the entire delete range (start before, end after)
-            else if clip.timelineIn < startTime && clipEnd > endTime {
-                // Use splitContent to handle any clip type generically
-                let preOffset = startTime - clip.timelineIn
-                let postOffset = endTime - clip.timelineIn
-
-                let (preContent, _) = splitContent(clip.content, at: preOffset, speed: clip.speed)
-                let (_, postContent) = splitContent(clip.content, at: postOffset, speed: clip.speed)
-
-                if let idx = project.timeline.tracks[trackIndex].clips.firstIndex(where: { $0.id == clip.id }) {
-                    let preClip = Project.TimelineClip(
-                        timelineIn: clip.timelineIn,
-                        content: preContent,
-                        speed: clip.speed,
-                        volume: clip.volume,
-                        opacity: clip.opacity,
-                        position: clip.position
-                    )
-                    let postClip = Project.TimelineClip(
-                        timelineIn: startTime, // will shift down by rangeWidth below
-                        content: postContent,
-                        speed: clip.speed,
-                        volume: clip.volume,
-                        opacity: clip.opacity,
-                        position: clip.position
-                    )
-
-                    project.timeline.tracks[trackIndex].clips.remove(at: idx)
-                    project.timeline.tracks[trackIndex].clips.insert(postClip, at: idx)
-                    project.timeline.tracks[trackIndex].clips.insert(preClip, at: idx)
-                }
-            }
-        }
-
-        // Delete fully-enclosed clips
-        for clipId in clipsToDelete {
-            if let idx = project.timeline.tracks[trackIndex].clips.firstIndex(where: { $0.id == clipId }) {
-                project.timeline.tracks[trackIndex].clips.remove(at: idx)
-            }
-        }
-
-        // Shift all clips after the deleted range left by the range width
-        for i in 0..<project.timeline.tracks[trackIndex].clips.count {
-            if project.timeline.tracks[trackIndex].clips[i].timelineIn >= startTime {
-                project.timeline.tracks[trackIndex].clips[i].timelineIn -= rangeWidth
-            }
-        }
-
-        recalculateTimelineDuration()
-
-        return .successWithInfo(project, .rangeDeleted(count: clipsToDelete.count))
     }
 
     // MARK: - Track Operations
@@ -309,7 +45,6 @@ public actor EditorModel {
         guard let index = project.timeline.tracks.firstIndex(where: { $0.id == trackId }) else {
             return .failure(.trackNotFound(trackId.uuidString))
         }
-        // Don't allow removing the primary track
         if project.timeline.tracks[index].type == .primary {
             return .failure(.invalidTrackType(expected: "non-primary", got: "primary"))
         }
@@ -365,7 +100,6 @@ public actor EditorModel {
             return .failure(.trackLocked(trackId.uuidString))
         }
 
-        // Validate clip content matches track type
         if let error = validateClipForTrack(clip: clip, track: track) {
             return .failure(error)
         }
@@ -452,7 +186,6 @@ public actor EditorModel {
 
         var clip = project.timeline.tracks[fromIndex].clips[clipIndex]
 
-        // Validate clip is compatible with destination track
         if let error = validateClipForTrack(clip: clip, track: project.timeline.tracks[toIndex]) {
             return .failure(error)
         }
@@ -496,123 +229,131 @@ public actor EditorModel {
         }
 
         let offset = timelineTime - clip.timelineIn
-
         let (firstContent, secondContent) = splitContent(clip.content, at: offset, speed: clip.speed)
 
         let firstClip = Project.TimelineClip(
-            timelineIn: clip.timelineIn,
-            content: firstContent,
-            speed: clip.speed,
-            volume: clip.volume,
-            opacity: clip.opacity,
-            position: clip.position
+            timelineIn: clip.timelineIn, content: firstContent,
+            speed: clip.speed, volume: clip.volume, opacity: clip.opacity, position: clip.position
         )
         let secondClip = Project.TimelineClip(
-            timelineIn: timelineTime,
-            content: secondContent,
-            speed: clip.speed,
-            volume: clip.volume,
-            opacity: clip.opacity,
-            position: clip.position
+            timelineIn: timelineTime, content: secondContent,
+            speed: clip.speed, volume: clip.volume, opacity: clip.opacity, position: clip.position
         )
 
-        project.timeline.tracks[trackIndex].clips.remove(at: clipIndex)
-        project.timeline.tracks[trackIndex].clips.insert(secondClip, at: clipIndex)
-        project.timeline.tracks[trackIndex].clips.insert(firstClip, at: clipIndex)
-
+        replaceClipInProject(trackIndex: trackIndex, clipIndex: clipIndex, with: [firstClip, secondClip])
         recalculateTimelineDuration()
         project.updatedAt = Date()
 
         return .successWithInfo(project, .splitCreated(newSegmentId: secondClip.id))
     }
 
-    // MARK: - Overlay Operations
+    // MARK: - Internal Accessors (for extension files)
 
-    /// Update an overlay's transform, style, or timing
-    public func updateOverlay(
-        projectId: ProjectId,
-        overlayId: UUID,
-        transform: Project.Overlay.Transform? = nil,
-        style: Project.Overlay.Style? = nil,
-        start: TimeInterval? = nil,
-        end: TimeInterval? = nil,
-        animation: Project.Overlay.Animation? = nil
-    ) async -> EditorResult {
-        guard let index = project.overlays.firstIndex(where: { $0.id == overlayId }) else {
-            return .failure(.segmentNotFound(overlayId.uuidString))
+    var projectRef: Project {
+        get { project }
+        set { project = newValue }
+    }
+
+    var primaryTrackIndex: Int? {
+        project.timeline.primaryTrackIndex
+    }
+
+    func ensurePrimaryTrack() {
+        project.timeline.ensurePrimaryTrack()
+    }
+
+    // MARK: - Internal Mutation Helpers
+
+    func adjustSubsequentClips(trackIndex: Int, from startIndex: Int, by delta: TimeInterval) {
+        guard startIndex < project.timeline.tracks[trackIndex].clips.count else { return }
+        for i in startIndex..<project.timeline.tracks[trackIndex].clips.count {
+            project.timeline.tracks[trackIndex].clips[i].timelineIn += delta
         }
+    }
 
-        var overlay = project.overlays[index]
-
-        if let newTransform = transform { overlay.transform = newTransform }
-        if let newStyle = style { overlay.style = newStyle }
-        if let newStart = start { overlay.start = newStart }
-        if let newEnd = end { overlay.end = newEnd }
-        if let newAnimation = animation { overlay.animation = newAnimation }
-
-        guard overlay.start < overlay.end else {
-            return .failure(.invalidTrimTime(sourceIn: overlay.start, sourceOut: overlay.end, reason: "Start time must be less than end time"))
+    func recalculateTimelineDuration() {
+        var maxEnd: TimeInterval = 0
+        for track in project.timeline.tracks {
+            for clip in track.clips {
+                maxEnd = max(maxEnd, clip.timelineOut)
+            }
         }
-
-        guard overlay.start >= 0 && overlay.end <= project.timeline.duration else {
-            return .failure(.invalidTrimTime(sourceIn: overlay.start, sourceOut: overlay.end, reason: "Overlay timing must be within timeline duration"))
+        for overlay in project.overlays {
+            maxEnd = max(maxEnd, overlay.end)
         }
+        for item in project.mediaItems {
+            maxEnd = max(maxEnd, item.timelineOut)
+        }
+        project.timeline.duration = maxEnd
+    }
 
+    func updateClipInProject(trackIndex: Int, clipIndex: Int, clip: Project.TimelineClip) {
+        project.timeline.tracks[trackIndex].clips[clipIndex] = clip
+    }
+
+    func replaceClipInProject(trackIndex: Int, clipIndex: Int, with clips: [Project.TimelineClip]) {
+        project.timeline.tracks[trackIndex].clips.remove(at: clipIndex)
+        for (offset, clip) in clips.enumerated() {
+            project.timeline.tracks[trackIndex].clips.insert(clip, at: clipIndex + offset)
+        }
+    }
+
+    func removeClipFromProject(trackIndex: Int, clipIndex: Int) {
+        project.timeline.tracks[trackIndex].clips.remove(at: clipIndex)
+    }
+
+    func appendAndSortClip(_ clip: Project.TimelineClip, trackIndex: Int) {
+        project.timeline.tracks[trackIndex].clips.append(clip)
+        project.timeline.tracks[trackIndex].clips.sort { $0.timelineIn < $1.timelineIn }
+    }
+
+    func applyClipReplacements(_ replacements: [(id: String, replacements: [Project.TimelineClip])], trackIndex: Int) {
+        for replacement in replacements {
+            if let idx = project.timeline.tracks[trackIndex].clips.firstIndex(where: { $0.id == replacement.id }) {
+                replaceClipInProject(trackIndex: trackIndex, clipIndex: idx, with: replacement.replacements)
+            }
+        }
+    }
+
+    func deleteClipsByIds(_ ids: [String], trackIndex: Int) {
+        let idsToRemove = Set(ids)
+        project.timeline.tracks[trackIndex].clips.removeAll { idsToRemove.contains($0.id) }
+    }
+
+    func shiftClipsAfter(_ time: TimeInterval, by delta: TimeInterval, trackIndex: Int) {
+        for i in 0..<project.timeline.tracks[trackIndex].clips.count {
+            if project.timeline.tracks[trackIndex].clips[i].timelineIn >= time {
+                project.timeline.tracks[trackIndex].clips[i].timelineIn += delta
+            }
+        }
+    }
+
+    func updateOverlayInProject(index: Int, overlay: Project.Overlay) {
         project.overlays[index] = overlay
         project.updatedAt = Date()
-
-        return .success(project)
     }
 
-    /// Delete an overlay
-    public func deleteOverlay(
-        projectId: ProjectId,
-        overlayId: UUID
-    ) async -> EditorResult {
-        guard project.overlays.contains(where: { $0.id == overlayId }) else {
-            return .failure(.segmentNotFound(overlayId.uuidString))
-        }
-
+    func removeOverlayFromProject(overlayId: UUID) {
         project.overlays.removeAll { $0.id == overlayId }
         project.updatedAt = Date()
-
-        return .success(project)
     }
 
-    // MARK: - Media Item Operations (legacy compatibility)
-
-    /// Add an imported media item to the project
-    public func addMediaItem(_ item: Project.MediaItem) async -> EditorResult {
+    func appendMediaItem(_ item: Project.MediaItem) {
         project.mediaItems.append(item)
         project.updatedAt = Date()
-        return .successWithInfo(project, .mediaItemAdded(mediaItemId: item.id))
     }
 
-    /// Remove a media item from the project
-    public func removeMediaItem(id: UUID) async -> EditorResult {
-        guard project.mediaItems.contains(where: { $0.id == id }) else {
-            return .failure(.mediaItemNotFound(id.uuidString))
-        }
+    func removeMediaItemFromProject(id: UUID) {
         project.mediaItems.removeAll { $0.id == id }
         project.updatedAt = Date()
-        return .success(project)
     }
 
-    /// Update a media item's properties
-    public func updateMediaItem(
-        id: UUID,
-        timelineIn: TimeInterval? = nil,
-        duration: TimeInterval? = nil,
-        volume: Double? = nil,
-        opacity: Double? = nil,
-        position: Project.MediaPosition? = nil,
-        isMuted: Bool? = nil,
-        name: String? = nil
-    ) async -> EditorResult {
-        guard let index = project.mediaItems.firstIndex(where: { $0.id == id }) else {
-            return .failure(.mediaItemNotFound(id.uuidString))
-        }
-
+    func updateMediaItemInProject(
+        index: Int,
+        timelineIn: TimeInterval?, duration: TimeInterval?,
+        volume: Double?, opacity: Double?,
+        position: Project.MediaPosition?, isMuted: Bool?, name: String?
+    ) {
         if let t = timelineIn { project.mediaItems[index].timelineIn = t }
         if let d = duration { project.mediaItems[index].duration = d }
         if let v = volume { project.mediaItems[index].volume = v }
@@ -620,74 +361,31 @@ public actor EditorModel {
         if let p = position { project.mediaItems[index].position = p }
         if let m = isMuted { project.mediaItems[index].isMuted = m }
         if let n = name { project.mediaItems[index].name = n }
-
         project.updatedAt = Date()
-        return .success(project)
     }
 
-    // MARK: - Private Helpers
+    // MARK: - Validation
 
-    /// Adjust the timeline positions of clips starting from a given index in a track
-    private func adjustSubsequentClips(trackIndex: Int, from startIndex: Int, by delta: TimeInterval) {
-        guard startIndex < project.timeline.tracks[trackIndex].clips.count else { return }
-        for i in startIndex..<project.timeline.tracks[trackIndex].clips.count {
-            project.timeline.tracks[trackIndex].clips[i].timelineIn += delta
-        }
-    }
-
-    /// Recalculate the total timeline duration from all tracks
-    private func recalculateTimelineDuration() {
-        var maxEnd: TimeInterval = 0
-
-        for track in project.timeline.tracks {
-            if track.isMuted { continue }
-            for clip in track.clips {
-                maxEnd = max(maxEnd, clip.timelineOut)
-            }
-        }
-
-        // Also consider overlays and media items
-        for overlay in project.overlays {
-            maxEnd = max(maxEnd, overlay.end)
-        }
-        for item in project.mediaItems {
-            maxEnd = max(maxEnd, item.timelineOut)
-        }
-
-        project.timeline = Project.Timeline(
-            duration: maxEnd,
-            tracks: project.timeline.tracks
-        )
-    }
-
-    /// Validate that a clip's content is compatible with the target track type
     private func validateClipForTrack(clip: Project.TimelineClip, track: Project.TimelineTrack) -> EditorError? {
         switch track.type {
         case .primary:
-            // Primary track accepts recording, image, video, color
             if case .audio = clip.content {
                 return .invalidClipContent(reason: "Primary track does not accept audio clips")
             }
             return nil
         case .video:
-            // Video tracks accept image, video, color
             switch clip.content {
-            case .image, .video, .color:
-                return nil
-            default:
-                return .invalidClipContent(reason: "Video track only accepts image, video, or color clips")
+            case .image, .video, .color: return nil
+            default: return .invalidClipContent(reason: "Video track only accepts image, video, or color clips")
             }
         case .audio:
-            // Audio tracks accept audio only
-            if case .audio = clip.content {
-                return nil
-            }
+            if case .audio = clip.content { return nil }
             return .invalidClipContent(reason: "Audio track only accepts audio clips")
         }
     }
 
     /// Split clip content at a given offset, returning two new content values
-    private func splitContent(
+    func splitContent(
         _ content: Project.ClipContent,
         at offset: TimeInterval,
         speed: Double
@@ -695,38 +393,24 @@ public actor EditorModel {
         switch content {
         case .recording(let ref):
             let sourceSplit = ref.sourceIn + (offset * speed)
-            let first = Project.RecordingClipRef(
-                takeId: ref.takeId, sourceIn: ref.sourceIn, sourceOut: sourceSplit,
-                zoom: ref.zoom, cameraPosition: ref.cameraPosition, audioMuted: ref.audioMuted
+            return (
+                .recording(Project.RecordingClipRef(takeId: ref.takeId, sourceIn: ref.sourceIn, sourceOut: sourceSplit, zoom: ref.zoom, cameraPosition: ref.cameraPosition, audioMuted: ref.audioMuted)),
+                .recording(Project.RecordingClipRef(takeId: ref.takeId, sourceIn: sourceSplit, sourceOut: ref.sourceOut, zoom: ref.zoom, cameraPosition: ref.cameraPosition, audioMuted: ref.audioMuted))
             )
-            let second = Project.RecordingClipRef(
-                takeId: ref.takeId, sourceIn: sourceSplit, sourceOut: ref.sourceOut,
-                zoom: ref.zoom, cameraPosition: ref.cameraPosition, audioMuted: ref.audioMuted
-            )
-            return (.recording(first), .recording(second))
-
         case .video(let ref):
             let sourceSplit = ref.sourceIn + (offset * speed)
-            let first = Project.VideoClipRef(path: ref.path, sourceIn: ref.sourceIn, sourceOut: sourceSplit)
-            let second = Project.VideoClipRef(path: ref.path, sourceIn: sourceSplit, sourceOut: ref.sourceOut)
-            return (.video(first), .video(second))
-
+            return (.video(Project.VideoClipRef(path: ref.path, sourceIn: ref.sourceIn, sourceOut: sourceSplit)),
+                    .video(Project.VideoClipRef(path: ref.path, sourceIn: sourceSplit, sourceOut: ref.sourceOut)))
         case .image(let ref):
-            let first = Project.ImageClipRef(path: ref.path, duration: offset)
-            let second = Project.ImageClipRef(path: ref.path, duration: ref.duration - offset)
-            return (.image(first), .image(second))
-
+            return (.image(Project.ImageClipRef(path: ref.path, duration: offset)),
+                    .image(Project.ImageClipRef(path: ref.path, duration: ref.duration - offset)))
         case .audio(let ref):
-            // offset is in timeline time; convert to source time for sourceIn adjustment
             let sourceOffset = offset * speed
-            let first = Project.AudioClipRef(path: ref.path, duration: sourceOffset, sourceIn: ref.sourceIn)
-            let second = Project.AudioClipRef(path: ref.path, duration: ref.duration - sourceOffset, sourceIn: ref.sourceIn + sourceOffset)
-            return (.audio(first), .audio(second))
-
+            return (.audio(Project.AudioClipRef(path: ref.path, duration: sourceOffset, sourceIn: ref.sourceIn)),
+                    .audio(Project.AudioClipRef(path: ref.path, duration: ref.duration - sourceOffset, sourceIn: ref.sourceIn + sourceOffset)))
         case .color(let ref):
-            let first = Project.ColorClipRef(hexColor: ref.hexColor, duration: offset)
-            let second = Project.ColorClipRef(hexColor: ref.hexColor, duration: ref.duration - offset)
-            return (.color(first), .color(second))
+            return (.color(Project.ColorClipRef(hexColor: ref.hexColor, duration: offset)),
+                    .color(Project.ColorClipRef(hexColor: ref.hexColor, duration: ref.duration - offset)))
         }
     }
 }

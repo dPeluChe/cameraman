@@ -125,7 +125,7 @@ extension Project {
                     // Preserve non-recording clips (images, colors, videos)
                     let nonRecordingClips = tracks[idx].clips.filter { !$0.isRecording }
                     tracks[idx].clips = (newRecordingClips + nonRecordingClips)
-                        .sorted { $0.timelineIn < $1.timelineIn }
+                        .sorted { $0.timelineIn < $1.timelineIn || ($0.timelineIn == $1.timelineIn && $0.id < $1.id) }
                 } else {
                     tracks.insert(
                         TimelineTrack(id: TimelineTrack.primaryTrackId, type: .primary, clips: newRecordingClips),
@@ -197,7 +197,7 @@ extension Project {
         }
 
         /// Zoom configuration for a timeline segment
-        public struct ZoomConfiguration: Codable, Equatable {
+        public struct ZoomConfiguration: Codable, Equatable, Sendable {
             /// Whether zoom is enabled for this segment
             public let enabled: Bool
             /// Minimum zoom level (1.0 = no zoom)
@@ -208,7 +208,7 @@ extension Project {
             public let intensity: ZoomIntensity?
 
             /// Zoom intensity presets
-            public enum ZoomIntensity: String, Codable {
+            public enum ZoomIntensity: String, Codable, Sendable {
                 case disabled
                 case subtle
                 case normal

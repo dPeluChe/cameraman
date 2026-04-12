@@ -61,11 +61,12 @@ Capture/        - Screen/camera recording (CaptureEngine, CameraEngine, Recorder
                 - Telemetry (TelemetryRecorder, TelemetryParser, TelemetrySync)
                 - Recording quality presets (RecordingQuality)
 
-Editor/         - Non-destructive editing model (EditorModel)
+Editor/         - Non-destructive editing model (EditorModel + EditorModel+SegmentOps)
                 - Overlays: arrows, rectangles, text (OverlayEngine)
                 - Canvas layouts: PiP, side-by-side (CanvasLayout)
 
 Preview/        - Playback with edits applied (PreviewEngine)
+                - Composition building (PreviewComposition + PreviewComposition+StaticClips)
                 - Proxy generation for smooth preview (ProxyGenerator)
                 - Thumbnail/waveform caching (ThumbnailCache, LRU eviction)
                 - Zoom rendering (applyZoom, applyZoomTransform in PreviewRenderer)
@@ -90,6 +91,10 @@ Intelligence/   - AI service interface (AIService actor)
                 - Local analysis: silence detection, chapter suggestion
 
 Shared/         - AudioMixBuilder (per-track volume/mute for preview + export)
+                - CompositionBuilder (AVComposition from multi-track timeline)
+                - MaskedVideoCompositor (custom AVVideoCompositing: PiP masks, zoom, overlays)
+                - CompositorRenderers (mask, background, static content, video effects)
+                - OverlayRenderer (arrow, rect, line, text overlay shapes)
 
 Infrastructure/ - Logging (LoggingSystem), crash reporting (CrashReporter)
 

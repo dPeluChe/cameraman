@@ -296,7 +296,7 @@ public struct CompositionBuilder {
                 let gapDuration = CMTime(seconds: clip.duration, preferredTimescale: 600)
                 let timeRange = CMTimeRangeMake(start: currentTime, duration: gapDuration)
 
-                try videoTrack.insertEmptyTimeRange(timeRange)
+                videoTrack.insertEmptyTimeRange(timeRange)
 
                 staticClips.append(StaticClipInfo(clip: clip, timeRange: timeRange))
 
