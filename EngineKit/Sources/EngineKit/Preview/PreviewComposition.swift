@@ -11,7 +11,12 @@ import AVFoundation
 extension PreviewEngine {
     /// Build an AVMutableVideoComposition with screen + camera layer transforms
     /// Reusable for both initial creation and live updates
-    func buildVideoComposition(for project: Project, composition: AVComposition) -> AVMutableVideoComposition {
+    /// - Parameter staticClips: non-recording clips from CompositionBuilder that need compositor rendering
+    func buildVideoComposition(
+        for project: Project,
+        composition: AVComposition,
+        staticClips: [CompositionBuilder.StaticClipInfo] = []
+    ) -> AVMutableVideoComposition {
         let videoComposition = AVMutableVideoComposition()
 
         let renderSize = CoreFoundation.CGSize(
@@ -354,7 +359,8 @@ extension PreviewEngine {
             throw PreviewError.playbackFailed("No project directory set")
         }
 
-        logger.debug("Creating player with edits - project: \(project.name), segments: \(project.timeline.segments.count)")
+        let primaryClipCount = project.timeline.primaryTrack?.clips.count ?? 0
+        logger.debug("Creating player with edits - project: \(project.name), clips: \(primaryClipCount)")
 
         // Build composition using shared CompositionBuilder
         let builder = CompositionBuilder(fileManager: fileManager)
@@ -378,8 +384,8 @@ extension PreviewEngine {
             result = try await builder.buildComposition(
                 project: project,
                 resolver: resolver,
-                resolveSources: { [self] segment in
-                    self.resolveSources(for: segment.takeId)
+                resolveSources: { [self] takeId in
+                    self.resolveSources(for: takeId)
                 }
             )
         } catch {
@@ -387,9 +393,15 @@ extension PreviewEngine {
             throw PreviewError.playbackFailed("Preview failed: \(error.localizedDescription)")
         }
 
-        let composition = result.composition
+        // Store result first so buildVideoComposition can access static clips
+        self.compositionResult = result
 
-        let videoComposition = buildVideoComposition(for: project, composition: composition)
+        let composition = result.composition
+        let videoComposition = buildVideoComposition(
+            for: project,
+            composition: composition,
+            staticClips: result.staticClips
+        )
 
         // Create player item
         nonisolated(unsafe) let unsafeComposition = composition
@@ -402,7 +414,6 @@ extension PreviewEngine {
         player = AVPlayer(playerItem: playerItem)
         self.composition = composition
         self.videoCompositionConfig = videoComposition
-        self.compositionResult = result
 
         // Apply default audio mix (mic boost) on initial load
         if let currentItem = player?.currentItem {
@@ -436,7 +447,11 @@ extension PreviewEngine {
             return
         }
 
-        let videoComposition = buildVideoComposition(for: project, composition: composition)
+        let videoComposition = buildVideoComposition(
+            for: project,
+            composition: composition,
+            staticClips: compositionResult?.staticClips ?? []
+        )
         self.videoCompositionConfig = videoComposition
 
         await MainActor.run {

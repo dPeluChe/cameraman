@@ -34,6 +34,12 @@ public enum EditorResultInfo: Equatable {
     case rangeDeleted(count: Int)
     case segmentAdded(segmentId: String)
     case mediaItemAdded(mediaItemId: UUID)
+    // Track/clip operations
+    case trackAdded(trackId: UUID)
+    case trackRemoved(trackId: UUID)
+    case clipAdded(clipId: String, trackId: UUID)
+    case clipRemoved(clipId: String, trackId: UUID)
+    case clipMoved(clipId: String, fromTrackId: UUID, toTrackId: UUID)
 }
 
 /// Errors that can occur during editing operations
@@ -46,6 +52,12 @@ public enum EditorError: Error, Equatable {
     case invalidRange(start: TimeInterval, end: TimeInterval)
     case emptyTimeline
     case insufficientMedia
+    // Track/clip errors
+    case trackNotFound(String)
+    case clipNotFound(clipId: String, trackId: String)
+    case invalidClipContent(reason: String)
+    case trackLocked(String)
+    case invalidTrackType(expected: String, got: String)
 
     /// Localized description of the error
     public var localizedDescription: String {
@@ -66,6 +78,16 @@ public enum EditorError: Error, Equatable {
             return "Cannot perform operation on empty timeline"
         case .insufficientMedia:
             return "Not enough media to perform operation"
+        case .trackNotFound(let id):
+            return "Track with ID '\(id)' not found"
+        case .clipNotFound(let clipId, let trackId):
+            return "Clip '\(clipId)' not found in track '\(trackId)'"
+        case .invalidClipContent(let reason):
+            return "Invalid clip content: \(reason)"
+        case .trackLocked(let id):
+            return "Track '\(id)' is locked"
+        case .invalidTrackType(let expected, let got):
+            return "Expected track type '\(expected)' but got '\(got)'"
         }
     }
 }

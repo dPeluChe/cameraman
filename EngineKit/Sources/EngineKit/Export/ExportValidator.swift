@@ -42,7 +42,8 @@ extension ExportEngine {
         }
 
         // 2. Validate sources for all takes used in the timeline
-        let usedTakeIds = Set(project.timeline.segments.compactMap { $0.takeId })
+        let recordingClips = (project.timeline.primaryTrack?.clips ?? []).compactMap { $0.recordingRef }
+        let usedTakeIds = Set(recordingClips.compactMap { $0.takeId })
         for takeId in usedTakeIds {
             guard let take = project.takes.first(where: { $0.id == takeId }) else {
                 logger.warning("Segment references missing takeId: \(takeId)")

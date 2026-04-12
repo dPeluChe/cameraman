@@ -4,23 +4,138 @@
 //
 //  Created by Ralphy on 2026-01-18.
 //
+//  Multi-track timeline model with backward-compatible segments accessor.
+//
 
 import Foundation
 
 extension Project {
-    /// Timeline model
+    /// Timeline model — multi-track architecture
     public struct Timeline: Codable, Equatable {
-        /// Total duration in seconds
-        public let duration: TimeInterval
-        /// Timeline segments (non-destructive edits)
-        public var segments: [Segment]
+        /// Total duration in seconds (max end time across all tracks)
+        public var duration: TimeInterval
+        /// Ordered list of tracks in the timeline
+        public var tracks: [TimelineTrack]
 
-        public init(duration: TimeInterval, segments: [Segment]) {
+        public init(duration: TimeInterval, tracks: [TimelineTrack] = []) {
             self.duration = duration
-            self.segments = segments
+            self.tracks = tracks
         }
 
-        /// A segment represents a portion of source media on the timeline
+        /// Convenience initializer from segments (creates a primary track)
+        public init(duration: TimeInterval, segments: [Segment]) {
+            self.duration = duration
+            let clips = segments.map { TimelineClip.fromSegment($0) }
+            self.tracks = [TimelineTrack(id: TimelineTrack.primaryTrackId, type: .primary, clips: clips)]
+        }
+
+        // MARK: - Codable (migrates old segments format → tracks)
+
+        enum CodingKeys: String, CodingKey {
+            case duration
+            case tracks
+            case segments // legacy key for migration
+        }
+
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            duration = try container.decode(TimeInterval.self, forKey: .duration)
+
+            if let tracks = try container.decodeIfPresent([TimelineTrack].self, forKey: .tracks) {
+                self.tracks = tracks
+            } else if let legacySegments = try container.decodeIfPresent([Segment].self, forKey: .segments) {
+                // Migration: convert flat segments into a primary track
+                let clips = legacySegments.map { TimelineClip.fromSegment($0) }
+                self.tracks = [TimelineTrack(id: TimelineTrack.primaryTrackId, type: .primary, clips: clips)]
+            } else {
+                self.tracks = []
+            }
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(duration, forKey: .duration)
+            try container.encode(tracks, forKey: .tracks)
+        }
+
+        // MARK: - Track Accessors
+
+        /// The primary recording track (always exists, created on first access if needed)
+        public var primaryTrack: TimelineTrack? {
+            tracks.first(where: { $0.type == .primary })
+        }
+
+        /// Index of the primary track
+        public var primaryTrackIndex: Int? {
+            tracks.firstIndex(where: { $0.type == .primary })
+        }
+
+        /// All video overlay tracks (B-roll, images, slides)
+        public var videoTracks: [TimelineTrack] {
+            tracks.filter { $0.type == .video }
+        }
+
+        /// All audio tracks (music, effects)
+        public var audioTracks: [TimelineTrack] {
+            tracks.filter { $0.type == .audio }
+        }
+
+        /// Ensure a primary track exists, creating one if needed
+        public mutating func ensurePrimaryTrack() {
+            if primaryTrack == nil {
+                tracks.insert(TimelineTrack(id: TimelineTrack.primaryTrackId, type: .primary), at: 0)
+            }
+        }
+
+        /// Add a new track and return its ID
+        @discardableResult
+        public mutating func addTrack(type: TrackType, name: String = "") -> UUID {
+            let track = TimelineTrack(name: name, type: type)
+            tracks.append(track)
+            return track.id
+        }
+
+        // MARK: - Backward-Compatible Segments Accessor
+
+        /// Recording segments from the primary track.
+        /// Getter: Converts primary track clips back to legacy Segment format.
+        /// Setter: Converts legacy Segments into primary track clips.
+        public var segments: [Segment] {
+            get {
+                guard let primary = primaryTrack else { return [] }
+                return primary.clips.compactMap { clip -> Segment? in
+                    guard case .recording(let ref) = clip.content else { return nil }
+                    return Segment(
+                        id: clip.id,
+                        takeId: ref.takeId,
+                        sourceIn: ref.sourceIn,
+                        sourceOut: ref.sourceOut,
+                        timelineIn: clip.timelineIn,
+                        speed: clip.speed,
+                        zoom: ref.zoom,
+                        cameraPosition: ref.cameraPosition,
+                        volume: clip.volume,
+                        audioMuted: ref.audioMuted
+                    )
+                }
+            }
+            set {
+                let newRecordingClips = newValue.map { TimelineClip.fromSegment($0) }
+                if let idx = primaryTrackIndex {
+                    // Preserve non-recording clips (images, colors, videos)
+                    let nonRecordingClips = tracks[idx].clips.filter { !$0.isRecording }
+                    tracks[idx].clips = (newRecordingClips + nonRecordingClips)
+                        .sorted { $0.timelineIn < $1.timelineIn }
+                } else {
+                    tracks.insert(
+                        TimelineTrack(id: TimelineTrack.primaryTrackId, type: .primary, clips: newRecordingClips),
+                        at: 0
+                    )
+                }
+            }
+        }
+
+        /// A segment represents a portion of source media on the timeline (legacy compat)
         public struct Segment: Codable, Equatable, Identifiable {
             public let id: String
             /// ID of the take this segment refers to (if nil, assumes the first/legacy take)

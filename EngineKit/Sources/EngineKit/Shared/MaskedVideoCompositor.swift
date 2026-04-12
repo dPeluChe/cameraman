@@ -85,6 +85,17 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
     // Overlays
     let overlays: [OverlayConfig]
 
+    // Static content for non-recording clips (image path or hex color)
+    let staticContent: StaticClipContent?
+
+    /// Describes static content to render when there's no video source
+    public enum StaticClipContent {
+        /// Render a static image from disk
+        case image(path: String)
+        /// Render a solid color fill
+        case color(hexColor: String)
+    }
+
     init(
         timeRange: CMTimeRange,
         screenTrackID: CMPersistentTrackID,
@@ -104,7 +115,8 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         backgroundValue: String = "#000000",
         cameraBorderWidth: CGFloat = 0,
         cameraBorderColor: String = "#FFFFFF",
-        overlays: [OverlayConfig] = []
+        overlays: [OverlayConfig] = [],
+        staticContent: StaticClipContent? = nil
     ) {
         self.timeRange = timeRange
         self.screenTrackID = screenTrackID
@@ -125,6 +137,7 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         self.cameraBorderWidth = cameraBorderWidth
         self.cameraBorderColor = cameraBorderColor
         self.overlays = overlays
+        self.staticContent = staticContent
         super.init()
 
         var trackIDs: [NSValue] = [screenTrackID as NSValue]
@@ -159,6 +172,9 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
     private var cachedOverlayImage: CIImage?
     private var cachedOverlayKey: String?
 
+    // Static image cache — loaded once, reused across frames
+    private var cachedStaticImages: [String: CIImage] = [:]
+
     /// Zoom plan for auto-zoom (set externally before playback)
     public static var activeZoomPlan: ZoomPlanGenerator.ZoomPlan?
 
@@ -187,8 +203,16 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
         var finalImage: CIImage
         if instruction.screenMuted {
             finalImage = renderBackground(instruction: instruction, renderSize: renderSize)
+        } else if let staticContent = instruction.staticContent {
+            // Static clip: render image or color instead of video
+            finalImage = renderStaticContent(staticContent, renderSize: renderSize)
         } else {
             guard let screenBuffer = request.sourceFrame(byTrackID: instruction.screenTrackID) else {
+                // No video data — render background as fallback
+                finalImage = renderBackground(instruction: instruction, renderSize: renderSize)
+                ciContext.render(finalImage, to: outputBuffer,
+                    bounds: CGRect(origin: .zero, size: renderSize),
+                    colorSpace: CGColorSpaceCreateDeviceRGB())
                 request.finish(withComposedVideoFrame: outputBuffer)
                 return
             }
@@ -417,6 +441,81 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
         blendFilter.setValue(maskCIImage, forKey: kCIInputMaskImageKey)
 
         return blendFilter.outputImage ?? image
+    }
+
+    // MARK: - Static Content Rendering
+
+    /// Render a static image or solid color to fill the canvas
+    private func renderStaticContent(_ content: MaskedVideoCompositionInstruction.StaticClipContent, renderSize: CGSize) -> CIImage {
+        let canvasRect = CGRect(origin: .zero, size: renderSize)
+
+        switch content {
+        case .image(let path):
+            // Check cache first
+            cacheLock.lock()
+            if let cached = cachedStaticImages[path] {
+                cacheLock.unlock()
+                return fitImageToCanvas(cached, renderSize: renderSize)
+            }
+            cacheLock.unlock()
+
+            // Load image from disk
+            guard let cgImage = loadCGImage(from: path) else {
+                return CIImage(color: .black).cropped(to: canvasRect)
+            }
+            let ciImage = CIImage(cgImage: cgImage)
+
+            cacheLock.lock()
+            cachedStaticImages[path] = ciImage
+            cacheLock.unlock()
+
+            return fitImageToCanvas(ciImage, renderSize: renderSize)
+
+        case .color(let hexColor):
+            let color = ciColor(from: hexColor)
+            return CIImage(color: color).cropped(to: canvasRect)
+        }
+    }
+
+    /// Fit an image to the canvas size maintaining aspect ratio (letterbox)
+    private func fitImageToCanvas(_ image: CIImage, renderSize: CGSize) -> CIImage {
+        let canvasRect = CGRect(origin: .zero, size: renderSize)
+        let imageExtent = image.extent
+
+        guard imageExtent.width > 0 && imageExtent.height > 0 else {
+            return CIImage(color: .black).cropped(to: canvasRect)
+        }
+
+        let scaleX = renderSize.width / imageExtent.width
+        let scaleY = renderSize.height / imageExtent.height
+        let scale = min(scaleX, scaleY) // Fit (letterbox)
+
+        let scaledW = imageExtent.width * scale
+        let scaledH = imageExtent.height * scale
+        let offsetX = (renderSize.width - scaledW) / 2
+        let offsetY = (renderSize.height - scaledH) / 2
+
+        // Background (black) + scaled image centered
+        let background = CIImage(color: .black).cropped(to: canvasRect)
+        let scaled = image
+            .transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+            .transformed(by: CGAffineTransform(translationX: offsetX, y: offsetY))
+            .cropped(to: canvasRect)
+
+        return scaled.composited(over: background)
+    }
+
+    /// Load a CGImage from an absolute file path
+    private func loadCGImage(from path: String) -> CGImage? {
+        let url = URL(fileURLWithPath: path)
+        guard let dataProvider = CGDataProvider(url: url as CFURL) else { return nil }
+
+        let ext = url.pathExtension.lowercased()
+        if ext == "png" {
+            return CGImage(pngDataProviderSource: dataProvider, decode: nil, shouldInterpolate: true, intent: .defaultIntent)
+        } else {
+            return CGImage(jpegDataProviderSource: dataProvider, decode: nil, shouldInterpolate: true, intent: .defaultIntent)
+        }
     }
 
     // MARK: - Background Rendering

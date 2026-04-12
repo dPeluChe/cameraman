@@ -53,7 +53,8 @@ extension ExportEngine {
             // Stage 2: Composition Building (was Asset Loading)
             try await checkCancellation(jobId: jobId)
             await updateExportStage(jobId: jobId, stage: .compositionBuilding, progress: 0.1)
-            logger.debug("Building composition from \(project.timeline.segments.count) segments")
+            let primaryClips = project.timeline.primaryTrack?.clips ?? []
+            logger.debug("Building composition from \(primaryClips.count) primary clips")
 
             let composition = AVMutableComposition()
             guard let videoTrack = composition.addMutableTrack(
@@ -66,18 +67,25 @@ extension ExportEngine {
             var currentTime = CMTime.zero
             var assetCache: [String: AVAsset] = [:]
 
-            // Apply segments (trims, cuts, speed)
-            for segment in project.timeline.segments {
+            // Apply clips (trims, cuts, speed) — only recording clips for GIF
+            for clip in primaryClips {
                 try await checkCancellation(jobId: jobId)
-                
-                guard let sources = resolveSources(for: segment.takeId, in: project) else {
-                    logger.warning("Could not resolve sources for segment \(segment.id), skipping")
+
+                guard case .recording(let ref) = clip.content else {
+                    // Skip non-recording clips in GIF export (insert gap)
+                    let gapDuration = CMTime(seconds: clip.duration, preferredTimescale: 600)
+                    currentTime = CMTimeAdd(currentTime, gapDuration)
                     continue
                 }
-                
+
+                guard let sources = resolveSources(for: ref.takeId, in: project) else {
+                    logger.warning("Could not resolve sources for clip \(clip.id), skipping")
+                    continue
+                }
+
                 let sourcePath = sources.screen.path
                 let asset: AVAsset
-                
+
                 if let cached = assetCache[sourcePath] {
                     asset = cached
                 } else {
@@ -85,23 +93,23 @@ extension ExportEngine {
                     asset = AVAsset(url: assetURL)
                     assetCache[sourcePath] = asset
                 }
-                
+
                 let videoAssetTracks = try await asset.loadTracks(withMediaType: .video)
                 guard let sourceVideoTrack = videoAssetTracks.first else {
-                    logger.warning("No video track found in source asset for segment \(segment.id), skipping")
+                    logger.warning("No video track found in source asset for clip \(clip.id), skipping")
                     continue
                 }
 
-                let start = CMTime(seconds: segment.sourceIn, preferredTimescale: 600)
-                let duration = CMTime(seconds: segment.sourceOut - segment.sourceIn, preferredTimescale: 600)
+                let start = CMTime(seconds: ref.sourceIn, preferredTimescale: 600)
+                let duration = CMTime(seconds: ref.sourceOut - ref.sourceIn, preferredTimescale: 600)
                 let timeRange = CMTimeRange(start: start, duration: duration)
 
                 try videoTrack.insertTimeRange(timeRange, of: sourceVideoTrack, at: currentTime)
-                
+
                 // Handle speed changes
-                if segment.speed != 1.0 {
+                if clip.speed != 1.0 {
                     let insertedRange = CMTimeRange(start: currentTime, duration: duration)
-                    let scaledDuration = CMTimeMultiplyByFloat64(duration, multiplier: 1.0 / segment.speed)
+                    let scaledDuration = CMTimeMultiplyByFloat64(duration, multiplier: 1.0 / clip.speed)
                     videoTrack.scaleTimeRange(insertedRange, toDuration: scaledDuration)
                     currentTime = CMTimeAdd(currentTime, scaledDuration)
                 } else {

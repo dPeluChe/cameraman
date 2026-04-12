@@ -77,7 +77,7 @@ public struct Project: Codable, Equatable {
         chapters: [Chapter] = [],
         captions: Captions? = nil,
         tags: [String] = [],
-        schemaVersion: Int = 1,
+        schemaVersion: Int = 2,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
         mediaItems: [MediaItem] = []
