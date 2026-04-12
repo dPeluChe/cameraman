@@ -74,7 +74,7 @@ extension Project {
             }
 
             /// Camera position for PiP/side-by-side
-            public struct CameraPosition: Codable, Equatable {
+            public struct CameraPosition: Codable, Equatable, Sendable {
                 public var x: Double
                 public var y: Double
                 public var w: Double

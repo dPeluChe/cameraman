@@ -5,6 +5,34 @@ All notable changes to Cameraman will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-04-12
+
+### Added
+- **Multi-track timeline architecture** — replaced flat `segments[]` with typed tracks (`primary`/`video`/`audio`) each containing universal clips
+- **Universal clip model** — `ClipContent` enum supporting 5 content types: `.recording`, `.image`, `.video`, `.audio`, `.color`; each with its own ref type (`RecordingClipRef`, `ImageClipRef`, `VideoClipRef`, `AudioClipRef`, `ColorClipRef`)
+- **Track-level controls** — per-track `isMuted`, `isLocked`, `volume`, `opacity`
+- **EditorModel track/clip operations** — `addTrack`, `removeTrack`, `addClip`, `removeClip`, `updateClip`, `moveClip`, `splitClip` (works on any clip type in any track)
+- **Static content rendering** — MaskedVideoCompositor renders images and solid colors for non-recording clips in the primary track (with image cache)
+- **Audio clip tracks** — CompositionBuilder creates dedicated audio tracks from timeline audio tracks with per-clip volume
+- **Schema v2** — `project.json` now uses `tracks[]` format; auto-migration from v1 `segments[]` on load
+
+### Changed
+- **Timeline model** — `Project.Timeline` stores `tracks: [TimelineTrack]` instead of flat `segments: [Segment]`
+- **CompositionBuilder** — reads clips from primary track; handles recording, imported video, image/color gaps, and audio clip tracks
+- **PreviewComposition** — generates per-clip compositor instructions with `staticContent` for image/color rendering
+- **Export pipeline** — ExportEngine, VideoExportSession, GIFExportSession, ExportValidator all use tracks/clips model
+- **Project schema version** — bumped to 2
+
+### Fixed
+- **`deleteRange` partial overlap** — clips partially overlapping the delete range at either edge are now trimmed correctly (not silently ignored)
+- **`deleteRange` for spanning clips** — properly splits any clip type using generic `splitContent`, fixes double-counting of offset adjustment
+- **Timeline duration with muted tracks** — muted tracks now contribute to duration (muting hides playback, not timeline extent)
+- **Legacy segment ops respect `isLocked`** — trimIn, trimOut, split, delete, addSegment, deleteRange now check primary track lock state
+- **Camera instructions for mixed clips** — PreviewComposition iterates all primary track clips (not just recording segments) for per-clip camera overrides
+- **Hex color alpha support** — MaskedVideoCompositor now parses 8-character hex colors (e.g. `#FF5500AA`)
+- **Stable clip ordering** — segments setter uses deterministic sort (by timelineIn, then by id) to prevent ordering flips
+- **Audio clip sync** — clips with volume=0 no longer skipped from composition, preserving timeline alignment
+
 ## [0.7.0] - 2026-04-02
 
 ### Added

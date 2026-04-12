@@ -200,7 +200,7 @@ public actor PreviewEngine {
     ///   - projectDirectory: Optional project directory path (for proxy generation)
     /// - Throws: PreviewError if project cannot be loaded
     public func loadProject(_ project: Project, projectDirectory: String? = nil) async throws {
-        guard !project.timeline.segments.isEmpty else {
+        guard let primaryTrack = project.timeline.primaryTrack, !primaryTrack.clips.isEmpty else {
             throw PreviewError.noSegments
         }
         
@@ -241,11 +241,11 @@ public actor PreviewEngine {
     /// Call this when canvas layout, format, camera position, or timeline changes
     public func updateProject(_ project: Project) async throws {
         let oldFormat = self.project?.canvas.format
-        let oldSegmentCount = self.project?.timeline.segments.count
+        let oldClipCount = self.project?.timeline.primaryTrack?.clips.count
         self.project = project
 
         let needsFullRebuild = oldFormat != project.canvas.format
-            || oldSegmentCount != project.timeline.segments.count
+            || oldClipCount != project.timeline.primaryTrack?.clips.count
 
         if needsFullRebuild {
             // Full rebuild needed (different tracks or render size)
@@ -285,7 +285,11 @@ public actor PreviewEngine {
             return
         }
 
-        let videoComposition = buildVideoComposition(for: project, composition: composition)
+        let videoComposition = buildVideoComposition(
+            for: project,
+            composition: composition,
+            staticClips: compositionResult?.staticClips ?? []
+        )
         self.videoCompositionConfig = videoComposition
         await MainActor.run {
             currentItem.videoComposition = videoComposition
@@ -333,7 +337,7 @@ public actor PreviewEngine {
             throw PreviewError.noProjectLoaded
         }
 
-        guard !project.timeline.segments.isEmpty else {
+        guard let primaryTrack = project.timeline.primaryTrack, !primaryTrack.clips.isEmpty else {
             throw PreviewError.noSegments
         }
 

@@ -11,7 +11,12 @@ import AVFoundation
 extension PreviewEngine {
     /// Build an AVMutableVideoComposition with screen + camera layer transforms
     /// Reusable for both initial creation and live updates
-    func buildVideoComposition(for project: Project, composition: AVComposition) -> AVMutableVideoComposition {
+    /// - Parameter staticClips: non-recording clips from CompositionBuilder that need compositor rendering
+    func buildVideoComposition(
+        for project: Project,
+        composition: AVComposition,
+        staticClips: [CompositionBuilder.StaticClipInfo] = []
+    ) -> AVMutableVideoComposition {
         let videoComposition = AVMutableVideoComposition()
 
         let renderSize = CoreFoundation.CGSize(
@@ -178,19 +183,29 @@ extension PreviewEngine {
                     height: camNatural.height > 0 ? camNatural.height : 720
                 )
 
-                // Check if any segment has a per-segment camera override
-                let hasPerSegmentCamera = project.timeline.segments.contains { $0.cameraPosition != nil }
+                // Check if any clip in primary track has a per-clip camera override
+                let primaryClips = project.timeline.primaryTrack?.clips ?? []
+                let hasPerClipCamera = primaryClips.contains { clip in
+                    if case .recording(let ref) = clip.content { return ref.cameraPosition != nil }
+                    return false
+                }
 
-                if hasPerSegmentCamera || defaultCamera.maskShape != .none {
-                    // Use custom compositor with per-segment instructions
+                if hasPerClipCamera || defaultCamera.maskShape != .none {
+                    // Use custom compositor with per-clip instructions
                     var maskedInstructions: [MaskedVideoCompositionInstruction] = []
                     let totalDuration = composition.duration
                     let overlayConfigs = project.overlays.map { OverlayConfig(overlay: $0) }
 
-                    for (i, segment) in project.timeline.segments.enumerated() {
-                        let segCamera = segment.cameraPosition ?? defaultCamera
-                        let segCameraTransform = Self.cameraTransform(
-                            position: segCamera, camSourceSize: camSourceSize, renderSize: renderSize
+                    for (i, clip) in primaryClips.enumerated() {
+                        // For non-recording clips, use default camera
+                        let clipCamera: Project.Canvas.Layout.CameraPosition
+                        if case .recording(let ref) = clip.content {
+                            clipCamera = ref.cameraPosition ?? defaultCamera
+                        } else {
+                            clipCamera = defaultCamera
+                        }
+                        let clipCameraTransform = Self.cameraTransform(
+                            position: clipCamera, camSourceSize: camSourceSize, renderSize: renderSize
                         )
 
                         // Use previous instruction's end as start to guarantee contiguity
@@ -200,12 +215,12 @@ extension PreviewEngine {
                         } else {
                             segStart = .zero
                         }
-                        // Last segment extends to composition end to avoid gaps
+                        // Last clip extends to composition end to avoid gaps
                         let segEnd: CMTime
-                        if i == project.timeline.segments.count - 1 {
+                        if i == primaryClips.count - 1 {
                             segEnd = totalDuration
                         } else {
-                            segEnd = CMTime(seconds: segment.timelineIn + segment.timelineDuration, preferredTimescale: 600)
+                            segEnd = CMTime(seconds: clip.timelineOut, preferredTimescale: 600)
                         }
                         let segDuration = CMTimeSubtract(segEnd, segStart)
 
@@ -215,18 +230,18 @@ extension PreviewEngine {
                             cameraTrackID: cameraTrack.trackID,
                             renderSize: renderSize,
                             screenTransform: screenTransform,
-                            cameraTransform: segCameraTransform,
-                            cameraRect: CGRect(x: segCamera.x, y: segCamera.y, width: segCamera.w, height: segCamera.h),
-                            maskShape: segCamera.maskShape,
-                            cornerRadius: CGFloat(segCamera.cornerRadius),
+                            cameraTransform: clipCameraTransform,
+                            cameraRect: CGRect(x: clipCamera.x, y: clipCamera.y, width: clipCamera.w, height: clipCamera.h),
+                            maskShape: clipCamera.maskShape,
+                            cornerRadius: CGFloat(clipCamera.cornerRadius),
                             layoutType: layoutType,
                             videoCornerRadius: CGFloat(project.canvas.videoCornerRadius),
                             videoShadowIntensity: CGFloat(project.canvas.videoShadowIntensity),
                             padding: CGFloat(project.canvas.padding),
                             backgroundType: project.canvas.background.type,
                             backgroundValue: project.canvas.background.value,
-                            cameraBorderWidth: CGFloat(segCamera.borderWidth),
-                            cameraBorderColor: segCamera.borderColor,
+                            cameraBorderWidth: CGFloat(clipCamera.borderWidth),
+                            cameraBorderColor: clipCamera.borderColor,
                             overlays: overlayConfigs
                         ))
                     }
@@ -307,6 +322,20 @@ extension PreviewEngine {
             }
         }
 
+        // If there are static clips (image/color), delegate to extension
+        if !staticClips.isEmpty {
+            let allInstructions = buildStaticClipInstructions(
+                project: project,
+                composition: composition,
+                staticClips: staticClips,
+                renderSize: renderSize,
+                baseInstruction: instruction
+            )
+            videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
+            videoComposition.instructions = allInstructions
+            return videoComposition
+        }
+
         videoComposition.instructions = [instruction]
         return videoComposition
     }
@@ -354,7 +383,8 @@ extension PreviewEngine {
             throw PreviewError.playbackFailed("No project directory set")
         }
 
-        logger.debug("Creating player with edits - project: \(project.name), segments: \(project.timeline.segments.count)")
+        let primaryClipCount = project.timeline.primaryTrack?.clips.count ?? 0
+        logger.debug("Creating player with edits - project: \(project.name), clips: \(primaryClipCount)")
 
         // Build composition using shared CompositionBuilder
         let builder = CompositionBuilder(fileManager: fileManager)
@@ -378,8 +408,8 @@ extension PreviewEngine {
             result = try await builder.buildComposition(
                 project: project,
                 resolver: resolver,
-                resolveSources: { [self] segment in
-                    self.resolveSources(for: segment.takeId)
+                resolveSources: { [self] takeId in
+                    self.resolveSources(for: takeId)
                 }
             )
         } catch {
@@ -387,13 +417,19 @@ extension PreviewEngine {
             throw PreviewError.playbackFailed("Preview failed: \(error.localizedDescription)")
         }
 
-        let composition = result.composition
+        // Store result first so buildVideoComposition can access static clips
+        self.compositionResult = result
 
-        let videoComposition = buildVideoComposition(for: project, composition: composition)
+        let composition = result.composition
+        let videoComposition = buildVideoComposition(
+            for: project,
+            composition: composition,
+            staticClips: result.staticClips
+        )
 
         // Create player item
         nonisolated(unsafe) let unsafeComposition = composition
-        nonisolated(unsafe) let unsafeVideoComposition = videoComposition
+        let unsafeVideoComposition = videoComposition
         let playerItem = await MainActor.run {
             let item = AVPlayerItem(asset: unsafeComposition)
             item.videoComposition = unsafeVideoComposition
@@ -402,7 +438,6 @@ extension PreviewEngine {
         player = AVPlayer(playerItem: playerItem)
         self.composition = composition
         self.videoCompositionConfig = videoComposition
-        self.compositionResult = result
 
         // Apply default audio mix (mic boost) on initial load
         if let currentItem = player?.currentItem {
@@ -436,7 +471,11 @@ extension PreviewEngine {
             return
         }
 
-        let videoComposition = buildVideoComposition(for: project, composition: composition)
+        let videoComposition = buildVideoComposition(
+            for: project,
+            composition: composition,
+            staticClips: compositionResult?.staticClips ?? []
+        )
         self.videoCompositionConfig = videoComposition
 
         await MainActor.run {

@@ -4,6 +4,7 @@
 //
 //  Builds AVMutableAudioMix for per-track mute/volume control.
 //  Used by both Preview and Export pipelines.
+//  Updated for multi-track timeline with audio clip tracks.
 //
 
 import Foundation
@@ -65,10 +66,19 @@ public struct AudioMixBuilder {
             parameters.append(params)
         }
 
+        // Legacy media items audio
         for additional in compositionResult.additionalAudioTracks {
             let params = AVMutableAudioMixInputParameters(track: additional.track)
             let volume = additional.mediaItem.isMuted ? Float(0.0) : Float(additional.mediaItem.volume)
             params.setVolume(volume, at: .zero)
+            parameters.append(params)
+        }
+
+        // Audio clips from timeline tracks
+        for audioClip in compositionResult.audioClipTracks {
+            let params = AVMutableAudioMixInputParameters(track: audioClip.track)
+            let clipVolume = audioClip.clip.volume ?? 1.0
+            params.setVolume(Float(clipVolume), at: .zero)
             parameters.append(params)
         }
 

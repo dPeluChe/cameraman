@@ -255,9 +255,6 @@ extension PreviewEngine {
             context.setShadow(offset: .zero, blur: 0, color: nil)
         }
 
-        // Draw text
-        let textRect = CoreFoundation.CGRect(x: x, y: y, width: textBounds.width, height: textBounds.height)
-
         // Adjust x position based on alignment
         let adjustedRect: CoreFoundation.CGRect
         switch paragraphStyle.alignment {
@@ -410,9 +407,6 @@ extension PreviewEngine {
         let cropY = max(0, min(focusY - cropHeight / 2, CGFloat(image.height) - cropHeight))
 
         let cropRect = CoreFoundation.CGRect(x: cropX, y: cropY, width: cropWidth, height: cropHeight)
-
-        // Draw cropped and scaled image
-        let destRect = CoreFoundation.CGRect(x: 0, y: 0, width: CGFloat(newWidth), height: CGFloat(newHeight))
 
         // Clip to crop rect
         context.clip(to: [cropRect])

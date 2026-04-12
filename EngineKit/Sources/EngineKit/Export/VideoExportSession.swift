@@ -70,8 +70,8 @@ extension ExportEngine {
             // Stage 1: Validation (0.0 - 0.1)
             try await checkCancellation(jobId: jobId)
             await updateExportStage(jobId: jobId, stage: .validation, progress: 0.02)
-            logger.debug("Validating project segments")
-            logger.debug("Project has \(project.timeline.segments.count) segments")
+            logger.debug("Validating project timeline")
+            logger.debug("Project has \(project.timeline.primaryTrack?.clips.count ?? 0) primary clips")
 
             // Stage 2: Load and validate source assets (0.1 - 0.2)
             try await checkCancellation(jobId: jobId)
@@ -93,7 +93,7 @@ extension ExportEngine {
 
             // Stage 3: Create composition with trims/cuts applied (0.2 - 0.4)
             await updateExportStage(jobId: jobId, stage: .compositionBuilding, progress: 0.25)
-            logger.debug("Building video composition from timeline segments")
+            logger.debug("Building video composition from timeline tracks")
 
             let builder = CompositionBuilder(fileManager: fileManager)
             let resolver = CompositionBuilder.SourceResolver(projectDirectory: projectDirectory)
@@ -101,8 +101,8 @@ extension ExportEngine {
             let compositionResult = try await builder.buildComposition(
                 project: project,
                 resolver: resolver,
-                resolveSources: { [self] segment in
-                    self.resolveSources(for: segment.takeId, in: project)
+                resolveSources: { [self] takeId in
+                    self.resolveSources(for: takeId, in: project)
                 },
                 cancellationCheck: { [self] in
                     try await self.checkCancellation(jobId: jobId)

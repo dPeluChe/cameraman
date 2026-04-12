@@ -109,10 +109,10 @@ public actor ExportEngine {
         logger.info("Starting export for project: \(projectId.uuidString), preset: \(preset.id)")
 
         let project = try await projectStore.loadProject(projectId: projectId)
-        logger.debug("Loaded project '\(project.name)' with \(project.timeline.segments.count) segments")
+        logger.debug("Loaded project '\(project.name)' with \(project.timeline.primaryTrack?.clips.count ?? 0) primary clips")
 
-        guard !project.timeline.segments.isEmpty else {
-            logger.error("Export failed: project has no timeline segments")
+        guard let primaryTrack = project.timeline.primaryTrack, !primaryTrack.clips.isEmpty else {
+            logger.error("Export failed: project has no timeline clips")
             throw ExportError.noSegments
         }
 
@@ -149,10 +149,10 @@ public actor ExportEngine {
         logger.info("Starting GIF export for project: \(projectId.uuidString), preset: \(preset.id)")
 
         let project = try await projectStore.loadProject(projectId: projectId)
-        logger.debug("Loaded project '\(project.name)' with \(project.timeline.segments.count) segments")
+        logger.debug("Loaded project '\(project.name)' with \(project.timeline.primaryTrack?.clips.count ?? 0) primary clips")
 
-        guard !project.timeline.segments.isEmpty else {
-            logger.error("GIF export failed: project has no timeline segments")
+        guard let primaryTrack = project.timeline.primaryTrack, !primaryTrack.clips.isEmpty else {
+            logger.error("GIF export failed: project has no timeline clips")
             throw ExportError.noSegments
         }
 
