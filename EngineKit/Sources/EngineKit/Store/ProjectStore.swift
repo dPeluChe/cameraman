@@ -41,7 +41,7 @@ public actor ProjectStore {
     /// File manager for disk operations
     let fileManager: FileManager
     /// Structured logging
-    private let logger = Logger(subsystem: "com.projectstudio.enginekit", category: "ProjectStore")
+    let logger = Logger(subsystem: "com.projectstudio.enginekit", category: "ProjectStore")
 
     /// Current schema version
     let currentSchemaVersion = 2

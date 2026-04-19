@@ -80,13 +80,18 @@ extension ProjectStore {
             let cursorFilename = "\(prefix)_cursor.jsonl"
             let destCursorPath = telemetryDir.appendingPathComponent(cursorFilename)
             do {
+                // Defensive: the dir is created in createProjectDirectoryStructure, but a
+                // missing dir here would silently break zoom suggestions.
+                try fileManager.createDirectory(at: telemetryDir, withIntermediateDirectories: true)
                 try fileManager.moveItem(at: telemetrySrc, to: destCursorPath)
                 telemetry = Project.Sources.TelemetryTracks(
                     cursor: Project.Sources.TelemetryTracks.TelemetryTrack(path: "telemetry/\(cursorFilename)"),
                     keys: nil
                 )
             } catch {
-                // Telemetry file missing — non-fatal, continue without it
+                // Non-fatal: recording continues without telemetry, but surface the reason.
+                // A silent catch here is exactly what hid the path-nesting bug fixed in v0.5.1.
+                logger.warning("Failed to move telemetry from \(telemetrySrc.path) to \(destCursorPath.path): \(error.localizedDescription)")
             }
         }
 
