@@ -168,5 +168,5 @@ All docs live in `Docs/`:
 - `Docs/tech-spec.md` - API contracts, data schemas, sync strategy
 - `Docs/TASK_TODO.md` - Pending features and improvements
 - `Docs/TASK_COMPLETED/` - Completed work by session (2601.md, 2603.md, 2603_session2.md, 2603_session3.md, 2603_session4_perf.md)
-- `Docs/CHANGELOG.md` - Version changelog (current: v0.7.0)
+- `dev-docs/CHANGELOG.md` - Version changelog (current: v0.5.1-dev)
 - `Docs/Archived/` - Historical docs (recovery summaries, validation reports)

@@ -2,7 +2,7 @@
 
 Open source screen recorder & editor for macOS. Swift native. Local-first. Free.
 
-**Version**: 0.7.0 | **Platform**: macOS 13+ (Ventura) | **License**: Open Source
+**Version**: 0.5.1 (dev) | **Platform**: macOS 13+ (Ventura) | **License**: Open Source
 
 ## What it does
 
