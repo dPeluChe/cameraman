@@ -240,6 +240,13 @@ public actor PreviewEngine {
     /// Update the project and rebuild the composition (for live preview of edits)
     /// Call this when canvas layout, format, camera position, or timeline changes
     public func updateProject(_ project: Project) async throws {
+        // PreviewPlayerView observes editor.objectWillChange and calls this on every
+        // debounced tick — including for UI-only state that doesn't affect the composition.
+        // Short-circuit when nothing actually changed to avoid cascading AVMutableVideoComposition rebuilds.
+        if let existing = self.project, existing == project {
+            return
+        }
+
         let oldFormat = self.project?.canvas.format
         let oldClipCount = self.project?.timeline.primaryTrack?.clips.count
         self.project = project
