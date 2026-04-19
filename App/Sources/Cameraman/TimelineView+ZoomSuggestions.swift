@@ -9,6 +9,73 @@
 import SwiftUI
 import EngineKit
 
+extension TimelineView {
+    var hasCursorTelemetry: Bool {
+        project.primarySources?.telemetry?.cursor != nil
+    }
+
+    var activeSuggestions: [ZoomSuggestion] {
+        zoomSuggestions.filter { !dismissedSuggestionIds.contains($0.id) }
+    }
+
+    func generateZoomSuggestions() {
+        guard hasCursorTelemetry, let projDir = projectDirectory else {
+            LogDebug(.telemetry, "No cursor telemetry or project directory")
+            return
+        }
+
+        isGeneratingSuggestions = true
+
+        Task {
+            let generator = ZoomSuggestionGenerator(project: project, projectDirectory: projDir)
+            let suggestions = await generator.generate()
+
+            if !suggestions.isEmpty {
+                if let plan = try? await generator.applyAsPlan(suggestions) {
+                    await playerViewModel.previewEngine?.setZoomPlan(plan)
+                    LogInfo(.telemetry, "Auto-applied zoom plan with \(plan.keyframes.count) keyframes")
+                }
+            }
+
+            await MainActor.run {
+                zoomSuggestions = suggestions
+                isGeneratingSuggestions = false
+            }
+        }
+    }
+
+    func applyZoomSuggestions() {
+        let suggestions = activeSuggestions
+        guard !suggestions.isEmpty else { return }
+
+        Task {
+            let generator = ZoomSuggestionGenerator(project: project, projectDirectory: projectDirectory)
+            if let plan = try? await generator.applyAsPlan(suggestions) {
+                await playerViewModel.previewEngine?.setZoomPlan(plan)
+            }
+
+            await enableZoomOnAllSegments()
+
+            await MainActor.run {
+                zoomSuggestions = []
+                dismissedSuggestionIds = []
+            }
+        }
+    }
+
+    private func enableZoomOnAllSegments() async {
+        let zoomConfig = Project.Timeline.ZoomConfiguration(
+            enabled: true,
+            intensity: .normal
+        )
+        var updatedProject = editor.project
+        for i in updatedProject.timeline.segments.indices {
+            updatedProject.timeline.segments[i].zoom = zoomConfig
+        }
+        await editor.setProject(updatedProject)
+    }
+}
+
 struct ZoomSuggestionGenerator {
     let project: Project
     let projectDirectory: URL?

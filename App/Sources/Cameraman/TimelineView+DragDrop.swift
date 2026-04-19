@@ -1,0 +1,180 @@
+//
+//  TimelineView+DragDrop.swift
+//  App
+//
+//  Extracted from TimelineView.swift (Phase 1 refactor, v0.5.1).
+//  Playhead drag gesture, asset drop handling, file import, trim application.
+//
+
+import SwiftUI
+import EngineKit
+import AVFoundation
+
+extension TimelineView {
+    func timelineDragGesture(layout: TimelineLayout) -> some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                guard !isTrimming else { return }
+                let time = layout.time(forXPosition: value.location.x)
+
+                if dragStartTime == nil {
+                    dragStartTime = time
+                    playerViewModel.setScrubbing(true)
+                }
+
+                playerViewModel.seek(to: time)
+
+                let startTime = dragStartTime ?? time
+                if abs(value.translation.width) > 2 {
+                    let rangeStart = min(startTime, time)
+                    let rangeEnd = max(startTime, time)
+                    selection = RangeSelection(startTime: rangeStart, endTime: rangeEnd)
+                } else {
+                    selection = nil
+                }
+            }
+            .onEnded { value in
+                guard !isTrimming else { return }
+                let time = layout.time(forXPosition: value.location.x)
+                playerViewModel.seek(to: time)
+
+                if let startTime = dragStartTime, abs(value.translation.width) > 2 {
+                    let rangeStart = min(startTime, time)
+                    let rangeEnd = max(startTime, time)
+                    selection = RangeSelection(startTime: rangeStart, endTime: rangeEnd)
+                } else {
+                    selection = nil
+                }
+
+                dragStartTime = nil
+                playerViewModel.setScrubbing(false)
+            }
+    }
+
+    func handleDrop(providers: [NSItemProvider], location: CGPoint, layout: TimelineLayout) -> Bool {
+        guard let provider = providers.first else { return false }
+
+        if provider.canLoadObject(ofClass: NSString.self) {
+            _ = provider.loadObject(ofClass: NSString.self) { idString, _ in
+                guard let uuidString = idString as? String,
+                      let takeId = UUID(uuidString: uuidString) else { return }
+
+                Task { @MainActor in
+                    guard let take = self.editor.project.takes.first(where: { $0.id == takeId }) else { return }
+
+                    let dropTime = layout.time(forXPosition: location.x)
+                    var duration: TimeInterval = 10.0
+
+                    if let projectDir = self.projectDirectory {
+                        let videoPath = projectDir.appendingPathComponent(take.sources.screen.path)
+                        let asset = AVURLAsset(url: videoPath)
+                        if let assetDuration = try? await asset.load(.duration) {
+                            duration = assetDuration.seconds
+                        }
+                    }
+
+                    _ = await self.editor.addSegment(
+                        takeId: takeId,
+                        sourceIn: 0,
+                        sourceOut: duration,
+                        timelineIn: dropTime
+                    )
+                }
+            }
+            return true
+        }
+
+        return false
+    }
+
+    func handleImportedFile(_ result: Result<[URL], Error>) {
+        guard case .success(let urls) = result,
+              let url = urls.first,
+              let projectDir = projectDirectory else { return }
+
+        let ext = url.pathExtension.lowercased()
+        let isAudio = ["mp3", "wav", "m4a", "aac", "aiff", "flac"].contains(ext)
+        let isImage = ["png", "jpg", "jpeg", "heic", "webp", "tiff"].contains(ext)
+        guard isAudio || isImage else { return }
+
+        let type: Project.MediaItemType = isAudio ? .audio : .image
+        let fileName = url.lastPathComponent
+        let currentPlayhead = playerViewModel.currentTime
+
+        Task {
+            let fileManager = FileManager.default
+            let assetsDir = projectDir.appendingPathComponent("assets", isDirectory: true)
+            try? fileManager.createDirectory(at: assetsDir, withIntermediateDirectories: true)
+
+            let destURL = assetsDir.appendingPathComponent(fileName)
+
+            let didAccess = url.startAccessingSecurityScopedResource()
+            defer { if didAccess { url.stopAccessingSecurityScopedResource() } }
+
+            do {
+                if fileManager.fileExists(atPath: destURL.path) {
+                    try fileManager.removeItem(at: destURL)
+                }
+                try fileManager.copyItem(at: url, to: destURL)
+            } catch {
+                return
+            }
+
+            var duration: TimeInterval = 5.0
+            if isAudio {
+                let asset = AVURLAsset(url: destURL)
+                if let assetDuration = try? await asset.load(.duration) {
+                    duration = assetDuration.seconds
+                }
+            }
+
+            let item = Project.MediaItem(
+                type: type,
+                path: "assets/\(fileName)",
+                name: fileName,
+                timelineIn: currentPlayhead,
+                duration: duration
+            )
+
+            await editor.addMediaItem(item)
+        }
+    }
+
+    func applyTrim(
+        for segment: Project.Timeline.Segment,
+        edge: TimelineTrimEdge,
+        deltaX: TimelineScalar,
+        layout: TimelineLayout
+    ) {
+        let deltaTime = TimeInterval(deltaX / layout.pixelsPerSecond)
+
+        switch edge {
+        case .leading:
+            let proposedTimelineIn = segment.timelineIn + deltaTime
+            let clampedTimelineIn = TimelineEditingHelper.clampedTimelineIn(
+                for: segment,
+                proposedTime: proposedTimelineIn,
+                minimumDuration: minimumTrimDuration
+            )
+            guard clampedTimelineIn != segment.timelineIn else { return }
+
+            let newSourceIn = TimelineEditingHelper.sourceIn(for: segment, newTimelineIn: clampedTimelineIn)
+            Task {
+                _ = await editor.trimIn(segmentId: segment.id, newSourceIn: newSourceIn)
+            }
+        case .trailing:
+            let proposedTimelineOut = segment.timelineOut + deltaTime
+            let clampedTimelineOut = TimelineEditingHelper.clampedTimelineOut(
+                for: segment,
+                proposedTime: proposedTimelineOut,
+                minimumDuration: minimumTrimDuration
+            )
+            guard clampedTimelineOut != segment.timelineOut else { return }
+
+            let newSourceOut = TimelineEditingHelper.sourceOut(for: segment, newTimelineOut: clampedTimelineOut)
+            Task {
+                _ = await editor.trimOut(segmentId: segment.id, newSourceOut: newSourceOut)
+            }
+        }
+    }
+}
