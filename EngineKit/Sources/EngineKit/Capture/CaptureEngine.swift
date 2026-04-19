@@ -73,6 +73,8 @@ public actor CaptureEngine {
         public private(set) var startTime: Date?
         public private(set) var duration: TimeInterval = 0
         public private(set) var error: Error?
+        public private(set) var videoWriterFailed: Bool = false
+        public private(set) var audioWriterFailed: Bool = false
 
         private var outputStream: SCStream?
         private var videoOutput: AVAssetWriter?
@@ -124,6 +126,22 @@ public actor CaptureEngine {
         internal func setError(_ error: Error) {
             self.error = error
             self.isRecording = false
+        }
+
+        internal func markVideoWriterFailed(_ error: Error?) {
+            guard !videoWriterFailed else { return }
+            videoWriterFailed = true
+            if self.error == nil, let error = error {
+                self.error = error
+            }
+        }
+
+        internal func markAudioWriterFailed(_ error: Error?) {
+            guard !audioWriterFailed else { return }
+            audioWriterFailed = true
+            if self.error == nil, let error = error {
+                self.error = error
+            }
         }
 
         internal func getVideoWriter() -> AVAssetWriter? { videoOutput }

@@ -291,9 +291,8 @@ final class TelemetryRecorderTests: XCTestCase {
         let config = TelemetryRecorder.Configuration.default(outputDirectory: tempDirectory)
         _ = try await recorder.startRecording(config: config)
 
-        let telemetryDirectory = tempDirectory.appendingPathComponent("telemetry")
         var isDirectory: ObjCBool = false
-        XCTAssertTrue(FileManager.default.fileExists(atPath: telemetryDirectory.path, isDirectory: &isDirectory))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: tempDirectory.path, isDirectory: &isDirectory))
         XCTAssertTrue(isDirectory.boolValue)
     }
 
@@ -301,9 +300,7 @@ final class TelemetryRecorderTests: XCTestCase {
         let config = TelemetryRecorder.Configuration.default(outputDirectory: tempDirectory)
         _ = try await recorder.startRecording(config: config)
 
-        let cursorFilePath = tempDirectory
-            .appendingPathComponent("telemetry")
-            .appendingPathComponent("cursor.jsonl")
+        let cursorFilePath = tempDirectory.appendingPathComponent("cursor.jsonl")
 
         XCTAssertTrue(FileManager.default.fileExists(atPath: cursorFilePath.path))
     }
@@ -314,9 +311,7 @@ final class TelemetryRecorderTests: XCTestCase {
 
         _ = try await recorder.stopRecording()
 
-        let cursorFilePath = tempDirectory
-            .appendingPathComponent("telemetry")
-            .appendingPathComponent("cursor.jsonl")
+        let cursorFilePath = tempDirectory.appendingPathComponent("cursor.jsonl")
 
         XCTAssertTrue(FileManager.default.fileExists(atPath: cursorFilePath.path))
     }

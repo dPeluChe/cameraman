@@ -32,12 +32,13 @@ public actor TelemetryRecorder {
             throw TelemetryError.alreadyRecording
         }
 
-        // Create telemetry directory
-        let telemetryDirectory = config.outputDirectory.appendingPathComponent("telemetry")
-        try FileManager.default.createDirectory(at: telemetryDirectory, withIntermediateDirectories: true)
+        // Write cursor.jsonl directly into the output directory supplied by the caller.
+        // Previously we appended a second "telemetry" component here, which produced
+        // `<outputDir>/telemetry/cursor.jsonl` when `outputDir` was already the telemetry
+        // folder — the Recorder then looked one level up and never found the file.
+        try FileManager.default.createDirectory(at: config.outputDirectory, withIntermediateDirectories: true)
 
-        // Create cursor.jsonl file
-        let cursorFilePath = telemetryDirectory.appendingPathComponent("cursor.jsonl")
+        let cursorFilePath = config.outputDirectory.appendingPathComponent("cursor.jsonl")
         FileManager.default.createFile(atPath: cursorFilePath.path, contents: nil)
 
         guard let fileHandle = FileHandle(forWritingAtPath: cursorFilePath.path) else {
@@ -81,7 +82,6 @@ public actor TelemetryRecorder {
 
         // Build result
         let cursorFilePath = session.config.outputDirectory
-            .appendingPathComponent("telemetry")
             .appendingPathComponent("cursor.jsonl")
 
         let result = RecordingResult(

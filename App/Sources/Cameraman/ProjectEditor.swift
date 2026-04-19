@@ -207,7 +207,6 @@ final class ProjectEditor: ObservableObject {
         let currentFitMode = CanvasLayout.ImageFitMode(
             rawValue: project.canvas.background.fitMode ?? CanvasLayout.ImageFitMode.fill.rawValue
         ) ?? .fill
-        let oldBackground = project.canvas.background
         updatedProject.canvas.background = CanvasLayout.defaultBackground(for: type, fitMode: currentFitMode)
 
         do {
