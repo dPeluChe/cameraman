@@ -35,7 +35,7 @@ extension TimelineView {
                 // rate-limit rejections that left timeline markers with no actual zoom.
                 do {
                     let plan = try await generator.applyAsPlan(suggestions)
-                    await playerViewModel.previewEngine?.setZoomPlan(plan)
+                    await MainActor.run { playerViewModel.setZoomPlan(plan) }
                     LogInfo(.telemetry, "Auto-applied zoom plan with \(plan.keyframes.count) keyframes")
                 } catch {
                     LogError(.telemetry, "Failed to apply zoom plan: \(error.localizedDescription)")
@@ -56,7 +56,7 @@ extension TimelineView {
         Task {
             let generator = ZoomSuggestionGenerator(project: project, projectDirectory: projectDirectory)
             if let plan = try? await generator.applyAsPlan(suggestions) {
-                await playerViewModel.previewEngine?.setZoomPlan(plan)
+                await MainActor.run { playerViewModel.setZoomPlan(plan) }
             }
 
             await enableZoomOnAllSegments()

@@ -53,6 +53,17 @@ final class PreviewPlayerViewModel: ObservableObject {
     private var endObserver: NSObjectProtocol?
     private var cancellables = Set<AnyCancellable>()
 
+    /// Zoom plan pending application — set before the engine finishes loading
+    private var pendingZoomPlan: ZoomPlanGenerator.ZoomPlan?
+
+    /// Set the active zoom plan. Applies immediately if the engine is ready;
+    /// otherwise defers until loadProject finishes.
+    func setZoomPlan(_ plan: ZoomPlanGenerator.ZoomPlan?) {
+        pendingZoomPlan = plan
+        guard let engine = previewEngine else { return }
+        Task { await engine.setZoomPlan(plan) }
+    }
+
     enum PlaybackRate: Double, CaseIterable, Identifiable {
         case half = 0.5
         case normal = 1.0
@@ -117,6 +128,10 @@ final class PreviewPlayerViewModel: ObservableObject {
                     self.loadError = nil
                     self.currentTime = 0
                     self.setupPlayerObservers()
+                    // Apply any zoom plan that was set before the engine was ready
+                    if let pending = self.pendingZoomPlan {
+                        Task { await engine.setZoomPlan(pending) }
+                    }
                 }
             } catch {
                 await MainActor.run {
