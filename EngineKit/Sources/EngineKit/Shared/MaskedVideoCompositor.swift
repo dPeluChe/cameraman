@@ -355,7 +355,7 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
         guard !activeOverlays.isEmpty else { return image }
 
         let overlayKey = activeOverlays.map {
-            "\($0.id)_\($0.x)_\($0.y)_\($0.scale)_\($0.rotation)_\($0.stroke)"
+            "\($0.id)_\($0.x)_\($0.y)_\($0.scale)_\($0.rotation)_\($0.stroke)_\($0.strokeWidth)_\($0.shadow)_\($0.text ?? "")_\($0.fontSize ?? 0)_\($0.fontColor ?? "")_\($0.bgColor ?? "")"
         }.joined(separator: "|")
 
         let overlayLayer: CIImage

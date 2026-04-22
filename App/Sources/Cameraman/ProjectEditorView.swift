@@ -139,7 +139,7 @@ struct ProjectEditorView: View {
                         editor: editor,
                         selectedSegmentId: viewModel.selectedSegmentId,
                         selectedMediaItemId: viewModel.selectedMediaItemId,
-                        playheadTime: viewModel.playerViewModel.currentTime,
+                        playerViewModel: viewModel.playerViewModel,
                         isLayoutExpanded: $isLayoutExpanded,
                         isFormatExpanded: $isFormatExpanded,
                         isCameraExpanded: $isCameraExpanded,
