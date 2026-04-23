@@ -162,11 +162,11 @@ Use `EngineKitError` enum with context (file paths, timestamps, drift amounts). 
 
 ## Related Documentation
 
-All docs live in `Docs/`:
+All docs live in `docs/`:
 
-- `Docs/prd.md` - Product requirements, user flows, MVP scope
-- `Docs/tech-spec.md` - API contracts, data schemas, sync strategy
-- `Docs/TASK_TODO.md` - Pending features and improvements
-- `Docs/TASK_COMPLETED/` - Completed work by session (2601.md, 2603.md, 2603_session2.md, 2603_session3.md, 2603_session4_perf.md)
-- `dev-docs/CHANGELOG.md` - Version changelog (current: v0.5.1-dev)
-- `Docs/Archived/` - Historical docs (recovery summaries, validation reports)
+- `docs/PRD.md` - Product requirements, user flows, MVP scope
+- `docs/TECH_SPEC.md` - API contracts, data schemas, sync strategy
+- `docs/TASK_TODO.md` - Pending features and improvements
+- `docs/TASK_COMPLETED/` - Completed work by session
+- `docs/CHANGELOG.md` - Version changelog (current: v0.5.1-dev)
+- `docs/ARCHIVED/` - Historical docs (recovery summaries, validation reports)

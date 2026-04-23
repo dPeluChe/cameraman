@@ -79,7 +79,7 @@ Info.plist usage strings: `NSCameraUsageDescription`, `NSMicrophoneUsageDescript
 
 **Beta**. Core recording, editing, and export workflows are functional. Overlay system, auto-zoom, and per-segment editing are working. Actively developed.
 
-See [CHANGELOG](Docs/CHANGELOG.md) for version history. See [TASK_TODO](Docs/TASK_TODO.md) for planned work.
+See [CHANGELOG](dev-docs/CHANGELOG.md) for version history. See [TASK_TODO](dev-docs/TASK_TODO.md) for planned work.
 
 ## Built by
 
