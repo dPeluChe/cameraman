@@ -20,14 +20,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **TimelineView descompuesto** — `TimelineView.swift` de 864 → 413 LOC. Nuevas extensiones: `TimelineView+Thumbnails.swift` (106 LOC), `TimelineView+DragDrop.swift` (180 LOC), `TimelineView+EditActions.swift` (96 LOC). Métodos de zoom movidos a `TimelineView+ZoomSuggestions.swift`.
 - **Export pipeline dividido** — `VideoExportSession.performExport()` de ~480 LOC monolíticas → orquestador de 125 LOC que encadena stages aislados en `VideoExportSession+Stages.swift` (prepare/validate/build/configure/run/verify) y `VideoExportSession+Composition.swift` (rutas fullscreen-camera / standard / per-segment masked separadas).
+- **Phase 1 split — 8 archivos >500 LOC divididos** — 14 archivos resultantes, todos bajo 500 LOC:
+  - `CompositionBuilder+AudioTracks.swift` (audio track building extraído; CompositionBuilder 678→476)
+  - `ExportOverlayRenderer.swift` (image/shape overlay burn-in extraído de ExportCaptionRenderer 669→235)
+  - `PreviewEngine+Playback.swift` (playback/time observation/proxy extraídos de PreviewEngine 585→343)
+  - `PreviewEngine+Player.swift` (player creation/mutes/audio mix extraídos de PreviewComposition 504→364)
+  - `ProjectStore+Create.swift` (createProject overloads y addTake extraídos de ProjectStore 533→277)
+  - `ProxyGenerator+Helpers.swift` (sizing/disk/CGContext helpers extraídos de ProxyGenerator 515→401)
+  - `TimelineView+MediaMarkers.swift` (waveform/zoom markers/overlay track row extraídos de TimelineView+Subviews 500→336)
+- **Phase 1 boilerplate — helpers extraídos en archivos 400–490 LOC:**
+  - `MicAudioRecorder.swift` (141 LOC nuevo; Recorder.swift 460→322)
+  - `mutateSegment()` en `ZoomSectionController` colapsa 4 patrones guard/mutate/save (446→410)
+  - `applyCanvasUpdate()` en `ProjectEditor` unifica 7 métodos canvas con undo/autosave (439→332)
+  - `zoomState()` en `PreviewRenderer` deduplica focus-point math entre `applyZoom` + `applyZoomTransform` (425→375)
+  - Dead code eliminado en `HotkeyManager`: `OptionBits` alias sin uso + `removeEventHandler()` vacío (463→455)
 - `CaptureSessionManager` loguea el `NSError` completo (domain/code/userInfo) del writer en el primer fallo en vez de solo `localizedDescription`.
 - Al fallar `AVAssetWriter` durante grabación, se para el stream inmediatamente y no se reintentan más frames (evita spam de 1000+ logs por grabación corrupta).
+- Preview refresh debounce reducido 500ms → 150ms — overlays y cambios de propiedades se reflejan ~3× más rápido.
 
 ### Fixed
 - **Versionado reescalado** a 0.5.1 — refleja estado real del producto; historia del CHANGELOG renumerada al esquema más conservador.
 - **Telemetría de cursor no llegaba al proyecto** — `TelemetryRecorder` anidaba `telemetry/telemetry/cursor.jsonl` dentro del directorio que ya era `/telemetry/`, el `Recorder` buscaba un nivel arriba y nunca encontraba el archivo; `moveRecordingFiles` fallaba silencioso. Consecuencia: **cero sugerencias de zoom** en cualquier proyecto grabado con el flujo actual.
 - **Auto-zoom: sugerencias en timeline pero sin zoom real** — `ZoomPlanGenerator.validateZoomRate` tiraba `zoomRateExceeded` cuando había más sugerencias que el límite por minuto (default 6/min); el `try?` aguas arriba silenciaba el error y nunca se aplicaba el plan. Ahora el generador recorta por score al tope permitido en vez de abortar. `generateZoomSuggestions` también loggea errores que antes se tragaban silenciosamente.
 - **Zoom apuntaba a coordenadas equivocadas** — `ZoomSuggestionGenerator` normalizaba eventos de cursor (puntos del display) dividiendo por `canvas.format.w/h` (tamaño de render de salida), y `ZoomPlanGenerator.generateZoomPlan(from clickWindows:)` tenía 1920×1080 hardcoded. Ahora ambos usan las dimensiones reales del video grabado (`primarySources.screen.size`). Caveats pendientes: displays retina (points ≠ pixels) y grabaciones por área (`captureRect`) siguen necesitando schema para mapeo perfecto.
+- **Zoom plan obsoleto re-aplicado al cargar proyecto nuevo** — `reset()` en `PreviewEngine` no limpiaba `pendingZoomPlan`; el plan del proyecto anterior se volvía a aplicar en el siguiente. Ahora `reset()` limpia el pending plan.
+- **Overlay timing: overlays se creaban en t=0** — `RightPanel` pasaba `.constant(playheadTime)` con tiempo desactualizado; `OverlayEditorView` ahora lee `currentTime` directamente desde `playerViewModel` con un `Binding` live.
+- **Edits de overlay no se reflejaban en el frame visible** — `rebuildVideoComposition` reemplaza el `AVVideoComposition` pero AVFoundation no re-renderiza el frame ya mostrado; ahora hace seek al tiempo actual cuando el player está pausado para forzar re-render inmediato.
+- **Cache key de overlay incompleta** — `cachedOverlayKey` solo incluía id/x/y/scale/rotation/stroke; cambios en `strokeWidth`, `shadow`, `text`, `fontSize`, `fontColor` y `bgColor` eran ignorados silenciosamente por el cache. Ahora incluye todas las propiedades relevantes para el render.
 - **Rebuild excesivo de `videoComposition` al abrir un proyecto** — `PreviewEngine.updateProject` ahora corta temprano si el project es idéntico al ya cargado; `PreviewPlayerView` disparaba 10+ rebuilds en cascada por cambios de state no relacionados con la composición visual.
 - Warning "Initialization of immutable value 'oldBackground' was never used" en `ProjectEditor.setBackgroundType` — variable sin uso eliminada.
 - Dead code removido: `TimelineView.getThumbnailForTime` y `zoomSuggestionGenerator` (nunca referenciados).
