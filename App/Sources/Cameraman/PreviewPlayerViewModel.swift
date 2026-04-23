@@ -36,10 +36,7 @@ final class PreviewPlayerViewModel: ObservableObject {
     @Published var micAudioVolume: Float = 2.5 {
         didSet { reapplyAudioMix() }
     }
-    @Published var showOverlays: Bool = true
-    @Published var showLayout: Bool = true
     @Published var showZoom: Bool = true
-    @Published var showCaptions: Bool = true
     @Published var showCursor: Bool = false
     @Published var showClicks: Bool = false
     @Published var showKeystrokes: Bool = false
@@ -198,6 +195,7 @@ final class PreviewPlayerViewModel: ObservableObject {
         systemAudioVolume = 1.0
         micAudioVolume = 2.5
         project = nil
+        showZoom = true
         showCursor = false
         showClicks = false
         showKeystrokes = false

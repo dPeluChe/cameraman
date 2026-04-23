@@ -21,7 +21,7 @@ extension PreviewEngine {
         baseInstruction: AVMutableVideoCompositionInstruction
     ) -> [AVVideoCompositionInstructionProtocol] {
         let screenTrack = composition.tracks(withMediaType: .video).first
-        let overlayConfigs = project.overlays.map { OverlayConfig(overlay: $0) }
+        let overlayConfigs = project.overlayConfigs
         var allInstructions: [AVVideoCompositionInstructionProtocol] = []
 
         let totalDuration = composition.duration

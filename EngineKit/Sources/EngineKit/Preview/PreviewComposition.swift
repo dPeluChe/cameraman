@@ -68,7 +68,7 @@ extension PreviewEngine {
 
             let maskShape = project.canvas.layout.camera?.maskShape ?? .none
             let cornerRadius = project.canvas.layout.camera?.cornerRadius ?? 0
-            let overlayConfigs = project.overlays.map { OverlayConfig(overlay: $0) }
+            let overlayConfigs = project.overlayConfigs
 
             if maskShape != .none {
                 let maskedInstruction = MaskedVideoCompositionInstruction(
@@ -136,7 +136,7 @@ extension PreviewEngine {
 
             // If there are overlays, use the custom compositor
             if !project.overlays.isEmpty {
-                let overlayConfigs = project.overlays.map { OverlayConfig(overlay: $0) }
+                let overlayConfigs = project.overlayConfigs
                 let maskedInstruction = MaskedVideoCompositionInstruction(
                     timeRange: instruction.timeRange,
                     screenTrackID: screenTrack.trackID,
@@ -194,7 +194,7 @@ extension PreviewEngine {
                     // Use custom compositor with per-clip instructions
                     var maskedInstructions: [MaskedVideoCompositionInstruction] = []
                     let totalDuration = composition.duration
-                    let overlayConfigs = project.overlays.map { OverlayConfig(overlay: $0) }
+                    let overlayConfigs = project.overlayConfigs
 
                     for (i, clip) in primaryClips.enumerated() {
                         // For non-recording clips, use default camera
@@ -262,7 +262,7 @@ extension PreviewEngine {
 
                 // If there are overlays, use the custom compositor so they render during playback
                 if !project.overlays.isEmpty {
-                    let overlayConfigs = project.overlays.map { OverlayConfig(overlay: $0) }
+                    let overlayConfigs = project.overlayConfigs
                     let maskedInstruction = MaskedVideoCompositionInstruction(
                         timeRange: instruction.timeRange,
                         screenTrackID: screenTrack.trackID,
@@ -293,7 +293,7 @@ extension PreviewEngine {
 
                 // If there are overlays but no camera, use custom compositor
                 if !project.overlays.isEmpty {
-                    let overlayConfigs = project.overlays.map { OverlayConfig(overlay: $0) }
+                    let overlayConfigs = project.overlayConfigs
                     let maskedInstruction = MaskedVideoCompositionInstruction(
                         timeRange: instruction.timeRange,
                         screenTrackID: screenTrack.trackID,

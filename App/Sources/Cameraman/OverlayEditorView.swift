@@ -18,9 +18,6 @@ struct OverlayEditorView: View {
 
     @State var selectedTool: OverlayTool = .arrow
     @State var selectedOverlayId: UUID?
-    @State var isCreatingOverlay = false
-    @State var creationStartPoint: CGPoint = .zero
-    @State var creationCurrentPoint: CGPoint = .zero
 
     let availableTools: [OverlayTool] = [.arrow, .rect, .line, .text]
 

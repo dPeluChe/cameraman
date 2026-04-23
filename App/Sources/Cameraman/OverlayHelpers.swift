@@ -306,7 +306,10 @@ extension OverlayEditorView {
     }
 
     func hexColor(from color: Color) -> String {
-        // Default to red if conversion fails
-        return "#FF3B30"
+        let c = NSColor(color).usingColorSpace(.sRGB) ?? NSColor(color)
+        return String(format: "#%02X%02X%02X",
+                      Int(c.redComponent * 255),
+                      Int(c.greenComponent * 255),
+                      Int(c.blueComponent * 255))
     }
 }
