@@ -302,15 +302,7 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
         instruction: MaskedVideoCompositionInstruction,
         renderSize: CGSize
     ) -> CIImage {
-        guard let zoomPlan = MaskedVideoCompositor.activeZoomPlan else {
-            // Log once per 5 seconds when plan is missing during playback
-            let t = request.compositionTime.seconds
-            if Int(t) % 5 == 0 && Int(t) != lastZoomLogSecond {
-                lastZoomLogSecond = Int(t)
-                LogDebug(.preview, "applyZoom: no activeZoomPlan at t=\(String(format: "%.2f", t))")
-            }
-            return image
-        }
+        guard let zoomPlan = MaskedVideoCompositor.activeZoomPlan else { return image }
 
         let time = request.compositionTime.seconds
         let zoomLevel = zoomPlan.zoomLevel(at: time)
@@ -332,12 +324,13 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
         let tx = focusX - focusX * scale
         let ty = focusY - focusY * scale
 
-        // Log once per second (throttle by rounding time to 1s buckets)
+#if DEBUG
         let logKey = Int(time)
         if logKey != lastZoomLogSecond {
             lastZoomLogSecond = logKey
             LogDebug(.preview, "applyZoom t=\(String(format: "%.2f", time)) level=\(String(format: "%.2f", zoomLevel)) rawFocus=(\(String(format: "%.3f", focusPoint.x)),\(String(format: "%.3f", focusPoint.y))) canvasFocus=(\(Int(focusX)),\(Int(focusY))) renderSize=\(Int(renderSize.width))x\(Int(renderSize.height))")
         }
+#endif
 
         return image
             .transformed(by: CGAffineTransform(a: scale, b: 0, c: 0, d: scale, tx: tx, ty: ty))

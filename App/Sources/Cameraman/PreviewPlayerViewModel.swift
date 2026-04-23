@@ -202,6 +202,7 @@ final class PreviewPlayerViewModel: ObservableObject {
         showClicks = false
         showKeystrokes = false
         lastMuteState = nil
+        pendingZoomPlan = nil
     }
 
     func togglePlayPause() {

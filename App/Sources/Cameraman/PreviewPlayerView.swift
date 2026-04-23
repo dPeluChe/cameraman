@@ -65,7 +65,7 @@ struct PreviewPlayerView: View {
         .task(id: editor.project.projectId) {
             viewModel.load(project: editor.project, projectDirectory: projectDirectory)
         }
-        .onReceive(editor.objectWillChange.debounce(for: .milliseconds(500), scheduler: RunLoop.main)) { [weak viewModel] _ in
+        .onReceive(editor.objectWillChange.debounce(for: .milliseconds(150), scheduler: RunLoop.main)) { [weak viewModel] _ in
             guard let viewModel = viewModel,
                   viewModel.previewEngine != nil,
                   viewModel.project?.projectId == editor.project.projectId else { return }
