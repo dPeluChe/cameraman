@@ -9,18 +9,101 @@
 import SwiftUI
 import EngineKit
 
-struct ZoomSuggestionGenerator {
-    let project: Project
-    let projectDirectory: URL?
-    
+extension TimelineView {
     var hasCursorTelemetry: Bool {
         project.primarySources?.telemetry?.cursor != nil
     }
-    
+
+    var activeSuggestions: [ZoomSuggestion] {
+        zoomSuggestions.filter { !dismissedSuggestionIds.contains($0.id) }
+    }
+
+    func generateZoomSuggestions() {
+        guard hasCursorTelemetry, let projDir = projectDirectory else {
+            LogDebug(.telemetry, "No cursor telemetry or project directory")
+            return
+        }
+
+        isGeneratingSuggestions = true
+
+        Task {
+            let generator = ZoomSuggestionGenerator(project: project, projectDirectory: projDir)
+            let suggestions = await generator.generate()
+
+            if !suggestions.isEmpty {
+                // Surface failures from applyAsPlan — a silent try? here was hiding
+                // rate-limit rejections that left timeline markers with no actual zoom.
+                do {
+                    let plan = try await generator.applyAsPlan(suggestions)
+                    await MainActor.run { playerViewModel.setZoomPlan(plan) }
+                    LogInfo(.telemetry, "Auto-applied zoom plan with \(plan.keyframes.count) keyframes")
+                } catch {
+                    LogError(.telemetry, "Failed to apply zoom plan: \(error.localizedDescription)")
+                }
+            }
+
+            await MainActor.run {
+                zoomSuggestions = suggestions
+                isGeneratingSuggestions = false
+            }
+        }
+    }
+
+    func applyZoomSuggestions() {
+        let suggestions = activeSuggestions
+        guard !suggestions.isEmpty else { return }
+
+        Task {
+            let generator = ZoomSuggestionGenerator(project: project, projectDirectory: projectDirectory)
+            if let plan = try? await generator.applyAsPlan(suggestions) {
+                await MainActor.run { playerViewModel.setZoomPlan(plan) }
+            }
+
+            await enableZoomOnAllSegments()
+
+            await MainActor.run {
+                zoomSuggestions = []
+                dismissedSuggestionIds = []
+            }
+        }
+    }
+
+    private func enableZoomOnAllSegments() async {
+        let zoomConfig = Project.Timeline.ZoomConfiguration(
+            enabled: true,
+            intensity: .normal
+        )
+        var updatedProject = editor.project
+        for i in updatedProject.timeline.segments.indices {
+            updatedProject.timeline.segments[i].zoom = zoomConfig
+        }
+        await editor.setProject(updatedProject)
+    }
+}
+
+struct ZoomSuggestionGenerator {
+    let project: Project
+    let projectDirectory: URL?
+
+    /// Dimensions of the recorded video in the same coordinate space as the cursor telemetry.
+    /// Cursor events come from NSEvent in display POINTS; for non-retina full-screen recordings
+    /// these match the recorded pixel dimensions. Area recordings and retina displays still need
+    /// proper captureRect/backingScale storage in the project schema (follow-up).
+    private var captureDimensions: (width: Double, height: Double) {
+        if let size = project.primarySources?.screen.size {
+            return (Double(size.w), Double(size.h))
+        }
+        return (Double(project.canvas.format.w), Double(project.canvas.format.h))
+    }
+
+    var hasCursorTelemetry: Bool {
+        project.primarySources?.telemetry?.cursor != nil
+    }
+
     var activeSuggestions: [ZoomSuggestion] {
         []
     }
-    
+
     func generate() async -> [ZoomSuggestion] {
         guard let cursorTrack = project.primarySources?.telemetry?.cursor,
               let projDir = projectDirectory else {
@@ -65,23 +148,25 @@ struct ZoomSuggestionGenerator {
             importantClicks: [], windows: [], stats: emptyStats
         )
         
+        let dims = captureDimensions
         let suggestions = ZoomSuggestionEngine.generateSuggestions(
             events: events,
             parseResult: result,
-            screenWidth: Double(project.canvas.format.w),
-            screenHeight: Double(project.canvas.format.h),
+            screenWidth: dims.width,
+            screenHeight: dims.height,
             timelineDuration: project.timeline.duration
         )
-        
-        LogInfo(.telemetry, "Generated \(suggestions.count) zoom suggestions")
+
+        LogInfo(.telemetry, "Generated \(suggestions.count) zoom suggestions (screen \(Int(dims.width))x\(Int(dims.height)))")
         return suggestions
     }
-    
+
     func applyAsPlan(_ suggestions: [ZoomSuggestion]) async throws -> ZoomPlanGenerator.ZoomPlan {
-        try await ZoomSuggestionEngine.applyAsPlan(
+        let dims = captureDimensions
+        return try await ZoomSuggestionEngine.applyAsPlan(
             suggestions: suggestions,
-            screenWidth: Double(project.canvas.format.w),
-            screenHeight: Double(project.canvas.format.h),
+            screenWidth: dims.width,
+            screenHeight: dims.height,
             timelineDuration: project.timeline.duration
         )
     }

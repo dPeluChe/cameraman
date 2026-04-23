@@ -303,6 +303,10 @@ extension CaptureEngine {
                 logger.debug("Video frames received: \(self.videoFrameCount)")
             }
 
+            // Stop trying to append once the writer has failed — otherwise we flood logs
+            // with thousands of identical failures for a recording that's already lost.
+            if session.videoWriterFailed { return }
+
             guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
                 if videoFrameCount < 10 {
                     logger.warning("No pixel buffer in video sample at frame \(self.videoFrameCount)")
@@ -327,7 +331,7 @@ extension CaptureEngine {
                adaptor.assetWriterInput.isReadyForMoreMediaData {
                 let success = adaptor.append(pixelBuffer, withPresentationTime: relativeTime)
                 if !success, let writer = session.getVideoWriter() {
-                    logger.error("Failed to append video frame \(self.videoFrameCount). Writer status: \(writer.status.rawValue), error: \(writer.error?.localizedDescription ?? "none")")
+                    handleVideoWriterFailure(writer: writer, session: session, frame: videoFrameCount)
                 }
             } else {
                 if videoFrameCount < 10 {
@@ -389,11 +393,13 @@ extension CaptureEngine {
                 return
             }
 
+            if session.audioWriterFailed { return }
+
             if let audioInput = session.getAudioInput(),
                audioInput.isReadyForMoreMediaData {
                 let success = audioInput.append(adjustedSampleBuffer)
                 if !success, let writer = session.getAudioWriter() {
-                    logger.error("Failed to append audio frame \(self.audioFrameCount). Writer status: \(writer.status.rawValue), error: \(writer.error?.localizedDescription ?? "none")")
+                    handleAudioWriterFailure(writer: writer, session: session, frame: audioFrameCount)
                 }
             }
 
@@ -401,6 +407,37 @@ extension CaptureEngine {
             break
         }
 
+    }
+
+    private func handleVideoWriterFailure(
+        writer: AVAssetWriter,
+        session: CaptureEngine.RecordingSession,
+        frame: Int
+    ) {
+        logFullWriterError(kind: "video", writer: writer, frame: frame)
+        session.markVideoWriterFailed(writer.error)
+        // Stop the stream so we don't keep burning CPU on a doomed recording.
+        if let stream = session.getStream() {
+            Task { try? await stream.stopCapture() }
+        }
+    }
+
+    private func handleAudioWriterFailure(
+        writer: AVAssetWriter,
+        session: CaptureEngine.RecordingSession,
+        frame: Int
+    ) {
+        logFullWriterError(kind: "audio", writer: writer, frame: frame)
+        session.markAudioWriterFailed(writer.error)
+    }
+
+    private func logFullWriterError(kind: String, writer: AVAssetWriter, frame: Int) {
+        let status = writer.status.rawValue
+        if let nsError = writer.error as NSError? {
+            logger.error("\(kind) writer failed at frame \(frame). status=\(status) domain=\(nsError.domain) code=\(nsError.code) desc=\(nsError.localizedDescription) userInfo=\(nsError.userInfo)")
+        } else {
+            logger.error("\(kind) writer failed at frame \(frame). status=\(status) error=none")
+        }
     }
 
     func startDurationTimer(for session: RecordingSession) {

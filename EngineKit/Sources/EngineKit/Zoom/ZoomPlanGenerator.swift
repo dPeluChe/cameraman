@@ -120,7 +120,9 @@ public actor ZoomPlanGenerator {
     public func generateZoomPlan(
         from clickWindows: [TelemetryParser.ClickWindow],
         config: Configuration = .default(),
-        timelineDuration: TimeInterval
+        timelineDuration: TimeInterval,
+        screenWidth: Double = 1920,
+        screenHeight: Double = 1080
     ) async throws -> ZoomPlan {
         // Validate configuration
         try config.validate()
@@ -136,10 +138,12 @@ public actor ZoomPlanGenerator {
 
         // Sort windows by start time and filter by importance
         let sortedWindows = clickWindows.sorted { $0.startTime < $1.startTime }
-        let filteredWindows = filterWindowsByImportance(sortedWindows)
+        var filteredWindows = filterWindowsByImportance(sortedWindows)
 
-        // Check zoom rate limits
-        try validateZoomRate(for: filteredWindows, duration: timelineDuration, config: config)
+        // Respect the per-minute rate limit by dropping the lowest-importance windows
+        // instead of throwing. Previously this validation tripped and the caller's
+        // `try?` silenced the error — leaving timeline markers with no actual zoom applied.
+        filteredWindows = capWindowsToRateLimit(filteredWindows, duration: timelineDuration, config: config)
 
         // Generate zoom events from click windows
         var zoomEvents: [ZoomEvent] = []
@@ -153,12 +157,14 @@ public actor ZoomPlanGenerator {
 
             // Calculate zoom level based on bounding box size
             let boundingBoxArea = Double(window.boundingBox.width * window.boundingBox.height)
-            let normalizedArea = boundingBoxArea / 2_500_000.0 // Normalize for 1920x1080-ish screens
+            let referenceArea = max(1.0, screenWidth * screenHeight)
+            let normalizedArea = boundingBoxArea / referenceArea
             let targetZoomLevel = calculateZoomLevel(for: normalizedArea, config: config)
 
-            // Calculate focus point (center of click window)
-            let focusX = window.centerPoint.x / 1920.0 // Normalize to 0-1 (assuming 1920 width)
-            let focusY = window.centerPoint.y / 1080.0 // Normalize to 0-1 (assuming 1080 height)
+            // Calculate focus point (center of click window) using the caller-provided screen dims
+            // rather than a hardcoded 1920x1080 — otherwise ultrawides and area recordings map wrong.
+            let focusX = window.centerPoint.x / CGFloat(screenWidth)
+            let focusY = window.centerPoint.y / CGFloat(screenHeight)
 
             // Calculate timing
             let zoomInStart = window.startTime
@@ -255,6 +261,25 @@ public actor ZoomPlanGenerator {
                 config.maxZoomsPerMinute
             )
         }
+    }
+
+    /// Keep at most `maxZoomsPerMinute * minutes` windows, preferring the highest-importance
+    /// ones. Result is re-sorted by time so downstream `minTimeBetweenZooms` filtering still works.
+    func capWindowsToRateLimit(
+        _ windows: [TelemetryParser.ClickWindow],
+        duration: TimeInterval,
+        config: Configuration
+    ) -> [TelemetryParser.ClickWindow] {
+        guard duration > 0 else { return windows }
+
+        let minutes = duration / 60.0
+        let maxAllowed = max(1, Int(ceil(Double(config.maxZoomsPerMinute) * minutes)))
+        if windows.count <= maxAllowed { return windows }
+
+        let kept = windows
+            .sorted { $0.importanceScore > $1.importanceScore }
+            .prefix(maxAllowed)
+        return kept.sorted { $0.startTime < $1.startTime }
     }
 
     /// Calculate zoom level based on bounding box area

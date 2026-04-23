@@ -240,6 +240,13 @@ public actor PreviewEngine {
     /// Update the project and rebuild the composition (for live preview of edits)
     /// Call this when canvas layout, format, camera position, or timeline changes
     public func updateProject(_ project: Project) async throws {
+        // PreviewPlayerView observes editor.objectWillChange and calls this on every
+        // debounced tick — including for UI-only state that doesn't affect the composition.
+        // Short-circuit when nothing actually changed to avoid cascading AVMutableVideoComposition rebuilds.
+        if let existing = self.project, existing == project {
+            return
+        }
+
         let oldFormat = self.project?.canvas.format
         let oldClipCount = self.project?.timeline.primaryTrack?.clips.count
         self.project = project
@@ -293,6 +300,11 @@ public actor PreviewEngine {
         self.videoCompositionConfig = videoComposition
         await MainActor.run {
             currentItem.videoComposition = videoComposition
+            // Force a frame re-render when paused — AVFoundation won't call the compositor
+            // for the current frame unless we seek after replacing the video composition.
+            if player.timeControlStatus != .playing {
+                player.seek(to: player.currentTime(), toleranceBefore: .zero, toleranceAfter: .zero)
+            }
         }
 
         // Also rebuild audio mix to pick up per-segment volume changes
@@ -326,248 +338,6 @@ public actor PreviewEngine {
 
         // Clear zoom plan
         self.zoomPlan = nil
-    }
-
-    // MARK: - Playback Control
-
-    /// Start playback from current position
-    /// - Throws: PreviewError if playback cannot start
-    public func play() async throws {
-        guard let project = project else {
-            throw PreviewError.noProjectLoaded
-        }
-
-        guard let primaryTrack = project.timeline.primaryTrack, !primaryTrack.clips.isEmpty else {
-            throw PreviewError.noSegments
-        }
-
-        player?.play()
-        playbackState = .playing
-        playbackRate = 1.0
-
-        // Start time observer for current time tracking
-        startPeriodicTimeObservation()
-    }
-
-    /// Pause playback
-    /// - Throws: PreviewError if playback cannot be paused
-    public func pause() async throws {
-        guard player != nil else {
-            throw PreviewError.noProjectLoaded
-        }
-
-        player?.pause()
-        playbackState = .paused
-        stopPeriodicTimeObservation()
-    }
-
-    /// Stop playback and reset to beginning
-    /// - Throws: PreviewError if playback cannot be stopped
-    public func stop() async throws {
-        guard player != nil else {
-            throw PreviewError.noProjectLoaded
-        }
-
-        player?.pause()
-        await player?.seek(to: .zero)
-        currentTime = 0
-        playbackState = .stopped
-        stopPeriodicTimeObservation()
-    }
-
-    /// Seek to a specific time in the preview
-    /// - Parameter time: Time in seconds to seek to
-    /// - Throws: PreviewError if seek fails
-    public func seek(to time: TimeInterval) async throws {
-        guard let project = project else {
-            throw PreviewError.noProjectLoaded
-        }
-
-        guard time >= 0 && time <= project.timeline.duration else {
-            throw PreviewError.invalidTime(time)
-        }
-
-        let cmTime = CMTime(seconds: time, preferredTimescale: 600)
-        await player?.seek(to: cmTime, toleranceBefore: .zero, toleranceAfter: .zero)
-        currentTime = time
-    }
-
-    /// Set playback rate (speed)
-    /// - Parameter rate: Playback rate (1.0 = normal, 2.0 = 2x speed, 0.5 = half speed)
-    /// - Throws: PreviewError if rate cannot be set
-    public func setPlaybackRate(_ rate: Double) async throws {
-        guard player != nil else {
-            throw PreviewError.noProjectLoaded
-        }
-
-        guard rate > 0 && rate <= 4.0 else {
-            throw PreviewError.playbackFailed("Invalid playback rate: \(rate)")
-        }
-
-        player?.rate = Float(rate * (playbackState == .playing ? 1.0 : 0.0))
-        playbackRate = rate
-    }
-
-    /// Enable or disable looping
-    /// - Parameter enabled: Whether to enable looping
-    public func setLooping(_ enabled: Bool) {
-        loopEnabled = enabled
-    }
-
-    // MARK: - Time Observation
-
-    /// Update current time from observer (actor-isolated)
-    private func updateCurrentTime(_ time: TimeInterval) {
-        self.currentTime = time
-    }
-
-    /// Start periodic time observation for tracking current time
-    private func startPeriodicTimeObservation() {
-        guard let player = player else { return }
-
-        // Remove any existing observer
-        stopPeriodicTimeObservation()
-
-        let interval = CMTime(seconds: 0.1, preferredTimescale: 600)
-        timeObserverToken = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
-            guard let self = self else { return }
-            Task {
-                await self.updateCurrentTime(time.seconds)
-            }
-        }
-    }
-
-    /// Stop periodic time observation
-    private func stopPeriodicTimeObservation() {
-        if let token = timeObserverToken, let player = player {
-            player.removeTimeObserver(token)
-            timeObserverToken = nil
-        }
-    }
-
-    // MARK: - State Query
-
-    /// Get current preview session information
-    /// - Returns: PreviewSession with current state
-    public func getSession() -> PreviewSession {
-        let duration = project?.timeline.duration ?? 0
-        return PreviewSession(
-            state: playbackState,
-            currentTime: currentTime,
-            duration: duration,
-            playbackRate: playbackRate,
-            isLooping: loopEnabled
-        )
-    }
-
-    /// Get current playback time
-    /// - Returns: Current time in seconds
-    public func getCurrentTime() -> TimeInterval {
-        return currentTime
-    }
-
-    /// Get total duration
-    /// - Returns: Total duration in seconds
-    public func getDuration() -> TimeInterval {
-        return project?.timeline.duration ?? 0
-    }
-
-    /// Get playback state
-    /// - Returns: Current playback state
-    public func getPlaybackState() -> PlaybackState {
-        return playbackState
-    }
-
-    /// Check if currently playing
-    /// - Returns: True if playing
-    public func isPlaying() -> Bool {
-        return playbackState == .playing
-    }
-
-    /// Check if currently paused
-    /// - Returns: True if paused
-    public func isPaused() -> Bool {
-        return playbackState == .paused
-    }
-
-    /// Check if currently stopped
-    /// - Returns: True if stopped
-    public func isStopped() -> Bool {
-        return playbackState == .stopped
-    }
-
-
-    // MARK: - Proxy Generation
-
-    /// Generate proxies for the current project
-    /// - Parameters:
-    ///   - projectDirectory: Project's directory path
-    ///   - configuration: Optional proxy configuration (uses default if nil)
-    ///   - progress: Optional progress handler (0.0 to 1.0)
-    /// - Returns: Dictionary of track type to ProxyResult
-    /// - Throws: PreviewError if generation fails
-    public func generateProxies(
-        projectDirectory: String,
-        configuration: ProxyGenerator.Configuration? = nil,
-        progress: ProxyGenerator.ProgressHandler? = nil
-    ) async throws -> [String: ProxyGenerator.ProxyResult] {
-        guard let project = project else {
-            throw PreviewError.noProjectLoaded
-        }
-
-        let proxyConfig = configuration ?? ProxyGenerator.Configuration(
-            width: self.configuration.proxyWidth,
-            height: self.configuration.proxyHeight
-        )
-
-        return try await proxyGenerator.generateProjectProxies(
-            for: project,
-            projectDirectory: projectDirectory,
-            configuration: proxyConfig,
-            progress: progress
-        )
-    }
-
-    /// Check if proxies are available for the current project
-    /// - Returns: True if proxies exist and should be used
-    public func hasProxies() -> Bool {
-        guard project != nil,
-              let projectDir = projectDirectory else {
-            return false
-        }
-
-        // Check if screen proxy exists
-        let screenProxyPath = (projectDir as NSString).appendingPathComponent("proxies/screen_proxy.mov")
-        return FileManager.default.fileExists(atPath: screenProxyPath)
-    }
-
-    /// Get proxy path for a specific track
-    /// - Parameter trackType: Track type ("screen" or "camera")
-    /// - Returns: Path to proxy file if it exists, nil otherwise
-    public func getProxyPath(for trackType: String) -> String? {
-        guard let projectDir = projectDirectory else {
-            return nil
-        }
-
-        let proxiesDirectory = (projectDir as NSString).appendingPathComponent("proxies")
-        let proxyFileName = "\(trackType)_proxy.mov"
-        let proxyPath = (proxiesDirectory as NSString).appendingPathComponent(proxyFileName)
-
-        return FileManager.default.fileExists(atPath: proxyPath) ? proxyPath : nil
-    }
-
-    /// Delete all proxies for the current project
-    /// - Throws: PreviewError if deletion fails
-    public func deleteProxies() async throws {
-        guard let projectDir = projectDirectory else {
-            throw PreviewError.noProjectLoaded
-        }
-
-        let proxiesDirectory = (projectDir as NSString).appendingPathComponent("proxies")
-
-        if FileManager.default.fileExists(atPath: proxiesDirectory) {
-            try FileManager.default.removeItem(atPath: proxiesDirectory)
-        }
     }
 
 }

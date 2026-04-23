@@ -1,9 +1,23 @@
 # Backlog de Tareas Pendientes
 
-> Actualizado: 2026-04-03
-> Solo features y mejoras NO implementadas. Para trabajo completado ver `TASK_COMPLETED/`.
+> Actualizado: 2026-04-18
 > Solo features y mejoras NO implementadas. Para trabajo completado ver `TASK_COMPLETED/`.
 > Ordenado por fases: fundacion primero, features despues.
+
+---
+
+## 🔴 Bloqueantes (detectados en pruebas reales — 2026-04-18)
+
+- [ ] **Recording: AVAssetWriter falla temprano y deja `screen.mov` corrupto**
+    - Síntoma observado en log de prueba: writer pasa a `status: 3` (failed) ~frame 73 con error `-10877`; todos los frames siguientes fallan silenciosamente ("Failed to append video frame N. Writer status: 3").
+    - Resultado: archivo de 221KB para 30s de grabación → `PreviewEngine.PreviewError error 1` al abrir el proyecto y "Failed to build composition: Cannot Open" al cargar.
+    - Contexto: display ultrawide 3440x1440 (SCDisplay id=3). Cámara sí grabó OK (901 frames). Mic y system audio OK.
+    - Precedente: mensaje `GetPropertyData background replacement pixel buffer size invalid or not available` + `CMIOObjectGetPropertyData Error: 2003332927` justo antes del fallo — posible colisión con efectos de sistema (Stickers/VFX de Messages visibles en el log).
+    - Acciones mínimas:
+      1. Detectar `writer.status == .failed` y abortar la grabación con error al usuario (no seguir acumulando 1700 frames perdidos).
+      2. Loguear `writer.error` al transicionar a failed (hoy solo se imprime el texto genérico).
+      3. Validar resolución/alignment antes de iniciar el writer (ultrawide puede requerir pixel format o dimensiones específicas).
+      4. Reproducir aislando efectos VFX de Messages para confirmar causa raíz.
 
 ---
 
@@ -48,18 +62,16 @@
     - `JobQueue()` se crea como instancia nueva en `ProjectLibrary.getExportEngine/getJobQueue` — ahora es compartido.
     - Nota: `Recorder` ya inyecta `CaptureEngine.shared` + `CameraEngine.shared` — punto de entrada natural para DI.
 
-- [ ] **Descomponer TimelineView (30.6KB, 900+ lineas):**
-    - Contiene logica de thumbnails, waveforms, zoom suggestions, drag gestures, import, trim.
-    - Extraer a sub-ViewModels: `ThumbnailManager`, `ZoomSuggestionManager`, `TimelineDragHandler`.
-    - Mover `generateZoomSuggestions()` y `applyZoomSuggestions()` a ViewModel dedicado.
-    - Nota: ya existe `TimelineView+Subviews.swift` (16KB) para la vista — la logica es lo que pesa.
+- [x] **Descomponer TimelineView:** ✅ COMPLETO (v0.5.1, 2026-04-18) — 864 → 413 LOC.
+    - Extraído a: `TimelineView+Thumbnails.swift` (thumbnails/waveforms), `TimelineView+DragDrop.swift` (gesture/drop/import/trim), `TimelineView+EditActions.swift` (split/delete/undo/redo/volume), y métodos de zoom movidos a `TimelineView+ZoomSuggestions.swift`.
+    - Dead code eliminado: `getThumbnailForTime`, `zoomSuggestionGenerator`.
+    - Enfoque: extensiones (mantiene `@State`), bajo riesgo. Follow-up opcional: promover a `@StateObject` sub-ViewModels si queremos testabilidad aislada.
 
-- [ ] **Extraer pipeline de export de `performExport()` (400+ lineas):**
-    - `ExportEngine.performExport()` es una funcion monolitica con 8 etapas inline.
-    - Logica de PiP/camera/mask/screenMuted profundamente anidada (4 niveles).
-    - Recomendacion: crear `ExportPipeline` con steps: Validate → Load → Compose → Transform → Export → Verify.
-    - Cada step como struct con `execute() async throws`.
-    - Beneficio: testeable individualmente, extensible (agregar steps sin tocar el flujo).
+- [x] **Extraer pipeline de export de `performExport()`:** ✅ COMPLETO (v0.5.1, 2026-04-18) — monolítica de ~480 LOC dividida en stages.
+    - `VideoExportSession.swift` (125 LOC): orquestador que encadena stages 1-8.
+    - `VideoExportSession+Stages.swift` (261 LOC): prepareOutput / validateAssets / buildComposition / configureSession / runSession / verifyOutput.
+    - `VideoExportSession+Composition.swift` (277 LOC): buildExportVideoComposition con rutas fullscreen-camera / standard / per-segment-masked separadas.
+    - Follow-up opcional: convertir stages en structs con `execute() async throws` si se quiere testear cada uno aisladamente.
 
 ---
 

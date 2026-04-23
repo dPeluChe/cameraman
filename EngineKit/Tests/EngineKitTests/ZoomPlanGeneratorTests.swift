@@ -528,8 +528,10 @@ final class ZoomPlanGeneratorTests: XCTestCase {
         }
     }
 
-    func testGenerateZoomPlanZoomRateExceeded() async {
-        // Create many click windows to exceed zoom rate limit
+    func testGenerateZoomPlanCapsToRateLimit() async throws {
+        // 20 click windows over 30s = 40/min, but default config allows 6/min.
+        // The generator should cap to fit the limit instead of throwing (previous
+        // throwing behavior was silenced by `try?` upstream, leaving zero zooms applied).
         var clickWindows: [TelemetryParser.ClickWindow] = []
         for i in 0..<20 {
             let window = TelemetryParser.ClickWindow(
@@ -539,25 +541,23 @@ final class ZoomPlanGeneratorTests: XCTestCase {
                 clicks: [],
                 centerPoint: CGPoint(x: 500, y: 300),
                 boundingBox: TelemetryParser.BoundingBox(minX: 450, maxX: 550, minY: 250, maxY: 350),
-                importanceScore: 10.0
+                importanceScore: Double(i) // incrementing importance so we can verify top-N kept
             )
             clickWindows.append(window)
         }
 
-        let config = ZoomPlanGenerator.Configuration.default()
+        let config = ZoomPlanGenerator.Configuration.default() // maxZoomsPerMinute: 6
+        let timelineDuration: TimeInterval = 30.0
+        let maxAllowed = Int(ceil(Double(config.maxZoomsPerMinute) * (timelineDuration / 60.0))) // 3
 
-        do {
-            _ = try await zoomPlanGenerator.generateZoomPlan(
-                from: clickWindows,
-                config: config,
-                timelineDuration: 30.0
-            )
-            XCTFail("Should throw error for zoom rate exceeded")
-        } catch ZoomPlanGenerator.ZoomPlanError.zoomRateExceeded(let actual, let maximum) {
-            XCTAssertTrue(actual > maximum, "Actual zoom rate should exceed maximum")
-        } catch {
-            XCTFail("Unexpected error: \(error)")
-        }
+        let plan = try await zoomPlanGenerator.generateZoomPlan(
+            from: clickWindows,
+            config: config,
+            timelineDuration: timelineDuration
+        )
+
+        XCTAssertLessThanOrEqual(plan.events.count, maxAllowed, "Plan must respect maxZoomsPerMinute")
+        XCTAssertGreaterThan(plan.events.count, 0, "Plan should still contain some zooms")
     }
 
     func testGenerateZoomPlanMinTimeBetweenZooms() async throws {

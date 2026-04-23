@@ -281,9 +281,7 @@ public class HotkeyManager {
 
         registeredHotkeys.removeValue(forKey: action)
 
-        // Remove event handler if no hotkeys registered
         if registeredHotkeys.isEmpty {
-            removeEventHandler()
             isEnabled = false
         }
     }
@@ -294,7 +292,6 @@ public class HotkeyManager {
             _ = UnregisterEventHotKey(registration.eventHotkeyRef)
         }
         registeredHotkeys.removeAll()
-        removeEventHandler()
         isEnabled = false
     }
 
@@ -344,10 +341,6 @@ public class HotkeyManager {
             let manager = Unmanaged<HotkeyManager>.fromOpaque(userData).takeUnretainedValue()
             return manager.handleHotkeyEvent(theEvent)
         }, 1, &spec, observer, nil)
-    }
-
-    private func removeEventHandler() {
-        // Event handlers are automatically removed when hotkeys are unregistered
     }
 
     private func handleHotkeyEvent(_ event: AnyObject?) -> OSStatus {
@@ -450,7 +443,6 @@ private func GetEventParameter(
 public let noErr: OSStatus = 0
 
 public typealias OSStatus = Int32
-private typealias OptionBits = UInt32
 
 private struct EventTypeSpec {
     var eventClass: UInt32

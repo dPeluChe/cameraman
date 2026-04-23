@@ -306,14 +306,20 @@ extension PreviewEngine {
         }
     }
 
-    /// Apply zoom transformation to a graphics context
-    /// - Parameters:
-    ///   - context: Graphics context to transform
-    ///   - time: Current timeline time
-    ///   - zoomPlan: Zoom plan with keyframes
-    ///   - imageSize: Size of the image being rendered
-    ///   - canvasSize: Canvas format size
-    /// - Throws: PreviewError if transformation fails
+    /// Returns zoom level and focus coordinates in image space, or nil if zoom is inactive.
+    private func zoomState(
+        at time: TimeInterval,
+        zoomPlan: ZoomPlanGenerator.ZoomPlan,
+        imageSize: CoreFoundation.CGSize
+    ) -> (level: Double, focusX: CGFloat, focusY: CGFloat)? {
+        let zoomLevel = zoomPlan.zoomLevel(at: time)
+        guard zoomLevel > 1.01 else { return nil }
+        let focusPoint = zoomPlan.focusPoint(at: time)
+        // focusPoint is in canvas-normalised space; multiplying by imageSize maps to pixel space
+        // (canvasSize cancels out when converting: focusPoint.x * canvasW * (imageW / canvasW) = focusPoint.x * imageW)
+        return (zoomLevel, focusPoint.x * imageSize.width, focusPoint.y * imageSize.height)
+    }
+
     private func applyZoomTransform(
         to context: CGContext,
         at time: TimeInterval,
@@ -321,65 +327,25 @@ extension PreviewEngine {
         imageSize: CoreFoundation.CGSize,
         canvasSize: CoreFoundation.CGSize
     ) async throws {
-        // Get zoom level and focus point at current time
-        let zoomLevel = zoomPlan.zoomLevel(at: time)
-        let focusPoint = zoomPlan.focusPoint(at: time)
-
-        // Only apply transform if zoom is active (> 1.0)
-        guard zoomLevel > 1.01 else {
-            return
-        }
-
-        // Save context state before transformation
+        guard let state = zoomState(at: time, zoomPlan: zoomPlan, imageSize: imageSize) else { return }
         context.saveGState()
-
-        // Calculate the scale factors
-        let scaleX = imageSize.width / CGFloat(canvasSize.width)
-        let scaleY = imageSize.height / CGFloat(canvasSize.height)
-
-        // Calculate focus point in image coordinates
-        let focusX = focusPoint.x * CGFloat(canvasSize.width) * scaleX
-        let focusY = focusPoint.y * CGFloat(canvasSize.height) * scaleY
-
-        // Apply zoom transformation
-        // 1. Translate to focus point
-        context.translateBy(x: focusX, y: focusY)
-
-        // 2. Scale by zoom level
-        context.scaleBy(x: CGFloat(zoomLevel), y: CGFloat(zoomLevel))
-
-        // 3. Translate back from focus point
-        context.translateBy(x: -focusX, y: -focusY)
+        context.translateBy(x: state.focusX, y: state.focusY)
+        context.scaleBy(x: CGFloat(state.level), y: CGFloat(state.level))
+        context.translateBy(x: -state.focusX, y: -state.focusY)
     }
 
-    /// Apply zoom to an image (for frames without overlays)
-    /// - Parameters:
-    ///   - image: Original image
-    ///   - time: Current timeline time
-    ///   - zoomPlan: Zoom plan with keyframes
-    ///   - canvasSize: Canvas format size
-    /// - Returns: Zoomed image, or original if zoom is not active
-    /// - Throws: PreviewError if zoom application fails
     public func applyZoom(
         to image: CGImage,
         at time: TimeInterval,
         zoomPlan: ZoomPlanGenerator.ZoomPlan,
         canvasSize: CoreFoundation.CGSize
     ) async throws -> CGImage {
-        // Get zoom level and focus point at current time
-        let zoomLevel = zoomPlan.zoomLevel(at: time)
-        let focusPoint = zoomPlan.focusPoint(at: time)
+        let imageSize = CoreFoundation.CGSize(width: CGFloat(image.width), height: CGFloat(image.height))
+        guard let state = zoomState(at: time, zoomPlan: zoomPlan, imageSize: imageSize) else { return image }
 
-        // Only apply zoom if zoom is active (> 1.01)
-        guard zoomLevel > 1.01 else {
-            return image
-        }
+        let newWidth = Int(Double(image.width) * state.level)
+        let newHeight = Int(Double(image.height) * state.level)
 
-        // Calculate new dimensions for zoomed image
-        let newWidth = Int(Double(image.width) * zoomLevel)
-        let newHeight = Int(Double(image.height) * zoomLevel)
-
-        // Create bitmap context for zoomed image
         guard let context = CGContext(
             data: nil,
             width: newWidth,
@@ -392,34 +358,18 @@ extension PreviewEngine {
             throw PreviewError.playbackFailed("Failed to create graphics context for zoom")
         }
 
-        // Calculate the source rectangle to crop
-        // We want to center on the focus point
-        let scaleX = CGFloat(image.width) / CGFloat(canvasSize.width)
-        let scaleY = CGFloat(image.height) / CGFloat(canvasSize.height)
-
-        let focusX = focusPoint.x * CGFloat(canvasSize.width) * scaleX
-        let focusY = focusPoint.y * CGFloat(canvasSize.height) * scaleY
-
-        // Calculate the crop rectangle centered on focus point
-        let cropWidth = CGFloat(image.width) / CGFloat(zoomLevel)
-        let cropHeight = CGFloat(image.height) / CGFloat(zoomLevel)
-        let cropX = max(0, min(focusX - cropWidth / 2, CGFloat(image.width) - cropWidth))
-        let cropY = max(0, min(focusY - cropHeight / 2, CGFloat(image.height) - cropHeight))
+        let cropWidth = CGFloat(image.width) / CGFloat(state.level)
+        let cropHeight = CGFloat(image.height) / CGFloat(state.level)
+        let cropX = max(0, min(state.focusX - cropWidth / 2, CGFloat(image.width) - cropWidth))
+        let cropY = max(0, min(state.focusY - cropHeight / 2, CGFloat(image.height) - cropHeight))
 
         let cropRect = CoreFoundation.CGRect(x: cropX, y: cropY, width: cropWidth, height: cropHeight)
-
-        // Clip to crop rect
         context.clip(to: [cropRect])
+        context.draw(image, in: CoreFoundation.CGRect(x: cropRect.origin.x, y: cropRect.origin.y, width: CGFloat(image.width), height: CGFloat(image.height)))
 
-        // Draw the image
-        let imageRect = CoreFoundation.CGRect(x: cropRect.origin.x, y: cropRect.origin.y, width: CGFloat(image.width), height: CGFloat(image.height))
-        context.draw(image, in: imageRect)
-
-        // Extract zoomed image
         guard let zoomedImage = context.makeImage() else {
             throw PreviewError.playbackFailed("Failed to create zoomed image")
         }
-
         return zoomedImage
     }
 }

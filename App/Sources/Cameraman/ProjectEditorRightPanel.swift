@@ -12,7 +12,7 @@ struct RightPanel: View {
     @ObservedObject var editor: ProjectEditor
     var selectedSegmentId: String?
     var selectedMediaItemId: UUID?
-    var playheadTime: TimeInterval = 0
+    var playerViewModel: PreviewPlayerViewModel? = nil
 
     // Binding states for expansion
     @Binding var isLayoutExpanded: Bool
@@ -95,12 +95,13 @@ struct RightPanel: View {
                     
                     // Overlays Group
                     ConfigGroup(title: "Overlays", isExpanded: $isOverlaysExpanded) {
-                        // Using a playhead constant here since we are just configuring overlay logic, 
-                        // but ideally OverlayEditorView needs the binding if it scrubs.
-                        // For the inspector, we mostly want the list/add buttons.
-                        // We can pass .constant(0) if it's just for property editing, 
-                        // or rewire if needed.
-                        OverlayEditorView(editor: editor, playheadTime: .constant(playheadTime))
+                        OverlayEditorView(
+                            editor: editor,
+                            playheadTime: Binding(
+                                get: { playerViewModel?.currentTime ?? 0 },
+                                set: { _ in }
+                            )
+                        )
                     }
                     
                     Divider()

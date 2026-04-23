@@ -159,6 +159,7 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
     var cachedOverlayImage: CIImage?
     var cachedOverlayKey: String?
     var cachedStaticImages: [String: CIImage] = [:]
+    var lastZoomLogSecond: Int = -1
 
     static let sharedRenderColorSpace = CGColorSpaceCreateDeviceRGB()
 
@@ -315,11 +316,21 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
         let srcW = (t.a > 0) ? renderSize.width / t.a : renderSize.width
         let srcH = (t.d > 0) ? renderSize.height / t.d : renderSize.height
         let rawX = CGFloat(focusPoint.x) * srcW
-        let rawY = (1.0 - CGFloat(focusPoint.y)) * srcH
+        // NSEvent Cocoa coords: y=0 at visual BOTTOM (same as CIImage mathematical space).
+        // No flip needed — contrast with OverlayRenderer which flips view-space y=0-at-top coords.
+        let rawY = CGFloat(focusPoint.y) * srcH
         let focusX = rawX * t.a + t.tx
         let focusY = rawY * t.d + t.ty
         let tx = focusX - focusX * scale
         let ty = focusY - focusY * scale
+
+#if DEBUG
+        let logKey = Int(time)
+        if logKey != lastZoomLogSecond {
+            lastZoomLogSecond = logKey
+            LogDebug(.preview, "applyZoom t=\(String(format: "%.2f", time)) level=\(String(format: "%.2f", zoomLevel)) rawFocus=(\(String(format: "%.3f", focusPoint.x)),\(String(format: "%.3f", focusPoint.y))) canvasFocus=(\(Int(focusX)),\(Int(focusY))) renderSize=\(Int(renderSize.width))x\(Int(renderSize.height))")
+        }
+#endif
 
         return image
             .transformed(by: CGAffineTransform(a: scale, b: 0, c: 0, d: scale, tx: tx, ty: ty))
@@ -337,7 +348,7 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
         guard !activeOverlays.isEmpty else { return image }
 
         let overlayKey = activeOverlays.map {
-            "\($0.id)_\($0.x)_\($0.y)_\($0.scale)_\($0.rotation)_\($0.stroke)"
+            "\($0.id)_\($0.x)_\($0.y)_\($0.scale)_\($0.rotation)_\($0.stroke)_\($0.strokeWidth)_\($0.shadow)_\($0.text ?? "")_\($0.fontSize ?? 0)_\($0.fontColor ?? "")_\($0.bgColor ?? "")"
         }.joined(separator: "|")
 
         let overlayLayer: CIImage

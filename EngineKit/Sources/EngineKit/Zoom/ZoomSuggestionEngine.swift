@@ -150,7 +150,9 @@ public enum ZoomSuggestionEngine {
         return try await generator.generateZoomPlan(
             from: clickWindows,
             config: config,
-            timelineDuration: timelineDuration
+            timelineDuration: timelineDuration,
+            screenWidth: screenWidth,
+            screenHeight: screenHeight
         )
     }
 }

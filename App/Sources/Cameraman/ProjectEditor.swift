@@ -138,34 +138,12 @@ final class ProjectEditor: ObservableObject {
     @discardableResult
     func setLayoutPreset(_ preset: CanvasLayout.LayoutPreset) async -> Bool {
         let hasCamera = project.primarySources?.camera != nil
-        if preset != .fullscreen && !hasCamera {
-            return false
+        if preset != .fullscreen && !hasCamera { return false }
+        return await applyCanvasUpdate {
+            $0.canvas.layout = CanvasLayout.defaultLayout(for: preset)
+            if !hasCamera { $0.canvas.layout.camera = nil }
+            try CanvasLayout.validateLayout($0.canvas.layout, hasCamera: hasCamera)
         }
-
-        let previousProject = project
-        var updatedProject = project
-        updatedProject.canvas.layout = CanvasLayout.defaultLayout(for: preset)
-        if !hasCamera {
-            updatedProject.canvas.layout.camera = nil
-        }
-
-        do {
-            try CanvasLayout.validateLayout(updatedProject.canvas.layout, hasCamera: hasCamera)
-        } catch {
-            return false
-        }
-
-        // Use generic snapshot command for complex changes
-        let command = GenericSnapshotCommand(
-            description: "Set layout preset: \(preset.rawValue)",
-            previousProject: previousProject
-        )
-        
-        await editorModel.setProject(updatedProject)
-        project = updatedProject
-        recordCommand(command)
-        
-        return true
     }
 
     @discardableResult
@@ -173,85 +151,30 @@ final class ProjectEditor: ObservableObject {
         _ camera: Project.Canvas.Layout.CameraPosition,
         recordUndoFrom snapshot: Project? = nil
     ) async -> Bool {
-        let previousProject = project
         let hasCamera = project.primarySources?.camera != nil
-        var updatedProject = project
-
-        updatedProject.canvas.layout.camera = camera
-
-        do {
-            try CanvasLayout.validateLayout(updatedProject.canvas.layout, hasCamera: hasCamera)
-        } catch {
-            return false
+        return await applyCanvasUpdate(saveAfter: true) {
+            $0.canvas.layout.camera = camera
+            try CanvasLayout.validateLayout($0.canvas.layout, hasCamera: hasCamera)
         }
-
-        // Use generic snapshot command
-        let command = GenericSnapshotCommand(
-            description: "Update camera position",
-            previousProject: previousProject
-        )
-        
-        await editorModel.setProject(updatedProject)
-        project = updatedProject
-        scheduleAutosave()
-
-        recordCommand(command)
-        
-        return true
     }
 
     @discardableResult
     func setBackgroundType(_ type: CanvasLayout.BackgroundType) async -> Bool {
-        let previousProject = project
-        var updatedProject = project
         let currentFitMode = CanvasLayout.ImageFitMode(
             rawValue: project.canvas.background.fitMode ?? CanvasLayout.ImageFitMode.fill.rawValue
         ) ?? .fill
-        let oldBackground = project.canvas.background
-        updatedProject.canvas.background = CanvasLayout.defaultBackground(for: type, fitMode: currentFitMode)
-
-        do {
-            try CanvasLayout.validateBackground(updatedProject.canvas.background)
-        } catch {
-            return false
+        return await applyCanvasUpdate {
+            $0.canvas.background = CanvasLayout.defaultBackground(for: type, fitMode: currentFitMode)
+            try CanvasLayout.validateBackground($0.canvas.background)
         }
-
-        // Use snapshot command
-        let command = GenericSnapshotCommand(
-            description: "Set background type: \(type.rawValue)",
-            previousProject: previousProject
-        )
-        
-        await editorModel.setProject(updatedProject)
-        project = updatedProject
-        recordCommand(command)
-        
-        return true
     }
 
     @discardableResult
     func updateBackgroundColor(_ hexColor: String) async -> Bool {
-        let previousProject = project
-        var updatedProject = project
-        updatedProject.canvas.background = CanvasLayout.createSolidBackground(hexColor: hexColor)
-
-        do {
-            try CanvasLayout.validateBackground(updatedProject.canvas.background)
-        } catch {
-            return false
+        return await applyCanvasUpdate {
+            $0.canvas.background = CanvasLayout.createSolidBackground(hexColor: hexColor)
+            try CanvasLayout.validateBackground($0.canvas.background)
         }
-
-        // Use snapshot command
-        let command = GenericSnapshotCommand(
-            description: "Update background color",
-            previousProject: previousProject
-        )
-        
-        await editorModel.setProject(updatedProject)
-        project = updatedProject
-        recordCommand(command)
-        
-        return true
     }
 
     @discardableResult
@@ -259,26 +182,13 @@ final class ProjectEditor: ObservableObject {
         _ imagePath: String,
         fitMode: CanvasLayout.ImageFitMode? = nil
     ) async -> Bool {
-        let previousProject = project
         let resolvedFitMode = fitMode ?? CanvasLayout.ImageFitMode(
             rawValue: project.canvas.background.fitMode ?? CanvasLayout.ImageFitMode.fill.rawValue
         ) ?? .fill
-        var updatedProject = project
-        updatedProject.canvas.background = CanvasLayout.createImageBackground(
-            imagePath: imagePath,
-            fitMode: resolvedFitMode
-        )
-
-        do {
-            try CanvasLayout.validateBackground(updatedProject.canvas.background)
-        } catch {
-            return false
+        return await applyCanvasUpdate {
+            $0.canvas.background = CanvasLayout.createImageBackground(imagePath: imagePath, fitMode: resolvedFitMode)
+            try CanvasLayout.validateBackground($0.canvas.background)
         }
-
-        await editorModel.setProject(updatedProject)
-        recordUndoSnapshot(previousProject)
-        project = updatedProject
-        return true
     }
 
     @discardableResult
@@ -286,61 +196,43 @@ final class ProjectEditor: ObservableObject {
         guard project.canvas.background.type == CanvasLayout.BackgroundType.image.rawValue else {
             return false
         }
-
-        let previousProject = project
-        var updatedProject = project
-        updatedProject.canvas.background = CanvasLayout.createImageBackground(
-            imagePath: project.canvas.background.value,
-            fitMode: fitMode
-        )
-
-        do {
-            try CanvasLayout.validateBackground(updatedProject.canvas.background)
-        } catch {
-            return false
+        return await applyCanvasUpdate {
+            $0.canvas.background = CanvasLayout.createImageBackground(
+                imagePath: $0.canvas.background.value,
+                fitMode: fitMode
+            )
+            try CanvasLayout.validateBackground($0.canvas.background)
         }
-
-        await editorModel.setProject(updatedProject)
-        recordUndoSnapshot(previousProject)
-        project = updatedProject
-        return true
     }
 
     @discardableResult
     func updateBackground(_ background: Project.Canvas.Background) async -> Bool {
-        let previousProject = project
-        var updatedProject = project
-        updatedProject.canvas.background = background
-
-        do {
-            try CanvasLayout.validateBackground(updatedProject.canvas.background)
-        } catch {
-            return false
+        return await applyCanvasUpdate {
+            $0.canvas.background = background
+            try CanvasLayout.validateBackground($0.canvas.background)
         }
-
-        await editorModel.setProject(updatedProject)
-        recordUndoSnapshot(previousProject)
-        project = updatedProject
-        return true
     }
 
     @discardableResult
     func setFormat(_ aspectRatio: CanvasLayout.AspectRatio) async -> Bool {
+        return await applyCanvasUpdate {
+            $0.canvas.format = CanvasLayout.createFormat(for: aspectRatio)
+            try CanvasLayout.validateFormat($0.canvas.format)
+        }
+    }
+
+    @discardableResult
+    private func applyCanvasUpdate(
+        saveAfter: Bool = false,
+        _ mutation: (inout Project) throws -> Void
+    ) async -> Bool {
         let previousProject = project
         var updatedProject = project
-
-        // Create new format for the aspect ratio
-        updatedProject.canvas.format = CanvasLayout.createFormat(for: aspectRatio)
-
-        do {
-            try CanvasLayout.validateFormat(updatedProject.canvas.format)
-        } catch {
-            return false
-        }
-
+        do { try mutation(&updatedProject) } catch { return false }
         await editorModel.setProject(updatedProject)
-        recordUndoSnapshot(previousProject)
         project = updatedProject
+        recordUndoSnapshot(previousProject)
+        if saveAfter { scheduleAutosave() }
         return true
     }
 

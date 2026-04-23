@@ -43,6 +43,11 @@ public struct Project: Codable, Equatable {
         sources ?? takes.first?.sources
     }
 
+    /// Serialized overlay configs ready for the compositor
+    public var overlayConfigs: [OverlayConfig] {
+        overlays.map { OverlayConfig(overlay: $0) }
+    }
+
     enum CodingKeys: String, CodingKey {
         case schemaVersion, projectId, name, tags, createdAt, updatedAt
         case sources, takes, timeline, canvas, overlays, captions, chapters, mediaItems

@@ -2,7 +2,7 @@
 
 Open source screen recorder & editor for macOS. Swift native. Local-first. Free.
 
-**Version**: 0.7.0 | **Platform**: macOS 13+ (Ventura) | **License**: Open Source
+**Version**: 0.5.1 (dev) | **Platform**: macOS 13+ (Ventura) | **License**: Open Source
 
 ## What it does
 
@@ -36,50 +36,17 @@ Record your screen, camera, and audio as separate tracks. Edit with a timeline e
 ## Build & Run
 
 ```bash
-# Clone
-git clone https://github.com/anthropics/labs-cameraman.git
-cd labs-cameraman
-
-# Open in Xcode
 open CameramanApp/CameramanApp.xcodeproj
-# Select scheme "CameramanApp" → Run on "My Mac"
-
-# Or build EngineKit standalone
-cd EngineKit && swift build
+# Scheme: CameramanApp → My Mac → Cmd+R
 ```
 
-**Requirements**: macOS 13+, Xcode 15+. Grant Screen Recording, Camera, and Microphone permissions when prompted.
-
-## Architecture
-
-```
-App/Sources/Cameraman/     — SwiftUI app layer (~16K LOC)
-EngineKit/Sources/          — Modular engine (~22K LOC)
-  Capture/                  — Screen/camera/mic recording, telemetry
-  Editor/                   — Non-destructive editing model
-  Preview/                  — Playback with edits, proxy generation
-  Export/                   — Video/GIF export with presets
-  Zoom/                     — Auto-zoom pipeline (dwell + click detection)
-  Shared/                   — Compositor, audio mix builder
-```
-
-Total: ~38.6K LOC implementation, ~32.2K LOC tests.
-
-## Permissions
-
-App Sandbox is enabled. Required entitlements:
-- `com.apple.security.device.camera`
-- `com.apple.security.device.audio-input`
-- `com.apple.security.files.user-selected.read-write`
-- `com.apple.security.files.downloads.read-write`
-
-Info.plist usage strings: `NSCameraUsageDescription`, `NSMicrophoneUsageDescription`, `NSScreenCaptureUsageDescription`.
+Requirements: macOS 13+, Xcode 15+. See [DEV_ONBOARDING](docs/DEV_ONBOARDING.md) for full setup, architecture, and known issues.
 
 ## Status
 
 **Beta**. Core recording, editing, and export workflows are functional. Overlay system, auto-zoom, and per-segment editing are working. Actively developed.
 
-See [CHANGELOG](Docs/CHANGELOG.md) for version history. See [TASK_TODO](Docs/TASK_TODO.md) for planned work.
+See [CHANGELOG](docs/CHANGELOG.md) for version history. See [TASK_TODO](docs/TASK_TODO.md) for planned work.
 
 ## Built by
 

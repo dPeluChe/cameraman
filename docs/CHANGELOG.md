@@ -5,7 +5,53 @@ All notable changes to Cameraman will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.8.0] - 2026-04-12
+> **Nota (2026-04-18):** Las versiones fueron renumeradas hacia abajo para reflejar el estado real del producto (aún incompleto). El mapeo aplicado:
+> `0.8.0 → 0.5.0` · `0.7.0 → 0.4.1` · `0.6.0 → 0.4.0` · `0.5.0 → 0.3.1` · `0.4.0 → 0.3.0` · `0.3.1 → 0.2.1` · `0.3.0 → 0.2.0` · `0.2.0 → 0.1.1` · `0.1.0 → 0.1.0`.
+> Las fechas y el contenido técnico se preservaron.
+
+## [0.5.1] - Unreleased
+
+### Branch
+- `refactor/phase1-architecture` — Fase 1: descomposición de `TimelineView` y extracción del export pipeline.
+
+### Added
+- `RecordingSession.videoWriterFailed` / `audioWriterFailed` flags + `markVideoWriterFailed(_:)` / `markAudioWriterFailed(_:)` (idempotentes) para detectar escrituras abortadas sin spam de logs.
+
+### Changed
+- **TimelineView descompuesto** — `TimelineView.swift` de 864 → 413 LOC. Nuevas extensiones: `TimelineView+Thumbnails.swift` (106 LOC), `TimelineView+DragDrop.swift` (180 LOC), `TimelineView+EditActions.swift` (96 LOC). Métodos de zoom movidos a `TimelineView+ZoomSuggestions.swift`.
+- **Export pipeline dividido** — `VideoExportSession.performExport()` de ~480 LOC monolíticas → orquestador de 125 LOC que encadena stages aislados en `VideoExportSession+Stages.swift` (prepare/validate/build/configure/run/verify) y `VideoExportSession+Composition.swift` (rutas fullscreen-camera / standard / per-segment masked separadas).
+- **Phase 1 split — 8 archivos >500 LOC divididos** — 14 archivos resultantes, todos bajo 500 LOC:
+  - `CompositionBuilder+AudioTracks.swift` (audio track building extraído; CompositionBuilder 678→476)
+  - `ExportOverlayRenderer.swift` (image/shape overlay burn-in extraído de ExportCaptionRenderer 669→235)
+  - `PreviewEngine+Playback.swift` (playback/time observation/proxy extraídos de PreviewEngine 585→343)
+  - `PreviewEngine+Player.swift` (player creation/mutes/audio mix extraídos de PreviewComposition 504→364)
+  - `ProjectStore+Create.swift` (createProject overloads y addTake extraídos de ProjectStore 533→277)
+  - `ProxyGenerator+Helpers.swift` (sizing/disk/CGContext helpers extraídos de ProxyGenerator 515→401)
+  - `TimelineView+MediaMarkers.swift` (waveform/zoom markers/overlay track row extraídos de TimelineView+Subviews 500→336)
+- **Phase 1 boilerplate — helpers extraídos en archivos 400–490 LOC:**
+  - `MicAudioRecorder.swift` (141 LOC nuevo; Recorder.swift 460→322)
+  - `mutateSegment()` en `ZoomSectionController` colapsa 4 patrones guard/mutate/save (446→410)
+  - `applyCanvasUpdate()` en `ProjectEditor` unifica 7 métodos canvas con undo/autosave (439→332)
+  - `zoomState()` en `PreviewRenderer` deduplica focus-point math entre `applyZoom` + `applyZoomTransform` (425→375)
+  - Dead code eliminado en `HotkeyManager`: `OptionBits` alias sin uso + `removeEventHandler()` vacío (463→455)
+- `CaptureSessionManager` loguea el `NSError` completo (domain/code/userInfo) del writer en el primer fallo en vez de solo `localizedDescription`.
+- Al fallar `AVAssetWriter` durante grabación, se para el stream inmediatamente y no se reintentan más frames (evita spam de 1000+ logs por grabación corrupta).
+- Preview refresh debounce reducido 500ms → 150ms — overlays y cambios de propiedades se reflejan ~3× más rápido.
+
+### Fixed
+- **Versionado reescalado** a 0.5.1 — refleja estado real del producto; historia del CHANGELOG renumerada al esquema más conservador.
+- **Telemetría de cursor no llegaba al proyecto** — `TelemetryRecorder` anidaba `telemetry/telemetry/cursor.jsonl` dentro del directorio que ya era `/telemetry/`, el `Recorder` buscaba un nivel arriba y nunca encontraba el archivo; `moveRecordingFiles` fallaba silencioso. Consecuencia: **cero sugerencias de zoom** en cualquier proyecto grabado con el flujo actual.
+- **Auto-zoom: sugerencias en timeline pero sin zoom real** — `ZoomPlanGenerator.validateZoomRate` tiraba `zoomRateExceeded` cuando había más sugerencias que el límite por minuto (default 6/min); el `try?` aguas arriba silenciaba el error y nunca se aplicaba el plan. Ahora el generador recorta por score al tope permitido en vez de abortar. `generateZoomSuggestions` también loggea errores que antes se tragaban silenciosamente.
+- **Zoom apuntaba a coordenadas equivocadas** — `ZoomSuggestionGenerator` normalizaba eventos de cursor (puntos del display) dividiendo por `canvas.format.w/h` (tamaño de render de salida), y `ZoomPlanGenerator.generateZoomPlan(from clickWindows:)` tenía 1920×1080 hardcoded. Ahora ambos usan las dimensiones reales del video grabado (`primarySources.screen.size`). Caveats pendientes: displays retina (points ≠ pixels) y grabaciones por área (`captureRect`) siguen necesitando schema para mapeo perfecto.
+- **Zoom plan obsoleto re-aplicado al cargar proyecto nuevo** — `reset()` en `PreviewEngine` no limpiaba `pendingZoomPlan`; el plan del proyecto anterior se volvía a aplicar en el siguiente. Ahora `reset()` limpia el pending plan.
+- **Overlay timing: overlays se creaban en t=0** — `RightPanel` pasaba `.constant(playheadTime)` con tiempo desactualizado; `OverlayEditorView` ahora lee `currentTime` directamente desde `playerViewModel` con un `Binding` live.
+- **Edits de overlay no se reflejaban en el frame visible** — `rebuildVideoComposition` reemplaza el `AVVideoComposition` pero AVFoundation no re-renderiza el frame ya mostrado; ahora hace seek al tiempo actual cuando el player está pausado para forzar re-render inmediato.
+- **Cache key de overlay incompleta** — `cachedOverlayKey` solo incluía id/x/y/scale/rotation/stroke; cambios en `strokeWidth`, `shadow`, `text`, `fontSize`, `fontColor` y `bgColor` eran ignorados silenciosamente por el cache. Ahora incluye todas las propiedades relevantes para el render.
+- **Rebuild excesivo de `videoComposition` al abrir un proyecto** — `PreviewEngine.updateProject` ahora corta temprano si el project es idéntico al ya cargado; `PreviewPlayerView` disparaba 10+ rebuilds en cascada por cambios de state no relacionados con la composición visual.
+- Warning "Initialization of immutable value 'oldBackground' was never used" en `ProjectEditor.setBackgroundType` — variable sin uso eliminada.
+- Dead code removido: `TimelineView.getThumbnailForTime` y `zoomSuggestionGenerator` (nunca referenciados).
+
+## [0.5.0] - 2026-04-12
 
 ### Added
 - **Multi-track timeline architecture** — replaced flat `segments[]` with typed tracks (`primary`/`video`/`audio`) each containing universal clips
@@ -33,7 +79,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Stable clip ordering** — segments setter uses deterministic sort (by timelineIn, then by id) to prevent ordering flips
 - **Audio clip sync** — clips with volume=0 no longer skipped from composition, preserving timeline alignment
 
-## [0.7.0] - 2026-04-02
+## [0.4.1] - 2026-04-02
 
 ### Added
 - **Camera border** — configurable width (0–8px) and color (10 presets) on PiP camera overlay
@@ -59,7 +105,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 11 onChange(of:) calls migrated to macOS 14+ API
 - TimelineView body split into extracted sub-views (fixes Swift type-checker timeout)
 
-## [0.6.0] - 2026-04-01
+## [0.4.0] - 2026-04-01
 
 ### Added
 - **Per-segment camera position** — each segment can override the project camera PiP position; "Customize"/"Reset" controls in segment inspector bar
@@ -80,7 +126,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `MaskedVideoCompositionInstruction` now carries visual effect properties (cornerRadius, shadow, padding, background)
 - 6 new unit tests for split propagation and segment model backward compatibility
 
-## [0.5.0] - 2026-03-31
+## [0.3.1] - 2026-03-31
 
 ### Added
 - **4K HEVC export preset** (3840x2160, 60fps, 30Mbps) in export options
@@ -104,7 +150,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ProjectStore.sha256(of:)` uses streaming FileHandle (constant memory for 1GB+ files)
 - `ProjectStore.generateThumbnail()` uses AVAssetImageGenerator + CGImageDestination (pure CoreGraphics)
 
-## [0.4.0] - 2026-03-31
+## [0.3.0] - 2026-03-31
 
 ### Added
 - **Auto-zoom from cursor telemetry** — `DwellDetector` detects cursor pauses (>450ms stationary), `ZoomSuggestionEngine` combines click windows + dwell candidates into unified suggestions. Timeline shows yellow markers for each suggestion; click markers to accept/reject individually. "Apply" creates zoom keyframes and persists zoom config on segments.
@@ -117,7 +163,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ZoomSuggestion.toClickWindow()` unifies coordinate conversion in one place
 - Individual suggestion accept/reject via `dismissedSuggestionIds` state set
 
-## [0.3.1] - 2026-03-30
+## [0.2.1] - 2026-03-30
 
 ### Performance
 - **Fix Task leak in CameraEngine/CaptureEngine** — duration timer now stores a cancellable `Task` handle with `!Task.isCancelled` guard; cancelled explicitly on `stopRecording()`
@@ -128,7 +174,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Lazy project list loading** — summary cache with file modification date invalidation; skips re-decoding unchanged `project.json` files. `loadProjects()` debounced (500ms)
 - **Deferred thumbnail/waveform generation** — initial open generates 15 thumbnails (was 50); remaining thumbnails + waveforms generated at `.utility` priority in background
 
-## [0.3.0] - 2026-03-25
+## [0.2.0] - 2026-03-25
 
 ### Added
 - **Per-track volume sliders** in timeline label area (system audio + mic audio), range 0–3x, with live preview update
@@ -156,7 +202,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `reapplyAudioMix()` reconstructs state from `lastMuteState` (audio only), avoiding unnecessary `applyVideoMutes` calls on volume changes
 - GeometryReader state writes deferred with `Task { @MainActor in }` to avoid "Publishing during view update" warning
 
-## [0.2.0] - 2026-01-22
+## [0.1.1] - 2026-01-22
 
 ### Added
 - **Complete export system** with user-selected save location
@@ -187,35 +233,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Export workflow** - Files are now exported to temporary location within sandbox, then user saves to desired location via save panel
-- **Export logging** - Added comprehensive logging with emojis (🎬) for easier debugging
+- **Export logging** - Added comprehensive logging with emojis for easier debugging
 - **UI behavior** - Export completion now shows "Done" button instead of "Cancel Export"
 - **File management** - Improved handling of existing files before export
-
-### Technical Improvements
-- **VideoExportSession**:
-  - Added `shouldOptimizeForNetworkUse = true` for better export performance
-  - Added detailed error reporting with AVAssetExportSession status descriptions
-  - Added verification of output directory existence and write permissions
-  - Added immediate file existence check after export completion
-  - Improved error messages with domain, code, and userInfo details
-
-- **ExportViewModel**:
-  - Added `temporaryExportURL` and `showSavePanel` state management
-  - Implemented `saveExportToFile()` with NSSavePanel integration
-  - Fixed `projectDirectory` parameter passing from ExportView
-  - Added delay before showing save panel for proper UI updates
-
-- **ExportView**:
-  - Added "Play Video (Temporary)" button for immediate preview
-  - Fixed cancel button behavior to change to "Done" after completion
-  - Improved user feedback with detailed progress messages
-  - Added comprehensive logging for debugging
 
 ### Known Issues
 - Exported videos may show black bars/letterboxing (aspect ratio issue)
 - Frame counter warnings during recording startup (non-critical)
 
-## [0.1.0] - Previous Release
+## [0.1.0] - Initial Release
 
 ### Added
 - Basic screen recording with ScreenCaptureKit
