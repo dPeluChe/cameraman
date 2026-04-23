@@ -91,6 +91,21 @@ public actor ZoomSectionController {
         self.project = nil
     }
 
+    // MARK: - Private Helpers
+
+    private func mutateSegment(_ segmentId: String, body: (inout Project.Timeline.Segment) -> Void) throws -> Project {
+        guard var project = project else { throw ZoomSectionError.projectNotLoaded }
+        guard let index = project.timeline.segments.firstIndex(where: { $0.id == segmentId }) else {
+            throw ZoomSectionError.segmentNotFound(segmentId)
+        }
+        body(&project.timeline.segments[index])
+        project.updatedAt = Date()
+        self.project = project
+        return project
+    }
+
+    // MARK: - Segment Zoom Mutations
+
     /// Set zoom configuration for a specific segment
     /// - Parameters:
     ///   - segmentId: ID of the segment to configure
@@ -101,20 +116,7 @@ public actor ZoomSectionController {
         forSegmentId segmentId: String,
         configuration: Project.Timeline.ZoomConfiguration
     ) throws -> Project {
-        guard var project = project else {
-            throw ZoomSectionError.projectNotLoaded
-        }
-
-        guard let index = project.timeline.segments.firstIndex(where: { $0.id == segmentId }) else {
-            throw ZoomSectionError.segmentNotFound(segmentId)
-        }
-
-        // Update the segment's zoom configuration
-        project.timeline.segments[index].zoom = configuration
-        project.updatedAt = Date()
-
-        self.project = project
-        return project
+        return try mutateSegment(segmentId) { $0.zoom = configuration }
     }
 
     /// Set zoom intensity for a specific segment
@@ -136,28 +138,16 @@ public actor ZoomSectionController {
     /// - Returns: Updated project
     /// - Throws: ZoomSectionError if segment not found
     public func enableZoom(forSegmentId segmentId: String) throws -> Project {
-        guard var project = project else {
-            throw ZoomSectionError.projectNotLoaded
+        guard let project = project else { throw ZoomSectionError.projectNotLoaded }
+        let existingConfig = project.timeline.segments.first(where: { $0.id == segmentId })?.zoom
+        return try mutateSegment(segmentId) {
+            $0.zoom = Project.Timeline.ZoomConfiguration(
+                enabled: true,
+                minZoomLevel: existingConfig?.minZoomLevel ?? 1.0,
+                maxZoomLevel: existingConfig?.maxZoomLevel ?? 2.5,
+                intensity: existingConfig?.intensity ?? .normal
+            )
         }
-
-        guard let index = project.timeline.segments.firstIndex(where: { $0.id == segmentId }) else {
-            throw ZoomSectionError.segmentNotFound(segmentId)
-        }
-
-        // Get existing configuration or create default
-        let existingConfig = project.timeline.segments[index].zoom
-        let newConfig = Project.Timeline.ZoomConfiguration(
-            enabled: true,
-            minZoomLevel: existingConfig?.minZoomLevel ?? 1.0,
-            maxZoomLevel: existingConfig?.maxZoomLevel ?? 2.5,
-            intensity: existingConfig?.intensity ?? .normal
-        )
-
-        project.timeline.segments[index].zoom = newConfig
-        project.updatedAt = Date()
-
-        self.project = project
-        return project
     }
 
     /// Disable zoom for a specific segment
@@ -165,20 +155,7 @@ public actor ZoomSectionController {
     /// - Returns: Updated project
     /// - Throws: ZoomSectionError if segment not found
     public func disableZoom(forSegmentId segmentId: String) throws -> Project {
-        guard var project = project else {
-            throw ZoomSectionError.projectNotLoaded
-        }
-
-        guard let index = project.timeline.segments.firstIndex(where: { $0.id == segmentId }) else {
-            throw ZoomSectionError.segmentNotFound(segmentId)
-        }
-
-        // Set zoom to disabled configuration
-        project.timeline.segments[index].zoom = .disabled
-        project.updatedAt = Date()
-
-        self.project = project
-        return project
+        return try mutateSegment(segmentId) { $0.zoom = .disabled }
     }
 
     /// Remove zoom configuration for a specific segment (reverts to defaults)
@@ -186,20 +163,7 @@ public actor ZoomSectionController {
     /// - Returns: Updated project
     /// - Throws: ZoomSectionError if segment not found
     public func removeZoomConfiguration(forSegmentId segmentId: String) throws -> Project {
-        guard var project = project else {
-            throw ZoomSectionError.projectNotLoaded
-        }
-
-        guard let index = project.timeline.segments.firstIndex(where: { $0.id == segmentId }) else {
-            throw ZoomSectionError.segmentNotFound(segmentId)
-        }
-
-        // Remove zoom configuration (will use defaults)
-        project.timeline.segments[index].zoom = nil
-        project.updatedAt = Date()
-
-        self.project = project
-        return project
+        return try mutateSegment(segmentId) { $0.zoom = nil }
     }
 
     /// Get zoom configuration for a specific segment
