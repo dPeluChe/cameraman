@@ -77,7 +77,7 @@ Export/         - Async video rendering (ExportEngine, VideoExportSession)
                 - Per-track audio/video mute state in exports
 
 Zoom/           - Auto-zoom pipeline:
-                  DwellDetector → detects cursor pauses (>450ms) as zoom candidates
+                  DwellDetector → detects cursor pauses (>300ms) as zoom candidates
                   ZoomSuggestionEngine → combines click + dwell into suggestions
                   ZoomPlanGenerator → converts suggestions to keyframed zoom events
                   ZoomSectionController → per-segment zoom config management
