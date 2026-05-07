@@ -22,12 +22,24 @@ struct ExportView: View {
     @StateObject private var viewModel: ExportViewModel
     @Environment(\.dismiss) private var dismiss
 
-    init(project: Project, projectDirectory: URL, mutedTracks: Set<TimelineTrackKind> = [], onExportComplete: @escaping (URL?) -> Void, onCancel: @escaping () -> Void) {
+    init(
+        project: Project,
+        projectDirectory: URL,
+        mutedTracks: Set<TimelineTrackKind> = [],
+        zoomPlan: ZoomPlanGenerator.ZoomPlan? = nil,
+        onExportComplete: @escaping (URL?) -> Void,
+        onCancel: @escaping () -> Void
+    ) {
         self.project = project
         self.projectDirectory = projectDirectory
         self.onExportComplete = onExportComplete
         self.onCancel = onCancel
-        _viewModel = StateObject(wrappedValue: ExportViewModel(project: project, projectDirectory: projectDirectory, mutedTracks: mutedTracks))
+        _viewModel = StateObject(wrappedValue: ExportViewModel(
+            project: project,
+            projectDirectory: projectDirectory,
+            mutedTracks: mutedTracks,
+            zoomPlan: zoomPlan
+        ))
     }
 
     var body: some View {

@@ -83,7 +83,8 @@ extension PreviewEngine {
                     cornerRadius: CGFloat(cornerRadius),
                     layoutType: "fullscreenCamera",
                     screenMuted: true,
-                    overlays: overlayConfigs
+                    overlays: overlayConfigs,
+                    zoomPlan: self.zoomPlan
                 )
                 videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
                 videoComposition.instructions = [maskedInstruction]
@@ -156,7 +157,8 @@ extension PreviewEngine {
                     backgroundValue: project.canvas.background.value,
                     cameraBorderWidth: 0,
                     cameraBorderColor: "#FFFFFF",
-                    overlays: overlayConfigs
+                    overlays: overlayConfigs,
+                    zoomPlan: self.zoomPlan
                 )
                 videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
                 videoComposition.instructions = [maskedInstruction]
@@ -242,7 +244,8 @@ extension PreviewEngine {
                             backgroundValue: project.canvas.background.value,
                             cameraBorderWidth: CGFloat(clipCamera.borderWidth),
                             cameraBorderColor: clipCamera.borderColor,
-                            overlays: overlayConfigs
+                            overlays: overlayConfigs,
+                            zoomPlan: self.zoomPlan
                         ))
                     }
 
@@ -282,7 +285,8 @@ extension PreviewEngine {
                         backgroundValue: project.canvas.background.value,
                         cameraBorderWidth: CGFloat(defaultCamera.borderWidth),
                         cameraBorderColor: defaultCamera.borderColor,
-                        overlays: overlayConfigs
+                        overlays: overlayConfigs,
+                        zoomPlan: self.zoomPlan
                     )
                     videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
                     videoComposition.instructions = [maskedInstruction]
@@ -313,7 +317,8 @@ extension PreviewEngine {
                         backgroundValue: project.canvas.background.value,
                         cameraBorderWidth: 0,
                         cameraBorderColor: "#FFFFFF",
-                        overlays: overlayConfigs
+                        overlays: overlayConfigs,
+                        zoomPlan: self.zoomPlan
                     )
                     videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
                     videoComposition.instructions = [maskedInstruction]

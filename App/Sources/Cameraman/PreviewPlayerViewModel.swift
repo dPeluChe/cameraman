@@ -69,10 +69,9 @@ final class PreviewPlayerViewModel: ObservableObject {
 
     /// Recompute the effective plan from the original plan, the current project's
     /// per-segment enabled state, and the global `showZoom` gate; push it to the
-    /// engine and the shared compositor static.
+    /// engine, which bakes it into a fresh videoComposition.
     func applyEffectiveZoomPlan() {
         let effective = computeEffectiveZoomPlan()
-        MaskedVideoCompositor.activeZoomPlan = effective
         guard let engine = previewEngine else { return }
         Task { await engine.setZoomPlan(effective) }
     }
@@ -173,8 +172,14 @@ final class PreviewPlayerViewModel: ObservableObject {
         aspectRatio = Self.aspectRatio(for: project)
         updateDuration(project.timeline.duration)
 
+        // Set the engine's zoom plan BEFORE updateProject so the rebuild
+        // bakes in the effective plan in a single pass (instead of rebuilding,
+        // then rebuilding again to apply the new plan).
+        let effectivePlan = computeEffectiveZoomPlan()
+
         Task {
             do {
+                await engine.stageZoomPlan(effectivePlan)
                 try await engine.updateProject(project)
                 let player = await engine.player
 
@@ -185,9 +190,6 @@ final class PreviewPlayerViewModel: ObservableObject {
                         self.avPlayer = player
                         self.setupPlayerObservers()
                     }
-                    // Re-filter zoom against the new segment configuration
-                    // so per-segment disable takes effect during playback.
-                    self.applyEffectiveZoomPlan()
                 }
             } catch {
                 LogError(.preview, "Failed to refresh preview: \(error.localizedDescription)")
@@ -225,7 +227,6 @@ final class PreviewPlayerViewModel: ObservableObject {
         // Clear the zoom plan first so the showZoom didSet (below) can't push
         // a stale plan to the compositor on its way back to true.
         originalZoomPlan = nil
-        MaskedVideoCompositor.activeZoomPlan = nil
         showZoom = true
         showCursor = false
         showClicks = false

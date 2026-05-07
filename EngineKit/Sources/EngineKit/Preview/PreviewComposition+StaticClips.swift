@@ -59,6 +59,8 @@ extension PreviewEngine {
                 continue
             }
 
+            // Static clips (image/color) intentionally do not receive a zoom plan
+            // — they have no source video to zoom into.
             let staticInstruction = MaskedVideoCompositionInstruction(
                 timeRange: info.timeRange,
                 screenTrackID: screenTrack?.trackID ?? 1,
@@ -119,7 +121,8 @@ extension PreviewEngine {
             padding: CGFloat(project.canvas.padding),
             backgroundType: project.canvas.background.type,
             backgroundValue: project.canvas.background.value,
-            overlays: overlays
+            overlays: overlays,
+            zoomPlan: self.zoomPlan
         )
     }
 }

@@ -69,10 +69,19 @@ public actor PreviewEngine {
     /// Zoom plan for auto-zoom rendering
     var zoomPlan: ZoomPlanGenerator.ZoomPlan?
 
-    /// Set the zoom plan from external callers (e.g. suggestion engine)
-    public func setZoomPlan(_ plan: ZoomPlanGenerator.ZoomPlan?) {
+    /// Set the zoom plan from external callers (e.g. suggestion engine).
+    /// The plan is baked into freshly built composition instructions, so this
+    /// rebuilds the videoComposition to apply the change immediately.
+    public func setZoomPlan(_ plan: ZoomPlanGenerator.ZoomPlan?) async {
         self.zoomPlan = plan
-        MaskedVideoCompositor.activeZoomPlan = plan
+        try? await rebuildVideoComposition()
+    }
+
+    /// Store the zoom plan without rebuilding the composition. Use this when
+    /// the caller is about to trigger a rebuild itself (e.g. `updateProject`
+    /// after a project mutation) so we don't pay for two rebuilds back-to-back.
+    public func stageZoomPlan(_ plan: ZoomPlanGenerator.ZoomPlan?) {
+        self.zoomPlan = plan
     }
 
     /// Whether zoom rendering is enabled

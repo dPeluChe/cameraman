@@ -176,6 +176,7 @@ struct ProjectEditorView: View {
                     project: editor.project,
                     projectDirectory: projectDirectory,
                     mutedTracks: viewModel.mutedTracks,
+                    zoomPlan: viewModel.playerViewModel.computeEffectiveZoomPlan(),
                     onExportComplete: { _ in
                         showExportModal = false
                     },

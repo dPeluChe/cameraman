@@ -36,6 +36,10 @@ final class ExportViewModel: ObservableObject {
     private let project: Project
     private let projectDirectory: URL
     private let mutedTracks: Set<TimelineTrackKind>
+    /// Effective zoom plan as computed by the preview player at the moment the
+    /// export sheet was opened. Already gated by `showZoom`. We re-filter it
+    /// against the project segments at export time as a defensive step.
+    private let stagedZoomPlan: ZoomPlanGenerator.ZoomPlan?
     private var exportEngine: ExportEngine?
     private var exportJobId: JobId?
     private var exportStartTime: Date?
@@ -138,10 +142,16 @@ final class ExportViewModel: ObservableObject {
         }
     }
 
-    init(project: Project, projectDirectory: URL, mutedTracks: Set<TimelineTrackKind> = []) {
+    init(
+        project: Project,
+        projectDirectory: URL,
+        mutedTracks: Set<TimelineTrackKind> = [],
+        zoomPlan: ZoomPlanGenerator.ZoomPlan? = nil
+    ) {
         self.project = project
         self.projectDirectory = projectDirectory
         self.mutedTracks = mutedTracks
+        self.stagedZoomPlan = zoomPlan
         self.outputFilename = project.name.isEmpty ? "Untitled" : project.name
         self.outputURL = FileManager.default.urls(for: .moviesDirectory, in: .userDomainMask).first ?? FileManager.default.homeDirectoryForCurrentUser
     }
@@ -183,14 +193,11 @@ final class ExportViewModel: ObservableObject {
                 )
                 : nil
 
-            // Resolve the effective zoom plan from the current preview state and
-            // re-filter it against this project's per-segment enabled flags.
-            // Then mirror it onto the compositor static so the masked path
-            // (camera-with-mask) honors the same plan as the standard path.
-            let effectiveZoomPlan = MaskedVideoCompositor.activeZoomPlan?
-                .filtered(byEnabledSegments: project.timeline.segments)
-            let exportZoomPlan = (effectiveZoomPlan?.hasNoZoom ?? true) ? nil : effectiveZoomPlan
-            MaskedVideoCompositor.activeZoomPlan = exportZoomPlan
+            // Re-filter the staged plan against this project's per-segment
+            // enabled flags as a defensive step (the caller should have
+            // filtered already, but we own the contract here).
+            let filtered = stagedZoomPlan?.filtered(byEnabledSegments: project.timeline.segments)
+            let exportZoomPlan = (filtered?.hasNoZoom ?? true) ? nil : filtered
 
             let jobId = try await engine.export(
                 projectId: project.projectId,
