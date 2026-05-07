@@ -36,7 +36,12 @@ final class PreviewPlayerViewModel: ObservableObject {
     @Published var micAudioVolume: Float = 2.5 {
         didSet { reapplyAudioMix() }
     }
-    @Published var showZoom: Bool = true
+    @Published var showZoom: Bool = true {
+        didSet {
+            guard oldValue != showZoom else { return }
+            applyEffectiveZoomPlan()
+        }
+    }
     @Published var showCursor: Bool = false
     @Published var showClicks: Bool = false
     @Published var showKeystrokes: Bool = false
@@ -50,15 +55,35 @@ final class PreviewPlayerViewModel: ObservableObject {
     private var endObserver: NSObjectProtocol?
     private var cancellables = Set<AnyCancellable>()
 
-    /// Zoom plan pending application — set before the engine finishes loading
-    private var pendingZoomPlan: ZoomPlanGenerator.ZoomPlan?
+    /// Unfiltered plan as produced by the suggestion engine. The effective plan
+    /// pushed to the compositor is this filtered by the current project's
+    /// per-segment `zoom.enabled` state and gated by `showZoom`.
+    private var originalZoomPlan: ZoomPlanGenerator.ZoomPlan?
 
-    /// Set the active zoom plan. Applies immediately if the engine is ready;
-    /// otherwise defers until loadProject finishes.
+    /// Store the unfiltered plan, then push the effective plan to the engine.
+    /// Defers if the engine is still loading.
     func setZoomPlan(_ plan: ZoomPlanGenerator.ZoomPlan?) {
-        pendingZoomPlan = plan
+        originalZoomPlan = plan
+        applyEffectiveZoomPlan()
+    }
+
+    /// Recompute the effective plan from the original plan, the current project's
+    /// per-segment enabled state, and the global `showZoom` gate; push it to the
+    /// engine and the shared compositor static.
+    func applyEffectiveZoomPlan() {
+        let effective = computeEffectiveZoomPlan()
+        MaskedVideoCompositor.activeZoomPlan = effective
         guard let engine = previewEngine else { return }
-        Task { await engine.setZoomPlan(plan) }
+        Task { await engine.setZoomPlan(effective) }
+    }
+
+    /// Build the plan that should currently apply: nil when zoom is hidden, when
+    /// no original plan exists, or when filtering wipes every event.
+    func computeEffectiveZoomPlan() -> ZoomPlanGenerator.ZoomPlan? {
+        guard showZoom, let plan = originalZoomPlan else { return nil }
+        let segments = project?.timeline.segments ?? []
+        let filtered = plan.filtered(byEnabledSegments: segments)
+        return filtered.hasNoZoom ? nil : filtered
     }
 
     enum PlaybackRate: Double, CaseIterable, Identifiable {
@@ -125,10 +150,9 @@ final class PreviewPlayerViewModel: ObservableObject {
                     self.loadError = nil
                     self.currentTime = 0
                     self.setupPlayerObservers()
-                    // Apply any zoom plan that was set before the engine was ready
-                    if let pending = self.pendingZoomPlan {
-                        Task { await engine.setZoomPlan(pending) }
-                    }
+                    // Push the effective plan now that the engine is ready
+                    // (covers plans set via setZoomPlan before loadProject finished).
+                    self.applyEffectiveZoomPlan()
                 }
             } catch {
                 await MainActor.run {
@@ -161,6 +185,9 @@ final class PreviewPlayerViewModel: ObservableObject {
                         self.avPlayer = player
                         self.setupPlayerObservers()
                     }
+                    // Re-filter zoom against the new segment configuration
+                    // so per-segment disable takes effect during playback.
+                    self.applyEffectiveZoomPlan()
                 }
             } catch {
                 LogError(.preview, "Failed to refresh preview: \(error.localizedDescription)")
@@ -195,12 +222,15 @@ final class PreviewPlayerViewModel: ObservableObject {
         systemAudioVolume = 1.0
         micAudioVolume = 2.5
         project = nil
+        // Clear the zoom plan first so the showZoom didSet (below) can't push
+        // a stale plan to the compositor on its way back to true.
+        originalZoomPlan = nil
+        MaskedVideoCompositor.activeZoomPlan = nil
         showZoom = true
         showCursor = false
         showClicks = false
         showKeystrokes = false
         lastMuteState = nil
-        pendingZoomPlan = nil
     }
 
     func togglePlayPause() {

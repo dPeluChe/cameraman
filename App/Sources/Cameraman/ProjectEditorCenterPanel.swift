@@ -17,7 +17,6 @@ struct CenterPanel: View {
     // Overlay visibility toggles
     @State private var showOverlays = true
     @State private var showLayout = true
-    @State private var showZoom = true
     @State private var showCaptions = true
     @State private var showCursor = false
     @State private var showClicks = false
@@ -66,7 +65,7 @@ struct CenterPanel: View {
                 HStack(spacing: 14) {
                     Toggle("Overlays", isOn: $showOverlays)
                     Toggle("Layout", isOn: $showLayout)
-                    Toggle("Zoom", isOn: $showZoom)
+                    Toggle("Zoom", isOn: $playerViewModel.showZoom)
                     Toggle("Captions", isOn: $showCaptions)
                     Divider().frame(height: 14)
                     Toggle("Cursor", isOn: $showCursor)

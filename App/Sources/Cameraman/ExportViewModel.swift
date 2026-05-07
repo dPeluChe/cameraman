@@ -183,6 +183,15 @@ final class ExportViewModel: ObservableObject {
                 )
                 : nil
 
+            // Resolve the effective zoom plan from the current preview state and
+            // re-filter it against this project's per-segment enabled flags.
+            // Then mirror it onto the compositor static so the masked path
+            // (camera-with-mask) honors the same plan as the standard path.
+            let effectiveZoomPlan = MaskedVideoCompositor.activeZoomPlan?
+                .filtered(byEnabledSegments: project.timeline.segments)
+            let exportZoomPlan = (effectiveZoomPlan?.hasNoZoom ?? true) ? nil : effectiveZoomPlan
+            MaskedVideoCompositor.activeZoomPlan = exportZoomPlan
+
             let jobId = try await engine.export(
                 projectId: project.projectId,
                 preset: selectedPreset,
@@ -191,8 +200,8 @@ final class ExportViewModel: ObservableObject {
                     includeCursorHighlight: !isGIFPreset,
                     outputFilename: finalFilename,
                     gifOptions: gifOpts,
-                    applyZoom: true,
-                    zoomPlan: nil,
+                    applyZoom: exportZoomPlan != nil,
+                    zoomPlan: exportZoomPlan,
                     audioMuteState: AudioMixBuilder.TrackMuteState(
                         systemAudioMuted: mutedTracks.contains(.systemAudio),
                         micAudioMuted: mutedTracks.contains(.micAudio)

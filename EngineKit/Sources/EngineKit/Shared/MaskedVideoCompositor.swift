@@ -163,7 +163,11 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
 
     static let sharedRenderColorSpace = CGColorSpaceCreateDeviceRGB()
 
-    /// Zoom plan for auto-zoom (set externally before playback)
+    /// Effective auto-zoom plan applied by `applyZoom(...)`. Owned by
+    /// `PreviewPlayerViewModel` for preview and overwritten by `ExportViewModel`
+    /// at export start. Both sides build it via
+    /// `ZoomPlan.filtered(byEnabledSegments:)` so per-segment "zoom disabled"
+    /// is honored. Set to `nil` to suppress all zoom.
     public static var activeZoomPlan: ZoomPlanGenerator.ZoomPlan?
 
     public func renderContextChanged(_ newRenderContext: AVVideoCompositionRenderContext) {
