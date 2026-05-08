@@ -45,7 +45,8 @@ extension ExportEngine {
                 videoTrack: videoTrack,
                 cameraTrack: cameraTrack,
                 project: project,
-                primarySources: primarySources
+                primarySources: primarySources,
+                options: options
             )
         } else {
             try await applyStandardExportInstructions(
@@ -73,7 +74,8 @@ extension ExportEngine {
         videoTrack: AVMutableCompositionTrack,
         cameraTrack: AVMutableCompositionTrack,
         project: Project,
-        primarySources: Project.Sources
+        primarySources: Project.Sources,
+        options: ExportOptions
     ) {
         let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: videoTrack)
         layerInstruction.setOpacity(0, at: .zero)
@@ -108,7 +110,8 @@ extension ExportEngine {
                 maskShape: maskShape,
                 cornerRadius: CGFloat(cornerRadius),
                 layoutType: "fullscreenCamera",
-                screenMuted: true
+                screenMuted: true,
+                zoomPlan: options.applyZoom ? options.zoomPlan : nil
             )
             videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
             videoComposition.instructions = [maskedInstruction]
@@ -191,7 +194,8 @@ extension ExportEngine {
                     videoComposition: videoComposition,
                     cameraSourceSize: cameraSourceSize,
                     screenTransform: transform,
-                    defaultCamera: defaultCamera
+                    defaultCamera: defaultCamera,
+                    options: options
                 )
                 videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
                 videoComposition.instructions = maskedInstructions
@@ -224,10 +228,12 @@ extension ExportEngine {
         videoComposition: AVMutableVideoComposition,
         cameraSourceSize: CGSize,
         screenTransform: CGAffineTransform,
-        defaultCamera: Project.Canvas.Layout.CameraPosition
+        defaultCamera: Project.Canvas.Layout.CameraPosition,
+        options: ExportOptions
     ) -> [MaskedVideoCompositionInstruction] {
         var maskedInstructions: [MaskedVideoCompositionInstruction] = []
         let totalDuration = composition.duration
+        let zoomPlan = options.applyZoom ? options.zoomPlan : nil
 
         for (i, segment) in project.timeline.segments.enumerated() {
             let segCamera = segment.cameraPosition ?? defaultCamera
@@ -268,7 +274,8 @@ extension ExportEngine {
                 backgroundType: project.canvas.background.type,
                 backgroundValue: project.canvas.background.value,
                 cameraBorderWidth: CGFloat(segCamera.borderWidth),
-                cameraBorderColor: segCamera.borderColor
+                cameraBorderColor: segCamera.borderColor,
+                zoomPlan: zoomPlan
             ))
         }
 

@@ -78,6 +78,10 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
     let cameraBorderColor: String
     let overlays: [OverlayConfig]
     let staticContent: StaticClipContent?
+    /// Effective zoom plan to apply for this instruction's time range.
+    /// `nil` means no zoom. Already filtered by per-segment enabled state and
+    /// gated by the player's `showZoom` toggle.
+    let zoomPlan: ZoomPlanGenerator.ZoomPlan?
 
     public enum StaticClipContent {
         case image(path: String)
@@ -104,7 +108,8 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         cameraBorderWidth: CGFloat = 0,
         cameraBorderColor: String = "#FFFFFF",
         overlays: [OverlayConfig] = [],
-        staticContent: StaticClipContent? = nil
+        staticContent: StaticClipContent? = nil,
+        zoomPlan: ZoomPlanGenerator.ZoomPlan? = nil
     ) {
         self.timeRange = timeRange
         self.screenTrackID = screenTrackID
@@ -126,6 +131,7 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         self.cameraBorderColor = cameraBorderColor
         self.overlays = overlays
         self.staticContent = staticContent
+        self.zoomPlan = zoomPlan
         super.init()
 
         var trackIDs: [NSValue] = [screenTrackID as NSValue]
@@ -162,9 +168,6 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
     var lastZoomLogSecond: Int = -1
 
     static let sharedRenderColorSpace = CGColorSpaceCreateDeviceRGB()
-
-    /// Zoom plan for auto-zoom (set externally before playback)
-    public static var activeZoomPlan: ZoomPlanGenerator.ZoomPlan?
 
     public func renderContextChanged(_ newRenderContext: AVVideoCompositionRenderContext) {
         renderContext = newRenderContext
@@ -302,7 +305,7 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
         instruction: MaskedVideoCompositionInstruction,
         renderSize: CGSize
     ) -> CIImage {
-        guard let zoomPlan = MaskedVideoCompositor.activeZoomPlan else { return image }
+        guard let zoomPlan = instruction.zoomPlan else { return image }
 
         let time = request.compositionTime.seconds
         let zoomLevel = zoomPlan.zoomLevel(at: time)

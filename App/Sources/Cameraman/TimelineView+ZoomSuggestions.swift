@@ -75,6 +75,9 @@ extension TimelineView {
         )
         var updatedProject = editor.project
         for i in updatedProject.timeline.segments.indices {
+            // Preserve segments the user explicitly disabled. Treat a missing
+            // config (nil) as "unset" → safe to apply the default.
+            if updatedProject.timeline.segments[i].zoom?.enabled == false { continue }
             updatedProject.timeline.segments[i].zoom = zoomConfig
         }
         await editor.setProject(updatedProject)

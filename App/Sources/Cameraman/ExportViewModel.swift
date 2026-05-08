@@ -36,6 +36,10 @@ final class ExportViewModel: ObservableObject {
     private let project: Project
     private let projectDirectory: URL
     private let mutedTracks: Set<TimelineTrackKind>
+    /// Effective zoom plan as computed by the preview player at the moment the
+    /// export sheet was opened. Already gated by `showZoom`. We re-filter it
+    /// against the project segments at export time as a defensive step.
+    private let stagedZoomPlan: ZoomPlanGenerator.ZoomPlan?
     private var exportEngine: ExportEngine?
     private var exportJobId: JobId?
     private var exportStartTime: Date?
@@ -138,10 +142,16 @@ final class ExportViewModel: ObservableObject {
         }
     }
 
-    init(project: Project, projectDirectory: URL, mutedTracks: Set<TimelineTrackKind> = []) {
+    init(
+        project: Project,
+        projectDirectory: URL,
+        mutedTracks: Set<TimelineTrackKind> = [],
+        zoomPlan: ZoomPlanGenerator.ZoomPlan? = nil
+    ) {
         self.project = project
         self.projectDirectory = projectDirectory
         self.mutedTracks = mutedTracks
+        self.stagedZoomPlan = zoomPlan
         self.outputFilename = project.name.isEmpty ? "Untitled" : project.name
         self.outputURL = FileManager.default.urls(for: .moviesDirectory, in: .userDomainMask).first ?? FileManager.default.homeDirectoryForCurrentUser
     }
@@ -183,6 +193,12 @@ final class ExportViewModel: ObservableObject {
                 )
                 : nil
 
+            // Re-filter the staged plan against this project's per-segment
+            // enabled flags as a defensive step (the caller should have
+            // filtered already, but we own the contract here).
+            let filtered = stagedZoomPlan?.filtered(byEnabledSegments: project.timeline.segments)
+            let exportZoomPlan = (filtered?.hasNoZoom ?? true) ? nil : filtered
+
             let jobId = try await engine.export(
                 projectId: project.projectId,
                 preset: selectedPreset,
@@ -191,8 +207,8 @@ final class ExportViewModel: ObservableObject {
                     includeCursorHighlight: !isGIFPreset,
                     outputFilename: finalFilename,
                     gifOptions: gifOpts,
-                    applyZoom: true,
-                    zoomPlan: nil,
+                    applyZoom: exportZoomPlan != nil,
+                    zoomPlan: exportZoomPlan,
                     audioMuteState: AudioMixBuilder.TrackMuteState(
                         systemAudioMuted: mutedTracks.contains(.systemAudio),
                         micAudioMuted: mutedTracks.contains(.micAudio)
