@@ -15,3 +15,7 @@ DerivedData/
 *.gcno
 *.gcda
 .ralphy/progress.txt
+
+# Distribution artifacts
+/dist/
+/CameramanApp/build/

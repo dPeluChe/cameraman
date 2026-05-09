@@ -42,6 +42,44 @@ open CameramanApp/CameramanApp.xcodeproj
 
 Requirements: macOS 13+, Xcode 15+. See [DEV_ONBOARDING](docs/DEV_ONBOARDING.md) for full setup, architecture, and known issues.
 
+## Beta packaging (`.dmg`)
+
+Single command to produce a universal (arm64 + x86_64) `.dmg` ready to ship to testers:
+
+```bash
+make release
+```
+
+This runs **build → verify → dmg** in one pass:
+1. Compiles a universal Release build
+2. Validates the binary contains both architectures (aborts otherwise)
+3. Packages `dist/Cameraman-beta-X.Y.Z.B.dmg` with the branded background and an *Applications* drop link
+
+### Other targets
+
+| Command | When to use |
+|---------|-------------|
+| `make release` | Default — full beta pipeline (build + verify + dmg) |
+| `make build` | Universal Release build only (no DMG) |
+| `make build-arm` | Native arm64-only build for fast local iteration |
+| `make verify` | Confirm an existing build is universal |
+| `make dmg` | Re-package the existing build (e.g. after editing the DMG background) |
+| `make clean` | Remove `dist/` and `CameramanApp/build/` |
+| `make help` | List all targets |
+
+### Distribution caveats
+
+The `.dmg` is **not signed with a Developer ID nor notarized**, so testers will hit a Gatekeeper warning on first launch:
+
+- **macOS 14 and earlier:** right-click the app in `/Applications` → **Open** → confirm.
+- **macOS 15 (Sequoia) and later:** double-click → System Settings → **Privacy & Security** → **Open Anyway**.
+
+After the first authorized open, the app launches normally. To remove the warning entirely, the app needs an Apple Developer Program subscription, code signing with a Developer ID Application certificate, and notarization via `xcrun notarytool`.
+
+### Requirements
+
+- `create-dmg` — install with `brew install create-dmg`
+
 ## Status
 
 **Beta**. Core recording, editing, and export workflows are functional. Overlay system, auto-zoom, and per-segment editing are working. Actively developed.
