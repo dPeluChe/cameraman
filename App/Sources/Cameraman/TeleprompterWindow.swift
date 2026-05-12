@@ -13,6 +13,7 @@ import Combine
 
 // MARK: - Window Controller
 
+@MainActor
 class TeleprompterWindowController {
     static let shared = TeleprompterWindowController()
 
@@ -208,7 +209,7 @@ struct TeleprompterOverlayView: View {
             }
             .pickerStyle(.segmented)
             .frame(width: 130)
-            .onChange(of: viewModel.mode) { _, _ in viewModel.reset() }
+            .onChangeCompat(of: viewModel.mode) { _ in viewModel.reset() }
 
             Spacer()
 

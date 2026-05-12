@@ -80,12 +80,23 @@ struct CenterPanel: View {
             }
         }
         .focusable()
-        .onKeyPress(.space) {
-            NotificationCenter.default.post(name: .togglePlayPause, object: nil)
-            return .handled
-        }
-        .onChange(of: viewModel.mutedTracks) { _, newValue in
+        .spacePlaybackShortcut()
+        .onChangeCompat(of: viewModel.mutedTracks) { newValue in
             playerViewModel.applyTrackMutes(mutedTracks: newValue)
+        }
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func spacePlaybackShortcut() -> some View {
+        if #available(macOS 14.0, *) {
+            self.onKeyPress(.space) {
+                NotificationCenter.default.post(name: .togglePlayPause, object: nil)
+                return .handled
+            }
+        } else {
+            self
         }
     }
 }

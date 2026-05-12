@@ -43,7 +43,7 @@ struct ToastModifier: ViewModifier {
                     .padding(.bottom, 60)
             }
         }
-        .onChange(of: isPresented) { _, show in
+        .onChangeCompat(of: isPresented) { show in
             if show {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                     isVisible = true
