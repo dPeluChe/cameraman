@@ -86,10 +86,13 @@ extension ZoomPlanGenerator {
             guard !segmentClickWindows.isEmpty else { continue }
 
             let sortedWindows = segmentClickWindows.sorted { $0.startTime < $1.startTime }
-            let filteredWindows = filterWindowsByImportance(sortedWindows)
+            var filteredWindows = filterWindowsByImportance(sortedWindows)
 
+            // Respect the per-minute rate limit by dropping low-importance
+            // windows instead of throwing — same trim-not-abort policy as
+            // the top-level generateZoomPlan overloads.
             let segmentDuration = segment.timelineOut - segment.timelineIn
-            try validateZoomRate(for: filteredWindows, duration: segmentDuration, config: segmentConfig)
+            filteredWindows = capWindowsToRateLimit(filteredWindows, duration: segmentDuration, config: segmentConfig)
 
             var lastZoomEndTime: TimeInterval = segment.timelineIn
 

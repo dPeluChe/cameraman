@@ -1,0 +1,90 @@
+name: Bug report
+description: Report a reproducible problem in Cameraman
+title: "[bug] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug! Please fill in as much of the form as you can — the more concrete the reproduction, the faster we can land a fix.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One or two sentences describing what's wrong.
+      placeholder: e.g. "Exporting a 4K project hangs at 38% and never completes."
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps. Include sample project size, preset, anything specific.
+      placeholder: |
+        1. Open a project with a 30s screen recording + camera overlay
+        2. File → Export → "4K (HEVC)"
+        3. Click Export
+        4. Progress bar reaches 38% and stops
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: Export completes and the file appears in the destination folder.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      placeholder: Progress bar freezes, app remains responsive but no progress is made.
+    validations:
+      required: true
+
+  - type: input
+    id: macos-version
+    attributes:
+      label: macOS version
+      description: Output of `sw_vers -productVersion`
+      placeholder: e.g. 14.4.1
+    validations:
+      required: true
+
+  - type: input
+    id: cameraman-version
+    attributes:
+      label: Cameraman version
+      description: From Cameraman → About, or the DMG filename.
+      placeholder: e.g. 0.5.2
+    validations:
+      required: true
+
+  - type: dropdown
+    id: arch
+    attributes:
+      label: Mac architecture
+      options:
+        - Apple Silicon (M1/M2/M3/M4)
+        - Intel (x86_64)
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        Relevant excerpt from `~/Library/Logs/Cameraman/` or Console.app output filtered by `Cameraman`.
+        Wrap in triple backticks. Redact paths if they contain personal info.
+      render: text
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional context
+      description: Screenshots, screen recording, anything else that helps reproduce.

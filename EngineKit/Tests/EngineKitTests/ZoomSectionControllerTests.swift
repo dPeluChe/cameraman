@@ -547,20 +547,22 @@ final class ZoomSectionControllerTests: XCTestCase {
     // MARK: - Performance Tests
 
     func testZoomConfigurationPerformance() async throws {
-        // Measure performance of setting/getting configurations
+        // Time the loop synchronously and assert a soft upper bound. Using
+        // `measure { Task { ... } }` here previously spawned fire-and-forget
+        // tasks that survived the test boundary and crashed on an unwrapped
+        // `controller` reference once tearDown nilled it out.
         await controller.loadProject(mockProject)
 
-        measure {
-            Task {
-                for i in 0..<100 {
-                    let segmentId = "segment-\(i % 3 + 1)"
-                    _ = try? await controller.setZoomIntensity(
-                        forSegmentId: segmentId,
-                        intensity: .subtle
-                    )
-                }
-            }
+        let start = Date()
+        for i in 0..<100 {
+            let segmentId = "segment-\(i % 3 + 1)"
+            _ = try? await controller.setZoomIntensity(
+                forSegmentId: segmentId,
+                intensity: .subtle
+            )
         }
+        let elapsed = Date().timeIntervalSince(start)
+        XCTAssertLessThan(elapsed, 5.0, "100 setZoomIntensity calls should finish in well under 5s")
     }
 
     func testZoomSummaryPerformance() async throws {
@@ -569,10 +571,11 @@ final class ZoomSectionControllerTests: XCTestCase {
         _ = try await controller.setZoomIntensity(forSegmentId: "segment-1", intensity: .subtle)
         _ = try await controller.setZoomIntensity(forSegmentId: "segment-2", intensity: .aggressive)
 
-        measure {
-            Task {
-                _ = try? await controller.getZoomSummary()
-            }
+        let start = Date()
+        for _ in 0..<10 {
+            _ = try? await controller.getZoomSummary()
         }
+        let elapsed = Date().timeIntervalSince(start)
+        XCTAssertLessThan(elapsed, 1.0, "10 getZoomSummary calls should finish in well under 1s")
     }
 }

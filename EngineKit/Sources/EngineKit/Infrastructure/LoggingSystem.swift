@@ -61,33 +61,29 @@ public actor LoggingSystem {
     /// Set the minimum log level
     public func setMinimumLevel(_ level: Level) {
         minimumLevel = level
-        Task {
-            log(level: .notice, category: .general, "Minimum log level set to \(level)")
-        }
+        // Emit the diagnostic log inline (we are already on the actor) so
+        // the entry is in the buffer before this call returns. Wrapping in
+        // Task created a race with subsequent clearBuffer / assertion calls.
+        log(level: .notice, category: .general, "Minimum log level set to \(level)")
     }
 
     /// Enable or disable console logging
     public func setConsoleLogging(_ enabled: Bool) {
         logToConsole = enabled
-        Task {
-            log(level: .notice, category: .general, "Console logging \(enabled ? "enabled" : "disabled")")
-        }
+        log(level: .notice, category: .general, "Console logging \(enabled ? "enabled" : "disabled")")
     }
 
     /// Enable or disable source info (file, line, function) in logs
     public func setSourceInfo(_ enabled: Bool) {
         includeSourceInfo = enabled
-        Task {
-            log(level: .notice, category: .general, "Source info \(enabled ? "enabled" : "disabled")")
-        }
+        log(level: .notice, category: .general, "Source info \(enabled ? "enabled" : "disabled")")
     }
 
     /// Clear the log buffer
     public func clearBuffer() {
         logBuffer.removeAll()
-        Task {
-            log(level: .debug, category: .general, "Log buffer cleared")
-        }
+        // No diagnostic entry on purpose: callers expect the buffer to be
+        // empty immediately after this returns.
     }
     
     // MARK: - Logging API

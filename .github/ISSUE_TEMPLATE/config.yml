@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/dPeluChe/labs-cameraman/blob/main/docs/DEV_ONBOARDING.md
+    about: Architecture, setup and key patterns — read this before filing a question.
+  - name: Backlog
+    url: https://github.com/dPeluChe/labs-cameraman/blob/main/docs/TASK_TODO.md
+    about: Known issues and planned work. Check here before opening a feature request.

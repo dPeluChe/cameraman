@@ -16,11 +16,13 @@ final class LoggingSystemTests: XCTestCase {
     override func setUp() async throws {
         try await super.setUp()
         loggingSystem = await LoggingSystem.shared
-        // Clear buffer before each test
-        await loggingSystem.clearBuffer()
+        // Apply test configuration first — each of these calls emits its
+        // own internal log message — then clear the buffer so each test
+        // body starts with an empty log buffer.
         await loggingSystem.setMinimumLevel(.debug)
         await loggingSystem.setConsoleLogging(false)
         await loggingSystem.setSourceInfo(false)
+        await loggingSystem.clearBuffer()
     }
     
     override func tearDown() async throws {
@@ -47,7 +49,7 @@ final class LoggingSystemTests: XCTestCase {
     
     func testSetMinimumLevel() async throws {
         await loggingSystem.setMinimumLevel(.warning)
-        
+
         // Log at different levels
         await loggingSystem.debug(category: .general, "Debug message")
         await loggingSystem.info(category: .general, "Info message")
@@ -254,9 +256,11 @@ final class LoggingSystemTests: XCTestCase {
         
         XCTAssertTrue(FileManager.default.fileExists(atPath: tempURL.path))
         
-        // Verify we can read the exported file
+        // Verify we can read the exported file. exportLogs serializes Date
+        // as ISO8601 strings; the decoder must use the matching strategy.
         let data = try Data(contentsOf: tempURL)
         let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
         let logs = try decoder.decode([LoggingSystem.LogEntry].self, from: data)
         
         XCTAssertEqual(logs.count, 1)
@@ -282,50 +286,63 @@ final class LoggingSystemTests: XCTestCase {
     }
     
     // MARK: - Global Convenience Functions Tests
-    
+
+    /// The global LogXxx helpers wrap actor calls in fire-and-forget Tasks,
+    /// so the test has to wait for the spawned Task to land in the actor's
+    /// queue before reading the buffer. A short sleep is the simplest
+    /// reliable signal — Task.yield does not guarantee the detached Task
+    /// has started.
+    private static let globalLogDrainNanos: UInt64 = 100_000_000 // 100ms
+
     func testGlobalDebugFunction() async throws {
         LogDebug(.general, "Global debug test")
-        
+        try await Task.sleep(nanoseconds: Self.globalLogDrainNanos)
+
         let logs = await loggingSystem.getLogs()
         XCTAssertEqual(logs.count, 1)
         XCTAssertEqual(logs.first?.level, .debug)
     }
-    
+
     func testGlobalInfoFunction() async throws {
         LogInfo(.capture, "Global info test")
-        
+        try await Task.sleep(nanoseconds: Self.globalLogDrainNanos)
+
         let logs = await loggingSystem.getLogs()
         XCTAssertEqual(logs.count, 1)
         XCTAssertEqual(logs.first?.level, .info)
     }
-    
+
     func testGlobalNoticeFunction() async throws {
         LogNotice(.export, "Global notice test")
-        
+        try await Task.sleep(nanoseconds: Self.globalLogDrainNanos)
+
         let logs = await loggingSystem.getLogs()
         XCTAssertEqual(logs.count, 1)
         XCTAssertEqual(logs.first?.level, .notice)
     }
-    
+
     func testGlobalWarningFunction() async throws {
         LogWarning(.preview, "Global warning test")
-        
+        try await Task.sleep(nanoseconds: Self.globalLogDrainNanos)
+
         let logs = await loggingSystem.getLogs()
         XCTAssertEqual(logs.count, 1)
         XCTAssertEqual(logs.first?.level, .warning)
     }
-    
+
     func testGlobalErrorFunction() async throws {
         LogError(.projectStore, "Global error test")
-        
+        try await Task.sleep(nanoseconds: Self.globalLogDrainNanos)
+
         let logs = await loggingSystem.getLogs()
         XCTAssertEqual(logs.count, 1)
         XCTAssertEqual(logs.first?.level, .error)
     }
-    
+
     func testGlobalFaultFunction() async throws {
         LogFault(.transcription, "Global fault test")
-        
+        try await Task.sleep(nanoseconds: Self.globalLogDrainNanos)
+
         let logs = await loggingSystem.getLogs()
         XCTAssertEqual(logs.count, 1)
         XCTAssertEqual(logs.first?.level, .fault)
@@ -334,13 +351,15 @@ final class LoggingSystemTests: XCTestCase {
     // MARK: - Performance Tests
     
     func testLoggingPerformance() async throws {
-        measure {
-            Task {
-                for i in 0..<1000 {
-                    await loggingSystem.debug(category: .general, "Performance test \(i)")
-                }
-            }
+        // Time the flood synchronously and assert a soft bound. Using
+        // `measure` here would require fire-and-forget Tasks that leak
+        // into the next test's setUp and pollute its buffer assertions.
+        let start = Date()
+        for i in 0..<1000 {
+            await loggingSystem.debug(category: .general, "Performance test \(i)")
         }
+        let elapsed = Date().timeIntervalSince(start)
+        XCTAssertLessThan(elapsed, 10.0, "1000 logs should complete in well under 10s")
     }
     
     func testLogBufferPerformance() async throws {
@@ -398,7 +417,7 @@ final class LoggingSystemTests: XCTestCase {
     
     func testLevelFilteringOrder() async throws {
         await loggingSystem.setMinimumLevel(.error)
-        
+
         await loggingSystem.debug(category: .general, "Debug")
         await loggingSystem.info(category: .general, "Info")
         await loggingSystem.warning(category: .general, "Warning")

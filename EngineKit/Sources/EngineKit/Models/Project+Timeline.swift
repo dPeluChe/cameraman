@@ -241,21 +241,29 @@ extension Project {
                 }
             }
 
-            /// Create a zoom configuration
+            /// Create a zoom configuration.
+            ///
+            /// When `intensity` is `.disabled`, `enabled` is forced to `false`
+            /// regardless of the argument — the two flags must agree, and the
+            /// intensity is the more semantic of the two. Callers that need a
+            /// distinct enabled/intensity pairing should set them explicitly
+            /// and avoid `.disabled` as the intensity.
             public init(
                 enabled: Bool = true,
                 minZoomLevel: Double = 1.0,
                 maxZoomLevel: Double = 2.5,
                 intensity: ZoomIntensity? = nil
             ) {
-                self.enabled = enabled
+                self.enabled = (intensity == .disabled) ? false : enabled
                 self.minZoomLevel = minZoomLevel
                 self.maxZoomLevel = maxZoomLevel
                 self.intensity = intensity
             }
 
-            /// Disabled zoom configuration
-            public static let disabled = ZoomConfiguration(enabled: false)
+            /// Disabled zoom configuration. Sets both `enabled = false` and
+            /// `intensity = .disabled` so downstream consumers (e.g.
+            /// segmentsByIntensity counters) see a consistent value.
+            public static let disabled = ZoomConfiguration(enabled: false, intensity: .disabled)
 
             /// Subtle zoom configuration
             public static let subtle = ZoomConfiguration(intensity: .subtle)

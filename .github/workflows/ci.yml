@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Opt into Node.js 24 for JS-based actions ahead of GitHub forcing it on
+  # 2026-06-02. Avoids the deprecation warning on actions/checkout@v4.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  enginekit:
+    name: EngineKit build + test
+    runs-on: macos-14
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app
+
+      - name: Swift version
+        run: swift --version
+
+      - name: Resolve packages
+        working-directory: EngineKit
+        run: swift package resolve
+
+      - name: Build (debug)
+        working-directory: EngineKit
+        run: swift build --build-tests
+
+      - name: Test (pure-logic suites)
+        working-directory: EngineKit
+        # The full EngineKit suite is ~912 tests across 34 files. Many depend
+        # on hardware (camera, screen capture, hotkeys), system permissions
+        # the runner can't grant, or heavy I/O that flakes under parallel
+        # execution. CI validates pure-logic suites only — fast, deterministic,
+        # representative of the code most likely to regress in a typical PR.
+        # The full suite still runs locally via `swift test` from EngineKit/.
+        #
+        # To add a suite, append it to the --filter regex.
+        run: |
+          swift test --parallel \
+            --filter '^EngineKitTests\.(AnimationEngineTests|CanvasLayoutTests|CaptionsManagerTests|DwellDetectorTests|EditorModelTests|LoggingSystemTests|OverlayEngineTests|TelemetryParserTests|ZoomPlanFilterTests|ZoomPlanGeneratorTests|ZoomSectionControllerTests|ZoomSuggestionEngineTests)/'
+
+  # Note: app-build job (xcodebuild on CameramanApp.xcodeproj) is intentionally
+  # NOT wired here yet because `*.xcodeproj` is currently gitignored. Enable it
+  # once the Xcode project file is tracked or replaced with XcodeGen/Tuist.
+  #
+  # When ready, the job runs on macos-14, selects Xcode 15.4, and does:
+  #   xcodebuild -project CameramanApp/CameramanApp.xcodeproj \
+  #              -scheme CameramanApp -configuration Release \
+  #              -destination 'generic/platform=macOS' \
+  #              CODE_SIGNING_ALLOWED=NO ARCHS=arm64 clean build

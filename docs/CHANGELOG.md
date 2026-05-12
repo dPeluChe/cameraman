@@ -9,13 +9,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > `0.8.0 → 0.5.0` · `0.7.0 → 0.4.1` · `0.6.0 → 0.4.0` · `0.5.0 → 0.3.1` · `0.4.0 → 0.3.0` · `0.3.1 → 0.2.1` · `0.3.0 → 0.2.0` · `0.2.0 → 0.1.1` · `0.1.0 → 0.1.0`.
 > Las fechas y el contenido técnico se preservaron.
 
-## [0.5.1] - Unreleased
+## [0.5.2] - 2026-05-12
+
+Foco de la versión: refinamiento de UI, flujo de export reescrito, compatibilidad macOS 13 y fix de performance en preview.
+
+### Added
+- **Atajos de teclado** — `⌘E` abre el modal de Export desde cualquier proyecto cargado. `⌘N` sigue abriendo Recording.
+- **Inline filename extension en Export** — el campo de filename muestra `.mp4` / `.gif` como sufijo gris junto al input. Adiós a la línea de caption separada.
+- **Project Assets bar horizontal con count badge** — la antigua columna lateral de assets pasó a una barra horizontal colapsable arriba del editor. Cuando está colapsada (38pt) muestra `(n)` con la suma de takes + segmentos. Expandida (82pt) lista chips de Sources, Takes y Layers con scroll horizontal.
+- **AssetChip drag affordance** — cursor `openHand` en hover + tooltip "Drag onto the timeline to add this take" para indicar que el chip es arrastrable.
+- **Compat shim macOS 13** — `View.onChangeCompat` se mantiene cuando el deployment target sigue en macOS 13 pero usamos APIs de macOS 14+ (onChange de dos parámetros, onKeyPress). Sin warnings de deprecación.
+
+### Changed
+- **Export flow reescrito** — el usuario elige nombre + carpeta destino antes de exportar. El render temporal se copia automáticamente al destino final. Ya no aparece un `NSSavePanel` después del render.
+  - `outputDirectory` + `outputFilename` son la fuente de verdad en `ExportViewModel`; `outputURL` se recomputa con `didSet`.
+  - `finalizeExport` maneja `startAccessingSecurityScopedResource` para sandbox + logs estructurados.
+  - `ExportView` envuelta en `ScrollView` con `ViewThatFits` para colapsar filas a stack vertical en ventanas angostas.
+  - Botón "Play Video" pasó a `.borderedProminent` con `keyboardShortcut(.defaultAction)`. "Show in Finder" queda como secundario.
+  - Path de destino muestra `~/Movies/...` en vez de solo el último componente.
+- **Inspector derecho fijo a 300pt** — antes el ancho oscilaba entre 260-360 y el timeline reflowaba con cada cambio de los grids del inspector.
+- **Layouts adaptivos en panel derecho** — `HStack` con frames fijos reemplazados por `LazyVGrid` con `GridItem(.adaptive(minimum:maximum:))` en BackgroundControlsView, OverlayInspector, OverlayToolbar, ProjectEditorLayoutViews, ProjectEditorPiPView, ZoomControlsView.
+- **ConfigGroup sin animación de expand/collapse** — la animación del DisclosureGroup causaba jitter horizontal cuando los grids reflowaban. Comentario in-place explicando el motivo.
+- **Segment labels ordinales** — en la asset bar los segmentos se etiquetan `Segment 1`, `Segment 2`, ... en vez de los primeros 4 chars del UUID.
+- **Race-safe new take** — `startNewTake()` pasa `projectId` vía `NotificationCenter.userInfo`; el observer lo asigna antes de abrir la ventana de recording, eliminando la dependencia de orden con la asignación previa a `RecordingStateManager.shared.viewModel.targetProjectId`.
+
+### Fixed
+- **🔴 Spurious composition rebuilds** — `PreviewPlayerView` escuchaba `editor.objectWillChange` general, lo que disparaba un rebuild del `AVVideoComposition` por cada cambio de `showAutosaveToast`, `canUndo` o `canRedo` (ninguno afecta el preview). Una sesión corta de clicks generaba 20+ rebuilds. Ahora escucha `editor.$project` con `.removeDuplicates()` — rebuild solo cuando el Project cambia de verdad.
+- **Entitlements wipe accidental** — Xcode dejó `CameramanApp.entitlements` como `<dict/>` (probablemente al tocar Signing & Capabilities). Restaurado: `app-sandbox`, `device.camera`, `device.audio-input`, `files.user-selected.read-write`, `files.downloads.read-write`. Sin esto las nuevas grabaciones bajo sandbox no hubieran tenido permisos.
+
+### Removed
+- **Dead code en panel izquierdo** — `LeftPanel` y `AssetRow` reemplazados completamente por `ProjectAssetsBar` + `AssetChip`. La barra horizontal cubre el mismo rol con mejor uso de espacio.
+- **`NSSavePanel` post-export** y `revealExportInFinder()` automático en el callback de éxito (ahora solo dispara con el botón explícito "Show in Finder").
+
+### Performance
+- `DateFormatter` estático en `ProjectAssetsBar` — antes se instanciaba en cada render por take.
+- Composition rebuild dedupeado: 1 rebuild por edit cluster (debounce 150ms) en vez de 2-3 spurious por autosave + 1 por undo/redo flip.
+
+### Distribution
+- **Tahoe Gatekeeper feedback** — testers en macOS 26.4.1 (Tahoe) reportaron que el `.dmg` no abre aunque tengan "Allow apps from anywhere" activado. Workaround documentado: `xattr -dr com.apple.quarantine /Applications/CameramanApp.app`. Mitigación futura: firma ad-hoc en `build-dmg.sh` (no aplicada todavía).
+
+---
+
+## [0.5.1] - 2026-05-06
 
 ### Branch
 - `refactor/phase1-architecture` — Fase 1: descomposición de `TimelineView` y extracción del export pipeline.
+- `feat/beta-build-pipeline` — pipeline universal de DMG beta + Makefile + branding (icon, wordmark, fondo del DMG).
 
 ### Added
 - `RecordingSession.videoWriterFailed` / `audioWriterFailed` flags + `markVideoWriterFailed(_:)` / `markAudioWriterFailed(_:)` (idempotentes) para detectar escrituras abortadas sin spam de logs.
+- **Pipeline universal de DMG beta** — `make release` ejecuta build + verify + dmg en un solo paso. Produce `dist/Cameraman-beta-X.Y.Z.B.dmg` con binario universal (arm64 + x86_64), background brandeado y drop link a `/Applications`. Targets adicionales: `build`, `build-arm`, `verify`, `dmg`, `clean`, `open-dist`, `help`.
+- **Identidad visual** — AppIcon (vintage Mac con capa de Superman + waveform mouth), wordmark horizontal y background del DMG. Source files en `docs/cameraman_designs.pen` (Pencil).
+- **`scripts/build-dmg.sh`** con cleanup defensivo (force-unmount de volúmenes huérfanos de runs previos, remoción de DMGs RW intermedios).
+- `INFOPLIST_KEY_CFBundleDisplayName = Cameraman` — Dock/Finder muestran "Cameraman" en vez de "CameramanApp".
 
 ### Changed
 - **TimelineView descompuesto** — `TimelineView.swift` de 864 → 413 LOC. Nuevas extensiones: `TimelineView+Thumbnails.swift` (106 LOC), `TimelineView+DragDrop.swift` (180 LOC), `TimelineView+EditActions.swift` (96 LOC). Métodos de zoom movidos a `TimelineView+ZoomSuggestions.swift`.

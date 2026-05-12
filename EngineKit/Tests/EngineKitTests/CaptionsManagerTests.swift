@@ -533,7 +533,7 @@ final class CaptionsManagerTests: XCTestCase {
         measure {
             Task {
                 let manager = CaptionsManager()
-                try? manager.loadCaptions(from: testSRTFile.path)
+                try? await manager.loadCaptions(from: testSRTFile.path)
                 _ = await manager.getCaptionCount()
             }
         }
