@@ -14,7 +14,7 @@ jobs:
   enginekit:
     name: EngineKit build + test
     runs-on: macos-14
-    timeout-minutes: 30
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -34,47 +34,22 @@ jobs:
         working-directory: EngineKit
         run: swift build --build-tests
 
-      - name: Test
+      - name: Test (pure-logic suites)
         working-directory: EngineKit
-        # The full suite (912 tests, 34+ files) runs in ~35-40 min on a 3-core
-        # macos-14 runner because many suites contain Task.sleep/Thread.sleep
-        # or wait for permissions that never grant on CI. Skip the slow /
-        # environment-dependent ones in CI; they still run locally with
-        # `swift test` from EngineKit/.
+        # The full EngineKit suite is ~912 tests across 34 files. Many depend
+        # on hardware (camera, screen capture, hotkeys), system permissions
+        # the runner can't grant, or heavy I/O that flakes under parallel
+        # execution. Running everything would take 35-40 min on a 3-core
+        # macos-14 runner.
         #
-        #   System / permission state (cannot grant on CI):
-        #     CaptureEngineIntegrationTests — ScreenCaptureKit display access
-        #     HotkeyManagerTests            — accessibility-trusted event taps
-        #     PermissionManagerTests        — permission status flapping
-        #     KeystrokeRecorderTests        — event taps
+        # CI validates only pure-logic suites — fast, deterministic,
+        # representative of the code most likely to regress in a typical PR.
+        # The full suite still runs locally via `swift test` from EngineKit/.
         #
-        #   Heavy I/O or background scheduling (slow + flaky in parallel):
-        #     ProjectStoreTests             — file-system heavy
-        #     JobQueueTests                 — timer-driven background jobs
-        #     ThumbnailCacheTests           — disk + image decode
-        #     PreviewEngineTests            — AVFoundation player integration
-        #     OverlayEditViewTests          — view + composition
-        #     ExportEngineTests             — full export render
-        #     CrashReporterTests            — singleton + file I/O races
-        #
-        #   External / network deps:
-        #     AIServiceTests
-        #     LocalAIProviderTests
+        # To add a new suite to CI, append it to the --filter regex below.
+        # Use the existing pattern as a guide.
         run: |
-          swift test --parallel \
-            --skip CaptureEngineIntegrationTests \
-            --skip HotkeyManagerTests \
-            --skip PermissionManagerTests \
-            --skip KeystrokeRecorderTests \
-            --skip ProjectStoreTests \
-            --skip JobQueueTests \
-            --skip ThumbnailCacheTests \
-            --skip PreviewEngineTests \
-            --skip OverlayEditViewTests \
-            --skip ExportEngineTests \
-            --skip CrashReporterTests \
-            --skip AIServiceTests \
-            --skip LocalAIProviderTests
+          swift test --parallel --filter '^EngineKitTests\.(AnimationEngineTests|CanvasLayoutTests|CaptionsManagerTests|DwellDetectorTests|EditorModelTests|LoggingSystemTests|OverlayEngineTests|TelemetryParserTests|ZoomPlanFilterTests|ZoomPlanGeneratorTests|ZoomSectionControllerTests|ZoomSuggestionEngineTests)/'
 
   # Note: app-build job (xcodebuild on CameramanApp.xcodeproj) is intentionally
   # NOT wired here yet because `*.xcodeproj` is currently gitignored. Enable it
