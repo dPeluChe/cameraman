@@ -10,24 +10,28 @@ import EngineKit
 
 extension OverlayEditorView {
     var toolbar: some View {
-        HStack(spacing: 8) {
-            Text("Overlays")
-                .font(.headline)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Overlays")
+                    .font(.headline)
 
-            Spacer()
+                Spacer()
+
+                Button(action: deleteSelectedOverlay) {
+                    Label("Delete", systemImage: "trash")
+                        .labelStyle(.iconOnly)
+                }
+                .buttonStyle(.bordered)
+                .disabled(selectedOverlayId == nil)
+                .help("Delete selected overlay")
+            }
 
             HStack(spacing: 4) {
                 ForEach(availableTools, id: \.self) { tool in
                     toolButton(for: tool)
                 }
             }
-
-            Spacer()
-
-            Button(action: deleteSelectedOverlay) {
-                Label("Delete", systemImage: "trash")
-            }
-            .disabled(selectedOverlayId == nil)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 

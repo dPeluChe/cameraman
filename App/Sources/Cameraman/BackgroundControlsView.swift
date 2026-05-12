@@ -16,6 +16,9 @@ struct BackgroundControlsView: View {
     @State private var showImagePicker = false
     @State private var selectedColor: Color = .black
     @State private var colorPickerPresented = false
+    private let quickColorColumns = [GridItem(.adaptive(minimum: 22, maximum: 24), spacing: 4)]
+    private let fitModeColumns = [GridItem(.adaptive(minimum: 74, maximum: 120), spacing: 8)]
+    private let gradientColumns = [GridItem(.adaptive(minimum: 52, maximum: 72), spacing: 8)]
 
     private var background: Project.Canvas.Background {
         editor.project.canvas.background
@@ -90,7 +93,7 @@ struct BackgroundControlsView: View {
             .buttonStyle(.plain)
 
             // Quick color presets (wrapped grid)
-            LazyVGrid(columns: Array(repeating: GridItem(.fixed(22), spacing: 4), count: 8), spacing: 4) {
+            LazyVGrid(columns: quickColorColumns, alignment: .leading, spacing: 4) {
                 ForEach(quickColors, id: \.self) { hex in
                     Button {
                         Task {
@@ -124,7 +127,7 @@ struct BackgroundControlsView: View {
         .onAppear {
             Task { @MainActor in updateSelectedColor() }
         }
-        .onChange(of: background.value) { _, _ in
+        .onChangeCompat(of: background.value) { _ in
             Task { @MainActor in updateSelectedColor() }
         }
     }
@@ -200,7 +203,7 @@ struct BackgroundControlsView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
-                    HStack(spacing: 8) {
+                    LazyVGrid(columns: fitModeColumns, alignment: .leading, spacing: 8) {
                         ForEach(CanvasLayout.ImageFitMode.allCases, id: \.self) { mode in
                             FitModeButton(
                                 mode: mode,
@@ -212,6 +215,7 @@ struct BackgroundControlsView: View {
                             }
                         }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
         }
@@ -262,10 +266,7 @@ struct BackgroundControlsView: View {
             Text("Gradient Presets")
                 .font(.subheadline)
 
-            LazyVGrid(columns: [
-                GridItem(.flexible()), GridItem(.flexible()),
-                GridItem(.flexible()), GridItem(.flexible())
-            ], spacing: 8) {
+            LazyVGrid(columns: gradientColumns, alignment: .leading, spacing: 8) {
                 ForEach(CanvasLayout.GradientPreset.allCases, id: \.self) { preset in
                     let parts = preset.rawValue.split(separator: ",")
                     let isSelected = background.value == preset.rawValue
@@ -296,11 +297,14 @@ struct BackgroundControlsView: View {
                             Text(preset.displayName)
                                 .font(.system(size: 9))
                                 .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
                         }
                     }
                     .buttonStyle(.plain)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -323,4 +327,3 @@ struct BackgroundControlsView: View {
         selectedColor = Color(hex: background.value.isEmpty ? "#0B0B0D" : background.value)
     }
 }
-

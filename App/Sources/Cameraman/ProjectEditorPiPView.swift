@@ -13,6 +13,8 @@ struct PiPConfigurationView: View {
     @ObservedObject var editor: ProjectEditor
     var selectedSegmentId: String? = nil
     @State private var cornerSnapshot: Project?
+    private let presetColumns = [GridItem(.adaptive(minimum: 52, maximum: 82), spacing: 6)]
+    private let shapeColumns = [GridItem(.adaptive(minimum: 44, maximum: 58), spacing: 6)]
 
     /// Whether we're editing a segment's camera override vs project camera
     private var isEditingSegment: Bool {
@@ -71,7 +73,7 @@ struct PiPConfigurationView: View {
                     Text("Presets")
                         .font(.subheadline)
 
-                    HStack(spacing: 6) {
+                    LazyVGrid(columns: presetColumns, alignment: .leading, spacing: 6) {
                         ForEach(PiPPreset.allCases, id: \.self) { preset in
                             Button(preset.rawValue) {
                                 let updated = PiPLayoutHelper.presetPosition(preset, camera: camera)
@@ -81,13 +83,14 @@ struct PiPConfigurationView: View {
                             .controlSize(.small)
                         }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Shape")
                         .font(.subheadline)
 
-                    HStack(spacing: 3) {
+                    LazyVGrid(columns: shapeColumns, alignment: .leading, spacing: 6) {
                         ForEach(PiPMaskShape.allCases, id: \.self) { shape in
                             let isSelected = camera.maskShape == shape
                             Button {
@@ -101,7 +104,7 @@ struct PiPConfigurationView: View {
                                     Text(shapeLabel(shape))
                                         .font(.system(size: 8))
                                 }
-                                .frame(width: 44, height: 32)
+                                .frame(maxWidth: .infinity, minHeight: 32)
                                 .background(
                                     RoundedRectangle(cornerRadius: 5)
                                         .fill(isSelected ? Color.accentColor.opacity(0.2) : Color.primary.opacity(0.05))
@@ -114,6 +117,7 @@ struct PiPConfigurationView: View {
                             .buttonStyle(.plain)
                         }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -413,4 +417,3 @@ struct CameraPreviewShape: Shape {
         }
     }
 }
-

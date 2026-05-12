@@ -10,6 +10,9 @@ import EngineKit
 
 extension OverlayEditorView {
     // MARK: - Style Inspector
+    private var inspectorColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: 86, maximum: 140), spacing: 12)]
+    }
 
     @ViewBuilder
     func styleInspector(for overlay: Project.Overlay) -> some View {
@@ -17,11 +20,11 @@ extension OverlayEditorView {
             Text("Style Inspector")
                 .font(.headline)
 
-            HStack(spacing: 16) {
+            LazyVGrid(columns: inspectorColumns, alignment: .leading, spacing: 12) {
                 // Color picker
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Color")
-                        .font(.subheadline)
+                        .font(.caption)
                     ColorPicker("", selection: Binding(
                         get: { color(from: overlay.style.stroke) },
                         set: { newColor in updateOverlay(style: overlay.style.with(stroke: hexColor(from: newColor))) }
@@ -32,7 +35,7 @@ extension OverlayEditorView {
                 // Stroke width
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Stroke Width")
-                        .font(.subheadline)
+                        .font(.caption)
                     Slider(
                         value: Binding(
                             get: { overlay.style.strokeWidth },
@@ -41,13 +44,12 @@ extension OverlayEditorView {
                         in: 1...10,
                         step: 0.5
                     )
-                    .frame(maxWidth: 120)
                 }
 
                 // Shadow toggle
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Shadow")
-                        .font(.subheadline)
+                        .font(.caption)
                     Toggle("", isOn: Binding(
                         get: { overlay.style.shadow },
                         set: { updateOverlay(style: overlay.style.with(shadow: $0)) }
@@ -83,7 +85,7 @@ extension OverlayEditorView {
             ))
             .textFieldStyle(.roundedBorder)
 
-            HStack(spacing: 12) {
+            LazyVGrid(columns: inspectorColumns, alignment: .leading, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Font")
                         .font(.caption)
@@ -110,39 +112,36 @@ extension OverlayEditorView {
                         in: 12...72,
                         step: 1
                     )
-                    .frame(maxWidth: 80)
                 }
             }
         }
     }
 
     func timingControls(for overlay: Project.Overlay) -> some View {
-        HStack(spacing: 16) {
+        LazyVGrid(columns: inspectorColumns, alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Start Time")
-                    .font(.subheadline)
+                    .font(.caption)
                 TextField("s", value: Binding(
                     get: { overlay.start },
                     set: { updateOverlay(start: $0) }
                 ), format: .number)
                 .textFieldStyle(.roundedBorder)
-                .frame(width: 80)
             }
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("End Time")
-                    .font(.subheadline)
+                    .font(.caption)
                 TextField("s", value: Binding(
                     get: { overlay.end },
                     set: { updateOverlay(end: $0) }
                 ), format: .number)
                 .textFieldStyle(.roundedBorder)
-                .frame(width: 80)
             }
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Duration")
-                    .font(.subheadline)
+                    .font(.caption)
                 Text("\(overlay.end - overlay.start, specifier: "%.1f")s")
                     .foregroundStyle(.secondary)
             }
@@ -155,7 +154,7 @@ extension OverlayEditorView {
                 .font(.subheadline)
 
             // Animation type selector
-            HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 10) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Type")
                         .font(.caption)
@@ -170,7 +169,6 @@ extension OverlayEditorView {
                         Text("Draw On").tag(Project.Overlay.Animation.AnimationType.drawOn)
                     }
                     .labelsHidden()
-                    .frame(width: 140)
                 }
 
                 // Duration controls (only show if animation is selected)
@@ -188,7 +186,6 @@ extension OverlayEditorView {
                                         set: { updateOverlayAnimation(fadeInDuration: $0, overlay: overlay) }
                                     ), format: .number)
                                     .textFieldStyle(.roundedBorder)
-                                    .frame(width: 50)
                                 }
                             }
 
@@ -201,7 +198,6 @@ extension OverlayEditorView {
                                         set: { updateOverlayAnimation(fadeOutDuration: $0, overlay: overlay) }
                                     ), format: .number)
                                     .textFieldStyle(.roundedBorder)
-                                    .frame(width: 50)
                                 }
                             }
 
@@ -214,7 +210,6 @@ extension OverlayEditorView {
                                         set: { updateOverlayAnimation(drawOnDuration: $0, overlay: overlay) }
                                     ), format: .number)
                                     .textFieldStyle(.roundedBorder)
-                                    .frame(width: 50)
                                 }
                             }
                         }
@@ -234,7 +229,6 @@ extension OverlayEditorView {
                             Text("Ease In/Out").tag(Project.Overlay.Animation.EasingFunction.easeInOut)
                         }
                         .labelsHidden()
-                        .frame(width: 100)
                     }
                 }
             }
