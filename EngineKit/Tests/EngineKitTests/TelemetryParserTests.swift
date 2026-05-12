@@ -34,12 +34,14 @@ final class TelemetryParserTests: XCTestCase {
     func testDefaultConfiguration() {
         let config = TelemetryParser.Configuration.default()
 
-        XCTAssertEqual(config.timeWindowSize, 2.0)
-        XCTAssertEqual(config.minClicksPerWindow, 2)
-        XCTAssertEqual(config.maxClickInterval, 1.0)
-        XCTAssertEqual(config.minMovementDistance, 50.0)
+        // Defaults track the values defined in
+        // EngineKit/Capture/TelemetryParserTypes.swift Configuration.init.
+        XCTAssertEqual(config.timeWindowSize, 2.5)
+        XCTAssertEqual(config.minClicksPerWindow, 1)
+        XCTAssertEqual(config.maxClickInterval, 1.5)
+        XCTAssertEqual(config.minMovementDistance, 20.0)
         XCTAssertTrue(config.includeLeftClicks)
-        XCTAssertFalse(config.includeRightClicks)
+        XCTAssertTrue(config.includeRightClicks)
         XCTAssertFalse(config.includeOtherClicks)
     }
 
@@ -205,9 +207,11 @@ final class TelemetryParserTests: XCTestCase {
 
         let result = try await parser.parseEvents(events)
 
-        // Single click doesn't meet minimum threshold (2 clicks per window)
+        // With the default minClicksPerWindow of 1, even a single click
+        // produces a window. The click itself is always included in
+        // importantClicks regardless of window thresholds.
         XCTAssertEqual(result.importantClicks.count, 1)
-        XCTAssertEqual(result.windows.count, 0)
+        XCTAssertEqual(result.windows.count, 1)
     }
 
     func testParseEventsWithMultipleClicks() async throws {
@@ -256,14 +260,21 @@ final class TelemetryParserTests: XCTestCase {
     }
 
     func testParseEventsWithRightClicksFiltered() async throws {
+        // The default Configuration includes right clicks, so this test
+        // builds an explicit "filtered" configuration that excludes them.
+        let config = TelemetryParser.Configuration(
+            includeLeftClicks: true,
+            includeRightClicks: false,
+            includeOtherClicks: false
+        )
         let events = [
             TelemetryRecorder.Event(t: 0.0, type: .down, x: 100, y: 200, button: 0), // Left click
             TelemetryRecorder.Event(t: 0.5, type: .down, x: 160, y: 260, button: 1)  // Right click
         ]
 
-        let result = try await parser.parseEvents(events)
+        let result = try await parser.parseEvents(events, config: config)
 
-        // Only left click included (right clicks filtered by default)
+        // Only left click included — right clicks are filtered by config.
         XCTAssertEqual(result.importantClicks.count, 1)
         XCTAssertEqual(result.importantClicks.first?.button, 0)
     }

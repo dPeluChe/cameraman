@@ -39,33 +39,14 @@ jobs:
         # The full EngineKit suite is ~912 tests across 34 files. Many depend
         # on hardware (camera, screen capture, hotkeys), system permissions
         # the runner can't grant, or heavy I/O that flakes under parallel
-        # execution. Running everything would take 35-40 min on a 3-core
-        # macos-14 runner.
-        #
-        # CI validates only pure-logic suites — fast, deterministic,
+        # execution. CI validates pure-logic suites only — fast, deterministic,
         # representative of the code most likely to regress in a typical PR.
         # The full suite still runs locally via `swift test` from EngineKit/.
         #
-        # The --skip lines below target pre-existing test rot: tests that
-        # encode behavior the implementation has since moved past. See
-        # docs/TASK_TODO.md under "Test rot in pure-logic suites".
-        #
-        # To add a new suite to CI, append it to the --filter regex below.
+        # To add a suite, append it to the --filter regex.
         run: |
           swift test --parallel \
-            --filter '^EngineKitTests\.(AnimationEngineTests|CanvasLayoutTests|CaptionsManagerTests|DwellDetectorTests|EditorModelTests|LoggingSystemTests|OverlayEngineTests|TelemetryParserTests|ZoomPlanFilterTests|ZoomPlanGeneratorTests|ZoomSectionControllerTests|ZoomSuggestionEngineTests)/' \
-            --skip 'OverlayEngineTests/testAddManyOverlaysPerformance' \
-            --skip 'TelemetryParserTests/testDefaultConfiguration' \
-            --skip 'TelemetryParserTests/testParseEventsWithRightClicksFiltered' \
-            --skip 'TelemetryParserTests/testParseEventsWithSingleClick' \
-            --skip 'ZoomPlanGeneratorTests/testGenerateZoomPlanWithSections_AllEnabled' \
-            --skip 'ZoomPlanGeneratorTests/testGenerateZoomPlanWithSections_CustomConfiguration' \
-            --skip 'ZoomPlanGeneratorTests/testGenerateZoomPlanWithSections_KeyframeOrdering' \
-            --skip 'ZoomPlanGeneratorTests/testGenerateZoomPlanWithSections_NoExplicitConfiguration' \
-            --skip 'ZoomPlanGeneratorTests/testGenerateZoomPlanWithSections_SegmentFiltering' \
-            --skip 'ZoomPlanGeneratorTests/testGenerateZoomPlanWithSections_SomeDisabled' \
-            --skip 'ZoomSectionControllerTests/testGetZoomSummary' \
-            --skip 'ZoomSectionControllerTests/testSetZoomIntensityDisabled'
+            --filter '^EngineKitTests\.(AnimationEngineTests|CanvasLayoutTests|CaptionsManagerTests|DwellDetectorTests|EditorModelTests|LoggingSystemTests|OverlayEngineTests|TelemetryParserTests|ZoomPlanFilterTests|ZoomPlanGeneratorTests|ZoomSectionControllerTests|ZoomSuggestionEngineTests)/'
 
   # Note: app-build job (xcodebuild on CameramanApp.xcodeproj) is intentionally
   # NOT wired here yet because `*.xcodeproj` is currently gitignored. Enable it

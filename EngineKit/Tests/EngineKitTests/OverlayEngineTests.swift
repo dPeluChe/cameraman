@@ -753,15 +753,22 @@ final class OverlayEngineTests: XCTestCase {
     // MARK: - Performance Tests
 
     func testAddManyOverlaysPerformance() async throws {
+        // The test fixture's timeline is 60 seconds. Earlier this loop ran
+        // with `start: Double(i), end: Double(i + 1)` for i in 0..<100, so
+        // every overlay past index 59 was rejected with overlayOutsideTimeline.
+        // Pack the 100 overlays into the available 60-second window instead.
         measure {
             let group = DispatchGroup()
             var errors: [Error?] = []
 
             for i in 0..<100 {
+                let start = Double(i) * 0.5   // 0.0, 0.5, ..., 49.5
+                let end = start + 0.4         // 0.4, 0.9, ..., 49.9 — all < 60s
+
                 group.enter()
                 Task {
                     do {
-                        _ = try await createTestOverlay(start: Double(i), end: Double(i + 1))
+                        _ = try await createTestOverlay(start: start, end: end)
                     } catch {
                         errors.append(error)
                     }

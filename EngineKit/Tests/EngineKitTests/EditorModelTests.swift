@@ -896,10 +896,12 @@ final class EditorModelTests: XCTestCase {
         let project = createTestProjectWithOverlay()
         let editor = EditorModel(project: project)
 
+        // Fixture overlay spans [0, 10]. A new start of 11 is past the end
+        // and must be rejected by the `start < end` invariant.
         let result = await editor.updateOverlay(
             projectId: project.projectId,
             overlayId: project.overlays[0].id,
-            start: 9.0
+            start: 11.0
         )
 
         switch result {
@@ -907,7 +909,7 @@ final class EditorModelTests: XCTestCase {
             XCTFail("Expected failure for start time >= end time")
         case .failure(let error):
             if case .invalidTrimTime(let sourceIn, let sourceOut, let reason) = error {
-                XCTAssertEqual(sourceIn, 9.0)
+                XCTAssertEqual(sourceIn, 11.0)
                 XCTAssertEqual(sourceOut, 10.0)
                 XCTAssertEqual(reason, "Start time must be less than end time")
             } else {
@@ -920,10 +922,13 @@ final class EditorModelTests: XCTestCase {
         let project = createTestProjectWithOverlay()
         let editor = EditorModel(project: project)
 
+        // Fixture overlay spans [0, 10]. Move both endpoints so the new
+        // span is start=5, end=3 — invalid because end < start.
         let result = await editor.updateOverlay(
             projectId: project.projectId,
             overlayId: project.overlays[0].id,
-            end: 1.0
+            start: 5.0,
+            end: 3.0
         )
 
         switch result {
@@ -931,8 +936,8 @@ final class EditorModelTests: XCTestCase {
             XCTFail("Expected failure for end time <= start time")
         case .failure(let error):
             if case .invalidTrimTime(let sourceIn, let sourceOut, let reason) = error {
-                XCTAssertEqual(sourceIn, 0.0)
-                XCTAssertEqual(sourceOut, 1.0)
+                XCTAssertEqual(sourceIn, 5.0)
+                XCTAssertEqual(sourceOut, 3.0)
                 XCTAssertEqual(reason, "Start time must be less than end time")
             } else {
                 XCTFail("Expected invalidTrimTime error")
@@ -992,9 +997,10 @@ final class EditorModelTests: XCTestCase {
         let project = createTestProjectWithOverlay()
         let editor = EditorModel(project: project)
 
+        let missingId = UUID()
         let result = await editor.updateOverlay(
             projectId: project.projectId,
-            overlayId: UUID(),
+            overlayId: missingId,
             start: 2.0
         )
 
@@ -1002,7 +1008,14 @@ final class EditorModelTests: XCTestCase {
         case .success, .successWithInfo:
             XCTFail("Expected failure for non-existent overlay")
         case .failure(let error):
-            XCTAssertEqual(error, .segmentNotFound(""))
+            // The implementation reports the missing overlay's UUID inside
+            // the .segmentNotFound payload so the caller can attribute the
+            // failure. Match on the case rather than on an exact string.
+            if case .segmentNotFound(let id) = error {
+                XCTAssertEqual(id, missingId.uuidString)
+            } else {
+                XCTFail("Expected .segmentNotFound, got \(error)")
+            }
         }
     }
 

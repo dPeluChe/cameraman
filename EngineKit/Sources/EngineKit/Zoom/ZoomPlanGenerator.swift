@@ -44,11 +44,15 @@ public actor ZoomPlanGenerator {
 
         // Sort windows by start time and filter by importance
         let sortedWindows = clickWindows.sorted { $0.startTime < $1.startTime }
-        let filteredWindows = filterWindowsByImportance(sortedWindows)
+        var filteredWindows = filterWindowsByImportance(sortedWindows)
 
-        // Check zoom rate limits
+        // Respect the per-minute rate limit by dropping the lowest-importance
+        // windows instead of throwing — keep consistent with the array-based
+        // generateZoomPlan overload. A previous throw here, silenced by a
+        // `try?` upstream, was the root cause of "suggestions visible but no
+        // zoom applied" (see CHANGELOG 0.5.1 Fixed).
         let duration = timelineDuration ?? (parseResult.stats.timeRange.upperBound - parseResult.stats.timeRange.lowerBound)
-        try validateZoomRate(for: filteredWindows, duration: duration, config: config)
+        filteredWindows = capWindowsToRateLimit(filteredWindows, duration: duration, config: config)
 
         // Generate zoom events from click windows
         var zoomEvents: [ZoomEvent] = []
