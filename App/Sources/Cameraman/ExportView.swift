@@ -161,12 +161,16 @@ struct ExportView: View {
                 Text("Filename")
                     .font(.headline)
 
-                TextField("Export filename", text: $viewModel.outputFilename)
-                    .textFieldStyle(.roundedBorder)
+                HStack(spacing: 0) {
+                    TextField("Export filename", text: $viewModel.outputFilename)
+                        .textFieldStyle(.roundedBorder)
 
-                Text(viewModel.resolvedOutputFilename)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    Text(".\(viewModel.fileExtensionForDisplay)")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 6)
+                        .monospacedDigit()
+                }
             }
 
             Divider()

@@ -85,6 +85,10 @@ final class ExportViewModel: ObservableObject {
         "\(sanitizedOutputBaseName).\(fileExtension)"
     }
 
+    /// The extension that will be appended to the user-typed filename. Exposed
+    /// to the view so it can render an inline `.mp4` / `.gif` suffix.
+    var fileExtensionForDisplay: String { fileExtension }
+
     var progressPercentage: Int {
         Int(progress * 100)
     }
