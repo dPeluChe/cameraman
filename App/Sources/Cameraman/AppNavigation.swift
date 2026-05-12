@@ -32,7 +32,11 @@ struct AppNavigation: View {
             .toolbar {
                 toolbarContent
             }
-            .onReceive(NotificationCenter.default.publisher(for: .openRecordingWindow)) { _ in
+            .onReceive(NotificationCenter.default.publisher(for: .openRecordingWindow)) { notification in
+                if let projectId = notification.userInfo?["projectId"] as? ProjectId,
+                   let recViewModel = RecordingStateManager.shared.viewModel {
+                    recViewModel.targetProjectId = projectId
+                }
                 openWindow(id: WindowID.recordingControls)
             }
             .onReceive(NotificationCenter.default.publisher(for: .openProject)) { notification in

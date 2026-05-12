@@ -18,6 +18,10 @@ struct ProjectAssetsBar: View {
         return formatter
     }()
 
+    private var collapsedSummary: Int {
+        editor.project.takes.count + editor.project.timeline.segments.count
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
@@ -31,6 +35,13 @@ struct ProjectAssetsBar: View {
 
                         Text("Project Assets")
                             .font(.headline)
+
+                        if !isExpanded, collapsedSummary > 0 {
+                            Text("(\(collapsedSummary))")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                        }
                     }
                     .contentShape(Rectangle())
                 }
@@ -108,11 +119,11 @@ struct ProjectAssetsBar: View {
     }
 
     private func startNewTake() {
-        if let recViewModel = RecordingStateManager.shared.viewModel {
-            recViewModel.targetProjectId = editor.project.projectId
-        }
-
-        NotificationCenter.default.post(name: .openRecordingWindow, object: nil)
+        NotificationCenter.default.post(
+            name: .openRecordingWindow,
+            object: nil,
+            userInfo: ["projectId": editor.project.projectId]
+        )
     }
 
     private func formattedDate(_ date: Date) -> String {
@@ -158,6 +169,7 @@ struct AssetChip: View {
                     .font(.caption)
                     .fontWeight(.semibold)
                     .lineLimit(1)
+                    .truncationMode(.middle)
 
                 Text(subtitle)
                     .font(.caption2)
@@ -167,7 +179,8 @@ struct AssetChip: View {
         }
         .padding(.horizontal, 9)
         .padding(.vertical, 7)
-        .frame(width: 118, alignment: .leading)
+        .frame(minWidth: 110, maxWidth: 200, alignment: .leading)
+        .help(title)
         .background(
             RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .fill(Color.primary.opacity(0.05))
