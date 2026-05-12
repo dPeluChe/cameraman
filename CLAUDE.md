@@ -162,11 +162,18 @@ Use `EngineKitError` enum with context (file paths, timestamps, drift amounts). 
 
 ## Related Documentation
 
-All docs live in `docs/`:
+Root-level (open-source basics):
 
+- `README.md` - Public-facing overview, install, build, contribution pointers
+- `CONTRIBUTING.md` - Contributor guide: setup, conventions, PR flow
+- `LICENSE` - MIT
+
+Inside `docs/`:
+
+- `docs/DEV_ONBOARDING.md` - **Start here** — architecture, setup, key patterns
 - `docs/PRD.md` - Product requirements, user flows, MVP scope
 - `docs/TECH_SPEC.md` - API contracts, data schemas, sync strategy
 - `docs/TASK_TODO.md` - Pending features and improvements
-- `docs/TASK_COMPLETED/` - Completed work by session
-- `docs/CHANGELOG.md` - Version changelog (current: v0.5.1-dev)
+- `docs/TASK_COMPLETED/` - Completed work by session (YYMM.md format)
+- `docs/CHANGELOG.md` - Version changelog (current: **v0.5.2**)
 - `docs/ARCHIVED/` - Historical docs (recovery summaries, validation reports)

@@ -1,12 +1,19 @@
 # Cameraman
 
-Open source screen recorder & editor for macOS. Swift native. Local-first. Free.
+> Open-source screen recorder and video editor for macOS. Swift native. Local-first. Free.
 
-**Version**: 0.5.1 (dev) | **Platform**: macOS 13+ (Ventura) | **License**: Open Source
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Platform: macOS 13+](https://img.shields.io/badge/platform-macOS%2013%2B-blue.svg)](https://www.apple.com/macos/)
+[![Swift 5.9+](https://img.shields.io/badge/swift-5.9%2B-orange.svg)](https://swift.org)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
+**Version**: 0.5.2 (beta) · **Platform**: macOS 13+ (Ventura)
+
+---
 
 ## What it does
 
-Record your screen, camera, and audio as separate tracks. Edit with a timeline editor. Export with per-segment effects and smart auto-zoom.
+Cameraman captures your screen, camera, and audio as **separate tracks**, gives you a non-destructive timeline editor on top, and exports to standard video formats. Everything happens locally — nothing leaves your machine.
 
 ### Recording
 - Screen capture via ScreenCaptureKit
@@ -15,36 +22,59 @@ Record your screen, camera, and audio as separate tracks. Edit with a timeline e
 - Cursor/click telemetry for auto-zoom
 
 ### Editing
-- Timeline with trim, split, delete, drag-and-drop
-- Per-segment speed control (0.25x-4x)
+- Multi-track timeline (trim, split, delete, drag-and-drop)
+- Per-segment speed control (0.25× – 4×)
 - Per-segment camera PiP positioning with borders (circle, rounded rect, capsule)
-- Per-segment audio volume (0-300%) and mute
+- Per-segment audio volume (0–300%) and mute
 - Overlays: arrows, rectangles, lines, text with timing controls
 - Canvas effects: background gradients, blur, padding, corner radius
 - Auto-zoom suggestions from cursor telemetry (click + dwell detection)
 - Undo/redo with autosave
-- Non-destructive editing (source files never modified)
+- Non-destructive — source files are never modified
 
 ### Export
 - **Web 1080p (H.264)** — optimized for web sharing
 - **High 1080p (HEVC)** — smaller files, better quality
-- **4K (HEVC)** — 3840x2160, 60fps
+- **4K (HEVC)** — 3840×2160, 60fps
 - **Portrait 1080p (H.264)** — vertical format
 - **Animated GIF** — configurable fps, size, loop
-- Per-segment camera positions, visual effects, and audio included in export
+- Per-segment camera positions, visual effects and audio are all preserved in export
 
-## Build & Run
+---
+
+## Install (beta)
+
+Pre-built `.dmg` releases are published to [GitHub Releases](https://github.com/dPeluChe/labs-cameraman/releases) (when available).
+
+The beta `.dmg` is **not signed with a Developer ID nor notarized** — testers will hit a Gatekeeper warning on first launch:
+
+- **macOS 14 and earlier:** right-click the app in `/Applications` → **Open** → confirm.
+- **macOS 15 (Sequoia) and later:** double-click → System Settings → **Privacy & Security** → **Open Anyway**.
+- **macOS 26 (Tahoe):** the dialogs above don't bypass quarantine on Tahoe; run once in Terminal:
+  ```bash
+  xattr -dr com.apple.quarantine /Applications/CameramanApp.app
+  ```
+
+After the first authorized open, the app launches normally.
+
+---
+
+## Build from source
+
+Requirements: macOS 13+, Xcode 15+, Swift 5.9+.
 
 ```bash
+git clone https://github.com/dPeluChe/labs-cameraman.git
+cd labs-cameraman
 open CameramanApp/CameramanApp.xcodeproj
 # Scheme: CameramanApp → My Mac → Cmd+R
 ```
 
-Requirements: macOS 13+, Xcode 15+. See [DEV_ONBOARDING](docs/DEV_ONBOARDING.md) for full setup, architecture, and known issues.
+For full setup, architecture and patterns see [`docs/DEV_ONBOARDING.md`](docs/DEV_ONBOARDING.md).
 
-## Beta packaging (`.dmg`)
+### Beta packaging (`.dmg`)
 
-Single command to produce a universal (arm64 + x86_64) `.dmg` ready to ship to testers:
+One command produces a universal (arm64 + x86_64) `.dmg` ready to ship:
 
 ```bash
 make release
@@ -52,10 +82,8 @@ make release
 
 This runs **build → verify → dmg** in one pass:
 1. Compiles a universal Release build
-2. Validates the binary contains both architectures (aborts otherwise)
+2. Validates that the binary contains both architectures (aborts otherwise)
 3. Packages `dist/Cameraman-beta-X.Y.Z.B.dmg` with the branded background and an *Applications* drop link
-
-### Other targets
 
 | Command | When to use |
 |---------|-------------|
@@ -67,25 +95,71 @@ This runs **build → verify → dmg** in one pass:
 | `make clean` | Remove `dist/` and `CameramanApp/build/` |
 | `make help` | List all targets |
 
-### Distribution caveats
+Requirement: `brew install create-dmg`.
 
-The `.dmg` is **not signed with a Developer ID nor notarized**, so testers will hit a Gatekeeper warning on first launch:
+To remove the Gatekeeper warning entirely the app would need an Apple Developer Program subscription, a Developer ID Application certificate, and notarization via `xcrun notarytool`.
 
-- **macOS 14 and earlier:** right-click the app in `/Applications` → **Open** → confirm.
-- **macOS 15 (Sequoia) and later:** double-click → System Settings → **Privacy & Security** → **Open Anyway**.
+---
 
-After the first authorized open, the app launches normally. To remove the warning entirely, the app needs an Apple Developer Program subscription, code signing with a Developer ID Application certificate, and notarization via `xcrun notarytool`.
+## Architecture (at a glance)
 
-### Requirements
+```
+labs-cameraman/
+├── App/                       # SwiftUI app (CameramanApp scheme)
+├── CameramanApp/              # Xcode project, entitlements, assets
+├── EngineKit/                 # Pure Swift package — engine code (UI-free)
+│   ├── Capture/               # Recording, permissions, telemetry
+│   ├── Editor/                # Non-destructive editing model + overlays
+│   ├── Preview/               # Playback with edits applied
+│   ├── Export/                # Async rendering pipeline + presets
+│   ├── Zoom/                  # Auto-zoom from cursor telemetry
+│   ├── Transcription/         # Offline STT (Whisper.cpp)
+│   └── Shared/Models/Store/   # Cross-cutting code + persistence
+├── docs/                      # CHANGELOG, PRD, TECH_SPEC, DEV_ONBOARDING, TASK_*
+├── scripts/build-dmg.sh
+└── Makefile
+```
 
-- `create-dmg` — install with `brew install create-dmg`
+Key design choices:
+
+- **Non-destructive editing** — all edits live in `project.json`; source media is read-only.
+- **Multi-track timeline** — typed tracks (primary/video/audio) holding universal clips (`recording`, `image`, `video`, `audio`, `color`).
+- **Engine/UI separation** — `EngineKit` exposes a stable API; the SwiftUI layer is replaceable.
+- **Actor model** — `CaptureEngine`, `CameraEngine`, `PreviewEngine`, `ThumbnailCache` use Swift actors for thread-safe state.
+- **Job-based processing** — export, transcription and proxy generation run as async background jobs.
+
+For details see [`docs/DEV_ONBOARDING.md`](docs/DEV_ONBOARDING.md) and [`docs/TECH_SPEC.md`](docs/TECH_SPEC.md).
+
+---
+
+## Contributing
+
+We welcome contributions! Bug reports, feature requests, docs improvements, code — all are appreciated. Read [`CONTRIBUTING.md`](CONTRIBUTING.md) to get set up and learn the conventions. The current backlog lives in [`docs/TASK_TODO.md`](docs/TASK_TODO.md).
+
+Quick tips:
+
+- **Pick a `fix/`, `feat/`, `perf/`, `refactor/`, `docs/` or `chore/` branch prefix.**
+- **Keep PRs focused** — one logical unit of work each.
+- **Engine code is UI-free.** Don't add SwiftUI / AppKit dependencies inside `EngineKit/`.
+- **Files cap at ~400–500 LOC.** Split with extensions when growing.
+- **Write the `why`, not the `what`** in comments and commit bodies.
+
+---
 
 ## Status
 
-**Beta**. Core recording, editing, and export workflows are functional. Overlay system, auto-zoom, and per-segment editing are working. Actively developed.
+**Beta**. Core recording, editing, and export workflows are functional. Overlay system, auto-zoom and per-segment editing are working. Actively developed.
 
-See [CHANGELOG](docs/CHANGELOG.md) for version history. See [TASK_TODO](docs/TASK_TODO.md) for planned work.
+See [`docs/CHANGELOG.md`](docs/CHANGELOG.md) for version history. See [`docs/TASK_TODO.md`](docs/TASK_TODO.md) for planned work.
+
+---
+
+## License
+
+[MIT](LICENSE) — © 2026 Antonio Martinez Quintero (dPeluChe) / Iteris.
+
+---
 
 ## Built by
 
-[Iteris](https://iteris.tech)
+[Iteris](https://iteris.tech) — independent product studio.
