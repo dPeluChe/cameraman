@@ -13,9 +13,13 @@ import AppKit
 
 @MainActor
 final class ExportViewModel: ObservableObject {
-    @Published var selectedPreset: ExportPreset = .web1080h264
-    @Published var outputFilename: String
-    @Published var outputURL: URL
+    @Published var selectedPreset: ExportPreset = .web1080h264 {
+        didSet { refreshOutputURL() }
+    }
+    @Published var outputFilename: String {
+        didSet { refreshOutputURL() }
+    }
+    @Published private(set) var outputURL: URL
     @Published var showFilePicker: Bool = false
     @Published var exportState: ExportState = .notStarted
     @Published var progress: Double = 0
@@ -23,7 +27,6 @@ final class ExportViewModel: ObservableObject {
     @Published var errorMessage: String? = nil
     @Published var exportResult: URL? = nil
     @Published var showSuccessAlert: Bool = false
-    @Published var showSavePanel: Bool = false
     @Published var temporaryExportURL: URL? = nil
 
     // GIF-specific options
@@ -44,6 +47,7 @@ final class ExportViewModel: ObservableObject {
     private var exportJobId: JobId?
     private var exportStartTime: Date?
     private var progressUpdateTimer: Timer?
+    private var outputDirectory: URL
 
     enum ExportState {
         case notStarted
@@ -62,7 +66,15 @@ final class ExportViewModel: ObservableObject {
     ]
 
     var canExport: Bool {
-        !outputFilename.isEmpty && exportState == .notStarted
+        !sanitizedOutputBaseName.isEmpty && exportState == .notStarted
+    }
+
+    var outputDirectoryDisplayName: String {
+        outputDirectory.lastPathComponent.isEmpty ? outputDirectory.path : outputDirectory.lastPathComponent
+    }
+
+    var resolvedOutputFilename: String {
+        "\(sanitizedOutputBaseName).\(fileExtension)"
     }
 
     var progressPercentage: Int {
@@ -152,12 +164,20 @@ final class ExportViewModel: ObservableObject {
         self.projectDirectory = projectDirectory
         self.mutedTracks = mutedTracks
         self.stagedZoomPlan = zoomPlan
-        self.outputFilename = project.name.isEmpty ? "Untitled" : project.name
-        self.outputURL = FileManager.default.urls(for: .moviesDirectory, in: .userDomainMask).first ?? FileManager.default.homeDirectoryForCurrentUser
+        let defaultFilename = project.name.isEmpty ? "Untitled" : project.name
+        self.outputFilename = defaultFilename
+        let moviesDirectory = FileManager.default.urls(for: .moviesDirectory, in: .userDomainMask).first ?? FileManager.default.homeDirectoryForCurrentUser
+        self.outputDirectory = moviesDirectory
+        self.outputURL = moviesDirectory.appendingPathComponent(defaultFilename).appendingPathExtension("mp4")
     }
 
     func setupExportEngine() {
         // ExportEngine will be initialized when needed
+    }
+
+    func setOutputDirectory(_ directory: URL) {
+        outputDirectory = directory
+        refreshOutputURL()
     }
 
     func startExport() async {
@@ -173,10 +193,7 @@ final class ExportViewModel: ObservableObject {
             // so the export reads the latest edits (camera position, mask, etc.)
             let store = ProjectStore()
             try await store.saveProject(project)
-            let fileExtension = selectedPreset.id.contains("gif") ? "gif" : "mp4"
-            let finalFilename = outputFilename.hasSuffix(".\(fileExtension)")
-                ? outputFilename
-                : "\(outputFilename).\(fileExtension)"
+            let finalFilename = resolvedOutputFilename
 
             let library = ProjectLibrary.shared
             let engine = try await library.getExportEngine()
@@ -258,16 +275,8 @@ final class ExportViewModel: ObservableObject {
                         .appendingPathComponent(filename)
 
                     LogInfo(.export, "Export success, temporary path: \(tempPath.path)")
-                    self.exportState = .completed
-                    self.progress = 1.0
-                    self.progressMessage = "Export complete!"
                     self.temporaryExportURL = tempPath
-                    self.exportResult = nil
-
-                    Task { @MainActor in
-                        try? await Task.sleep(nanoseconds: 500_000_000)
-                        self.showSavePanel = true
-                    }
+                    self.finalizeExport(tempURL: tempPath)
 
                     self.stopProgressMonitoring()
                 case .failed:
@@ -297,35 +306,15 @@ final class ExportViewModel: ObservableObject {
         progressUpdateTimer = nil
     }
 
-    func saveExportToFile() {
-        guard let tempURL = temporaryExportURL else {
-            errorMessage = "No exported file to save"
+    func revealExportInFinder() {
+        guard let exportResult else {
+            LogError(.export, "Cannot reveal export: no final export URL")
             return
         }
 
-        let savePanel = NSSavePanel()
-        savePanel.title = "Save Exported Video"
-        savePanel.nameFieldStringValue = outputFilename
-
-        savePanel.begin { response in
-            guard response == .OK, let destinationURL = savePanel.url else {
-                return
-            }
-
-            let finalDestinationURL = destinationURL.pathExtension.isEmpty
-                ? destinationURL.appendingPathExtension("mp4")
-                : destinationURL
-
-            do {
-                let fileManager = FileManager.default
-                try fileManager.copyItem(at: tempURL, to: finalDestinationURL)
-
-                self.exportResult = finalDestinationURL
-                self.showSuccessAlert = true
-            } catch {
-                self.errorMessage = "Failed to save file: \(error.localizedDescription)"
-            }
-        }
+        let folderURL = exportResult.deletingLastPathComponent()
+        LogInfo(.export, "Opening export folder: \(folderURL.path)")
+        NSWorkspace.shared.open(folderURL)
     }
 
     deinit {
@@ -346,6 +335,71 @@ final class ExportViewModel: ObservableObject {
             stopProgressMonitoring()
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    private var fileExtension: String {
+        selectedPreset.id.contains("gif") ? "gif" : "mp4"
+    }
+
+    private var sanitizedOutputBaseName: String {
+        let trimmed = outputFilename.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "" }
+
+        let lastPathComponent = (trimmed as NSString).lastPathComponent
+        let lowercased = lastPathComponent.lowercased()
+        if lowercased.hasSuffix(".mp4") || lowercased.hasSuffix(".gif") {
+            return (lastPathComponent as NSString).deletingPathExtension
+        }
+
+        return lastPathComponent
+    }
+
+    private func refreshOutputURL() {
+        guard !sanitizedOutputBaseName.isEmpty else {
+            outputURL = outputDirectory
+            return
+        }
+
+        outputURL = outputDirectory.appendingPathComponent(resolvedOutputFilename)
+    }
+
+    private func finalizeExport(tempURL: URL) {
+        let destinationURL = outputURL
+        LogInfo(.export, "Saving final export from temporary file: \(tempURL.path)")
+        LogInfo(.export, "Final export destination: \(destinationURL.path)")
+
+        let didStartAccess = outputDirectory.startAccessingSecurityScopedResource()
+        LogInfo(.export, "Security scoped access for export folder: \(didStartAccess ? "granted" : "not required")")
+
+        defer {
+            if didStartAccess {
+                outputDirectory.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        do {
+            let fileManager = FileManager.default
+            try fileManager.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
+
+            if tempURL.standardizedFileURL != destinationURL.standardizedFileURL {
+                if fileManager.fileExists(atPath: destinationURL.path) {
+                    try fileManager.removeItem(at: destinationURL)
+                }
+                try fileManager.copyItem(at: tempURL, to: destinationURL)
+            }
+
+            exportState = .completed
+            progress = 1.0
+            progressMessage = "Export complete."
+            exportResult = destinationURL
+            showSuccessAlert = true
+            LogInfo(.export, "Export saved to final destination: \(destinationURL.path)")
+        } catch {
+            exportState = .failed
+            progressMessage = "Export failed while saving file."
+            errorMessage = "Failed to save export: \(error.localizedDescription)"
+            LogError(.export, "Failed to save final export to \(destinationURL.path): \(error.localizedDescription)")
         }
     }
 }

@@ -48,20 +48,17 @@ struct ExportView: View {
 
             Divider()
 
-            if viewModel.exportState == .notStarted {
-                configurationContent
-            } else {
-                progressContent
+            ScrollView {
+                if viewModel.exportState == .notStarted {
+                    configurationContent
+                } else {
+                    progressContent
+                }
             }
         }
-        .frame(width: 560, height: 400)
+        .frame(minWidth: 440, idealWidth: 560, maxWidth: 680, minHeight: 360, idealHeight: 440, maxHeight: 640)
         .onAppear {
             viewModel.setupExportEngine()
-        }
-        .onChange(of: viewModel.showSavePanel) { _, shouldShow in
-            if shouldShow {
-                viewModel.saveExportToFile()
-            }
         }
     }
 
@@ -82,7 +79,11 @@ struct ExportView: View {
                 if viewModel.exportState == .completed || viewModel.exportState == .failed {
                     Button("Done") {
                         dismiss()
-                        onCancel()
+                        if viewModel.exportState == .completed {
+                            onExportComplete(viewModel.exportResult)
+                        } else {
+                            onCancel()
+                        }
                     }
                     .buttonStyle(.bordered)
                 } else {
@@ -110,12 +111,9 @@ struct ExportView: View {
                 Text("Preset")
                     .font(.headline)
 
-                Picker("Preset", selection: $viewModel.selectedPreset) {
-                    ForEach(ExportViewModel.availablePresets, id: \.id) { preset in
-                        Text(preset.name).tag(preset)
-                    }
-                }
-                .pickerStyle(.segmented)
+                presetPicker
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             // GIF-specific options
@@ -126,7 +124,7 @@ struct ExportView: View {
                     Text("GIF Options")
                         .font(.headline)
 
-                    HStack(spacing: 16) {
+                    VStack(alignment: .leading, spacing: 12) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Frame Rate")
                                 .font(.caption)
@@ -137,7 +135,6 @@ struct ExportView: View {
                                 Text("24 fps").tag(24)
                             }
                             .pickerStyle(.segmented)
-                            .frame(width: 200)
                         }
 
                         VStack(alignment: .leading, spacing: 4) {
@@ -150,7 +147,6 @@ struct ExportView: View {
                                 Text("Large (1200)").tag(1200)
                             }
                             .pickerStyle(.segmented)
-                            .frame(width: 260)
                         }
 
                         Toggle("Loop", isOn: $viewModel.gifLoop)
@@ -161,46 +157,64 @@ struct ExportView: View {
 
             Divider()
 
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Filename")
+                    .font(.headline)
+
+                TextField("Export filename", text: $viewModel.outputFilename)
+                    .textFieldStyle(.roundedBorder)
+
+                Text(viewModel.resolvedOutputFilename)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Divider()
+
             VStack(alignment: .leading, spacing: 12) {
                 Text("Destination")
                     .font(.headline)
 
-                HStack {
-                    Text(viewModel.outputURL.deletingLastPathComponent().lastPathComponent)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    
-                    Spacer()
-                    
-                    Button("Choose Location...") {
-                        viewModel.showFilePicker = true
+                ViewThatFits(in: .horizontal) {
+                    HStack {
+                        destinationFolderText
+
+                        Spacer()
+
+                        chooseLocationButton
                     }
-                    .buttonStyle(.bordered)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        destinationFolderText
+                        chooseLocationButton
+                    }
                 }
 
                 Text(viewModel.outputURL.lastPathComponent)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
             }
 
             Spacer()
 
-            HStack {
-                Spacer()
+            ViewThatFits(in: .horizontal) {
+                HStack {
+                    Spacer()
 
-                Text("Estimated size: \(viewModel.estimatedFileSize)")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                Button("Export") {
-                    Task {
-                        await viewModel.startExport()
-                    }
+                    estimatedSizeText
+                    exportButton
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(!viewModel.canExport)
+
+                VStack(alignment: .trailing, spacing: 8) {
+                    estimatedSizeText
+                    exportButton
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(20)
         .fileImporter(
             isPresented: $viewModel.showFilePicker,
@@ -210,7 +224,7 @@ struct ExportView: View {
             switch result {
             case .success(let urls):
                 if let url = urls.first {
-                    viewModel.outputURL = url.appendingPathComponent(viewModel.outputFilename)
+                    viewModel.setOutputDirectory(url)
                 }
             case .failure(let error):
                 viewModel.errorMessage = error.localizedDescription
@@ -225,6 +239,45 @@ struct ExportView: View {
                 Text(errorMessage)
             }
         }
+    }
+
+    private var presetPicker: some View {
+        Picker("Preset", selection: $viewModel.selectedPreset) {
+            ForEach(ExportViewModel.availablePresets, id: \.id) { preset in
+                Text(preset.name).tag(preset)
+            }
+        }
+    }
+
+    private var destinationFolderText: some View {
+        Text(viewModel.outputDirectoryDisplayName)
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .truncationMode(.middle)
+    }
+
+    private var chooseLocationButton: some View {
+        Button("Choose Location...") {
+            viewModel.showFilePicker = true
+        }
+        .buttonStyle(.bordered)
+    }
+
+    private var estimatedSizeText: some View {
+        Text("Estimated size: \(viewModel.estimatedFileSize)")
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+    }
+
+    private var exportButton: some View {
+        Button("Export") {
+            Task {
+                await viewModel.startExport()
+            }
+        }
+        .buttonStyle(.borderedProminent)
+        .disabled(!viewModel.canExport)
     }
 
     // MARK: - Progress Content
@@ -274,12 +327,19 @@ struct ExportView: View {
             }
 
             if let tempURL = viewModel.temporaryExportURL, viewModel.exportState == .completed {
-                Button("Play Video (Temporary)") {
-                    LogDebug(.export, "Opening temporary file: \(tempURL.path)")
-                    NSWorkspace.shared.open(tempURL)
+                HStack(spacing: 10) {
+                    Button("Show in Finder") {
+                        viewModel.revealExportInFinder()
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button("Play Video") {
+                        LogDebug(.export, "Opening exported file: \(viewModel.exportResult?.path ?? tempURL.path)")
+                        NSWorkspace.shared.open(viewModel.exportResult ?? tempURL)
+                    }
+                    .buttonStyle(.bordered)
                 }
                 .font(.caption)
-                .buttonStyle(.bordered)
             }
 
             Spacer()
@@ -288,4 +348,3 @@ struct ExportView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
-
