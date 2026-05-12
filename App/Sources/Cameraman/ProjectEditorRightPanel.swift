@@ -126,6 +126,7 @@ struct RightPanel: View {
             .padding(.bottom, 40)
         }
         .background(Color(NSColor.controlBackgroundColor))
+        .frame(width: 300)
     }
 }
 
@@ -149,5 +150,10 @@ struct ConfigGroup<Content: View>: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+        // Disable disclosure expand/collapse animation: it caused the whole
+        // right panel to jitter horizontally when adaptive grids reflowed.
+        .transaction { transaction in
+            transaction.animation = nil
+        }
     }
 }

@@ -8,15 +8,37 @@
 import SwiftUI
 import EngineKit
 
-struct LeftPanel: View {
+struct ProjectAssetsBar: View {
     @ObservedObject var editor: ProjectEditor
-    
+    @Binding var isExpanded: Bool
+
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Text("Project Assets")
-                    .font(.headline)
+            HStack(spacing: 8) {
+                Button {
+                    isExpanded.toggle()
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                            .font(.caption)
+                            .frame(width: 16, height: 16)
+
+                        Text("Project Assets")
+                            .font(.headline)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(isExpanded ? "Collapse project assets" : "Expand project assets")
+
                 Spacer()
+
                 Button {
                     startNewTake()
                 } label: {
@@ -26,83 +48,126 @@ struct LeftPanel: View {
                 .buttonStyle(.plain)
                 .help("Record new take")
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding()
-            
-            Divider()
-            
-            List {
-                Section("Sources") {
-                    AssetRow(icon: "display", title: "Screen Recording", subtitle: "Main")
-                    if editor.project.primarySources?.camera != nil {
-                        AssetRow(icon: "video.fill", title: "Camera Feed", subtitle: "1080p")
-                    }
-                    if editor.project.primarySources?.audio != nil {
-                        AssetRow(icon: "mic.fill", title: "Microphone", subtitle: "Audio Track")
-                        AssetRow(icon: "speaker.wave.2.fill", title: "System Audio", subtitle: "Audio Track")
-                    }
-                }
-                
-                Section("Takes") {
-                    ForEach(editor.project.takes) { take in
-                        AssetRow(icon: "video.badge.plus", title: take.name, subtitle: formattedDate(take.createdAt))
-                            .onDrag {
-                                // Provide take ID and duration for drag & drop
-                                let provider = NSItemProvider(object: take.id.uuidString as NSString)
-                                // We can also provide duration if we calculate it from sources, 
-                                // but for now ID is enough to look it up in the drop target
-                                return provider
+            .padding(.horizontal, 14)
+            .frame(height: 38)
+
+            if isExpanded {
+                Divider()
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        AssetGroup(title: "Sources") {
+                            AssetChip(icon: "display", title: "Screen", subtitle: "Main")
+                            if editor.project.primarySources?.camera != nil {
+                                AssetChip(icon: "video.fill", title: "Camera", subtitle: "1080p")
                             }
+                            if editor.project.primarySources?.audio != nil {
+                                AssetChip(icon: "mic.fill", title: "Mic", subtitle: "Audio")
+                                AssetChip(icon: "speaker.wave.2.fill", title: "System", subtitle: "Audio")
+                            }
+                        }
+
+                        if !editor.project.takes.isEmpty {
+                            AssetGroup(title: "Takes") {
+                                ForEach(editor.project.takes) { take in
+                                    AssetChip(icon: "video.badge.plus", title: take.name, subtitle: formattedDate(take.createdAt))
+                                        .onDrag {
+                                            NSItemProvider(object: take.id.uuidString as NSString)
+                                        }
+                                }
+                            }
+                        }
+
+                        if !editor.project.timeline.segments.isEmpty {
+                            AssetGroup(title: "Layers") {
+                                ForEach(Array(editor.project.timeline.segments.enumerated()), id: \.element.id) { index, segment in
+                                    AssetChip(
+                                        icon: "film",
+                                        title: "Segment \(index + 1)",
+                                        subtitle: "\(String(format: "%.1f", segment.sourceOut - segment.sourceIn))s"
+                                    )
+                                }
+                            }
+                        }
                     }
-                }
-                
-                Section("Layers") {
-                     ForEach(editor.project.timeline.segments) { segment in
-                         AssetRow(icon: "film", title: "Segment \(segment.id.prefix(4))", subtitle: "\(String(format: "%.1f", segment.sourceOut - segment.sourceIn))s")
-                     }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
                 }
             }
-            .listStyle(.sidebar)
         }
+        .frame(height: isExpanded ? 82 : 38)
         .background(Color(NSColor.controlBackgroundColor))
     }
-    
+
     private func startNewTake() {
-        // Configure recording view model for this project
         if let recViewModel = RecordingStateManager.shared.viewModel {
             recViewModel.targetProjectId = editor.project.projectId
         }
-        
-        // Open recording window
+
         NotificationCenter.default.post(name: .openRecordingWindow, object: nil)
     }
-    
+
     private func formattedDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
+        Self.timeFormatter.string(from: date)
     }
 }
 
-struct AssetRow: View {
+struct AssetGroup<Content: View>: View {
+    let title: String
+    let content: () -> Content
+
+    init(title: String, @ViewBuilder content: @escaping () -> Content) {
+        self.title = title
+        self.content = content
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(title)
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(.secondary)
+                .frame(width: 48, alignment: .trailing)
+
+            content()
+        }
+    }
+}
+
+struct AssetChip: View {
     let icon: String
     let title: String
     let subtitle: String
-    
+
     var body: some View {
-        HStack {
+        HStack(spacing: 7) {
             Image(systemName: icon)
                 .foregroundStyle(.secondary)
-                .frame(width: 20)
-            
-            VStack(alignment: .leading) {
+                .frame(width: 16)
+
+            VStack(alignment: .leading, spacing: 1) {
                 Text(title)
-                    .font(.body)
-                Text(subtitle)
                     .font(.caption)
+                    .fontWeight(.semibold)
+                    .lineLimit(1)
+
+                Text(subtitle)
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
         }
-        .padding(.vertical, 2)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 7)
+        .frame(width: 118, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(Color.primary.opacity(0.05))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.08))
+        )
     }
 }
+

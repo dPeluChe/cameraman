@@ -106,6 +106,7 @@ struct ProjectEditorView: View {
     @State private var isZoomExpanded = false
     @State private var isOverlaysExpanded = false
     @State private var isExportExpanded = true
+    @State private var isAssetsExpanded = true
 
     init(projectSummary: ProjectSummary, library: ProjectLibrary = ProjectLibrary.shared) {
         self.projectSummary = projectSummary
@@ -113,17 +114,17 @@ struct ProjectEditorView: View {
     }
 
     var body: some View {
-        GeometryReader { geometry in
-            HSplitView {
-                // Left panel - Project/Assets
-                if let editor = viewModel.editor {
-                    LeftPanel(editor: editor)
-                        .frame(minWidth: 200, idealWidth: 250, maxWidth: 300)
-                } else {
-                    Color(NSColor.controlBackgroundColor)
-                        .frame(minWidth: 200, maxWidth: 300)
-                }
+        VStack(spacing: 0) {
+            if let editor = viewModel.editor {
+                ProjectAssetsBar(editor: editor, isExpanded: $isAssetsExpanded)
+            } else {
+                Color(NSColor.controlBackgroundColor)
+                    .frame(height: 38)
+            }
 
+            Divider()
+
+            HSplitView {
                 // Center - Preview & Timeline
                 CenterPanel(
                     viewModel: viewModel,
@@ -150,11 +151,11 @@ struct ProjectEditorView: View {
                         isExportExpanded: $isExportExpanded,
                         showExportModal: $showExportModal
                     )
-                    .frame(minWidth: 260, idealWidth: 280, maxWidth: 360)
+                    .frame(width: 300)
                     .clipped()
                 } else {
                      Color(NSColor.controlBackgroundColor)
-                        .frame(minWidth: 280, maxWidth: 400)
+                        .frame(width: 300)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -186,7 +187,7 @@ struct ProjectEditorView: View {
                 )
             } else {
                 ProgressView()
-                    .frame(width: 560, height: 400)
+                    .frame(minWidth: 460, idealWidth: 560, minHeight: 360, idealHeight: 440)
             }
         }
         .sheet(isPresented: $showTranscriptionModal) {
