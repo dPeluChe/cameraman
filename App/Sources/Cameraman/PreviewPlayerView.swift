@@ -65,11 +65,20 @@ struct PreviewPlayerView: View {
         .task(id: editor.project.projectId) {
             viewModel.load(project: editor.project, projectDirectory: projectDirectory)
         }
-        .onReceive(editor.objectWillChange.debounce(for: .milliseconds(150), scheduler: RunLoop.main)) { [weak viewModel] _ in
+        // Listen to changes in the Project specifically (with dedup) instead of
+        // editor.objectWillChange. The editor also publishes transient UI state
+        // (showAutosaveToast, canUndo, canRedo) which don't affect the preview
+        // — listening to those triggered up to 2 spurious composition rebuilds
+        // per autosave plus one per undo/redo state flip.
+        .onReceive(
+            editor.$project
+                .removeDuplicates()
+                .debounce(for: .milliseconds(150), scheduler: RunLoop.main)
+        ) { [weak viewModel] project in
             guard let viewModel = viewModel,
                   viewModel.previewEngine != nil,
-                  viewModel.project?.projectId == editor.project.projectId else { return }
-            viewModel.refreshPreview(with: editor.project)
+                  viewModel.project?.projectId == project.projectId else { return }
+            viewModel.refreshPreview(with: project)
         }
         .onDisappear {
             viewModel.stopPlayback()
