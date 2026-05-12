@@ -41,6 +41,14 @@ struct CameramanApp: App {
                 }
                 .keyboardShortcut("n", modifiers: .command)
             }
+
+            // File → Export... (only triggers when an editor is loaded)
+            CommandGroup(after: .saveItem) {
+                Button("Export...") {
+                    NotificationCenter.default.post(name: .openExportModal, object: nil)
+                }
+                .keyboardShortcut("e", modifiers: .command)
+            }
         }
 
         // Recording Controls Window (Standalone, single instance)

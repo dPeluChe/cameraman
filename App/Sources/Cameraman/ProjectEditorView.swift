@@ -170,6 +170,11 @@ struct ProjectEditorView: View {
             await Task.yield()
             await viewModel.loadProject()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .openExportModal)) { _ in
+            if viewModel.editor != nil, viewModel.projectDirectory != nil {
+                showExportModal = true
+            }
+        }
         .sheet(isPresented: $showExportModal) {
             if let editor = viewModel.editor,
                let projectDirectory = viewModel.projectDirectory {

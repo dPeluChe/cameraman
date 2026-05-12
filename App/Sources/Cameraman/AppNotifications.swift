@@ -12,4 +12,6 @@ extension Notification.Name {
     static let projectUpdated = Notification.Name("projectUpdated")
     /// Notification posted to open the recording controls window
     static let openRecordingWindow = Notification.Name("openRecordingWindow")
+    /// Notification posted to open the export modal in the current editor
+    static let openExportModal = Notification.Name("openExportModal")
 }
