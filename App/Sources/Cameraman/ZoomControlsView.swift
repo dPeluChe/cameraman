@@ -21,6 +21,7 @@ struct ZoomControlsView: View {
 
     private let intensityRange: ClosedRange<Double> = 0...2
     private let intensityLabels = ["Subtle", "Normal", "Aggressive"]
+    private let batchColumns = [GridItem(.adaptive(minimum: 86, maximum: 140), spacing: 8)]
 
     init(editor: ProjectEditor) {
         self.editor = editor
@@ -38,9 +39,13 @@ struct ZoomControlsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Info button
             HStack {
+                Text("Settings")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
                 Spacer()
+
                 Button(action: { showInfo.toggle() }) {
                     Image(systemName: "info.circle")
                         .foregroundColor(.secondary)
@@ -64,12 +69,10 @@ struct ZoomControlsView: View {
                 }
             }
 
-            Divider()
-
             // Zoom toggle
             HStack {
                 Toggle("Enable Auto-Zoom", isOn: $isEnabled)
-                    .onChange(of: isEnabled) { _, newValue in
+                    .onChangeCompat(of: isEnabled) { newValue in
                         Task {
                             await updateZoomEnabled(newValue)
                         }
@@ -174,18 +177,12 @@ struct ZoomControlsView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-        }
-        .padding()
-        .background(Color(nsColor: .controlBackgroundColor))
-        .cornerRadius(8)
-
-        // Section-level zoom controls (expandable)
-        if showSectionControls {
-            sectionZoomControls
-                .padding()
-                .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
-                .cornerRadius(8)
-                .transition(.opacity.combined(with: .move(edge: .top)))
+            // Section-level zoom controls (expandable)
+            if showSectionControls {
+                sectionZoomControls
+                    .padding(.top, 4)
+                    .transition(.opacity)
+            }
         }
     }
 
@@ -322,7 +319,7 @@ struct ZoomControlsView: View {
             .frame(maxHeight: 300)
 
             // Batch controls
-            HStack(spacing: 8) {
+            LazyVGrid(columns: batchColumns, alignment: .leading, spacing: 8) {
                 Button("Enable All") {
                     Task {
                         await enableAllZoom()
@@ -337,8 +334,6 @@ struct ZoomControlsView: View {
                 }
                 .buttonStyle(.bordered)
 
-                Spacer()
-
                 Button("Reset to Defaults") {
                     Task {
                         await resetAllZoom()
@@ -347,6 +342,7 @@ struct ZoomControlsView: View {
                 .buttonStyle(.bordered)
             }
             .font(.caption)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 

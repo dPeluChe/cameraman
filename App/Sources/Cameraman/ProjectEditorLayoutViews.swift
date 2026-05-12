@@ -14,10 +14,11 @@ struct LayoutSelectorView: View {
     @ObservedObject var editor: ProjectEditor
 
     private let presets: [CanvasLayout.LayoutPreset] = [.fullscreen, .pip, .sideBySide]
+    private let columns = [GridItem(.adaptive(minimum: 74, maximum: 86), spacing: 8)]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
                 ForEach(presets, id: \.self) { preset in
                     LayoutPresetButton(
                         preset: preset,
@@ -30,6 +31,7 @@ struct LayoutSelectorView: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -52,14 +54,15 @@ struct LayoutPresetButton: View {
         Button(action: action) {
             VStack(spacing: 4) {
                 LayoutPreview(preset: preset)
-                    .frame(width: 56, height: 36)
+                    .frame(width: 50, height: 32)
 
                 Text(label)
                     .font(.caption)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             }
             .padding(6)
-            .frame(minWidth: 72)
+            .frame(maxWidth: .infinity, minHeight: 64)
             .background(backgroundShape.fill(Color.primary.opacity(isSelected ? 0.12 : 0.04)))
             .overlay(
                 backgroundShape.stroke(
@@ -134,10 +137,11 @@ struct LayoutPreview: View {
 
 struct FormatToggleView: View {
     @ObservedObject var editor: ProjectEditor
+    private let columns = [GridItem(.adaptive(minimum: 64, maximum: 78), spacing: 8)]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
                 FormatButton(
                     title: "16:9",
                     icon: "rectangle.ratio.16.to.9",
@@ -162,6 +166,7 @@ struct FormatToggleView: View {
                     setAspect(.square1_1)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -190,7 +195,7 @@ struct FormatButton: View {
                 Text(title)
                     .font(.caption)
             }
-            .frame(width: 68, height: 52)
+            .frame(maxWidth: .infinity, minHeight: 52)
             .background(
                 RoundedRectangle(cornerRadius: 8)
                     .fill(isSelected ? Color.accentColor.opacity(0.15) : Color.primary.opacity(0.05))
