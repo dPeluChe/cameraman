@@ -140,12 +140,22 @@ public actor ZoomSectionController {
     public func enableZoom(forSegmentId segmentId: String) throws -> Project {
         guard let project = project else { throw ZoomSectionError.projectNotLoaded }
         let existingConfig = project.timeline.segments.first(where: { $0.id == segmentId })?.zoom
+        // If the segment was previously disabled it carries `intensity = .disabled`.
+        // Propagating that here would force the new ZoomConfiguration init back to
+        // `enabled = false` (since `.disabled` implies disabled). Coerce to .normal
+        // — the user asked to enable zoom, so a meaningful default intensity wins.
+        let nextIntensity: Project.Timeline.ZoomConfiguration.ZoomIntensity = {
+            if let existing = existingConfig?.intensity, existing != .disabled {
+                return existing
+            }
+            return .normal
+        }()
         return try mutateSegment(segmentId) {
             $0.zoom = Project.Timeline.ZoomConfiguration(
                 enabled: true,
                 minZoomLevel: existingConfig?.minZoomLevel ?? 1.0,
                 maxZoomLevel: existingConfig?.maxZoomLevel ?? 2.5,
-                intensity: existingConfig?.intensity ?? .normal
+                intensity: nextIntensity
             )
         }
     }
