@@ -1,6 +1,6 @@
 # Backlog de Tareas Pendientes
 
-> Actualizado: 2026-04-18
+> Actualizado: 2026-05-12
 > Solo features y mejoras NO implementadas. Para trabajo completado ver `TASK_COMPLETED/`.
 > Ordenado por fases: fundacion primero, features despues.
 
@@ -18,6 +18,43 @@
       2. Loguear `writer.error` al transicionar a failed (hoy solo se imprime el texto genérico).
       3. Validar resolución/alignment antes de iniciar el writer (ultrawide puede requerir pixel format o dimensiones específicas).
       4. Reproducir aislando efectos VFX de Messages para confirmar causa raíz.
+
+---
+
+## 🟠 UX Polish — backlog del PR #5 (2026-05-12)
+
+> Items detectados durante el review de UI/UX en la branch `feat/ui-refinements-macos13-compat`. Ninguno bloqueante.
+
+- [ ] **Race condition latente en `startNewTake()`** — `ProjectEditorLeftPanel.swift:103-107` asigna `recViewModel.targetProjectId` antes de postear `.openRecordingWindow`. Hoy el flujo es síncrono y funciona, pero si el observer de la notificación pasa a async (Task, scheduled), el window puede leer `nil`. Pasar el `projectId` en `userInfo` del Notification y leerlo en el observer hace el contrato explícito.
+- [ ] **Badge de cantidad en `ProjectAssetsBar` colapsada** — al estar colapsada (38pt) no hay indicador de cuántos takes/segmentos hay. Sumar `(\(count))` al lado del título "Project Assets" cuando esté colapsado.
+- [ ] **`AssetChip` ancho fijo trunca nombres largos** — `frame(width: 118)` corta takes con nombres descriptivos. Cambiar a `minWidth: 100, maxWidth: 180` con `fixedSize(horizontal: false)`.
+- [ ] **Preset picker perdió contexto visual** — pasó de `.segmented` a `.menu` (necesario por el ancho del panel), pero el menu colapsado oculta opciones. Evaluar `Picker` con `Label` + ícono por opción (HEVC, GIF, H264) para mantener affordance.
+- [ ] **Atajos de teclado faltantes**:
+    - `⌘E` abrir panel de export
+    - `⌘⇧E` re-ejecutar último export
+    - `⌘R` abrir ventana de recording
+- [ ] **Skeletons en `ProjectAssetsBar`** — cuando `editor.project.takes` está cargando no se distingue entre vacío y loading.
+- [ ] **Filename ghost-extension en `ExportView`** — el field muestra "name" y debajo "name.mp4" como label separado. Mostrar la extensión inline en el field (placeholder o sufijo gris) es más obvio.
+
+---
+
+## 🟢 UX — propuestas grandes (roadmap)
+
+> Cambios de diseño más invasivos que valen conversación antes de implementar.
+
+- [ ] **Recent Exports** — recordar últimas 3-5 carpetas de export y ofrecerlas como sugerencias rápidas (patrón Final Cut / Premiere).
+- [ ] **Inspector tabs en panel derecho** — hoy es un `ScrollView` con todos los `ConfigGroup` apilados (Background, PiP, Zoom, Overlays). Tabs en la cabecera reducen el scroll y dan foco a una sección a la vez.
+- [ ] **Hover preview en `LayoutSelectorView`** — los thumbnails de presets son pequeños; mostrar preview del layout aplicado al video actual en hover ayuda a elegir.
+- [ ] **Asset bar position configurable** (top/left/right) en Settings → Layout. Algunos usuarios pueden preferir el sidebar vertical original.
+- [ ] **Empty state del editor recién abierto** — onboarding inline ("Drag a take from the bar above to start editing") con flecha animada al timeline vacío.
+- [ ] **Curva de zoom visible en timeline** — los markers de suggestions están pero no muestran intensidad. Un mini-gráfico de altura proporcional al zoom level hace la curva legible.
+
+---
+
+## Distribución / Gatekeeper
+
+- [ ] **Firma ad-hoc en `build-dmg.sh`** — `codesign --force --deep --sign - CameramanApp.app` antes de empaquetar. No elimina el bloqueo de Gatekeeper en Tahoe pero estabiliza la firma interna y evita errores con frameworks embebidos. Documentado por feedback de testers en Tahoe 26.4.1 (ver `TASK_COMPLETED/2605.md`).
+- [ ] **Mac App Store / Developer ID + notarización** — única solución real al warning de Gatekeeper en Tahoe. Requiere subscripción Apple Developer ($99/año), cert `Developer ID Application`, y pipeline de `xcrun notarytool submit` + `stapler staple`.
 
 ---
 
