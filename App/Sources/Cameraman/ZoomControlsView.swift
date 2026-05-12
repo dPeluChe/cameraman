@@ -179,6 +179,7 @@ struct ZoomControlsView: View {
             .buttonStyle(.plain)
             // Section-level zoom controls (expandable)
             if showSectionControls {
+                Divider()
                 sectionZoomControls
                     .padding(.top, 4)
                     .transition(.opacity)

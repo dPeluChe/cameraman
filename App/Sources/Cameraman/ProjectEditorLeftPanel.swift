@@ -71,6 +71,14 @@ struct ProjectAssetsBar: View {
                             AssetGroup(title: "Takes") {
                                 ForEach(editor.project.takes) { take in
                                     AssetChip(icon: "video.badge.plus", title: take.name, subtitle: formattedDate(take.createdAt))
+                                        .help("Drag onto the timeline to add this take")
+                                        .onHover { hovering in
+                                            if hovering {
+                                                NSCursor.openHand.push()
+                                            } else {
+                                                NSCursor.pop()
+                                            }
+                                        }
                                         .onDrag {
                                             NSItemProvider(object: take.id.uuidString as NSString)
                                         }

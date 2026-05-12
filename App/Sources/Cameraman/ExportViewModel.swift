@@ -70,7 +70,15 @@ final class ExportViewModel: ObservableObject {
     }
 
     var outputDirectoryDisplayName: String {
-        outputDirectory.lastPathComponent.isEmpty ? outputDirectory.path : outputDirectory.lastPathComponent
+        let path = outputDirectory.path
+        let home = NSHomeDirectory()
+        if path == home {
+            return "~"
+        }
+        if path.hasPrefix(home + "/") {
+            return "~" + path.dropFirst(home.count)
+        }
+        return path
     }
 
     var resolvedOutputFilename: String {

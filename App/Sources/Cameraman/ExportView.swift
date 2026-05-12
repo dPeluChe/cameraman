@@ -337,7 +337,8 @@ struct ExportView: View {
                         LogDebug(.export, "Opening exported file: \(viewModel.exportResult?.path ?? tempURL.path)")
                         NSWorkspace.shared.open(viewModel.exportResult ?? tempURL)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.borderedProminent)
+                    .keyboardShortcut(.defaultAction)
                 }
                 .font(.caption)
             }
