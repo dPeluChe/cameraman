@@ -308,10 +308,6 @@ final class ProjectEditor: ObservableObject {
         redoStack.removeAll()
         updateHistoryState()
     }
-
-    private func recordCommand(_ command: GenericSnapshotCommand) {
-        recordUndoSnapshot(command.previousProject)
-    }
 }
 
 /// Range selection for timeline editing.
