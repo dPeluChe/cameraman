@@ -86,10 +86,34 @@ struct TimelineTrack: Identifiable {
 }
 
 enum TimelineTrackBuilder {
+    /// Build the ordered list of timeline tracks. Convention: overlays at the
+    /// TOP so users can see/manipulate them above the primary video tracks
+    /// (same pattern as Final Cut / Premiere where overlay/effect tracks
+    /// sit above the base video). Order top→bottom:
+    ///   1. overlay (shapes + images, single row with visual stacking)
+    ///   2. imageOverlay legacy (mediaItems with type=.image) — kept for back-compat
+    ///   3. screen
+    ///   4. camera (if available)
+    ///   5. systemAudio (if available)
+    ///   6. micAudio (if available)
+    ///   7. additionalAudio (imported music / voiceover)
     static func tracks(for project: Project) -> [TimelineTrack] {
-        var tracks: [TimelineTrack] = [
-            TimelineTrack(kind: .screen, segments: project.timeline.segments)
-        ]
+        var tracks: [TimelineTrack] = []
+
+        // Shape + image overlay track (arrows, rects, lines, text, image)
+        if !project.overlays.isEmpty {
+            tracks.append(TimelineTrack(kind: .overlay, segments: [], overlays: project.overlays))
+        }
+
+        // Legacy image overlay tracks (mediaItems-based, predates the unified
+        // Project.Overlay.image type — kept for back-compat with existing
+        // projects that used the old import-as-mediaItem flow).
+        let imageItems = project.mediaItems.filter { $0.type == .image }
+        if !imageItems.isEmpty {
+            tracks.append(TimelineTrack(kind: .imageOverlay, segments: [], mediaItems: imageItems))
+        }
+
+        tracks.append(TimelineTrack(kind: .screen, segments: project.timeline.segments))
 
         if project.primarySources?.camera != nil {
             tracks.append(TimelineTrack(kind: .camera, segments: project.timeline.segments))
@@ -103,21 +127,10 @@ enum TimelineTrackBuilder {
             tracks.append(TimelineTrack(kind: .micAudio, segments: project.timeline.segments))
         }
 
-        // Additional audio tracks (imported music, voiceover)
+        // Additional audio tracks (imported music, voiceover) at the bottom
         let audioItems = project.mediaItems.filter { $0.type == .audio }
         if !audioItems.isEmpty {
             tracks.append(TimelineTrack(kind: .additionalAudio, segments: [], mediaItems: audioItems))
-        }
-
-        // Image overlay tracks
-        let imageItems = project.mediaItems.filter { $0.type == .image }
-        if !imageItems.isEmpty {
-            tracks.append(TimelineTrack(kind: .imageOverlay, segments: [], mediaItems: imageItems))
-        }
-
-        // Shape overlay track (arrows, rects, lines, text)
-        if !project.overlays.isEmpty {
-            tracks.append(TimelineTrack(kind: .overlay, segments: [], overlays: project.overlays))
         }
 
         return tracks

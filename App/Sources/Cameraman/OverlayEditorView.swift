@@ -19,7 +19,7 @@ struct OverlayEditorView: View {
     @State var selectedTool: OverlayTool = .arrow
     @State var selectedOverlayId: UUID?
 
-    let availableTools: [OverlayTool] = [.arrow, .rect, .line, .text]
+    let availableTools: [OverlayTool] = [.arrow, .rect, .line, .text, .image]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
