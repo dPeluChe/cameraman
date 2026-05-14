@@ -43,6 +43,11 @@ public actor LoggingSystem {
         subsystem: "com.projectstudio.enginekit",
         category: "PerformanceInstrumentation"
     )
+
+    /// Live signpost IDs keyed by caller-supplied id. Needed so begin/end pair
+    /// correctly in Instruments — without a stable OSSignpostID the intervals
+    /// are not joined.
+    private var activeSignpostIDs: [String: OSSignpostID] = [:]
     
     // MARK: - Initialization
     
@@ -261,33 +266,21 @@ public actor LoggingSystem {
     ///   - id: Unique identifier
     ///   - message: Optional message
     public func beginSignpost(name: StaticString, id: String, message: String? = nil) {
-        if #available(macOS 13.0, *) {
-            let signpostID = OSSignpostID(log: signpostLog)
-            os_signpost(.begin, log: signpostLog, name: name, "%{public}s", message ?? "")
-        }
+        let signpostID = OSSignpostID(log: signpostLog)
+        activeSignpostIDs[id] = signpostID
+        os_signpost(.begin, log: signpostLog, name: name, signpostID: signpostID, "%{public}s", message ?? "")
     }
 
-    /// End a signpost interval
-    /// - Parameters:
-    ///   - name: Signpost name (must be constant string)
-    ///   - id: Unique identifier
-    ///   - message: Optional message
+    /// End a signpost interval. Must be paired with a prior `beginSignpost` using
+    /// the same `id` so Instruments can join the interval.
     public func endSignpost(name: StaticString, id: String, message: String? = nil) {
-        if #available(macOS 13.0, *) {
-            let signpostID = OSSignpostID(log: signpostLog)
-            os_signpost(.end, log: signpostLog, name: name, "%{public}s", message ?? "")
-        }
+        guard let signpostID = activeSignpostIDs.removeValue(forKey: id) else { return }
+        os_signpost(.end, log: signpostLog, name: name, signpostID: signpostID, "%{public}s", message ?? "")
     }
 
     /// Emit a signpost event (instantaneous)
-    /// - Parameters:
-    ///   - name: Signpost name (must be constant string)
-    ///   - id: Unique identifier
-    ///   - message: Optional message
     public func emitSignpost(name: StaticString, id: String, message: String? = nil) {
-        if #available(macOS 13.0, *) {
-            let signpostID = OSSignpostID(log: signpostLog)
-            os_signpost(.event, log: signpostLog, name: name, "%{public}s", message ?? "")
-        }
+        let signpostID = OSSignpostID(log: signpostLog)
+        os_signpost(.event, log: signpostLog, name: name, signpostID: signpostID, "%{public}s", message ?? "")
     }
 }
