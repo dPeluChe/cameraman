@@ -120,17 +120,10 @@ final class AppNavigationViewModel: ObservableObject {
 
         do {
             let loadedProjects = try await library.listProjects()
-            // MainActor.run defers the @Published mutations to after any
-            // in-flight SwiftUI view-update cycle the awaited continuation
-            // may have resumed into.
-            await MainActor.run {
-                self.projects = loadedProjects
-                self.loadErrorMessage = nil
-            }
+            projects = loadedProjects
+            loadErrorMessage = nil
         } catch {
-            await MainActor.run {
-                self.loadErrorMessage = error.localizedDescription
-            }
+            loadErrorMessage = error.localizedDescription
         }
     }
 
