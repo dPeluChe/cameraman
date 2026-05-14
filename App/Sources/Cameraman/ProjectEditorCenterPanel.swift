@@ -33,7 +33,8 @@ struct CenterPanel: View {
                     PreviewPlayerView(
                         editor: editor,
                         projectDirectory: projectDir,
-                        viewModel: playerViewModel
+                        viewModel: playerViewModel,
+                        selectedOverlayId: $viewModel.selectedOverlayId
                     )
                 } else if viewModel.isLoading {
                     ProgressView()

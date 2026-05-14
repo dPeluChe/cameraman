@@ -21,6 +21,7 @@ struct PreviewPlayerView: View {
     @ObservedObject var editor: ProjectEditor
     let projectDirectory: URL?
     @ObservedObject var viewModel: PreviewPlayerViewModel
+    var selectedOverlayId: Binding<UUID?>? = nil
 
     private var project: Project? { editor.project }
 
@@ -34,6 +35,14 @@ struct PreviewPlayerView: View {
                 if let avPlayer = viewModel.avPlayer {
                     AVPlayerLayerView(player: avPlayer)
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                    if let selectedOverlayId {
+                        OverlayInteractionLayer(
+                            editor: editor,
+                            playerViewModel: viewModel,
+                            selectedOverlayId: selectedOverlayId
+                        )
+                    }
 
                     if viewModel.showCursor || viewModel.showClicks || viewModel.showKeystrokes {
                         GeometryReader { geometry in

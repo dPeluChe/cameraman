@@ -173,6 +173,18 @@ final class PreviewPlayerViewModel: ObservableObject {
         }
     }
 
+    /// Push an overlay-transform draft directly to the engine, bypassing
+    /// `editor.project` publication + the 150ms debounce in PreviewPlayerView.
+    /// Used by OverlayInteractionLayer during an active drag. Official
+    /// editor.updateOverlay still fires on gesture end.
+    func previewOverlayDraft(_ transform: Project.Overlay.Transform, overlayId: UUID) {
+        guard let baseProject = project, let engine = previewEngine else { return }
+        var temp = baseProject
+        guard let idx = temp.overlays.firstIndex(where: { $0.id == overlayId }) else { return }
+        temp.overlays[idx].transform = transform
+        Task { try? await engine.updateProject(temp) }
+    }
+
     /// Push a camera-position-only draft directly to the engine, bypassing
     /// `editor.project` publication + the 150ms debounce in PreviewPlayerView.
     /// Used by PiPCanvasEditor during an active drag so the live AVPlayer
