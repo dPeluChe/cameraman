@@ -235,13 +235,26 @@ struct PiPCanvasEditor: View {
     @State private var dragSnapshot: Project?
     @State private var resizeStartCamera: Project.Canvas.Layout.CameraPosition?
     @State private var resizeSnapshot: Project?
+    /// Live preview of the camera during an active drag/resize. While non-nil,
+    /// the canvas renders from this instead of the committed `camera` prop —
+    /// the project (and AVPlayer rebuild) is only updated on gesture end.
+    /// Without this, every drag tick republished `editor.project`, debounced
+    /// to `PreviewPlayerView.onReceive`, rebuilding the composition + swapping
+    /// the AVPlayer mid-playback. The visible symptom was "drag doesn't work
+    /// while playing, only when paused".
+    @State private var draftCamera: Project.Canvas.Layout.CameraPosition?
+
+    /// Camera used for rendering — draft takes precedence during gesture.
+    private var displayCamera: Project.Canvas.Layout.CameraPosition {
+        draftCamera ?? camera
+    }
 
     private var isEditingSegment: Bool {
         guard let segId = selectedSegmentId else { return false }
         return editor.project.timeline.segments.first(where: { $0.id == segId })?.cameraPosition != nil
     }
 
-    private func updateCamera(_ cam: Project.Canvas.Layout.CameraPosition, recordUndo: Bool = false, from snapshot: Project? = nil) {
+    private func commitCamera(_ cam: Project.Canvas.Layout.CameraPosition, recordUndo: Bool = false, from snapshot: Project? = nil) {
         Task {
             if let segId = selectedSegmentId {
                 // Auto-create per-segment override when dragging with segment selected
@@ -257,12 +270,13 @@ struct PiPCanvasEditor: View {
     var body: some View {
         GeometryReader { proxy in
             let size = proxy.size
+            let render = displayCamera
             // Use the camera prop (segment-aware) to calculate frame, not project layout
             let cameraFrame = CoreGraphics.CGRect(
-                x: CGFloat(camera.x) * size.width,
-                y: CGFloat(camera.y) * size.height,
-                width: CGFloat(camera.w) * size.width,
-                height: CGFloat(camera.h) * size.height
+                x: CGFloat(render.x) * size.width,
+                y: CGFloat(render.y) * size.height,
+                width: CGFloat(render.w) * size.width,
+                height: CGFloat(render.h) * size.height
             )
 
             ZStack {
@@ -308,7 +322,7 @@ struct PiPCanvasEditor: View {
     }
 
     private var cameraShape: some Shape {
-        CameraPreviewShape(maskShape: camera.maskShape, cornerRadius: camera.cornerRadius)
+        CameraPreviewShape(maskShape: displayCamera.maskShape, cornerRadius: displayCamera.cornerRadius)
     }
 
     private func handlePosition(_ handle: PiPHandle, frame: CoreGraphics.CGRect) -> CGPoint {
@@ -327,18 +341,16 @@ struct PiPCanvasEditor: View {
     private func moveGesture(in size: CGSize) -> some Gesture {
         DragGesture()
             .onChanged { value in
-                let base = dragStartCamera ?? camera
                 if dragStartCamera == nil {
                     dragStartCamera = camera
                     dragSnapshot = editor.project
                 }
-
-                let updated = PiPLayoutHelper.moved(
+                let base = dragStartCamera ?? camera
+                draftCamera = PiPLayoutHelper.moved(
                     camera: base,
                     deltaX: Double(value.translation.width / size.width),
                     deltaY: Double(value.translation.height / size.height)
                 )
-                updateCamera(updated)
             }
             .onEnded { value in
                 let base = dragStartCamera ?? camera
@@ -347,30 +359,31 @@ struct PiPCanvasEditor: View {
                     deltaX: Double(value.translation.width / size.width),
                     deltaY: Double(value.translation.height / size.height)
                 )
+                // Commit once at gesture end — single project update + single
+                // preview rebuild, instead of one per drag tick.
                 if let snapshot = dragSnapshot {
-                    updateCamera(updated, recordUndo: true, from: snapshot)
+                    commitCamera(updated, recordUndo: true, from: snapshot)
                 }
                 dragStartCamera = nil
                 dragSnapshot = nil
+                draftCamera = nil
             }
     }
 
     private func resizeGesture(for handle: PiPHandle, in size: CGSize) -> some Gesture {
         DragGesture()
             .onChanged { value in
-                let base = resizeStartCamera ?? camera
                 if resizeStartCamera == nil {
                     resizeStartCamera = camera
                     resizeSnapshot = editor.project
                 }
-
-                let updated = PiPLayoutHelper.resized(
+                let base = resizeStartCamera ?? camera
+                draftCamera = PiPLayoutHelper.resized(
                     camera: base,
                     handle: handle,
                     deltaX: Double(value.translation.width / size.width),
                     deltaY: Double(value.translation.height / size.height)
                 )
-                updateCamera(updated)
             }
             .onEnded { value in
                 let base = resizeStartCamera ?? camera
@@ -381,10 +394,11 @@ struct PiPCanvasEditor: View {
                     deltaY: Double(value.translation.height / size.height)
                 )
                 if let snapshot = resizeSnapshot {
-                    updateCamera(updated, recordUndo: true, from: snapshot)
+                    commitCamera(updated, recordUndo: true, from: snapshot)
                 }
                 resizeStartCamera = nil
                 resizeSnapshot = nil
+                draftCamera = nil
             }
     }
 }
