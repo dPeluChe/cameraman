@@ -25,6 +25,9 @@ public actor ExportEngine {
     let logger = Logger(subsystem: "com.projectstudio.enginekit", category: "ExportEngine")
     /// Current export stage per job
     var exportStages: [JobId: ExportStage] = [:]
+    /// Last logged integer percent per job — used to dedup spammy progress events
+    /// from AVAssetExportSession which fires the same % multiple times in a row.
+    var lastLoggedProgress: [JobId: Int] = [:]
 
     /// Initialize ExportEngine
     public init(jobQueue: JobQueue, projectStore: ProjectStore) {
@@ -66,10 +69,16 @@ public actor ExportEngine {
         logger.info("Initialized export stages for job \(jobId.uuidString): \(preset.name)")
     }
 
-    /// Update export stage with logging
+    /// Update export stage with logging. Progress messages are deduped: only emit
+    /// when the integer percentage changes (otherwise AVAssetExportSession fires
+    /// the same value many times in a row and floods the console).
     func updateExportStage(jobId: JobId, stage: ExportStage, progress: Double) async {
         exportStages[jobId] = stage
-        logger.info("Export progress: \(stage.description) (\(Int(progress * 100))%)")
+        let percent = Int(progress * 100)
+        if lastLoggedProgress[jobId] != percent {
+            lastLoggedProgress[jobId] = percent
+            logger.info("Export progress: \(stage.description) (\(percent)%)")
+        }
         await jobQueue.updateJobProgress(jobId: jobId, progress: progress)
     }
 
@@ -96,6 +105,7 @@ public actor ExportEngine {
     func cleanupExport(jobId: JobId) async {
         logger.info("Cleaning up export resources for job: \(jobId.uuidString)")
         exportStages.removeValue(forKey: jobId)
+        lastLoggedProgress.removeValue(forKey: jobId)
     }
 
     // MARK: - Public API
