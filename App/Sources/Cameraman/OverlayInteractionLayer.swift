@@ -87,9 +87,13 @@ struct OverlayInteractionLayer: View {
                 let base = dragStartTransform ?? overlay.transform
                 let dx = Double(value.translation.width) / Double(size.width)
                 let dy = Double(value.translation.height) / Double(size.height)
+                // transform.y is stored in renderer convention (Y inverted from
+                // SwiftUI's top-left). User drags DOWN in SwiftUI (dy positive),
+                // which should DECREASE the stored y (toward 0 = bottom of
+                // canvas in renderer space).
                 let next = Project.Overlay.Transform(
                     x: max(0, min(1, base.x + dx)),
-                    y: max(0, min(1, base.y + dy)),
+                    y: max(0, min(1, base.y - dy)),
                     scale: base.scale,
                     rotation: base.rotation
                 )

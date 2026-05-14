@@ -13,6 +13,13 @@ struct OverlayPopoverContent: View {
     @ObservedObject var editor: ProjectEditor
     let overlayId: UUID
 
+    /// In-progress slider value while the user is dragging Start/End. While
+    /// non-nil it takes precedence over `overlay.start` / `overlay.end` so the
+    /// slider doesn't rubber-band when the async `editor.updateOverlay` hasn't
+    /// propagated yet.
+    @State private var draftStart: Double?
+    @State private var draftEnd: Double?
+
     private var overlay: Project.Overlay? {
         editor.project.overlays.first { $0.id == overlayId }
     }
@@ -122,12 +129,24 @@ struct OverlayPopoverContent: View {
                         // Timing
                         popoverSection("Timing") {
                             let maxDuration = editor.project.timeline.duration
-                            labeledSlider("Start", value: timingBinding(overlay, isStart: true, maxDuration: maxDuration),
-                                          range: 0...maxDuration,
-                                          display: String(format: "%.1fs", overlay.start))
-                            labeledSlider("End", value: timingBinding(overlay, isStart: false, maxDuration: maxDuration),
-                                          range: 0...maxDuration,
-                                          display: String(format: "%.1fs", overlay.end))
+                            labeledSlider(
+                                "Start",
+                                value: timingBinding(overlay, isStart: true, maxDuration: maxDuration),
+                                range: 0...maxDuration,
+                                display: String(format: "%.1fs", draftStart ?? overlay.start),
+                                onEditingChanged: { editing in
+                                    if !editing { commitTiming(isStart: true, overlay: overlay) }
+                                }
+                            )
+                            labeledSlider(
+                                "End",
+                                value: timingBinding(overlay, isStart: false, maxDuration: maxDuration),
+                                range: 0...maxDuration,
+                                display: String(format: "%.1fs", draftEnd ?? overlay.end),
+                                onEditingChanged: { editing in
+                                    if !editing { commitTiming(isStart: false, overlay: overlay) }
+                                }
+                            )
                             HStack {
                                 Text("Duration")
                                     .font(.system(size: 11))
@@ -176,7 +195,14 @@ struct OverlayPopoverContent: View {
         }
     }
 
-    private func labeledSlider(_ label: String, value: Binding<Double>, range: ClosedRange<Double>, step: Double? = nil, display: String) -> some View {
+    private func labeledSlider(
+        _ label: String,
+        value: Binding<Double>,
+        range: ClosedRange<Double>,
+        step: Double? = nil,
+        display: String,
+        onEditingChanged: ((Bool) -> Void)? = nil
+    ) -> some View {
         HStack(spacing: 8) {
             Text(label)
                 .font(.system(size: 11))
@@ -184,10 +210,14 @@ struct OverlayPopoverContent: View {
                 .frame(width: 52, alignment: .leading)
 
             if let step {
-                Slider(value: value, in: range, step: step)
+                Slider(value: value, in: range, step: step, onEditingChanged: { editing in
+                    onEditingChanged?(editing)
+                })
                     .controlSize(.small)
             } else {
-                Slider(value: value, in: range)
+                Slider(value: value, in: range, onEditingChanged: { editing in
+                    onEditingChanged?(editing)
+                })
                     .controlSize(.small)
             }
 
@@ -248,27 +278,52 @@ struct OverlayPopoverContent: View {
         )
     }
 
+    /// Timing binding for Start/End sliders. While the user is dragging the
+    /// slider, the value lives in `draftStart` / `draftEnd` local state — we
+    /// only commit to `editor.updateOverlay` when the gesture ends. Avoids
+    /// rubber-banding while the async update propagates back through
+    /// `editor.$project` and avoids 60 concurrent Tasks per drag.
     private func timingBinding(_ overlay: Project.Overlay, isStart: Bool, maxDuration: TimeInterval) -> Binding<Double> {
         Binding(
-            get: { isStart ? overlay.start : overlay.end },
+            get: {
+                if isStart {
+                    return draftStart ?? overlay.start
+                } else {
+                    return draftEnd ?? overlay.end
+                }
+            },
             set: { val in
-                Task {
-                    if isStart {
-                        let newStart = max(0, min(val, overlay.end - 0.1))
-                        _ = await editor.updateOverlay(
-                            projectId: editor.project.projectId, overlayId: overlayId,
-                            start: newStart
-                        )
-                    } else {
-                        let newEnd = max(overlay.start + 0.1, min(val, maxDuration))
-                        _ = await editor.updateOverlay(
-                            projectId: editor.project.projectId, overlayId: overlayId,
-                            end: newEnd
-                        )
-                    }
+                if isStart {
+                    draftStart = max(0, min(val, overlay.end - 0.1))
+                } else {
+                    draftEnd = max(overlay.start + 0.1, min(val, maxDuration))
                 }
             }
         )
+    }
+
+    private func commitTiming(isStart: Bool, overlay: Project.Overlay) {
+        if isStart {
+            guard let val = draftStart else { return }
+            draftStart = nil
+            Task {
+                _ = await editor.updateOverlay(
+                    projectId: editor.project.projectId,
+                    overlayId: overlayId,
+                    start: val
+                )
+            }
+        } else {
+            guard let val = draftEnd else { return }
+            draftEnd = nil
+            Task {
+                _ = await editor.updateOverlay(
+                    projectId: editor.project.projectId,
+                    overlayId: overlayId,
+                    end: val
+                )
+            }
+        }
     }
 
     private func hexString(from color: Color) -> String {
