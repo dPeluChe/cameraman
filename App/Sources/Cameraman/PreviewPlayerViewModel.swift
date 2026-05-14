@@ -141,20 +141,29 @@ final class PreviewPlayerViewModel: ObservableObject {
                 try await engine.loadProject(project, projectDirectory: projectDirectory.path)
                 let player = await engine.player
 
-                // Class is @MainActor and Task inherits its context — no extra hop needed.
-                self.previewEngine = engine
-                self.avPlayer = player
-                self.loadError = nil
-                self.currentTime = 0
-                self.setupPlayerObservers()
-                // Push the effective plan now that the engine is ready
-                // (covers plans set via setZoomPlan before loadProject finished).
-                self.applyEffectiveZoomPlan()
+                // MainActor.run NOT redundant despite the class being @MainActor:
+                // it schedules these @Published mutations after any in-flight
+                // SwiftUI view-update cycle. Removing this triggers
+                // "Publishing changes from within view updates is not allowed"
+                // because the awaited continuation can resume on MainActor's
+                // executor mid-body-evaluation.
+                await MainActor.run {
+                    self.previewEngine = engine
+                    self.avPlayer = player
+                    self.loadError = nil
+                    self.currentTime = 0
+                    self.setupPlayerObservers()
+                    // Push the effective plan now that the engine is ready
+                    // (covers plans set via setZoomPlan before loadProject finished).
+                    self.applyEffectiveZoomPlan()
+                }
             } catch {
-                self.loadError = error.localizedDescription
-                self.previewEngine = nil
-                self.avPlayer = nil
-                self.currentFrame = nil
+                await MainActor.run {
+                    self.loadError = error.localizedDescription
+                    self.previewEngine = nil
+                    self.avPlayer = nil
+                    self.currentFrame = nil
+                }
             }
         }
     }
@@ -199,11 +208,13 @@ final class PreviewPlayerViewModel: ObservableObject {
                 try await engine.updateProject(project)
                 let player = await engine.player
 
-                // Class is @MainActor — Task inherits.
-                if self.avPlayer !== player {
-                    self.removePlayerObservers()
-                    self.avPlayer = player
-                    self.setupPlayerObservers()
+                // MainActor.run NOT redundant — see comment in load(...).
+                await MainActor.run {
+                    if self.avPlayer !== player {
+                        self.removePlayerObservers()
+                        self.avPlayer = player
+                        self.setupPlayerObservers()
+                    }
                 }
             } catch {
                 LogError(.preview, "Failed to refresh preview: \(error.localizedDescription)")
