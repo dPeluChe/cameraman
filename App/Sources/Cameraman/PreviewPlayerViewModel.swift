@@ -159,6 +159,27 @@ final class PreviewPlayerViewModel: ObservableObject {
         }
     }
 
+    /// Push a camera-position-only draft directly to the engine, bypassing
+    /// `editor.project` publication + the 150ms debounce in PreviewPlayerView.
+    /// Used by PiPCanvasEditor during an active drag so the live AVPlayer
+    /// reflects the in-progress position. The official editor.project update
+    /// happens on gesture release (via the existing commitCamera path); this
+    /// just keeps the visual in sync mid-drag.
+    /// Hits `PreviewEngine.updateProject` light path (camera position alone
+    /// doesn't change render size or clip count) → `currentItem.videoComposition`
+    /// is swapped in-place, no AVPlayer recreation, no playback reset.
+    func previewCameraDraft(_ camera: Project.Canvas.Layout.CameraPosition, segmentId: String?) {
+        guard let baseProject = project, let engine = previewEngine else { return }
+        var temp = baseProject
+        if let segId = segmentId,
+           let idx = temp.timeline.segments.firstIndex(where: { $0.id == segId }) {
+            temp.timeline.segments[idx].cameraPosition = camera
+        } else {
+            temp.canvas.layout.camera = camera
+        }
+        Task { try? await engine.updateProject(temp) }
+    }
+
     /// Rebuild the preview composition when project settings change
     func refreshPreview(with project: Project) {
         guard let engine = previewEngine else { return }

@@ -54,7 +54,11 @@ struct RightPanel: View {
                         
                         // Camera Group
                         ConfigGroup(title: "Camera", isExpanded: $isCameraExpanded) {
-                            PiPConfigurationView(editor: editor, selectedSegmentId: selectedSegmentId)
+                            PiPConfigurationView(
+                                editor: editor,
+                                selectedSegmentId: selectedSegmentId,
+                                playerViewModel: playerViewModel
+                            )
                         }
                     }
                     

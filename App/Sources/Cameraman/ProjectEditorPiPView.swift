@@ -12,6 +12,7 @@ import CoreGraphics
 struct PiPConfigurationView: View {
     @ObservedObject var editor: ProjectEditor
     var selectedSegmentId: String? = nil
+    var playerViewModel: PreviewPlayerViewModel? = nil
     @State private var cornerSnapshot: Project?
     private let presetColumns = [GridItem(.adaptive(minimum: 52, maximum: 82), spacing: 6)]
     private let shapeColumns = [GridItem(.adaptive(minimum: 44, maximum: 58), spacing: 6)]
@@ -64,7 +65,8 @@ struct PiPConfigurationView: View {
                     editor: editor,
                     camera: camera,
                     aspectRatio: aspectRatio,
-                    selectedSegmentId: selectedSegmentId
+                    selectedSegmentId: selectedSegmentId,
+                    playerViewModel: playerViewModel
                 )
                 .frame(maxWidth: .infinity)
                 .frame(height: 140)
@@ -230,6 +232,7 @@ struct PiPCanvasEditor: View {
     let camera: Project.Canvas.Layout.CameraPosition
     let aspectRatio: Double
     var selectedSegmentId: String? = nil
+    var playerViewModel: PreviewPlayerViewModel? = nil
 
     @State private var dragStartCamera: Project.Canvas.Layout.CameraPosition?
     @State private var dragSnapshot: Project?
@@ -346,11 +349,16 @@ struct PiPCanvasEditor: View {
                     dragSnapshot = editor.project
                 }
                 let base = dragStartCamera ?? camera
-                draftCamera = PiPLayoutHelper.moved(
+                let next = PiPLayoutHelper.moved(
                     camera: base,
                     deltaX: Double(value.translation.width / size.width),
                     deltaY: Double(value.translation.height / size.height)
                 )
+                draftCamera = next
+                // Live preview: push the draft directly to the engine so the
+                // AVPlayer reflects the new position without waiting for the
+                // gesture to end (editor.project publish + 150ms debounce).
+                playerViewModel?.previewCameraDraft(next, segmentId: selectedSegmentId)
             }
             .onEnded { value in
                 let base = dragStartCamera ?? camera
@@ -378,12 +386,14 @@ struct PiPCanvasEditor: View {
                     resizeSnapshot = editor.project
                 }
                 let base = resizeStartCamera ?? camera
-                draftCamera = PiPLayoutHelper.resized(
+                let next = PiPLayoutHelper.resized(
                     camera: base,
                     handle: handle,
                     deltaX: Double(value.translation.width / size.width),
                     deltaY: Double(value.translation.height / size.height)
                 )
+                draftCamera = next
+                playerViewModel?.previewCameraDraft(next, segmentId: selectedSegmentId)
             }
             .onEnded { value in
                 let base = resizeStartCamera ?? camera
