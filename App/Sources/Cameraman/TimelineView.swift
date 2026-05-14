@@ -305,10 +305,10 @@ struct TimelineView: View {
                 if track.kind == .overlay {
                     let overlayRows = Self.computeOverlayRows(overlays: track.overlays)
                     VStack(spacing: 4) {
-                        ForEach(Array(overlayRows.enumerated()), id: \.offset) { _, rowOverlays in
+                        ForEach(overlayRows) { row in
                             TimelineOverlayTrackRow(
                                 editor: editor,
-                                overlays: rowOverlays,
+                                overlays: row.overlays,
                                 layout: layout,
                                 height: trackHeight,
                                 selectedOverlayId: $selectedOverlayId,
