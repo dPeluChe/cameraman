@@ -51,6 +51,16 @@
 
 ---
 
+## 🛠️ Tooling — Claude Code Skills (2026-05-14)
+
+- [ ] **Crear skill propio `cameraman-engine` con `/skill-creator`** (después de probar `AvdLee/swiftui-expert` + `patrickserrano/ios-swift-skills`):
+    - Gap detectado en research: ningún skill público cubre AVFoundation / ScreenCaptureKit / AVMutableComposition / pipeline de zoom keyframado, que es el core de cameraman.
+    - Empaquetar convenciones internas: `CompositionBuilder`, `MaskedVideoCompositor`, `AudioMixBuilder`, pipeline `DwellDetector → ZoomSuggestionEngine → ZoomPlanGenerator → PreviewRenderer`, separación Engine/UI con actors, reglas de 400-500 LOC/file y zero warnings.
+    - Validar contra una tarea real (ej. refactor de `ZoomSectionController` o nuevo overlay type).
+    - Decidir si publicarlo público o mantenerlo en `.claude/skills/` local.
+
+---
+
 ## Distribución / Gatekeeper
 
 - [ ] **Firma ad-hoc en `build-dmg.sh`** — `codesign --force --deep --sign - CameramanApp.app` antes de empaquetar. No elimina el bloqueo de Gatekeeper en Tahoe pero estabiliza la firma interna y evita errores con frameworks embebidos. Documentado por feedback de testers en Tahoe 26.4.1 (ver `TASK_COMPLETED/2605.md`).
