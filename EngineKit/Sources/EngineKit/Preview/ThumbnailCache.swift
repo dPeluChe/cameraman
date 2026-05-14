@@ -17,9 +17,16 @@ public actor ThumbnailCache {
     private var project: Project?
     private var projectDirectory: String?
     private let configuration: Configuration
-    private var thumbnailCache: [TimeInterval: CachedThumbnail] = [:]
-    private var thumbnailAccessOrder: [TimeInterval] = []
+    /// Keyed by quantized milliseconds (see `bucket(for:)`) so float equality
+    /// drift on TimeInterval can't cause ghost misses.
+    private var thumbnailCache: [Int: CachedThumbnail] = [:]
+    private var thumbnailAccessOrder: [Int] = []
     private var waveformCache: [String: CachedWaveform] = [:]
+
+    /// Round to milliseconds to avoid float-equality misses on TimeInterval keys.
+    private static func bucket(for time: TimeInterval) -> Int {
+        Int((time * 1000).rounded())
+    }
 
     private var cacheDirectory: String? {
         guard let projectDir = projectDirectory else { return nil }
@@ -59,9 +66,10 @@ public actor ThumbnailCache {
     // MARK: - LRU Helpers
 
     private func insertThumbnail(_ thumbnail: CachedThumbnail, at time: TimeInterval) {
-        thumbnailCache[time] = thumbnail
-        thumbnailAccessOrder.removeAll { $0 == time }
-        thumbnailAccessOrder.append(time)
+        let key = Self.bucket(for: time)
+        thumbnailCache[key] = thumbnail
+        thumbnailAccessOrder.removeAll { $0 == key }
+        thumbnailAccessOrder.append(key)
         evictThumbnailsIfNeeded()
     }
 
@@ -89,7 +97,7 @@ public actor ThumbnailCache {
         for i in 0..<count {
             let time = startTime + (Double(i) * interval)
 
-            if let cached = thumbnailCache[time] {
+            if let cached = thumbnailCache[Self.bucket(for: time)] {
                 thumbnails.append(cached)
                 continue
             }
@@ -116,11 +124,12 @@ public actor ThumbnailCache {
     public func getThumbnail(at time: TimeInterval) async throws -> CachedThumbnail {
         guard let project = project else { throw CacheError.projectNotSet }
 
-        if let cached = thumbnailCache[time] { return cached }
+        let key = Self.bucket(for: time)
+        if let cached = thumbnailCache[key] { return cached }
 
         if configuration.enableDiskCache,
            let diskCached = try? loadThumbnailFromDisk(at: time) {
-            thumbnailCache[time] = diskCached
+            thumbnailCache[key] = diskCached
             return diskCached
         }
 
@@ -143,7 +152,7 @@ public actor ThumbnailCache {
         for i in 0..<thumbnailCount {
             let time = Double(i) * interval
 
-            if thumbnailCache[time] != nil { generatedCount += 1; continue }
+            if thumbnailCache[Self.bucket(for: time)] != nil { generatedCount += 1; continue }
             if configuration.enableDiskCache, (try? loadThumbnailFromDisk(at: time)) != nil {
                 generatedCount += 1; continue
             }
@@ -256,10 +265,10 @@ public actor ThumbnailCache {
             throw CacheError.mediaFileNotFound(screenPath)
         }
 
-        let asset = AVAsset(url: URL(fileURLWithPath: screenPath))
+        let asset = AVURLAsset(url: URL(fileURLWithPath: screenPath))
         let imageGenerator = AVAssetImageGenerator(asset: asset)
         imageGenerator.appliesPreferredTrackTransform = true
-        imageGenerator.maximumSize = CoreFoundation.CGSize(
+        imageGenerator.maximumSize = CGSize(
             width: configuration.thumbnailWidth,
             height: configuration.thumbnailHeight
         )
@@ -267,7 +276,7 @@ public actor ThumbnailCache {
         let cmTime = CMTime(seconds: time, preferredTimescale: 600)
 
         do {
-            let cgImage = try imageGenerator.copyCGImage(at: cmTime, actualTime: nil)
+            let (cgImage, _) = try await imageGenerator.image(at: cmTime)
             let imageData = try cgImage.pngData()
             return CachedThumbnail(time: time, imageData: imageData, width: cgImage.width, height: cgImage.height)
         } catch {
@@ -280,7 +289,7 @@ public actor ThumbnailCache {
             throw CacheError.mediaFileNotFound(trackPath)
         }
 
-        let asset = AVAsset(url: URL(fileURLWithPath: trackPath))
+        let asset = AVURLAsset(url: URL(fileURLWithPath: trackPath))
 
         do {
             let audioTracks = try await asset.loadTracks(withMediaType: .audio)

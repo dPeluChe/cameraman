@@ -144,7 +144,16 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
 
 // MARK: - Custom Compositor
 
-/// Compositor that renders screen + masked camera PiP
+/// Compositor that renders screen + masked camera PiP.
+///
+/// Note: the two pixel-buffer-attribute properties below trigger a Swift 6
+/// "sendability of function types" warning because AVVideoCompositing
+/// annotates them NS_SWIFT_SENDABLE on the ObjC side but Swift can't synthesize
+/// a `@Sendable` getter for `[String: Any]` storage. None of the standard
+/// workarounds (`@preconcurrency import`, `@preconcurrency` on the conformance,
+/// `nonisolated` computed property, swapping to `[String: any Sendable]`) clear
+/// the warning — it's an SDK/compiler interaction that needs an Apple fix.
+/// Keeping the original form pending Swift 6 mode adoption.
 public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
     // swiftlint:disable:next nonisolated_unsafe
     nonisolated(unsafe) public let sourcePixelBufferAttributes: [String: Any]? = [

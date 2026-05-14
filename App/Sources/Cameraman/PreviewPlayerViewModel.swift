@@ -139,27 +139,22 @@ final class PreviewPlayerViewModel: ObservableObject {
         Task {
             do {
                 try await engine.loadProject(project, projectDirectory: projectDirectory.path)
-
-                // Get the AVPlayer from the engine
                 let player = await engine.player
 
-                await MainActor.run {
-                    self.previewEngine = engine
-                    self.avPlayer = player
-                    self.loadError = nil
-                    self.currentTime = 0
-                    self.setupPlayerObservers()
-                    // Push the effective plan now that the engine is ready
-                    // (covers plans set via setZoomPlan before loadProject finished).
-                    self.applyEffectiveZoomPlan()
-                }
+                // Class is @MainActor and Task inherits its context — no extra hop needed.
+                self.previewEngine = engine
+                self.avPlayer = player
+                self.loadError = nil
+                self.currentTime = 0
+                self.setupPlayerObservers()
+                // Push the effective plan now that the engine is ready
+                // (covers plans set via setZoomPlan before loadProject finished).
+                self.applyEffectiveZoomPlan()
             } catch {
-                await MainActor.run {
-                    self.loadError = error.localizedDescription
-                    self.previewEngine = nil
-                    self.avPlayer = nil
-                    self.currentFrame = nil
-                }
+                self.loadError = error.localizedDescription
+                self.previewEngine = nil
+                self.avPlayer = nil
+                self.currentFrame = nil
             }
         }
     }
@@ -183,13 +178,11 @@ final class PreviewPlayerViewModel: ObservableObject {
                 try await engine.updateProject(project)
                 let player = await engine.player
 
-                await MainActor.run {
-                    // Update player reference (may have changed after rebuild)
-                    if self.avPlayer !== player {
-                        self.removePlayerObservers()
-                        self.avPlayer = player
-                        self.setupPlayerObservers()
-                    }
+                // Class is @MainActor — Task inherits.
+                if self.avPlayer !== player {
+                    self.removePlayerObservers()
+                    self.avPlayer = player
+                    self.setupPlayerObservers()
                 }
             } catch {
                 LogError(.preview, "Failed to refresh preview: \(error.localizedDescription)")

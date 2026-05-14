@@ -71,7 +71,9 @@ extension TimelineView {
     }
 
     /// Greedy algorithm to split overlays into non-overlapping rows.
-    static func computeOverlayRows(overlays: [Project.Overlay]) -> [[Project.Overlay]] {
+    /// Rows are Identifiable by their first overlay's id so SwiftUI keeps stable
+    /// view identity across re-renders.
+    static func computeOverlayRows(overlays: [Project.Overlay]) -> [OverlayRow] {
         var rows: [[Project.Overlay]] = []
         let sorted = overlays.sorted { $0.start < $1.start }
 
@@ -91,6 +93,14 @@ extension TimelineView {
                 rows.append([overlay])
             }
         }
-        return rows
+        return rows.compactMap { items in
+            guard let first = items.first else { return nil }
+            return OverlayRow(id: first.id, overlays: items)
+        }
     }
+}
+
+struct OverlayRow: Identifiable {
+    let id: UUID
+    let overlays: [Project.Overlay]
 }

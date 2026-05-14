@@ -6,7 +6,10 @@
 //
 
 import Foundation
-import EngineKit
+// Project and Project.Canvas.* are simple value types from EngineKit but are not
+// (yet) marked Sendable across the module boundary. @preconcurrency suppresses
+// the warnings until EngineKit publishes Sendable conformances on its models.
+@preconcurrency import EngineKit
 
 /// Protocol for edit commands that can be undone/redone
 protocol EditCommand: Sendable {

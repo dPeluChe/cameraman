@@ -63,48 +63,41 @@ final class ProjectEditor: ObservableObject {
     }
 
     func trimIn(segmentId: String, newSourceIn: TimeInterval) async -> EditorResult {
-        let previousProject = project
-        let result = await editorModel.trimIn(segmentId: segmentId, newSourceIn: newSourceIn)
-        updatePublishedProject(from: result, previousProject: previousProject)
-        return result
+        await performEdit { await self.editorModel.trimIn(segmentId: segmentId, newSourceIn: newSourceIn) }
     }
 
     func trimOut(segmentId: String, newSourceOut: TimeInterval) async -> EditorResult {
-        let previousProject = project
-        let result = await editorModel.trimOut(segmentId: segmentId, newSourceOut: newSourceOut)
-        updatePublishedProject(from: result, previousProject: previousProject)
-        return result
+        await performEdit { await self.editorModel.trimOut(segmentId: segmentId, newSourceOut: newSourceOut) }
     }
 
     func split(segmentId: String, at timelineTime: TimeInterval) async -> EditorResult {
-        let previousProject = project
-        let result = await editorModel.split(segmentId: segmentId, at: timelineTime)
-        updatePublishedProject(from: result, previousProject: previousProject)
-        return result
+        await performEdit { await self.editorModel.split(segmentId: segmentId, at: timelineTime) }
     }
 
     func addSegment(takeId: UUID, sourceIn: TimeInterval, sourceOut: TimeInterval, timelineIn: TimeInterval) async -> EditorResult {
-        let previousProject = project
-        let result = await editorModel.addSegment(
-            takeId: takeId,
-            sourceIn: sourceIn,
-            sourceOut: sourceOut,
-            timelineIn: timelineIn
-        )
-        updatePublishedProject(from: result, previousProject: previousProject)
-        return result
+        await performEdit {
+            await self.editorModel.addSegment(
+                takeId: takeId,
+                sourceIn: sourceIn,
+                sourceOut: sourceOut,
+                timelineIn: timelineIn
+            )
+        }
     }
 
     func delete(segmentId: String) async -> EditorResult {
-        let previousProject = project
-        let result = await editorModel.delete(segmentId: segmentId)
-        updatePublishedProject(from: result, previousProject: previousProject)
-        return result
+        await performEdit { await self.editorModel.delete(segmentId: segmentId) }
     }
 
     func deleteRange(from startTime: TimeInterval, to endTime: TimeInterval) async -> EditorResult {
+        await performEdit { await self.editorModel.deleteRange(from: startTime, to: endTime) }
+    }
+
+    /// Snapshot current project, run an EditorModel operation, then propagate the
+    /// result + undo snapshot. Centralizes the trim/split/add/delete pattern.
+    private func performEdit(_ op: () async -> EditorResult) async -> EditorResult {
         let previousProject = project
-        let result = await editorModel.deleteRange(from: startTime, to: endTime)
+        let result = await op()
         updatePublishedProject(from: result, previousProject: previousProject)
         return result
     }
@@ -314,10 +307,6 @@ final class ProjectEditor: ObservableObject {
         }
         redoStack.removeAll()
         updateHistoryState()
-    }
-
-    private func recordCommand(_ command: GenericSnapshotCommand) {
-        recordUndoSnapshot(command.previousProject)
     }
 }
 

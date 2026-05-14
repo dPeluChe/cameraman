@@ -254,22 +254,34 @@ public actor LocalAIProvider: AIProvider {
         reader.startReading()
         writer.startSession(atSourceTime: .zero)
 
+        // The AVFoundation reader/writer types aren't Sendable, but in this
+        // pipeline they are accessed serially on a dedicated dispatch queue,
+        // so the captures are safe. Wrap in @unchecked Sendable to satisfy
+        // the compiler.
+        let pipeline = UncheckedSendableAVPipeline(
+            writerInput: writerInput,
+            readerOutput: readerOutput,
+            adaptor: adaptor,
+            writer: writer,
+            reader: reader
+        )
+
         // Apply filter to each frame
         writerInput.requestMediaDataWhenReady(on: DispatchQueue(label: "video_filter")) {
-            while writerInput.isReadyForMoreMediaData {
+            while pipeline.writerInput.isReadyForMoreMediaData {
                 autoreleasepool {
-                    if let sampleBuffer = readerOutput.copyNextSampleBuffer() {
+                    if let sampleBuffer = pipeline.readerOutput.copyNextSampleBuffer() {
                         if let filteredBuffer = self.applyFilterToSampleBuffer(
                             sampleBuffer: sampleBuffer,
                             filterName: filterName,
                             strength: strength
                         ) {
-                            adaptor.append(filteredBuffer, withPresentationTime: sampleBuffer.presentationTimeStamp)
+                            pipeline.adaptor.append(filteredBuffer, withPresentationTime: sampleBuffer.presentationTimeStamp)
                         }
                     } else {
-                        writerInput.markAsFinished()
-                        writer.finishWriting {
-                            reader.cancelReading()
+                        pipeline.writerInput.markAsFinished()
+                        pipeline.writer.finishWriting {
+                            pipeline.reader.cancelReading()
                         }
                     }
                 }
@@ -345,4 +357,16 @@ public actor LocalAIProvider: AIProvider {
         return outputBuffer
     }
 
+}
+
+/// Sendable bag for AVFoundation reader/writer references used by a single
+/// `requestMediaDataWhenReady` pipeline. AVAssetReader/Writer/Input/etc. are
+/// reference types not annotated Sendable; in this code path they are touched
+/// serially on the same dispatch queue, so wrapping is safe.
+private struct UncheckedSendableAVPipeline: @unchecked Sendable {
+    let writerInput: AVAssetWriterInput
+    let readerOutput: AVAssetReaderTrackOutput
+    let adaptor: AVAssetWriterInputPixelBufferAdaptor
+    let writer: AVAssetWriter
+    let reader: AVAssetReader
 }
