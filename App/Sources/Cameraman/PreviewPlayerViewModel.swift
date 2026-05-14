@@ -102,6 +102,19 @@ final class PreviewPlayerViewModel: ObservableObject {
     }
 
     func load(project: Project?, projectDirectory: URL?) {
+        // Defer the entire body to a fresh Task so @Published mutations don't
+        // happen during SwiftUI's view-update cycle. Caller is `.task(id:)`
+        // which fires synchronously the first time the id resolves; running
+        // our @Published assignments directly there triggers
+        // "Publishing changes from within view updates is not allowed".
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            await Task.yield()
+            await self.performLoad(project: project, projectDirectory: projectDirectory)
+        }
+    }
+
+    private func performLoad(project: Project?, projectDirectory: URL?) async {
         guard let project, let projectDirectory else {
             reset()
             return
@@ -136,34 +149,26 @@ final class PreviewPlayerViewModel: ObservableObject {
             )
         )
 
-        Task {
-            do {
-                try await engine.loadProject(project, projectDirectory: projectDirectory.path)
-                let player = await engine.player
+        do {
+            try await engine.loadProject(project, projectDirectory: projectDirectory.path)
+            let player = await engine.player
 
-                // MainActor.run NOT redundant despite the class being @MainActor:
-                // it schedules these @Published mutations after any in-flight
-                // SwiftUI view-update cycle. Removing this triggers
-                // "Publishing changes from within view updates is not allowed"
-                // because the awaited continuation can resume on MainActor's
-                // executor mid-body-evaluation.
-                await MainActor.run {
-                    self.previewEngine = engine
-                    self.avPlayer = player
-                    self.loadError = nil
-                    self.currentTime = 0
-                    self.setupPlayerObservers()
-                    // Push the effective plan now that the engine is ready
-                    // (covers plans set via setZoomPlan before loadProject finished).
-                    self.applyEffectiveZoomPlan()
-                }
-            } catch {
-                await MainActor.run {
-                    self.loadError = error.localizedDescription
-                    self.previewEngine = nil
-                    self.avPlayer = nil
-                    self.currentFrame = nil
-                }
+            // MainActor.run keeps these mutations out of any SwiftUI body cycle
+            // the awaited continuation may have landed in.
+            await MainActor.run {
+                self.previewEngine = engine
+                self.avPlayer = player
+                self.loadError = nil
+                self.currentTime = 0
+                self.setupPlayerObservers()
+                self.applyEffectiveZoomPlan()
+            }
+        } catch {
+            await MainActor.run {
+                self.loadError = error.localizedDescription
+                self.previewEngine = nil
+                self.avPlayer = nil
+                self.currentFrame = nil
             }
         }
     }
