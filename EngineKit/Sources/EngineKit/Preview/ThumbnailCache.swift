@@ -265,10 +265,10 @@ public actor ThumbnailCache {
             throw CacheError.mediaFileNotFound(screenPath)
         }
 
-        let asset = AVAsset(url: URL(fileURLWithPath: screenPath))
+        let asset = AVURLAsset(url: URL(fileURLWithPath: screenPath))
         let imageGenerator = AVAssetImageGenerator(asset: asset)
         imageGenerator.appliesPreferredTrackTransform = true
-        imageGenerator.maximumSize = CoreFoundation.CGSize(
+        imageGenerator.maximumSize = CGSize(
             width: configuration.thumbnailWidth,
             height: configuration.thumbnailHeight
         )
@@ -276,7 +276,7 @@ public actor ThumbnailCache {
         let cmTime = CMTime(seconds: time, preferredTimescale: 600)
 
         do {
-            let cgImage = try imageGenerator.copyCGImage(at: cmTime, actualTime: nil)
+            let (cgImage, _) = try await imageGenerator.image(at: cmTime)
             let imageData = try cgImage.pngData()
             return CachedThumbnail(time: time, imageData: imageData, width: cgImage.width, height: cgImage.height)
         } catch {
@@ -289,7 +289,7 @@ public actor ThumbnailCache {
             throw CacheError.mediaFileNotFound(trackPath)
         }
 
-        let asset = AVAsset(url: URL(fileURLWithPath: trackPath))
+        let asset = AVURLAsset(url: URL(fileURLWithPath: trackPath))
 
         do {
             let audioTracks = try await asset.loadTracks(withMediaType: .audio)
