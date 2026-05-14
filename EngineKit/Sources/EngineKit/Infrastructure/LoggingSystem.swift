@@ -48,6 +48,10 @@ public actor LoggingSystem {
     /// correctly in Instruments — without a stable OSSignpostID the intervals
     /// are not joined.
     private var activeSignpostIDs: [String: OSSignpostID] = [:]
+
+    /// Shared formatter for the console output path. ISO8601DateFormatter is
+    /// thread-safe and costs ~100µs to allocate, so we keep one alive.
+    private static let consoleDateFormatter = ISO8601DateFormatter()
     
     // MARK: - Initialization
     
@@ -129,7 +133,7 @@ public actor LoggingSystem {
         
         // Log to console if enabled
         if logToConsole {
-            let timestamp = ISO8601DateFormatter().string(from: Date())
+            let timestamp = Self.consoleDateFormatter.string(from: Date())
             let levelStr = "\(level)".uppercased()
             print("[\(timestamp)] [\(levelStr)] [\(category.rawValue)] \(formattedMessage)")
         }
