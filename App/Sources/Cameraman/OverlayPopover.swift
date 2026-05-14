@@ -19,8 +19,9 @@ struct OverlayPopoverContent: View {
     /// non-nil it takes precedence over `overlay.start` / `overlay.end` so the
     /// slider doesn't rubber-band when the async `editor.updateOverlay` hasn't
     /// propagated yet.
-    @State private var draftStart: Double?
-    @State private var draftEnd: Double?
+    /// Internal access (not private) so OverlayPopover+Sections.swift can read.
+    @State var draftStart: Double?
+    @State var draftEnd: Double?
 
     private var overlay: Project.Overlay? {
         editor.project.overlays.first { $0.id == overlayId }
@@ -74,335 +75,8 @@ struct OverlayPopoverContent: View {
         .padding(.bottom, 10)
     }
 
-    // MARK: - Sections (in display order)
-
-    @ViewBuilder
-    private func timingSection(overlay: Project.Overlay) -> some View {
-        popoverSection("Timing") {
-            let maxDuration = editor.project.timeline.duration
-            labeledSlider(
-                "Start",
-                value: timingBinding(overlay, isStart: true, maxDuration: maxDuration),
-                range: 0...maxDuration,
-                display: String(format: "%.1fs", draftStart ?? overlay.start),
-                onEditingChanged: { editing in
-                    if !editing { commitTiming(isStart: true, overlay: overlay) }
-                }
-            )
-            labeledSlider(
-                "End",
-                value: timingBinding(overlay, isStart: false, maxDuration: maxDuration),
-                range: 0...maxDuration,
-                display: String(format: "%.1fs", draftEnd ?? overlay.end),
-                onEditingChanged: { editing in
-                    if !editing { commitTiming(isStart: false, overlay: overlay) }
-                }
-            )
-            HStack {
-                Text("Duration")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text(String(format: "%.1fs", overlay.end - overlay.start))
-                    .font(.system(size: 11, weight: .medium).monospacedDigit())
-                    .foregroundStyle(.primary)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func animationSection(overlay: Project.Overlay) -> some View {
-        popoverSection("Animation") {
-            HStack(spacing: 8) {
-                Text("Type")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 52, alignment: .leading)
-                Picker("", selection: Binding(
-                    get: { overlay.animation?.type ?? .none },
-                    set: { val in
-                        mutate(overlay) { o in
-                            if val == .none {
-                                o.animation = nil
-                            } else {
-                                let current = o.animation
-                                o.animation = Project.Overlay.Animation(
-                                    type: val,
-                                    fadeInDuration: current?.fadeInDuration ?? 0.3,
-                                    fadeOutDuration: current?.fadeOutDuration ?? 0.3,
-                                    drawOnDuration: current?.drawOnDuration ?? 0.5,
-                                    easing: current?.easing ?? .easeInOut
-                                )
-                            }
-                        }
-                    }
-                )) {
-                    Text("None").tag(Project.Overlay.Animation.AnimationType.none)
-                    Text("Fade In").tag(Project.Overlay.Animation.AnimationType.fadeIn)
-                    Text("Fade Out").tag(Project.Overlay.Animation.AnimationType.fadeOut)
-                    Text("Fade In/Out").tag(Project.Overlay.Animation.AnimationType.fadeInOut)
-                }
-                .pickerStyle(.menu)
-                .controlSize(.small)
-                .labelsHidden()
-            }
-
-            // Only show fade duration sliders when there's an active fade.
-            let animType = overlay.animation?.type ?? .none
-            let maxFade = max(0.05, overlay.end - overlay.start)
-            if animType == .fadeIn || animType == .fadeInOut {
-                labeledSlider(
-                    "In",
-                    value: fadeBinding(overlay, isIn: true, maxFade: maxFade),
-                    range: 0.05...maxFade,
-                    display: String(format: "%.2fs", overlay.animation?.fadeInDuration ?? 0)
-                )
-            }
-            if animType == .fadeOut || animType == .fadeInOut {
-                labeledSlider(
-                    "Out",
-                    value: fadeBinding(overlay, isIn: false, maxFade: maxFade),
-                    range: 0.05...maxFade,
-                    display: String(format: "%.2fs", overlay.animation?.fadeOutDuration ?? 0)
-                )
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func positionSection(overlay: Project.Overlay) -> some View {
-        popoverSection("Position") {
-            OverlayPositionCanvas(
-                overlay: overlay,
-                onPositionChange: { x, y in
-                    mutate(overlay) { $0.transform.x = x; $0.transform.y = y }
-                }
-            )
-            labeledSlider("X", value: sliderBinding(overlay, \.transform.x), range: 0...1,
-                          display: String(format: "%.0f%%", overlay.transform.x * 100))
-            labeledSlider("Y", value: sliderBinding(overlay, \.transform.y), range: 0...1,
-                          display: String(format: "%.0f%%", overlay.transform.y * 100))
-        }
-    }
-
-    @ViewBuilder
-    private func transformSection(overlay: Project.Overlay) -> some View {
-        popoverSection("Transform") {
-            labeledSlider("Scale", value: sliderBinding(overlay, \.transform.scale), range: 0.2...3.0,
-                          display: String(format: "%.1fx", overlay.transform.scale))
-            labeledSlider("Rotation", value: sliderBinding(overlay, \.transform.rotation), range: -180...180,
-                          display: String(format: "%.0f°", overlay.transform.rotation))
-        }
-    }
-
-    @ViewBuilder
-    private func styleSection(overlay: Project.Overlay) -> some View {
-        switch overlay.type {
-        case .arrow, .rect, .line:
-            popoverSection("Style") {
-                HStack(spacing: 16) {
-                    smallLabeled("Color") {
-                        ColorPicker("", selection: Binding(
-                            get: { Color(hex: overlay.style.stroke) },
-                            set: { newColor in
-                                mutate(overlay) { $0.style.stroke = hexString(from: newColor) }
-                            }
-                        ))
-                        .labelsHidden()
-                    }
-                    smallLabeled("Shadow") {
-                        Toggle("", isOn: Binding(
-                            get: { overlay.style.shadow },
-                            set: { val in mutate(overlay) { $0.style.shadow = val } }
-                        ))
-                        .toggleStyle(.switch)
-                        .controlSize(.mini)
-                        .labelsHidden()
-                    }
-                }
-                labeledSlider("Stroke", value: sliderBinding(overlay, \.style.strokeWidth), range: 1...10,
-                              display: String(format: "%.1f", overlay.style.strokeWidth))
-            }
-
-        case .text:
-            popoverSection("Text") {
-                TextField("Content", text: Binding(
-                    get: { overlay.style.text ?? "" },
-                    set: { val in mutate(overlay) { $0.style.text = val } }
-                ))
-                .textFieldStyle(.roundedBorder)
-                .font(.system(size: 12))
-
-                labeledSlider("Size", value: optionalSliderBinding(overlay, \.style.size, default: 24),
-                              range: 12...72,
-                              display: String(format: "%.0fpt", overlay.style.size ?? 24))
-
-                HStack(spacing: 16) {
-                    smallLabeled("Color") {
-                        ColorPicker("", selection: Binding(
-                            get: { Color(hex: overlay.style.color ?? "#FFFFFF") },
-                            set: { newColor in
-                                mutate(overlay) { $0.style.color = hexString(from: newColor) }
-                            }
-                        ))
-                        .labelsHidden()
-                    }
-                    smallLabeled("Shadow") {
-                        Toggle("", isOn: Binding(
-                            get: { overlay.style.shadow },
-                            set: { val in mutate(overlay) { $0.style.shadow = val } }
-                        ))
-                        .toggleStyle(.switch)
-                        .controlSize(.mini)
-                        .labelsHidden()
-                    }
-                }
-            }
-
-        case .image:
-            popoverSection("Image") {
-                let filename = (overlay.style.imagePath as NSString?)?.lastPathComponent ?? "(no file)"
-                HStack(spacing: 6) {
-                    Image(systemName: "photo")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                    Text(filename)
-                        .font(.system(size: 11).monospaced())
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .foregroundStyle(.primary)
-                }
-                labeledSlider(
-                    "Opacity",
-                    value: optionalSliderBinding(overlay, \.style.imageOpacity, default: 1.0),
-                    range: 0...1,
-                    display: String(format: "%.0f%%", (overlay.style.imageOpacity ?? 1.0) * 100)
-                )
-                Button {
-                    presentChangeImagePanel(overlay: overlay)
-                } label: {
-                    Label("Change Image…", systemImage: "photo.badge.plus")
-                        .font(.system(size: 11))
-                        .frame(maxWidth: .infinity)
-                }
-                .controlSize(.small)
-                .buttonStyle(.bordered)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var deleteButton: some View {
-        Button(role: .destructive) {
-            Task {
-                _ = await editor.deleteOverlay(projectId: editor.project.projectId, overlayId: overlayId)
-            }
-        } label: {
-            HStack {
-                Image(systemName: "trash")
-                Text("Delete Overlay")
-            }
-            .font(.system(size: 12))
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
-        }
-        .buttonStyle(.bordered)
-        .tint(.red)
-    }
-
-    @ViewBuilder
-    private func smallLabeled<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-            content()
-        }
-    }
-
-    // MARK: - Animation helpers
-
-    private func fadeBinding(_ overlay: Project.Overlay, isIn: Bool, maxFade: TimeInterval) -> Binding<Double> {
-        Binding(
-            get: {
-                isIn ? (overlay.animation?.fadeInDuration ?? 0.3) : (overlay.animation?.fadeOutDuration ?? 0.3)
-            },
-            set: { val in
-                mutate(overlay) { o in
-                    let current = o.animation ?? Project.Overlay.Animation(type: .fadeInOut)
-                    o.animation = Project.Overlay.Animation(
-                        type: current.type == .none ? .fadeInOut : current.type,
-                        fadeInDuration: isIn ? min(val, maxFade) : current.fadeInDuration,
-                        fadeOutDuration: !isIn ? min(val, maxFade) : current.fadeOutDuration,
-                        drawOnDuration: current.drawOnDuration,
-                        easing: current.easing
-                    )
-                }
-            }
-        )
-    }
-
-    // MARK: - Image change picker
-
-    private func presentChangeImagePanel(overlay: Project.Overlay) {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = true
-        panel.canChooseDirectories = false
-        panel.allowsMultipleSelection = false
-        panel.message = "Select a replacement image"
-        panel.allowedContentTypes = [.image, .svg, .gif]
-        panel.begin { response in
-            guard response == .OK, let url = panel.url else { return }
-            Task { @MainActor in
-                mutate(overlay) { $0.style.imagePath = url.path }
-            }
-        }
-    }
-
-    // MARK: - Components
-
-    private func popoverSection(_ title: String, @ViewBuilder content: () -> some View) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-            content()
-        }
-    }
-
-    private func labeledSlider(
-        _ label: String,
-        value: Binding<Double>,
-        range: ClosedRange<Double>,
-        step: Double? = nil,
-        display: String,
-        onEditingChanged: ((Bool) -> Void)? = nil
-    ) -> some View {
-        HStack(spacing: 8) {
-            Text(label)
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-                .frame(width: 52, alignment: .leading)
-
-            if let step {
-                Slider(value: value, in: range, step: step, onEditingChanged: { editing in
-                    onEditingChanged?(editing)
-                })
-                    .controlSize(.small)
-            } else {
-                Slider(value: value, in: range, onEditingChanged: { editing in
-                    onEditingChanged?(editing)
-                })
-                    .controlSize(.small)
-            }
-
-            Text(display)
-                .font(.system(size: 10).monospacedDigit())
-                .foregroundStyle(.tertiary)
-                .frame(width: 36, alignment: .trailing)
-        }
-    }
+    // Sections / labeledSlider / popoverSection / smallLabeled / fadeBinding /
+    // presentChangeImagePanel moved to OverlayPopover+Sections.swift.
 
     private func presetBtn(_ preset: PositionPreset, _ overlay: Project.Overlay) -> some View {
         let isActive = abs(overlay.transform.x - preset.x) < 0.06 && abs(overlay.transform.y - preset.y) < 0.06
@@ -425,9 +99,9 @@ struct OverlayPopoverContent: View {
         .help(preset.label)
     }
 
-    // MARK: - Helpers
+    // MARK: - Helpers (internal so OverlayPopover+Sections.swift extension can call them)
 
-    private func mutate(_ overlay: Project.Overlay, _ block: (inout Project.Overlay) -> Void) {
+    func mutate(_ overlay: Project.Overlay, _ block: (inout Project.Overlay) -> Void) {
         var updated = overlay
         block(&updated)
         Task {
@@ -440,14 +114,14 @@ struct OverlayPopoverContent: View {
         }
     }
 
-    private func sliderBinding(_ overlay: Project.Overlay, _ kp: WritableKeyPath<Project.Overlay, Double>) -> Binding<Double> {
+    func sliderBinding(_ overlay: Project.Overlay, _ kp: WritableKeyPath<Project.Overlay, Double>) -> Binding<Double> {
         Binding(
             get: { overlay[keyPath: kp] },
             set: { val in mutate(overlay) { $0[keyPath: kp] = val } }
         )
     }
 
-    private func optionalSliderBinding(_ overlay: Project.Overlay, _ kp: WritableKeyPath<Project.Overlay, Double?>, default defaultVal: Double) -> Binding<Double> {
+    func optionalSliderBinding(_ overlay: Project.Overlay, _ kp: WritableKeyPath<Project.Overlay, Double?>, default defaultVal: Double) -> Binding<Double> {
         Binding(
             get: { overlay[keyPath: kp] ?? defaultVal },
             set: { val in mutate(overlay) { $0[keyPath: kp] = val } }
@@ -459,7 +133,7 @@ struct OverlayPopoverContent: View {
     /// only commit to `editor.updateOverlay` when the gesture ends. Avoids
     /// rubber-banding while the async update propagates back through
     /// `editor.$project` and avoids 60 concurrent Tasks per drag.
-    private func timingBinding(_ overlay: Project.Overlay, isStart: Bool, maxDuration: TimeInterval) -> Binding<Double> {
+    func timingBinding(_ overlay: Project.Overlay, isStart: Bool, maxDuration: TimeInterval) -> Binding<Double> {
         Binding(
             get: {
                 if isStart {
@@ -478,7 +152,7 @@ struct OverlayPopoverContent: View {
         )
     }
 
-    private func commitTiming(isStart: Bool, overlay: Project.Overlay) {
+    func commitTiming(isStart: Bool, overlay: Project.Overlay) {
         if isStart {
             guard let val = draftStart else { return }
             draftStart = nil
@@ -502,134 +176,10 @@ struct OverlayPopoverContent: View {
         }
     }
 
-    private func hexString(from color: Color) -> String {
+    func hexString(from color: Color) -> String {
         let c = NSColor(color).usingColorSpace(.sRGB) ?? NSColor(color)
         return String(format: "#%02X%02X%02X", Int(c.redComponent * 255), Int(c.greenComponent * 255), Int(c.blueComponent * 255))
     }
 }
 
-// MARK: - Position Presets
-
-enum PositionPreset: CaseIterable {
-    case topLeft, topCenter, topRight
-    case centerLeft, center, centerRight
-    case bottomLeft, bottomCenter, bottomRight
-
-    var x: Double {
-        switch self {
-        case .topLeft, .centerLeft, .bottomLeft: return 0.15
-        case .topCenter, .center, .bottomCenter: return 0.5
-        case .topRight, .centerRight, .bottomRight: return 0.85
-        }
-    }
-
-    var y: Double {
-        switch self {
-        case .topLeft, .topCenter, .topRight: return 0.15
-        case .centerLeft, .center, .centerRight: return 0.5
-        case .bottomLeft, .bottomCenter, .bottomRight: return 0.85
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .topLeft: return "arrow.up.left"
-        case .topCenter: return "arrow.up"
-        case .topRight: return "arrow.up.right"
-        case .centerLeft: return "arrow.left"
-        case .center: return "circle.fill"
-        case .centerRight: return "arrow.right"
-        case .bottomLeft: return "arrow.down.left"
-        case .bottomCenter: return "arrow.down"
-        case .bottomRight: return "arrow.down.right"
-        }
-    }
-
-    var label: String {
-        switch self {
-        case .topLeft: return "Top Left"
-        case .topCenter: return "Top Center"
-        case .topRight: return "Top Right"
-        case .centerLeft: return "Center Left"
-        case .center: return "Center"
-        case .centerRight: return "Center Right"
-        case .bottomLeft: return "Bottom Left"
-        case .bottomCenter: return "Bottom Center"
-        case .bottomRight: return "Bottom Right"
-        }
-    }
-}
-
-// MARK: - Mini Position Canvas
-
-struct OverlayPositionCanvas: View {
-    let overlay: Project.Overlay
-    let onPositionChange: (Double, Double) -> Void
-
-    @State private var isDragging = false
-    @State private var dragX: Double?
-    @State private var dragY: Double?
-
-    private var displayX: Double { dragX ?? overlay.transform.x }
-    private var displayY: Double { dragY ?? overlay.transform.y }
-
-    var body: some View {
-        GeometryReader { geo in
-            let size = geo.size
-            let dotSize: CGFloat = 16
-            let dotX = displayX * (size.width - dotSize) + dotSize / 2
-            let dotY = displayY * (size.height - dotSize) + dotSize / 2
-
-            ZStack {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.primary.opacity(0.04))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.primary.opacity(0.1), lineWidth: 1)
-                    )
-
-                // Grid lines (thirds)
-                Path { path in
-                    for i in 1...2 {
-                        let xPos = size.width * CGFloat(i) / 3
-                        path.move(to: CGPoint(x: xPos, y: 0))
-                        path.addLine(to: CGPoint(x: xPos, y: size.height))
-                        let yPos = size.height * CGFloat(i) / 3
-                        path.move(to: CGPoint(x: 0, y: yPos))
-                        path.addLine(to: CGPoint(x: size.width, y: yPos))
-                    }
-                }
-                .stroke(Color.primary.opacity(0.06), lineWidth: 0.5)
-
-                // Draggable dot — updates local state during drag, commits on end
-                Circle()
-                    .fill(isDragging ? Color.accentColor : Color.cyan)
-                    .frame(width: dotSize, height: dotSize)
-                    .shadow(color: .black.opacity(0.3), radius: 3, x: 0, y: 1)
-                    .position(x: dotX, y: dotY)
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { value in
-                                isDragging = true
-                                dragX = max(0, min(1, Double((value.location.x - dotSize / 2) / (size.width - dotSize))))
-                                dragY = max(0, min(1, Double((value.location.y - dotSize / 2) / (size.height - dotSize))))
-                            }
-                            .onEnded { _ in
-                                if let x = dragX, let y = dragY {
-                                    onPositionChange(x, y)
-                                }
-                                isDragging = false
-                                dragX = nil
-                                dragY = nil
-                            }
-                    )
-
-                Text(String(format: "%.0f%%, %.0f%%", displayX * 100, displayY * 100))
-                    .font(.system(size: 8, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                    .position(x: size.width / 2, y: size.height - 8)
-            }
-        }
-        .frame(height: 100)
-    }
-}
+// PositionPreset + OverlayPositionCanvas moved to OverlayPositionCanvas.swift
