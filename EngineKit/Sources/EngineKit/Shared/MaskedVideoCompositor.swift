@@ -29,6 +29,9 @@ public struct OverlayConfig: Codable, Sendable {
     public let fontSize: Double?
     public let fontColor: String?
     public let bgColor: String?
+    public let animationType: String?
+    public let fadeInDuration: TimeInterval
+    public let fadeOutDuration: TimeInterval
 
     public init(overlay: Project.Overlay) {
         self.id = overlay.id.uuidString
@@ -46,6 +49,50 @@ public struct OverlayConfig: Codable, Sendable {
         self.fontSize = overlay.style.size
         self.fontColor = overlay.style.color
         self.bgColor = overlay.style.bg
+        self.animationType = overlay.animation?.type.rawValue
+        self.fadeInDuration = overlay.animation?.fadeInDuration ?? 0
+        self.fadeOutDuration = overlay.animation?.fadeOutDuration ?? 0
+    }
+
+    /// Compute the overlay's opacity at a given composition time. Honors the
+    /// animation type (fadeIn / fadeOut / fadeInOut). Returns 0 outside the
+    /// overlay's window. Pure function — safe to call per-frame.
+    public func opacity(at time: TimeInterval) -> Double {
+        guard time >= start && time <= end else { return 0 }
+        guard let typeRaw = animationType,
+              let type = Project.Overlay.Animation.AnimationType(rawValue: typeRaw),
+              type != .none else { return 1 }
+
+        let duration = end - start
+        let localTime = time - start
+
+        switch type {
+        case .none:
+            return 1
+        case .fadeIn:
+            guard fadeInDuration > 0 else { return 1 }
+            return min(1, localTime / fadeInDuration)
+        case .fadeOut:
+            guard fadeOutDuration > 0 else { return 1 }
+            let fadeStart = duration - fadeOutDuration
+            if localTime < fadeStart { return 1 }
+            return max(0, 1 - (localTime - fadeStart) / fadeOutDuration)
+        case .fadeInOut:
+            var alpha = 1.0
+            if fadeInDuration > 0, localTime < fadeInDuration {
+                alpha = localTime / fadeInDuration
+            }
+            if fadeOutDuration > 0 {
+                let fadeStart = duration - fadeOutDuration
+                if localTime > fadeStart {
+                    alpha = min(alpha, max(0, 1 - (localTime - fadeStart) / fadeOutDuration))
+                }
+            }
+            return alpha
+        case .drawOn:
+            // drawOn is animated geometrically, not via opacity — full visible
+            return 1
+        }
     }
 }
 
@@ -359,8 +406,16 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
         let activeOverlays = instruction.overlays.filter { currentTime >= $0.start && currentTime <= $0.end }
         guard !activeOverlays.isEmpty else { return image }
 
-        let overlayKey = activeOverlays.map {
-            "\($0.id)_\($0.x)_\($0.y)_\($0.scale)_\($0.rotation)_\($0.stroke)_\($0.strokeWidth)_\($0.shadow)_\($0.text ?? "")_\($0.fontSize ?? 0)_\($0.fontColor ?? "")_\($0.bgColor ?? "")"
+        // Pair each active overlay with its computed opacity at this frame.
+        // Opacity is quantized to 0.05 buckets in the cache key so the cache
+        // invalidates ~20 times per fade (smooth enough, cheap enough).
+        let withOpacity: [(OverlayConfig, Double)] = activeOverlays.map { ($0, $0.opacity(at: currentTime)) }
+        // Skip rendering entirely if every active overlay is fully transparent.
+        guard withOpacity.contains(where: { $0.1 > 0.01 }) else { return image }
+
+        let overlayKey = withOpacity.map { config, opacity in
+            let opacityBucket = Int(opacity * 20)  // 0..20
+            return "\(config.id)_\(config.x)_\(config.y)_\(config.scale)_\(config.rotation)_\(config.stroke)_\(config.strokeWidth)_\(config.shadow)_\(config.text ?? "")_\(config.fontSize ?? 0)_\(config.fontColor ?? "")_\(config.bgColor ?? "")_\(opacityBucket)"
         }.joined(separator: "|")
 
         let overlayLayer: CIImage
@@ -370,7 +425,7 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
             cacheLock.unlock()
         } else {
             cacheLock.unlock()
-            let rendered = renderOverlayLayer(activeOverlays, renderSize: renderSize)
+            let rendered = renderOverlayLayer(withOpacity, renderSize: renderSize)
             cacheLock.lock()
             cachedOverlayImage = rendered
             cachedOverlayKey = overlayKey

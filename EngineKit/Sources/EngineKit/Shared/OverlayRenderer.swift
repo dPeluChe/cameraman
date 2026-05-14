@@ -13,21 +13,22 @@ import CoreText
 extension MaskedVideoCompositor {
 
     /// Render overlay shapes to a transparent CIImage layer (cacheable)
-    func renderOverlayLayer(_ overlays: [OverlayConfig], renderSize: CGSize) -> CIImage {
+    func renderOverlayLayer(_ overlays: [(OverlayConfig, Double)], renderSize: CGSize) -> CIImage {
         let clearImage = CIImage(color: .clear).cropped(to: CGRect(origin: .zero, size: renderSize))
         guard let ctx = createBGRAContext(size: renderSize) else { return clearImage }
 
         ctx.clear(CGRect(origin: .zero, size: renderSize))
 
-        for overlay in overlays {
-            renderOverlay(overlay, in: ctx, renderSize: renderSize)
+        for (overlay, opacity) in overlays {
+            renderOverlay(overlay, opacity: opacity, in: ctx, renderSize: renderSize)
         }
 
         guard let cgImage = ctx.makeImage() else { return clearImage }
         return CIImage(cgImage: cgImage)
     }
 
-    private func renderOverlay(_ overlay: OverlayConfig, in ctx: CGContext, renderSize: CGSize) {
+    private func renderOverlay(_ overlay: OverlayConfig, opacity: Double, in ctx: CGContext, renderSize: CGSize) {
+        guard opacity > 0.01 else { return }
         let overlayType = Project.Overlay.OverlayType(rawValue: overlay.type) ?? .rect
         let baseSize = OverlayBaseSize.size(for: overlayType, canvasSize: renderSize)
 
@@ -37,6 +38,7 @@ extension MaskedVideoCompositor {
         let cy = (1.0 - overlay.y) * renderSize.height
 
         ctx.saveGState()
+        ctx.setAlpha(CGFloat(opacity))
         ctx.translateBy(x: cx, y: cy)
         ctx.rotate(by: overlay.rotation * .pi / 180.0)
 
