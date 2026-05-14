@@ -51,6 +51,33 @@
 
 ---
 
+## 🟡 Test session findings 2026-05-14 — items diferidos (post `fix/pip-drag-playback-and-logs-cleanup`)
+
+> Durante la branch se aplicaron 8 fixes; estos 3 quedaron sin resolver tras múltiples intentos:
+
+- [ ] **Warning `Publishing changes from within view updates is not allowed` en load inicial**
+    - Aparece una vez al abrir un proyecto en el editor (no en el flujo de recording). Benigno en runtime — no causa crash, no afecta UX.
+    - **Intentos fallidos** (commits creados y revertidos o reemplazados):
+      1. `80cfa4e` — restaurar `await MainActor.run` en `PreviewPlayerViewModel.load()` bloque async. Insuficiente.
+      2. `1102beb` — diferir todo `PreviewPlayerViewModel.load()` con `Task @MainActor + await Task.yield()`. Insuficiente.
+      3. `a08fadf` — agregar `await MainActor.run` en `AppNavigationViewModel.loadProjects()`. Insuficiente + introdujo regresiones (revertido en `2825b89`).
+    - **Candidatos NO descartados**: `ProjectEditorViewModel.loadProject` (ya usa el patrón correcto pero el warning persiste), `Binding(get:set:)` del toast en `ProjectEditorView` línea 164, alguna mutación en la cadena de `.task` de AppNavigation. Necesita instrumentación runtime (breakpoints o `os_log` envuelto en el primer `objectWillChange.send()`) para localizar el emisor real.
+    - Acción futura: agregar logging temporal en cada `@Published` mutation point para identificar la fuente real, o usar Instruments con SwiftUI template.
+
+- [ ] **`NSHostingView is being laid out reentrantly` + `AttributeGraph: cycle detected` (~150 entries)**
+    - Apareció en el test session post-commit `a08fadf` (revertido). Probablemente causado por el throttle bump 30Hz→60Hz combinado con el rebuild de `videoComposition` que disparaba cascade de re-renders en SwiftUI.
+    - Síntomas adicionales en el run afectado: export tardó **14s vs 5.4s habitual** (~3x más lento).
+    - Estado actual: revertido, no debería reaparecer con throttle 30Hz.
+    - Acción si reaparece: investigar dependencia cíclica entre `PreviewPlayerView` (observa `viewModel.avPlayer`), `PiPCanvasEditor` (push a `engine.updateProject`), y SwiftUI's view-update dependency graph.
+
+- [ ] **PiP drag throttle: tunear 30Hz vs 60Hz**
+    - 30Hz: smooth pero "movimiento algo buggy pero pasable" según user feedback. Stable, no causa AttributeGraph cycles.
+    - 60Hz: smoothness ideal pero causa cycles + slowdown 3x del export.
+    - Posiblemente la causa raíz NO es el throttle sino el rebuild del `videoComposition`. Investigar: ¿se puede actualizar el camera position SIN rebuilear toda la composición? (e.g., custom MaskedVideoCompositor que lea de un publisher live).
+    - Decisión actual: 30Hz estable. Optimización futura.
+
+---
+
 ## 🟠 UX Polish — backlog del PR #5 (2026-05-12)
 
 > Items detectados durante el review de UI/UX en la branch `feat/ui-refinements-macos13-compat`. Ninguno bloqueante.
