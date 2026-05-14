@@ -332,6 +332,12 @@ extension CaptureEngine {
                 let success = adaptor.append(pixelBuffer, withPresentationTime: relativeTime)
                 if !success, let writer = session.getVideoWriter() {
                     handleVideoWriterFailure(writer: writer, session: session, frame: videoFrameCount)
+                } else if videoFrameCount % 60 == 1, let writer = session.getVideoWriter(), writer.status != .writing {
+                    // Defensive: sometimes the writer transitions to .failed without
+                    // append() returning false (observed in B1 ultrawide bug + CMIO
+                    // background-replacement noise). Sample status periodically so we
+                    // catch the stealth failure instead of accumulating doomed frames.
+                    handleVideoWriterFailure(writer: writer, session: session, frame: videoFrameCount)
                 }
             } else {
                 if videoFrameCount < 10 {
@@ -399,6 +405,8 @@ extension CaptureEngine {
                audioInput.isReadyForMoreMediaData {
                 let success = audioInput.append(adjustedSampleBuffer)
                 if !success, let writer = session.getAudioWriter() {
+                    handleAudioWriterFailure(writer: writer, session: session, frame: audioFrameCount)
+                } else if audioFrameCount % 100 == 1, let writer = session.getAudioWriter(), writer.status != .writing {
                     handleAudioWriterFailure(writer: writer, session: session, frame: audioFrameCount)
                 }
             }

@@ -102,6 +102,19 @@ final class PreviewPlayerViewModel: ObservableObject {
     }
 
     func load(project: Project?, projectDirectory: URL?) {
+        // Defer the entire body to a fresh Task so @Published mutations don't
+        // happen during SwiftUI's view-update cycle. Caller is `.task(id:)`
+        // which fires synchronously the first time the id resolves; running
+        // our @Published assignments directly there triggers
+        // "Publishing changes from within view updates is not allowed".
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            await Task.yield()
+            await self.performLoad(project: project, projectDirectory: projectDirectory)
+        }
+    }
+
+    private func performLoad(project: Project?, projectDirectory: URL?) async {
         guard let project, let projectDirectory else {
             reset()
             return
@@ -136,27 +149,49 @@ final class PreviewPlayerViewModel: ObservableObject {
             )
         )
 
-        Task {
-            do {
-                try await engine.loadProject(project, projectDirectory: projectDirectory.path)
-                let player = await engine.player
+        do {
+            try await engine.loadProject(project, projectDirectory: projectDirectory.path)
+            let player = await engine.player
 
-                // Class is @MainActor and Task inherits its context — no extra hop needed.
+            // MainActor.run keeps these mutations out of any SwiftUI body cycle
+            // the awaited continuation may have landed in.
+            await MainActor.run {
                 self.previewEngine = engine
                 self.avPlayer = player
                 self.loadError = nil
                 self.currentTime = 0
                 self.setupPlayerObservers()
-                // Push the effective plan now that the engine is ready
-                // (covers plans set via setZoomPlan before loadProject finished).
                 self.applyEffectiveZoomPlan()
-            } catch {
+            }
+        } catch {
+            await MainActor.run {
                 self.loadError = error.localizedDescription
                 self.previewEngine = nil
                 self.avPlayer = nil
                 self.currentFrame = nil
             }
         }
+    }
+
+    /// Push a camera-position-only draft directly to the engine, bypassing
+    /// `editor.project` publication + the 150ms debounce in PreviewPlayerView.
+    /// Used by PiPCanvasEditor during an active drag so the live AVPlayer
+    /// reflects the in-progress position. The official editor.project update
+    /// happens on gesture release (via the existing commitCamera path); this
+    /// just keeps the visual in sync mid-drag.
+    /// Hits `PreviewEngine.updateProject` light path (camera position alone
+    /// doesn't change render size or clip count) → `currentItem.videoComposition`
+    /// is swapped in-place, no AVPlayer recreation, no playback reset.
+    func previewCameraDraft(_ camera: Project.Canvas.Layout.CameraPosition, segmentId: String?) {
+        guard let baseProject = project, let engine = previewEngine else { return }
+        var temp = baseProject
+        if let segId = segmentId,
+           let idx = temp.timeline.segments.firstIndex(where: { $0.id == segId }) {
+            temp.timeline.segments[idx].cameraPosition = camera
+        } else {
+            temp.canvas.layout.camera = camera
+        }
+        Task { try? await engine.updateProject(temp) }
     }
 
     /// Rebuild the preview composition when project settings change
@@ -178,11 +213,13 @@ final class PreviewPlayerViewModel: ObservableObject {
                 try await engine.updateProject(project)
                 let player = await engine.player
 
-                // Class is @MainActor — Task inherits.
-                if self.avPlayer !== player {
-                    self.removePlayerObservers()
-                    self.avPlayer = player
-                    self.setupPlayerObservers()
+                // MainActor.run NOT redundant — see comment in load(...).
+                await MainActor.run {
+                    if self.avPlayer !== player {
+                        self.removePlayerObservers()
+                        self.avPlayer = player
+                        self.setupPlayerObservers()
+                    }
                 }
             } catch {
                 LogError(.preview, "Failed to refresh preview: \(error.localizedDescription)")
