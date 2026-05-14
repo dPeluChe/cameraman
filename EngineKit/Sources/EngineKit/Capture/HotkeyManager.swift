@@ -333,7 +333,7 @@ public class HotkeyManager {
 
         let observer = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
 
-        InstallEventHandler(GetApplicationEventTarget(), { (nextHandler, theEvent, userData) -> OSStatus in
+        let status = InstallEventHandler(GetApplicationEventTarget(), { (nextHandler, theEvent, userData) -> OSStatus in
             guard let userData = userData else {
                 return eventNotHandledErr
             }
@@ -341,6 +341,9 @@ public class HotkeyManager {
             let manager = Unmanaged<HotkeyManager>.fromOpaque(userData).takeUnretainedValue()
             return manager.handleHotkeyEvent(theEvent)
         }, 1, &spec, observer, nil)
+        if status != noErr {
+            LogError(.capture, "[HotkeyManager] InstallEventHandler failed with status: \(status)")
+        }
     }
 
     private func handleHotkeyEvent(_ event: AnyObject?) -> OSStatus {

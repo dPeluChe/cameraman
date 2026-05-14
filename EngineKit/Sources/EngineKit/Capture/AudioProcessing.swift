@@ -70,8 +70,10 @@ public final class AudioProcessor {
         rms = sqrt(rms)
         
         let thresholdLinear = pow(10, config.noiseGateThreshold / 20)
-        
-        let attackCoef = Float(exp(-1.0 / (config.noiseGateAttack * sampleRate)))
+
+        // attack coef is not used yet — the gate currently jumps to 1.0 on
+        // crossing the threshold without smoothing. Keeping `releaseCoef` only
+        // preserves observed behavior. See TASK_TODO Fase 4 noise gate item.
         let releaseCoef = Float(exp(-1.0 / (config.noiseGateRelease * sampleRate)))
         
         if rms > thresholdLinear {
