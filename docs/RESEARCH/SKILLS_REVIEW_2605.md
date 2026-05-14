@@ -165,3 +165,56 @@ Si decides aplicar todo, este orden minimiza riesgo y maximiza valor:
 ## Gap conocido
 
 Ningún skill instalado cubre **AVFoundation / ScreenCaptureKit / AVMutableComposition / pipeline de zoom keyframado**, que es el core técnico de cameraman. Esto valida el TODO `Crear skill propio cameraman-engine` agregado en `TASK_TODO.md` el 2026-05-14.
+
+---
+
+## Round 2 — Validación post-commits + warnings (2026-05-14)
+
+Después de aplicar los 8 commits del round 1 se re-validaron los archivos modificados contra los checklists. Resumen:
+
+### Re-lectura de archivos modificados
+
+- **`LoggingSystem.swift`** — signposts emparejados ✅, formatter cacheado ✅. Observación menor: el map `activeSignpostIDs` puede crecer si los callers olvidan llamar `endSignpost`. No bloqueante, dejar como tech debt si se vuelve un problema en profiling real.
+- **`PreviewPlayerViewModel.swift`** — `MainActor.run` redundante eliminado ✅. Observación menor: línea 119 mantiene `project.primarySources!.screen.path` con force unwrap tras un guard de nil. Cosmético.
+- **`TimelineView.swift`** — ID estable en overlay rows ✅. El opcional follow-up de cachear `TimelineTrackBuilder.tracks` requeriría extraer una sub-view; queda como mejora futura.
+- **`ThumbnailCache.swift`** — keys quantizadas + APIs modernizadas ✅. `getCacheStats() -> [String: Any]` sigue untyped (decisión: API de telemetría, no vale la pena tiparla ahora).
+- **`ProjectEditor.swift`** — DRY aplicado ✅, `recordCommand` huérfano eliminado ✅. Nota: `applyCanvasUpdate` y `performEdit` son helpers paralelos para canvas vs editor-model. Podrían unificarse pero la diferencia de retorno (`Bool` vs `EditorResult`) lo justifica.
+
+**Veredicto:** ningún hallazgo nuevo significativo. Los cambios del round 1 no introdujeron regresiones detectables vía revisión estática.
+
+### Eliminación de warnings
+
+Build limpio expuso **15 warnings** (más de los 4 que vimos en el reporte original — el cache del build los ocultaba):
+
+| # | Archivo | Tipo | Estado |
+|---|---|---|---|
+| 1 | `AudioProcessing.swift:74` | unused `attackCoef` | ✅ eliminado (commit 9) |
+| 2 | `HotkeyManager.swift:336` | `InstallEventHandler` result discarded | ✅ eliminado con log (commit 9) |
+| 3-7 | `LocalAIProvider.swift:259-272` | non-Sendable captures en @Sendable closure | ✅ eliminado vía `UncheckedSendableAVPipeline` (commit 11) |
+| 8-12 | `EditCommand.swift` | Sendable struct con stored Project non-Sendable | ✅ eliminado vía `@preconcurrency import EngineKit` (commit 12) |
+| 13 | `EditCommand.swift:9` | sugerencia explicíta de `@preconcurrency` | ✅ aplicada (commit 12) |
+| 14-15 | `MaskedVideoCompositor.swift:150,155` | Sendable function-type mismatch en AVVideoCompositing protocol | ⚠️ **irreducible** — documentado en commit 10 |
+
+**Resultado:** 13 warnings eliminados, 2 remanentes documentados.
+
+### Sobre los 2 warnings residuales
+
+`AVVideoCompositing` anota `sourcePixelBufferAttributes` y `requiredPixelBufferAttributesForRenderContext` con `NS_SWIFT_SENDABLE` en el lado ObjC. Esto exige que el getter sintetizado por Swift sea `@Sendable`, pero ningún syntax actual permite forzar `@Sendable` en el getter de una stored `let` de tipo `[String: Any]?`. Workarounds intentados que **NO** funcionan:
+
+- `@preconcurrency import AVFoundation` — la anotación NS_SWIFT_SENDABLE bypasses preconcurrency
+- `@preconcurrency` en la conformance → "has no effect"
+- Computed property `nonisolated public var` backed by `static let` → mismo warning
+- Cambiar tipo a `[String: any Sendable]?` → rompe el contrato del protocol
+
+Es un **bug/limitación SDK/compiler** que necesita fix de Apple. Mientras tanto, la forma `nonisolated(unsafe) let` es lo más cercano semánticamente correcto y el warning es informativo (no se promociona a error hasta `swift-tools-version: 6.x`).
+
+### Commits del round 2
+
+| # | Commit | Tipo |
+|---|---|---|
+| 9 | `chore: limpiar warnings menores en EngineKit` | cleanup |
+| 10 | `docs(compositor): documentar warning Sendable irreducible` | docs |
+| 11 | `fix(local-ai): wrap captures AVFoundation en Sendable box` | fix |
+| 12 | `fix(edit-command): @preconcurrency import EngineKit` | fix |
+
+Total branch: **12 commits de código** + 2 commits de docs (este + el inicial).
