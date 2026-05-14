@@ -230,8 +230,15 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
     var cachedOverlayKey: String?
     var cachedStaticImages: [String: CIImage] = [:]
     /// Loaded NSImages for image-overlays, keyed by absolute path. Avoids
-    /// re-reading the asset off disk on every frame.
+    /// re-reading the asset off disk on every frame. Bounded so long-running
+    /// previews with many distinct image overlays don't grow unbounded.
     var cachedOverlayAssets: [String: NSImage] = [:]
+    var cachedOverlayAssetOrder: [String] = []  // LRU access order
+    static let maxCachedAssets = 16
+    /// Pre-computed per-frame durations for GIFs, keyed by absolute path.
+    /// `setProperty(.currentFrame) + read(.currentFrameDuration)` is slow on
+    /// NSBitmapImageRep; we did it on every gifFrame call. Now it's per-asset.
+    var cachedGifDurations: [String: [TimeInterval]] = [:]
     var lastZoomLogSecond: Int = -1
 
     static let sharedRenderColorSpace = CGColorSpaceCreateDeviceRGB()

@@ -34,7 +34,7 @@ extension MaskedVideoCompositor {
            frameCount > 1 {
             // Animated GIF — pick the frame whose cumulative duration window
             // contains `elapsed`, wrapping if the elapsed exceeds the loop.
-            cgImage = gifFrame(bitmapRep: bitmapRep, frameCount: frameCount, elapsed: elapsed)
+            cgImage = gifFrame(bitmapRep: bitmapRep, frameCount: frameCount, elapsed: elapsed, cacheKey: path)
         } else {
             // Static (PNG/JPG/SVG/single-frame GIF) — rasterize to the target
             // size. For SVG this is the rasterization step that vectorizes
@@ -64,9 +64,14 @@ extension MaskedVideoCompositor {
         }
     }
 
-    /// Load (or fetch cached) NSImage for the given asset path.
+    /// Load (or fetch cached) NSImage for the given asset path. Maintains a
+    /// bounded LRU so a long-running session with many distinct images can't
+    /// grow this cache unbounded.
     private func loadImageAsset(path: String) -> NSImage? {
         if let cached = cachedOverlayAssets[path] {
+            // Bump LRU recency: move path to the end of the access order.
+            cachedOverlayAssetOrder.removeAll { $0 == path }
+            cachedOverlayAssetOrder.append(path)
             return cached
         }
         guard FileManager.default.fileExists(atPath: path),
@@ -74,21 +79,43 @@ extension MaskedVideoCompositor {
             return nil
         }
         cachedOverlayAssets[path] = image
+        cachedOverlayAssetOrder.append(path)
+        // Evict the oldest if we've grown past the cap.
+        while cachedOverlayAssets.count > Self.maxCachedAssets,
+              let oldest = cachedOverlayAssetOrder.first {
+            cachedOverlayAssetOrder.removeFirst()
+            cachedOverlayAssets.removeValue(forKey: oldest)
+            cachedGifDurations.removeValue(forKey: oldest)
+        }
         return image
     }
 
     /// Pick a GIF frame for the given elapsed time. Loops when elapsed >
-    /// total loop duration.
-    private func gifFrame(bitmapRep: NSBitmapImageRep, frameCount: Int, elapsed: TimeInterval) -> CGImage? {
-        // Sum frame durations to find total loop length. Per-frame durations
-        // are queried by setting currentFrame then reading currentFrameDuration.
-        var durations: [TimeInterval] = []
-        for i in 0..<frameCount {
-            bitmapRep.setProperty(.currentFrame, withValue: i)
-            let d = (bitmapRep.value(forProperty: .currentFrameDuration) as? TimeInterval) ?? 0.1
-            // Many GIFs encode 0/very-short delays; clamp to ~24fps min.
-            durations.append(max(d, 0.04))
+    /// total loop duration. Caches per-frame durations per asset path —
+    /// computing them requires `setProperty + read` for every frame which is
+    /// slow on NSBitmapImageRep.
+    private func gifFrame(
+        bitmapRep: NSBitmapImageRep,
+        frameCount: Int,
+        elapsed: TimeInterval,
+        cacheKey: String
+    ) -> CGImage? {
+        let durations: [TimeInterval]
+        if let cached = cachedGifDurations[cacheKey] {
+            durations = cached
+        } else {
+            var computed: [TimeInterval] = []
+            computed.reserveCapacity(frameCount)
+            for i in 0..<frameCount {
+                bitmapRep.setProperty(.currentFrame, withValue: i)
+                let d = (bitmapRep.value(forProperty: .currentFrameDuration) as? TimeInterval) ?? 0.1
+                // Many GIFs encode 0/very-short delays; clamp to ~24fps min.
+                computed.append(max(d, 0.04))
+            }
+            cachedGifDurations[cacheKey] = computed
+            durations = computed
         }
+
         let total = durations.reduce(0, +)
         guard total > 0 else {
             bitmapRep.setProperty(.currentFrame, withValue: 0)
