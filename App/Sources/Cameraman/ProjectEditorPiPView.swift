@@ -238,6 +238,13 @@ struct PiPCanvasEditor: View {
     @State private var dragSnapshot: Project?
     @State private var resizeStartCamera: Project.Canvas.Layout.CameraPosition?
     @State private var resizeSnapshot: Project?
+    /// Last time we pushed a camera draft to the engine. DragGesture fires at
+    /// 60–120 Hz on ProMotion, but the AVPlayer doesn't benefit from updates
+    /// faster than the display refresh, and each call rebuilds the
+    /// videoComposition. Throttling to ~33ms (≈30Hz) is visually smooth and
+    /// halves the work.
+    @State private var lastDraftPush: Date = .distantPast
+    private static let draftThrottle: TimeInterval = 1.0 / 30.0
     /// Live preview of the camera during an active drag/resize. While non-nil,
     /// the canvas renders from this instead of the committed `camera` prop —
     /// the project (and AVPlayer rebuild) is only updated on gesture end.
@@ -268,6 +275,16 @@ struct PiPCanvasEditor: View {
                 _ = await editor.updateCameraPosition(cam)
             }
         }
+    }
+
+    /// Push the draft to the engine, throttled to ~30Hz to avoid rebuilding the
+    /// videoComposition on every gesture tick (DragGesture can fire at 120Hz
+    /// on ProMotion displays).
+    private func pushDraftIfNeeded(_ camera: Project.Canvas.Layout.CameraPosition) {
+        let now = Date()
+        guard now.timeIntervalSince(lastDraftPush) >= Self.draftThrottle else { return }
+        lastDraftPush = now
+        playerViewModel?.previewCameraDraft(camera, segmentId: selectedSegmentId)
     }
 
     var body: some View {
@@ -358,7 +375,7 @@ struct PiPCanvasEditor: View {
                 // Live preview: push the draft directly to the engine so the
                 // AVPlayer reflects the new position without waiting for the
                 // gesture to end (editor.project publish + 150ms debounce).
-                playerViewModel?.previewCameraDraft(next, segmentId: selectedSegmentId)
+                pushDraftIfNeeded(next)
             }
             .onEnded { value in
                 let base = dragStartCamera ?? camera
@@ -393,7 +410,7 @@ struct PiPCanvasEditor: View {
                     deltaY: Double(value.translation.height / size.height)
                 )
                 draftCamera = next
-                playerViewModel?.previewCameraDraft(next, segmentId: selectedSegmentId)
+                pushDraftIfNeeded(next)
             }
             .onEnded { value in
                 let base = resizeStartCamera ?? camera

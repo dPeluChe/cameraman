@@ -251,7 +251,9 @@ extension PreviewEngine {
 
                     videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
                     videoComposition.instructions = maskedInstructions
-                    logger.debug("Built \(maskedInstructions.count) per-segment compositor instructions")
+                    // Note: no log here — buildVideoComposition runs on every PiP drag
+                    // tick during live preview and floods the console (hundreds of
+                    // identical entries per second). Export side has its own log.
                     return videoComposition
                 }
 
