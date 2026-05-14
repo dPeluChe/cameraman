@@ -21,6 +21,36 @@
 
 ---
 
+## 🔬 Hallazgos del test session 2026-05-14
+
+> Prueba real de grabar + exportar sobre branch `review/skills-baseline-2605` en display ultrawide 3440x1440 (el mismo del bloqueante B1). Recording 14.5s → export web_1080_h264 6.3s, 15.4MB. **Funcionó end-to-end** — el writer terminó OK esta vez. Hallazgos del log + observación del usuario:
+
+- [ ] **🐛 Regresión: PiP camera overlay drag-to-reposition no funciona durante playback**
+    - Solo permite reposicionar cuando el preview está en pausa; antes funcionaba durante playback.
+    - Ningún commit del review tocó el gesture de PiP (`ProjectEditorPiPView` + `editor.updateCameraPosition`) directamente.
+    - Sospechosos por proximidad: commit `b7b2ebf` (PreviewPlayerViewModel sin `MainActor.run` redundante) cambió cómo se programan algunos updates desde la VM; también la regla `transaction.animation = nil` en `ConfigGroup` introducida en PR #5 puede estar interfiriendo con `DragGesture` durante playback.
+    - Acciones: bisect entre `main` y la branch para localizar el commit; si es nuestro, ajustar; si es pre-existente, investigar el gesture handler directamente.
+
+- [ ] **📋 Refine B1: instrumentar `-10877` + CMIO background replacement aunque no fallen**
+    - El log mostró los mismos precursores del bloqueante B1 (`throwing -10877` x2, `CMIO_DAL_CMIOExtension_Stream:GetPropertyData background replacement pixel buffer size invalid`, `CMIOHardware.cpp:331 Error: 2003332927`) pero esta vez el writer **no** falló (status=2 completed).
+    - Confirma la hipótesis del B1: el ruido viene de VFX de Messages (`__vfx_script_confetti/thumbsup/balloons/fireworks/hearts/lasers/rain` cargándose durante captura). En este run fueron benignos; en B1 escalaron a writer.failed.
+    - Acción: loguear cuántos `-10877` ocurren por sesión + correlacionar con `writer.status` para tener telemetría que confirme la causa raíz antes de invertir en mitigación.
+
+- [ ] **📋 Audio: `HALC_ProxyIOContext::IOWorkLoop: skipping cycle due to overload`**
+    - Aparece 2x en el log (una durante grabación, otra durante preview). Indica saturación del proxy de audio del sistema — puede causar audio drift en sesiones largas.
+    - Acción: instrumentar duración de cada cycle de audio en `MicAudioRecorder` + `SystemAudioRecorder`. Si en sesiones >5min se ven >N overloads, evaluar bajar sample rate, simplificar el procesamiento, o usar `AVAudioEngine` en lugar de `AudioQueue`.
+    - Conecta con TASK 'Validación de performance (larga duración)' de Fase 3.
+
+- [ ] **📋 UI debug: `Attempting to update all DD element frames, but bounds W:0 H:0`**
+    - Aparece 1x en preview. Probablemente Drag & Drop interno del sistema o RealityKit (DD = Drag & Drop o Display Devices), no necesariamente nuestro código.
+    - Acción: low priority. Reproducir con view debugger activo si vuelve a aparecer, identificar qué view está midiendo cero. Si es nuestro, fix; si es del sistema, ignorar.
+
+- [ ] **🧹 Limpieza de logs ruidosos antes de release**
+    - Los logs reales contienen mucho ruido del sistema (entity remap warnings de Messages VFX, `MLE5Engine disabled`, `ViewBridge to RemoteViewService Terminated`, `AddInstanceForFactory: No factory registered`, `AudioQueueObject Error -4 getting reporterIDs`). No son nuestros pero ahogan los logs útiles.
+    - Acción: revisar qué logs en `LoggingSystem` (categoría capture/preview/export) están en nivel `info`/`notice` cuando deberían estar en `debug`. Reducir verbosidad sin perder señal de errores reales.
+
+---
+
 ## 🟠 UX Polish — backlog del PR #5 (2026-05-12)
 
 > Items detectados durante el review de UI/UX en la branch `feat/ui-refinements-macos13-compat`. Ninguno bloqueante.
