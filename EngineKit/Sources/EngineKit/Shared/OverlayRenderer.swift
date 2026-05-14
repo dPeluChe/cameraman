@@ -13,21 +13,21 @@ import CoreText
 extension MaskedVideoCompositor {
 
     /// Render overlay shapes to a transparent CIImage layer (cacheable)
-    func renderOverlayLayer(_ overlays: [(OverlayConfig, Double)], renderSize: CGSize) -> CIImage {
+    func renderOverlayLayer(_ overlays: [(OverlayConfig, Double)], currentTime: TimeInterval, renderSize: CGSize) -> CIImage {
         let clearImage = CIImage(color: .clear).cropped(to: CGRect(origin: .zero, size: renderSize))
         guard let ctx = createBGRAContext(size: renderSize) else { return clearImage }
 
         ctx.clear(CGRect(origin: .zero, size: renderSize))
 
         for (overlay, opacity) in overlays {
-            renderOverlay(overlay, opacity: opacity, in: ctx, renderSize: renderSize)
+            renderOverlay(overlay, opacity: opacity, currentTime: currentTime, in: ctx, renderSize: renderSize)
         }
 
         guard let cgImage = ctx.makeImage() else { return clearImage }
         return CIImage(cgImage: cgImage)
     }
 
-    private func renderOverlay(_ overlay: OverlayConfig, opacity: Double, in ctx: CGContext, renderSize: CGSize) {
+    private func renderOverlay(_ overlay: OverlayConfig, opacity: Double, currentTime: TimeInterval, in ctx: CGContext, renderSize: CGSize) {
         guard opacity > 0.01 else { return }
         let overlayType = Project.Overlay.OverlayType(rawValue: overlay.type) ?? .rect
         let baseSize = OverlayBaseSize.size(for: overlayType, canvasSize: renderSize)
@@ -60,6 +60,11 @@ extension MaskedVideoCompositor {
             renderLineShape(in: ctx, size: size, color: color, strokeWidth: overlay.strokeWidth)
         case .text:
             renderTextShape(in: ctx, size: size, text: overlay.text ?? "Text", fontSize: overlay.fontSize ?? 24, fontColor: overlay.fontColor ?? "#FFFFFF", bgColor: overlay.bgColor)
+        case .image:
+            if let path = overlay.imagePath {
+                let elapsed = currentTime - overlay.start
+                renderImageOverlay(path: path, elapsed: elapsed, opacityMultiplier: overlay.imageOpacity, in: ctx, size: size)
+            }
         }
 
         ctx.restoreGState()

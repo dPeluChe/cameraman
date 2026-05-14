@@ -374,6 +374,26 @@ extension ExportEngine {
                 textLayer.backgroundColor = NSColor(hex: bg).cgColor
             }
             containerLayer.addSublayer(textLayer)
+
+        case .image:
+            // Image overlays for export: load the asset and place it as a
+            // CALayer contents. GIF animation isn't reproduced by CALayer.contents
+            // here (it would need a CAKeyframeAnimation over .contents) — for
+            // GIFs the export currently shows the first frame. PNG/JPG/SVG
+            // render correctly.
+            if let path = overlay.style.imagePath,
+               FileManager.default.fileExists(atPath: path),
+               let nsImage = NSImage(contentsOfFile: path) {
+                var proposed = CGRect(origin: .zero, size: CGSize(width: scaledW, height: scaledH))
+                if let cg = nsImage.cgImage(forProposedRect: &proposed, context: nil, hints: nil) {
+                    let imageLayer = CALayer()
+                    imageLayer.contents = cg
+                    imageLayer.contentsGravity = .resizeAspect
+                    imageLayer.frame = CGRect(origin: .zero, size: CGSize(width: scaledW, height: scaledH))
+                    imageLayer.opacity = Float(overlay.style.imageOpacity ?? 1.0)
+                    containerLayer.addSublayer(imageLayer)
+                }
+            }
         }
 
         shapeLayer.addSublayer(containerLayer)

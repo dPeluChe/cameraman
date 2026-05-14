@@ -154,6 +154,13 @@ extension PreviewEngine {
 
         case .text:
             try renderText(overlay, in: context)
+
+        case .image:
+            // Image overlays are rendered by MaskedVideoCompositor; the
+            // SwiftUI-side PreviewRenderer doesn't draw them (it's used for
+            // proxy thumbnails / static frames where image overlays are not
+            // a primary concern).
+            break
         }
 
         // Restore context state

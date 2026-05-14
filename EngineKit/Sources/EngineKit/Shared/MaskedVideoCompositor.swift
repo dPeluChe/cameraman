@@ -7,6 +7,7 @@
 //
 
 @preconcurrency import AVFoundation
+import AppKit
 import CoreImage
 import CoreGraphics
 
@@ -32,6 +33,11 @@ public struct OverlayConfig: Codable, Sendable {
     public let animationType: String?
     public let fadeInDuration: TimeInterval
     public let fadeOutDuration: TimeInterval
+    /// Resolved absolute path to image asset (only set when type == .image).
+    /// Compositor needs an absolute path because it has no access to the
+    /// project directory at render time.
+    public let imagePath: String?
+    public let imageOpacity: Double
 
     public init(overlay: Project.Overlay) {
         self.id = overlay.id.uuidString
@@ -52,6 +58,8 @@ public struct OverlayConfig: Codable, Sendable {
         self.animationType = overlay.animation?.type.rawValue
         self.fadeInDuration = overlay.animation?.fadeInDuration ?? 0
         self.fadeOutDuration = overlay.animation?.fadeOutDuration ?? 0
+        self.imagePath = overlay.style.imagePath
+        self.imageOpacity = overlay.style.imageOpacity ?? 1.0
     }
 
     /// Compute the overlay's opacity at a given composition time. Honors the
@@ -221,6 +229,9 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
     var cachedOverlayImage: CIImage?
     var cachedOverlayKey: String?
     var cachedStaticImages: [String: CIImage] = [:]
+    /// Loaded NSImages for image-overlays, keyed by absolute path. Avoids
+    /// re-reading the asset off disk on every frame.
+    var cachedOverlayAssets: [String: NSImage] = [:]
     var lastZoomLogSecond: Int = -1
 
     static let sharedRenderColorSpace = CGColorSpaceCreateDeviceRGB()
@@ -425,7 +436,7 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
             cacheLock.unlock()
         } else {
             cacheLock.unlock()
-            let rendered = renderOverlayLayer(withOpacity, renderSize: renderSize)
+            let rendered = renderOverlayLayer(withOpacity, currentTime: currentTime, renderSize: renderSize)
             cacheLock.lock()
             cachedOverlayImage = rendered
             cachedOverlayKey = overlayKey

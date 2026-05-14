@@ -24,6 +24,28 @@ extension OverlayEditorView {
             renderLine(overlay, in: rect)
         case .text:
             renderText(overlay, in: rect)
+        case .image:
+            renderImage(overlay, in: rect)
+        }
+    }
+
+    @ViewBuilder
+    func renderImage(_ overlay: Project.Overlay, in rect: CGRect) -> some View {
+        if let path = overlay.style.imagePath,
+           let nsImage = NSImage(contentsOfFile: path) {
+            Image(nsImage: nsImage)
+                .resizable()
+                .scaledToFit()
+                .opacity(overlay.style.imageOpacity ?? 1.0)
+                .frame(width: rect.width, height: rect.height)
+                .position(x: rect.midX, y: rect.midY)
+        } else {
+            // Missing asset — show a placeholder so the user sees something is broken
+            Image(systemName: "photo.badge.exclamationmark")
+                .font(.system(size: min(rect.width, rect.height) * 0.5))
+                .foregroundStyle(.secondary)
+                .frame(width: rect.width, height: rect.height)
+                .position(x: rect.midX, y: rect.midY)
         }
     }
 

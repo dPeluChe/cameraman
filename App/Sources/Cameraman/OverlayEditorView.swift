@@ -75,6 +75,7 @@ struct OverlayEditorView: View {
         case .rect: return "rectangle"
         case .line: return "line.diagonal"
         case .text: return "textformat"
+        case .image: return "photo"
         }
     }
 }
