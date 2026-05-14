@@ -20,7 +20,15 @@ extension OverlayEditorView {
 
     func addOverlayAtPlayhead(type: Project.Overlay.OverlayType) {
         let start = playheadTime
-        let end = min(start + 3.0, editor.project.timeline.duration)
+        // Default to 2s window — user can drag the timeline clip to extend.
+        // Cap to remaining timeline; if remaining is tiny, fall back to whatever
+        // fits (down to a 0.5s minimum) to avoid the "end ≤ start" validation
+        // error when adding near the end.
+        let remaining = editor.project.timeline.duration - start
+        let defaultDuration: TimeInterval = 2.0
+        let duration = max(0.5, min(defaultDuration, remaining))
+        let end = start + duration
+
         let transform = Project.Overlay.Transform(x: 0.3, y: 0.3, scale: 1.0)
         let style = Project.Overlay.Style(
             stroke: "#FF3B30",
@@ -28,6 +36,17 @@ extension OverlayEditorView {
             shadow: true,
             text: type == .text ? "Text" : nil
         )
+        // fadeInOut by default — user expectation is "the overlay fades in,
+        // shows, fades out" within its timeline window. The previous default
+        // of `nil` rendered hard cuts. Fade durations capped to ¼ of overlay
+        // duration each, max 0.3s, so they never overlap or exceed.
+        let fadeDuration = min(0.3, duration / 4)
+        let animation = Project.Overlay.Animation(
+            type: .fadeInOut,
+            fadeInDuration: fadeDuration,
+            fadeOutDuration: fadeDuration
+        )
+
         let overlay = Project.Overlay(
             id: UUID(),
             type: type,
@@ -35,7 +54,7 @@ extension OverlayEditorView {
             end: end,
             transform: transform,
             style: style,
-            animation: nil
+            animation: animation
         )
         Task {
             _ = await editor.addOverlay(projectId: editor.project.projectId, overlay: overlay)
