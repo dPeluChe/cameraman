@@ -5,8 +5,10 @@
 //  Created by Ralphy on 2026-01-20.
 //
 
+import AppKit
 import SwiftUI
 import EngineKit
+import UniformTypeIdentifiers
 
 extension OverlayEditorView {
     // MARK: - Helper Methods
@@ -14,13 +16,79 @@ extension OverlayEditorView {
     func selectTool(_ tool: OverlayTool) {
         selectedTool = tool
         selectedOverlayId = nil
-        // Auto-create overlay at playhead with default position
-        addOverlayAtPlayhead(type: tool.overlayType)
+        if tool == .image {
+            // Image needs a file → open NSOpenPanel before adding the overlay.
+            // The drop-on-preview path is still available for users who prefer
+            // dragging from Finder.
+            openImagePickerForOverlay()
+        } else {
+            addOverlayAtPlayhead(type: tool.overlayType)
+        }
+    }
+
+    func openImagePickerForOverlay() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.message = "Select an image, SVG, or GIF to add as overlay"
+        // .image as content type covers PNG, JPEG, HEIC, GIF and many more.
+        // SVG (public.svg-image) isn't a child of .image on macOS so add it
+        // explicitly.
+        panel.allowedContentTypes = [.image, .svg, .gif]
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            Task { @MainActor in
+                addImageOverlayAtPlayhead(imagePath: url.path)
+            }
+        }
+    }
+
+    func addImageOverlayAtPlayhead(imagePath: String) {
+        let start = playheadTime
+        let remaining = editor.project.timeline.duration - start
+        let duration = max(0.5, min(2.0, remaining))
+        let end = start + duration
+        let fadeDuration = min(0.3, duration / 4)
+
+        let overlay = Project.Overlay(
+            id: UUID(),
+            type: .image,
+            start: start,
+            end: end,
+            // Center the image at (0.5, 0.5) in renderer convention — visually
+            // dead-center of the preview canvas.
+            transform: Project.Overlay.Transform(x: 0.5, y: 0.5, scale: 1.0),
+            style: Project.Overlay.Style(
+                stroke: "#FFFFFF",
+                strokeWidth: 0,
+                shadow: false,
+                imagePath: imagePath,
+                imageOpacity: 1.0
+            ),
+            animation: Project.Overlay.Animation(
+                type: .fadeInOut,
+                fadeInDuration: fadeDuration,
+                fadeOutDuration: fadeDuration
+            )
+        )
+        Task {
+            _ = await editor.addOverlay(projectId: editor.project.projectId, overlay: overlay)
+            await MainActor.run { selectedOverlayId = overlay.id }
+        }
     }
 
     func addOverlayAtPlayhead(type: Project.Overlay.OverlayType) {
         let start = playheadTime
-        let end = min(start + 3.0, editor.project.timeline.duration)
+        // Default to 2s window — user can drag the timeline clip to extend.
+        // Cap to remaining timeline; if remaining is tiny, fall back to whatever
+        // fits (down to a 0.5s minimum) to avoid the "end ≤ start" validation
+        // error when adding near the end.
+        let remaining = editor.project.timeline.duration - start
+        let defaultDuration: TimeInterval = 2.0
+        let duration = max(0.5, min(defaultDuration, remaining))
+        let end = start + duration
+
         let transform = Project.Overlay.Transform(x: 0.3, y: 0.3, scale: 1.0)
         let style = Project.Overlay.Style(
             stroke: "#FF3B30",
@@ -28,6 +96,17 @@ extension OverlayEditorView {
             shadow: true,
             text: type == .text ? "Text" : nil
         )
+        // fadeInOut by default — user expectation is "the overlay fades in,
+        // shows, fades out" within its timeline window. The previous default
+        // of `nil` rendered hard cuts. Fade durations capped to ¼ of overlay
+        // duration each, max 0.3s, so they never overlap or exceed.
+        let fadeDuration = min(0.3, duration / 4)
+        let animation = Project.Overlay.Animation(
+            type: .fadeInOut,
+            fadeInDuration: fadeDuration,
+            fadeOutDuration: fadeDuration
+        )
+
         let overlay = Project.Overlay(
             id: UUID(),
             type: type,
@@ -35,7 +114,7 @@ extension OverlayEditorView {
             end: end,
             transform: transform,
             style: style,
-            animation: nil
+            animation: animation
         )
         Task {
             _ = await editor.addOverlay(projectId: editor.project.projectId, overlay: overlay)
@@ -266,6 +345,17 @@ extension OverlayEditorView {
                 color: "#000000",
                 bg: nil,
                 text: "Text"
+            )
+        case .image:
+            // Image style defaults — actual imagePath is set by the file
+            // picker / drop flow; defaultStyle is only used by tools that
+            // create-on-select. Image tool opens a picker first.
+            return Project.Overlay.Style(
+                stroke: "#FFFFFF",
+                strokeWidth: 0.0,
+                shadow: false,
+                imagePath: nil,
+                imageOpacity: 1.0
             )
         }
     }

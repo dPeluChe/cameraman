@@ -305,7 +305,7 @@ struct TimelineView: View {
                 if track.kind == .overlay {
                     let overlayRows = Self.computeOverlayRows(overlays: track.overlays)
                     VStack(spacing: 4) {
-                        ForEach(overlayRows) { row in
+                        ForEach(Array(overlayRows.enumerated()), id: \.element.id) { index, row in
                             TimelineOverlayTrackRow(
                                 editor: editor,
                                 overlays: row.overlays,
@@ -325,7 +325,11 @@ struct TimelineView: View {
                                             end: newStart + duration
                                         )
                                     }
-                                }
+                                },
+                                onPopoverOpened: { startTime in
+                                    playerViewModel.seek(to: startTime)
+                                },
+                                rowLabel: overlayRows.count > 1 ? "Overlay \(index + 1)" : "Overlays"
                             )
                             .frame(height: trackHeight)
                         }
@@ -363,7 +367,11 @@ struct TimelineView: View {
                             end: newStart + duration
                         )
                     }
-                }
+                },
+                onPopoverOpened: { startTime in
+                    playerViewModel.seek(to: startTime)
+                },
+                rowLabel: "Overlays"
             )
         } else {
             TimelineTrackRow(

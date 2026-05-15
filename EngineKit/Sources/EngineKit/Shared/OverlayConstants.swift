@@ -17,6 +17,7 @@ public enum OverlayBaseSize {
         case .rect: return CGSize(width: 0.25, height: 0.18)
         case .line: return CGSize(width: 0.30, height: 0.005)
         case .text: return CGSize(width: 0.35, height: 0.06)
+        case .image: return CGSize(width: 0.25, height: 0.25)
         }
     }
 
@@ -36,6 +37,7 @@ public enum OverlayDisplayInfo {
         case .rect: return "rectangle.fill"
         case .line: return "line.diagonal"
         case .text: return "textformat"
+        case .image: return "photo"
         }
     }
 
@@ -45,6 +47,7 @@ public enum OverlayDisplayInfo {
         case .rect: return "Rect"
         case .line: return "Line"
         case .text: return "Text"
+        case .image: return "Image"
         }
     }
 }

@@ -96,14 +96,26 @@ struct TimelineOverlayTrackRow: View {
     let height: TimelineScalar
     @Binding var selectedOverlayId: UUID?
     let onOverlayDragged: (UUID, TimeInterval) -> Void
+    var onPopoverOpened: ((TimeInterval) -> Void)? = nil
+    var rowLabel: String = "Overlays"
 
     @State private var overlayDragOffset: [UUID: TimelineScalar] = [:]
     @State private var popoverOverlayId: UUID?
 
     var body: some View {
-        ZStack(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Color.primary.opacity(0.06))
+        HStack(spacing: 0) {
+            // Label column — matches other track rows for visual alignment
+            Text(rowLabel)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .padding(.leading, 6)
+                .frame(width: layout.labelWidth, alignment: .leading)
+
+            // Content ZStack — xPosition uses layout.xPosition - labelWidth (same as other tracks)
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(Color.primary.opacity(0.06))
 
             ForEach(overlays) { overlay in
                 let duration = overlay.end - overlay.start
@@ -112,10 +124,10 @@ struct TimelineOverlayTrackRow: View {
                 let isSelected = overlay.id == selectedOverlayId
 
                 HStack(spacing: 2) {
-                    Image(systemName: overlayIcon(overlay.type))
+                    Image(systemName: OverlayDisplayInfo.icon(for: overlay.type))
                         .font(.system(size: 8))
                         .foregroundStyle(.white.opacity(0.8))
-                    Text(overlayTypeName(overlay.type))
+                    Text(OverlayDisplayInfo.label(for: overlay.type))
                         .font(.system(size: 8))
                         .foregroundStyle(.white)
                         .lineLimit(1)
@@ -132,19 +144,24 @@ struct TimelineOverlayTrackRow: View {
                                 lineWidth: isSelected ? 2 : 1)
                 )
                 .offset(x: xPosition + (overlayDragOffset[overlay.id] ?? 0))
-                .onTapGesture {
-                    if isSelected {
-                        popoverOverlayId = overlay.id
-                    } else {
-                        selectedOverlayId = overlay.id
-                    }
-                }
                 .popover(isPresented: Binding(
                     get: { popoverOverlayId == overlay.id },
                     set: { if !$0 { popoverOverlayId = nil } }
                 ), arrowEdge: .top) {
                     OverlayPopoverContent(editor: editor, overlayId: overlay.id)
                 }
+                // highPriority so the chip tap wins over the timeline's seek DragGesture(minimumDistance:0)
+                .highPriorityGesture(
+                    TapGesture()
+                        .onEnded {
+                            selectedOverlayId = overlay.id
+                            popoverOverlayId = overlay.id
+                            let fadeIn = overlay.animation?.fadeInDuration ?? 0
+                            let dur = overlay.end - overlay.start
+                            let seekTarget = overlay.start + min(fadeIn + 0.05, dur * 0.3)
+                            onPopoverOpened?(seekTarget)
+                        }
+                )
                 .highPriorityGesture(
                     DragGesture(minimumDistance: 4)
                         .onChanged { value in
@@ -157,16 +174,10 @@ struct TimelineOverlayTrackRow: View {
                             onOverlayDragged(overlay.id, deltaTime)
                         }
                 )
-                .help("Click to select, click again to edit properties")
+                .help("Click to select and edit properties")
             }
-        }
+            } // end content ZStack
+        } // end HStack
     }
 
-    private func overlayIcon(_ type: Project.Overlay.OverlayType) -> String {
-        OverlayDisplayInfo.icon(for: type)
-    }
-
-    private func overlayTypeName(_ type: Project.Overlay.OverlayType) -> String {
-        OverlayDisplayInfo.label(for: type)
-    }
 }

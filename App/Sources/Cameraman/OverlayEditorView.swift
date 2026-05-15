@@ -19,7 +19,7 @@ struct OverlayEditorView: View {
     @State var selectedTool: OverlayTool = .arrow
     @State var selectedOverlayId: UUID?
 
-    let availableTools: [OverlayTool] = [.arrow, .rect, .line, .text]
+    let availableTools: [OverlayTool] = [.arrow, .rect, .line, .text, .image]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -37,13 +37,13 @@ struct OverlayEditorView: View {
                 VStack(spacing: 4) {
                     ForEach(editor.project.overlays) { overlay in
                         HStack {
-                            Image(systemName: overlayIcon(overlay.type))
+                            Image(systemName: OverlayDisplayInfo.icon(for: overlay.type))
                                 .font(.caption)
                                 .frame(width: 16)
                             Text(overlay.type.rawValue.capitalized)
                                 .font(.caption)
                             Spacer()
-                            Text("\(String(format: "%.1f", overlay.start))s - \(String(format: "%.1f", overlay.end))s")
+                            Text("\(String(format: "%.2f", overlay.start))s - \(String(format: "%.2f", overlay.end))s")
                                 .font(.system(size: 9, design: .monospaced))
                                 .foregroundStyle(.tertiary)
                         }
@@ -69,12 +69,4 @@ struct OverlayEditorView: View {
         }
     }
 
-    private func overlayIcon(_ type: Project.Overlay.OverlayType) -> String {
-        switch type {
-        case .arrow: return "arrow.up.right"
-        case .rect: return "rectangle"
-        case .line: return "line.diagonal"
-        case .text: return "textformat"
-        }
-    }
 }

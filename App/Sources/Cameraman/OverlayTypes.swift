@@ -15,6 +15,7 @@ enum OverlayTool: CaseIterable {
     case rect
     case line
     case text
+    case image
 
     var label: String {
         switch self {
@@ -22,6 +23,7 @@ enum OverlayTool: CaseIterable {
         case .rect: return "Rectangle"
         case .line: return "Line"
         case .text: return "Text"
+        case .image: return "Image"
         }
     }
 
@@ -31,6 +33,7 @@ enum OverlayTool: CaseIterable {
         case .rect: return "rectangle"
         case .line: return "line.diagonal"
         case .text: return "textformat"
+        case .image: return "photo.badge.plus"
         }
     }
 
@@ -40,6 +43,7 @@ enum OverlayTool: CaseIterable {
         case .rect: return .rect
         case .line: return .line
         case .text: return .text
+        case .image: return .image
         }
     }
 
@@ -49,6 +53,7 @@ enum OverlayTool: CaseIterable {
         case .rect: return "r"
         case .line: return "l"
         case .text: return "t"
+        case .image: return "i"
         }
     }
 

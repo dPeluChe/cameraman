@@ -224,6 +224,49 @@
 
 ---
 
+## 🎨 Overlay system — Fase 2 (post `refactor/overlays-unified-system`)
+
+> Trabajo deferido tras aplicar skills sobre la branch del overlay refactor.
+
+- [ ] **Refactor `Style` bag-of-optionals → `OverlayContent` enum con valores asociados**
+    - Hoy `Style { stroke, strokeWidth, shadow, font?, size?, color?, bg?, text?, imagePath?, imageOpacity? }` — todos los campos type-specific viven en la misma struct, mayoría opcionales según el tipo de overlay.
+    - Propuesta:
+      ```swift
+      enum OverlayContent {
+          case shape(ShapeStyle)
+          case text(TextStyle)
+          case image(ImageRef)
+          case video(VideoRef)  // futuro
+      }
+      ```
+    - Requiere custom Codable con back-compat decoder para proyectos existentes.
+    - Conecta con la futura adición de video como overlay (Fase 3).
+
+- [ ] **Library de assets reutilizables por proyecto**
+    - Hoy `imagePath` se guarda absoluto. Si el usuario mueve el archivo en disco, se rompe.
+    - Plan: al drop de imagen, copiar al `assets/` del proyecto + guardar path relativo.
+    - Panel UI: sidebar con grid de assets del proyecto, drag al timeline/preview crea overlay.
+
+- [ ] **GIF animado en export (no solo primer frame)**
+    - `ExportOverlayRenderer.swift` agrega un CALayer con `contents = CGImage` para `.image`. Para GIF eso solo muestra el primer frame.
+    - Plan: `CAKeyframeAnimation` sobre `.contents` con cada frame como keyframe, timing matchando el GIF original.
+
+- [ ] **Drag de edges del overlay clip en timeline para trim**
+    - Hoy el overlay clip en timeline solo se puede mover (drag horizontal). No se puede resize de los edges para cambiar start/end.
+    - Patrón: similar al trim de segments en TimelineView+DragDrop.
+
+- [ ] **Video overlay (track adicional en AVMutableComposition)**
+    - Permite usar otro video como overlay (B-roll, picture-in-picture).
+    - Requiere refactor de `MaskedVideoCompositor` para leer `request.sourceFrame(byTrackID:)` del track del overlay y composeear.
+    - Audio mix necesita actualización.
+
+- [ ] **Granular subscription en `OverlayPopover` (perf, low priority)**
+    - Popover observa `editor` completo; re-renderea en cualquier mutación de project (autosave/undo).
+    - Cost real: bajo (~1Hz max, popover visible solo durante edit). Considerado no-worth-it en sesión `refactor/overlays-unified-system`.
+    - Si se vuelve perceptible con muchos overlays, implementar `OverlayPopoverModel: ObservableObject` con `editor.$project.map { ...overlay con id... }.removeDuplicates()`.
+
+---
+
 ## 🔎 Pendientes del Skills Review (branch `review/skills-baseline-2605`, 2026-05-14)
 
 > Hallazgos del review que se decidió **no aplicar** en esa sesión por scope/dependencias. Detalles completos en `docs/RESEARCH/SKILLS_REVIEW_2605.md`.

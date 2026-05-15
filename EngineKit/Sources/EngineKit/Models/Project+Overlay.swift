@@ -37,12 +37,17 @@ extension Project {
             self.animation = animation
         }
 
-        /// Overlay types
+        /// Overlay types. `image` covers PNG/JPG/SVG/GIF — the loader detects
+        /// format from the file extension/contents (NSImage handles all four
+        /// natively on macOS). GIF is rendered animated (frame selected by
+        /// elapsed time within the overlay window); SVG is rasterized at the
+        /// render size at composition time.
         public enum OverlayType: String, Codable {
             case arrow
             case rect
             case line
             case text
+            case image
         }
 
         /// Transform (position, scale, rotation)
@@ -66,7 +71,10 @@ extension Project {
             }
         }
 
-        /// Style configuration
+        /// Style configuration. Fields are sparse and type-specific:
+        /// - `arrow`/`rect`/`line`: `stroke`, `strokeWidth`, `shadow`, optional `bg` (rect fill)
+        /// - `text`: `font`, `size`, `color`, optional `bg`, `text`
+        /// - `image`: `imagePath` (project-relative or absolute), optional `opacity`
         public struct Style: Codable, Equatable {
             public var stroke: String
             public var strokeWidth: Double
@@ -76,6 +84,12 @@ extension Project {
             public var color: String?
             public var bg: String?
             public var text: String?
+            /// Path to image asset (PNG/JPG/SVG/GIF). Only used when type == .image.
+            /// Project-relative paths are resolved against the project directory.
+            public var imagePath: String?
+            /// Base opacity multiplier for image overlays (0-1). Applies on top of
+            /// the fade animation. Defaults to 1 if absent.
+            public var imageOpacity: Double?
 
             /// Initialize a new style
             public init(
@@ -86,7 +100,9 @@ extension Project {
                 size: Double? = nil,
                 color: String? = nil,
                 bg: String? = nil,
-                text: String? = nil
+                text: String? = nil,
+                imagePath: String? = nil,
+                imageOpacity: Double? = nil
             ) {
                 self.stroke = stroke
                 self.strokeWidth = strokeWidth
@@ -96,6 +112,8 @@ extension Project {
                 self.color = color
                 self.bg = bg
                 self.text = text
+                self.imagePath = imagePath
+                self.imageOpacity = imageOpacity
             }
         }
 
