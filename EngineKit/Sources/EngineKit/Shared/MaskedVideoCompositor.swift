@@ -433,7 +433,7 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
 
         let overlayKey = withOpacity.map { config, opacity in
             let opacityBucket = Int(opacity * 20)  // 0..20
-            return "\(config.id)_\(config.x)_\(config.y)_\(config.scale)_\(config.rotation)_\(config.stroke)_\(config.strokeWidth)_\(config.shadow)_\(config.text ?? "")_\(config.fontSize ?? 0)_\(config.fontColor ?? "")_\(config.bgColor ?? "")_\(opacityBucket)"
+            return "\(config.id)_\(config.type)_\(config.x)_\(config.y)_\(config.scale)_\(config.rotation)_\(config.stroke)_\(config.strokeWidth)_\(config.shadow)_\(config.text ?? "")_\(config.fontSize ?? 0)_\(config.fontColor ?? "")_\(config.bgColor ?? "")_\(config.imagePath ?? "")_\(config.imageOpacity)_\(opacityBucket)"
         }.joined(separator: "|")
 
         let overlayLayer: CIImage

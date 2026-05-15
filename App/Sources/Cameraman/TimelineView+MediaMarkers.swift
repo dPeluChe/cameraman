@@ -136,7 +136,11 @@ struct TimelineOverlayTrackRow: View {
                 .onTapGesture {
                     if isSelected {
                         popoverOverlayId = overlay.id
-                        onPopoverOpened?(overlay.start)
+                        // Seek past fade-in so overlay is visible (opacity=0 at start with fadeInOut)
+                        let fadeIn = overlay.animation?.fadeInDuration ?? 0
+                        let duration = overlay.end - overlay.start
+                        let seekTarget = overlay.start + min(fadeIn + 0.05, duration * 0.3)
+                        onPopoverOpened?(seekTarget)
                     } else {
                         selectedOverlayId = overlay.id
                     }
