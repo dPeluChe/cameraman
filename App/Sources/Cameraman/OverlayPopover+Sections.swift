@@ -26,7 +26,7 @@ extension OverlayPopoverContent {
                 "Start",
                 value: timingBinding(overlay, isStart: true, maxDuration: maxDuration),
                 range: 0...maxDuration,
-                display: String(format: "%.1fs", draftStart ?? overlay.start),
+                display: String(format: "%.2fs", draftStart ?? overlay.start),
                 onEditingChanged: { editing in
                     if !editing { commitTiming(isStart: true, overlay: overlay) }
                 }
@@ -35,7 +35,7 @@ extension OverlayPopoverContent {
                 "End",
                 value: timingBinding(overlay, isStart: false, maxDuration: maxDuration),
                 range: 0...maxDuration,
-                display: String(format: "%.1fs", draftEnd ?? overlay.end),
+                display: String(format: "%.2fs", draftEnd ?? overlay.end),
                 onEditingChanged: { editing in
                     if !editing { commitTiming(isStart: false, overlay: overlay) }
                 }
@@ -45,7 +45,7 @@ extension OverlayPopoverContent {
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text(String(format: "%.1fs", overlay.end - overlay.start))
+                Text(String(format: "%.2fs", overlay.end - overlay.start))
                     .font(.system(size: 11, weight: .medium).monospacedDigit())
                     .foregroundStyle(.primary)
             }

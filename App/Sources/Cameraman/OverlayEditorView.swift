@@ -43,7 +43,7 @@ struct OverlayEditorView: View {
                             Text(overlay.type.rawValue.capitalized)
                                 .font(.caption)
                             Spacer()
-                            Text("\(String(format: "%.1f", overlay.start))s - \(String(format: "%.1f", overlay.end))s")
+                            Text("\(String(format: "%.2f", overlay.start))s - \(String(format: "%.2f", overlay.end))s")
                                 .font(.system(size: 9, design: .monospaced))
                                 .foregroundStyle(.tertiary)
                         }
