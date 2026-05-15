@@ -73,10 +73,14 @@ final class AppUpdater {
     }
 }
 
-// MARK: - App-wide links (update these when the app ships)
+// MARK: - App-wide links
 
 enum AppLinks {
-    static let help     = URL(string: "https://github.com/dPeluChe/labs-cameraman#readme")!
-    static let releases = URL(string: "https://github.com/dPeluChe/labs-cameraman/releases")!
-    static let contact  = URL(string: "mailto:support@dpeluche.dev?subject=Project%20Studio%20Support")!
+    static let help      = URL(string: "https://github.com/dPeluChe/labs-cameraman#readme")!
+    static let releases  = URL(string: "https://github.com/dPeluChe/labs-cameraman/releases")!
+    static let repo      = URL(string: "https://github.com/dPeluChe/labs-cameraman")!
+    static let contact   = URL(string: "mailto:antonio@dpeluche.dev?subject=Project%20Studio%20Support")!
+    static let sponsors  = URL(string: "https://github.com/sponsors/dPeluChe")!
+    static let paypal    = URL(string: "https://paypal.me/dpeluche")!
+    // static let website = URL(string: "https://...")!  — add when landing is live
 }

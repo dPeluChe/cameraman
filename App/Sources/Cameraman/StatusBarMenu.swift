@@ -150,6 +150,7 @@ class StatusBarMenu {
         menu.addItem(NSMenuItem.separator())
 
         // App menu
+        menu.addItem(NSMenuItem(title: "Support Project Studio ♥", action: #selector(openSponsors), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Check for Updates...", action: #selector(checkForUpdates), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q"))
 
@@ -203,6 +204,10 @@ class StatusBarMenu {
                 viewModel.includeMicrophone.toggle()
             }
         }
+    }
+
+    @objc private func openSponsors() {
+        NSWorkspace.shared.open(AppLinks.sponsors)
     }
 
     @objc private func checkForUpdates() {
