@@ -23,6 +23,7 @@ struct OverlayInteractionLayer: View {
     @State private var dragStartProject: Project?
     @State private var draftTransform: Project.Overlay.Transform?
     @State private var lastDraftPush: Date = .distantPast
+    @State private var isDragging = false
     private static let draftThrottle: TimeInterval = 1.0 / 30.0
 
     /// Overlays visible at the current playhead — only these are interactive.
@@ -65,12 +66,16 @@ struct OverlayInteractionLayer: View {
                 isSelected ? Color.accentColor : Color.white.opacity(0.0001),
                 style: StrokeStyle(lineWidth: isSelected ? 2 : 0, dash: [4, 3])
             )
-            .background(
-                // Invisible-but-hittable fill; the dash border above only renders when selected.
-                Color.white.opacity(0.0001)
-            )
+            .background(Color.white.opacity(0.0001))
             .frame(width: displayRect.width, height: displayRect.height)
             .position(x: displayRect.midX, y: displayRect.midY)
+            .onHover { inside in
+                if inside {
+                    (isDragging ? NSCursor.closedHand : isSelected ? NSCursor.openHand : NSCursor.pointingHand).push()
+                } else {
+                    NSCursor.pop()
+                }
+            }
             .onTapGesture {
                 selectedOverlayId = overlay.id
             }
@@ -83,6 +88,8 @@ struct OverlayInteractionLayer: View {
                 if dragStartTransform == nil {
                     dragStartTransform = overlay.transform
                     dragStartProject = editor.project
+                    isDragging = true
+                    NSCursor.closedHand.push()
                 }
                 let base = dragStartTransform ?? overlay.transform
                 let dx = Double(value.translation.width) / Double(size.width)
@@ -116,6 +123,8 @@ struct OverlayInteractionLayer: View {
                 dragStartTransform = nil
                 dragStartProject = nil
                 draftTransform = nil
+                isDragging = false
+                NSCursor.pop()
             }
     }
 

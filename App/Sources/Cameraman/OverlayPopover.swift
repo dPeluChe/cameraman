@@ -37,7 +37,6 @@ struct OverlayPopoverContent: View {
                     VStack(alignment: .leading, spacing: 18) {
                         timingSection(overlay: overlay)
                         animationSection(overlay: overlay)
-                        positionSection(overlay: overlay)
                         transformSection(overlay: overlay)
                         styleSection(overlay: overlay)
                         deleteButton
@@ -61,7 +60,7 @@ struct OverlayPopoverContent: View {
             Text(OverlayDisplayInfo.label(for: overlay.type))
                 .font(.system(size: 14, weight: .semibold))
             Spacer()
-            Text(String(format: "%.1fs", overlay.end - overlay.start))
+            Text(String(format: "%.2fs", overlay.end - overlay.start))
                 .font(.system(size: 11, weight: .medium).monospacedDigit())
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 8)
@@ -77,27 +76,6 @@ struct OverlayPopoverContent: View {
 
     // Sections / labeledSlider / popoverSection / smallLabeled / fadeBinding /
     // presentChangeImagePanel moved to OverlayPopover+Sections.swift.
-
-    private func presetBtn(_ preset: PositionPreset, _ overlay: Project.Overlay) -> some View {
-        let isActive = abs(overlay.transform.x - preset.x) < 0.06 && abs(overlay.transform.y - preset.y) < 0.06
-        return Button {
-            mutate(overlay) { $0.transform.x = preset.x; $0.transform.y = preset.y }
-        } label: {
-            Image(systemName: preset.icon)
-                .font(.system(size: 11))
-                .frame(width: 28, height: 28)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(isActive ? Color.accentColor.opacity(0.25) : Color.primary.opacity(0.06))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6)
-                        .stroke(isActive ? Color.accentColor : Color.clear, lineWidth: 1)
-                )
-        }
-        .buttonStyle(.plain)
-        .help(preset.label)
-    }
 
     // MARK: - Helpers (internal so OverlayPopover+Sections.swift extension can call them)
 

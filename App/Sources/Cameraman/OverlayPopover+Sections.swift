@@ -116,34 +116,6 @@ extension OverlayPopoverContent {
     }
 
     @ViewBuilder
-    func positionSection(overlay: Project.Overlay) -> some View {
-        popoverSection("Position") {
-            OverlayPositionCanvas(
-                overlay: overlay,
-                onPositionChange: { x, y in
-                    mutate(overlay) { $0.transform.x = x; $0.transform.y = y }
-                }
-            )
-            DraftSlider(
-                label: "X",
-                range: 0...1,
-                step: nil,
-                current: overlay.transform.x,
-                display: { String(format: "%.0f%%", $0 * 100) },
-                commit: { val in mutate(overlay) { $0.transform.x = val } }
-            )
-            DraftSlider(
-                label: "Y",
-                range: 0...1,
-                step: nil,
-                current: overlay.transform.y,
-                display: { String(format: "%.0f%%", $0 * 100) },
-                commit: { val in mutate(overlay) { $0.transform.y = val } }
-            )
-        }
-    }
-
-    @ViewBuilder
     func transformSection(overlay: Project.Overlay) -> some View {
         popoverSection("Transform") {
             DraftSlider(
