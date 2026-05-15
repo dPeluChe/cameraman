@@ -93,19 +93,23 @@ extension OverlayPopoverContent {
             let animType = overlay.animation?.type ?? .none
             let maxFade = max(0.05, overlay.end - overlay.start)
             if animType == .fadeIn || animType == .fadeInOut {
-                labeledSlider(
-                    "In",
-                    value: fadeBinding(overlay, isIn: true, maxFade: maxFade),
+                DraftSlider(
+                    label: "In",
                     range: 0.05...maxFade,
-                    display: String(format: "%.2fs", overlay.animation?.fadeInDuration ?? 0)
+                    step: nil,
+                    current: overlay.animation?.fadeInDuration ?? 0.3,
+                    display: { String(format: "%.2fs", $0) },
+                    commit: { val in commitFade(overlay: overlay, isIn: true, value: min(val, maxFade)) }
                 )
             }
             if animType == .fadeOut || animType == .fadeInOut {
-                labeledSlider(
-                    "Out",
-                    value: fadeBinding(overlay, isIn: false, maxFade: maxFade),
+                DraftSlider(
+                    label: "Out",
                     range: 0.05...maxFade,
-                    display: String(format: "%.2fs", overlay.animation?.fadeOutDuration ?? 0)
+                    step: nil,
+                    current: overlay.animation?.fadeOutDuration ?? 0.3,
+                    display: { String(format: "%.2fs", $0) },
+                    commit: { val in commitFade(overlay: overlay, isIn: false, value: min(val, maxFade)) }
                 )
             }
         }
@@ -120,20 +124,44 @@ extension OverlayPopoverContent {
                     mutate(overlay) { $0.transform.x = x; $0.transform.y = y }
                 }
             )
-            labeledSlider("X", value: sliderBinding(overlay, \.transform.x), range: 0...1,
-                          display: String(format: "%.0f%%", overlay.transform.x * 100))
-            labeledSlider("Y", value: sliderBinding(overlay, \.transform.y), range: 0...1,
-                          display: String(format: "%.0f%%", overlay.transform.y * 100))
+            DraftSlider(
+                label: "X",
+                range: 0...1,
+                step: nil,
+                current: overlay.transform.x,
+                display: { String(format: "%.0f%%", $0 * 100) },
+                commit: { val in mutate(overlay) { $0.transform.x = val } }
+            )
+            DraftSlider(
+                label: "Y",
+                range: 0...1,
+                step: nil,
+                current: overlay.transform.y,
+                display: { String(format: "%.0f%%", $0 * 100) },
+                commit: { val in mutate(overlay) { $0.transform.y = val } }
+            )
         }
     }
 
     @ViewBuilder
     func transformSection(overlay: Project.Overlay) -> some View {
         popoverSection("Transform") {
-            labeledSlider("Scale", value: sliderBinding(overlay, \.transform.scale), range: 0.2...3.0,
-                          display: String(format: "%.1fx", overlay.transform.scale))
-            labeledSlider("Rotation", value: sliderBinding(overlay, \.transform.rotation), range: -180...180,
-                          display: String(format: "%.0f°", overlay.transform.rotation))
+            DraftSlider(
+                label: "Scale",
+                range: 0.2...3.0,
+                step: nil,
+                current: overlay.transform.scale,
+                display: { String(format: "%.1fx", $0) },
+                commit: { val in mutate(overlay) { $0.transform.scale = val } }
+            )
+            DraftSlider(
+                label: "Rotation",
+                range: -180...180,
+                step: nil,
+                current: overlay.transform.rotation,
+                display: { String(format: "%.0f°", $0) },
+                commit: { val in mutate(overlay) { $0.transform.rotation = val } }
+            )
         }
     }
 
@@ -162,8 +190,14 @@ extension OverlayPopoverContent {
                         .labelsHidden()
                     }
                 }
-                labeledSlider("Stroke", value: sliderBinding(overlay, \.style.strokeWidth), range: 1...10,
-                              display: String(format: "%.1f", overlay.style.strokeWidth))
+                DraftSlider(
+                    label: "Stroke",
+                    range: 1...10,
+                    step: nil,
+                    current: overlay.style.strokeWidth,
+                    display: { String(format: "%.1f", $0) },
+                    commit: { val in mutate(overlay) { $0.style.strokeWidth = val } }
+                )
             }
 
         case .text:
@@ -175,9 +209,14 @@ extension OverlayPopoverContent {
                 .textFieldStyle(.roundedBorder)
                 .font(.system(size: 12))
 
-                labeledSlider("Size", value: optionalSliderBinding(overlay, \.style.size, default: 24),
-                              range: 12...72,
-                              display: String(format: "%.0fpt", overlay.style.size ?? 24))
+                DraftSlider(
+                    label: "Size",
+                    range: 12...72,
+                    step: nil,
+                    current: overlay.style.size ?? 24,
+                    display: { String(format: "%.0fpt", $0) },
+                    commit: { val in mutate(overlay) { $0.style.size = val } }
+                )
 
                 HStack(spacing: 16) {
                     smallLabeled("Color") {
@@ -214,11 +253,13 @@ extension OverlayPopoverContent {
                         .truncationMode(.middle)
                         .foregroundStyle(.primary)
                 }
-                labeledSlider(
-                    "Opacity",
-                    value: optionalSliderBinding(overlay, \.style.imageOpacity, default: 1.0),
+                DraftSlider(
+                    label: "Opacity",
                     range: 0...1,
-                    display: String(format: "%.0f%%", (overlay.style.imageOpacity ?? 1.0) * 100)
+                    step: nil,
+                    current: overlay.style.imageOpacity ?? 1.0,
+                    display: { String(format: "%.0f%%", $0 * 100) },
+                    commit: { val in mutate(overlay) { $0.style.imageOpacity = val } }
                 )
                 Button {
                     presentChangeImagePanel(overlay: overlay)
@@ -309,24 +350,19 @@ extension OverlayPopoverContent {
 
     // MARK: - Animation helpers
 
-    func fadeBinding(_ overlay: Project.Overlay, isIn: Bool, maxFade: TimeInterval) -> Binding<Double> {
-        Binding(
-            get: {
-                isIn ? (overlay.animation?.fadeInDuration ?? 0.3) : (overlay.animation?.fadeOutDuration ?? 0.3)
-            },
-            set: { val in
-                mutate(overlay) { o in
-                    let current = o.animation ?? Project.Overlay.Animation(type: .fadeInOut)
-                    o.animation = Project.Overlay.Animation(
-                        type: current.type == .none ? .fadeInOut : current.type,
-                        fadeInDuration: isIn ? min(val, maxFade) : current.fadeInDuration,
-                        fadeOutDuration: !isIn ? min(val, maxFade) : current.fadeOutDuration,
-                        drawOnDuration: current.drawOnDuration,
-                        easing: current.easing
-                    )
-                }
-            }
-        )
+    /// Commit a fade duration change. Called once when the DraftSlider gesture
+    /// ends — no per-tick mutations like the old fadeBinding had.
+    func commitFade(overlay: Project.Overlay, isIn: Bool, value: Double) {
+        mutate(overlay) { o in
+            let current = o.animation ?? Project.Overlay.Animation(type: .fadeInOut)
+            o.animation = Project.Overlay.Animation(
+                type: current.type == .none ? .fadeInOut : current.type,
+                fadeInDuration: isIn ? value : current.fadeInDuration,
+                fadeOutDuration: !isIn ? value : current.fadeOutDuration,
+                drawOnDuration: current.drawOnDuration,
+                easing: current.easing
+            )
+        }
     }
 
     // MARK: - Image change picker
