@@ -87,13 +87,11 @@ struct OverlayInteractionLayer: View {
                 let base = dragStartTransform ?? overlay.transform
                 let dx = Double(value.translation.width) / Double(size.width)
                 let dy = Double(value.translation.height) / Double(size.height)
-                // transform.y is stored in renderer convention (Y inverted from
-                // SwiftUI's top-left). User drags DOWN in SwiftUI (dy positive),
-                // which should DECREASE the stored y (toward 0 = bottom of
-                // canvas in renderer space).
+                // Both SwiftUI and the stored convention use y=0 at top, y=1 at
+                // bottom. Drag DOWN (dy > 0) → y increases → overlay moves down.
                 let next = Project.Overlay.Transform(
                     x: max(0, min(1, base.x + dx)),
-                    y: max(0, min(1, base.y - dy)),
+                    y: max(0, min(1, base.y + dy)),
                     scale: base.scale,
                     rotation: base.rotation
                 )
@@ -128,9 +126,10 @@ struct OverlayInteractionLayer: View {
         playerViewModel.previewOverlayDraft(transform, overlayId: overlayId)
     }
 
-    /// Compute the rendered rect for an overlay within the preview canvas,
-    /// matching OverlayBaseSize.relativeSize + the renderer's Y-flip convention
-    /// inverted (we operate in SwiftUI top-left coordinates here).
+    /// Compute the rendered rect for an overlay within the preview canvas.
+    /// Both SwiftUI (y=0 top) and the renderer formula (1-y)*H in CG y=0-bottom
+    /// produce the same visual position: transform.y=0 → visual top,
+    /// transform.y=1 → visual bottom. Direct mapping here (no inversion).
     private func rect(
         for overlay: Project.Overlay,
         in size: CGSize,
@@ -140,10 +139,8 @@ struct OverlayInteractionLayer: View {
         let relSize = OverlayBaseSize.relativeSize(for: overlay.type)
         let w = relSize.width * size.width * transform.scale
         let h = relSize.height * size.height * transform.scale
-        // SwiftUI uses top-left origin; transform.y is stored in the renderer's
-        // (1.0 - y) convention so we invert here to match what's painted.
         let cx = transform.x * size.width
-        let cy = (1.0 - transform.y) * size.height
+        let cy = transform.y * size.height  // direct: y=0 top, y=1 bottom in both systems
         return CGRect(x: cx - w / 2, y: cy - h / 2, width: w, height: h)
     }
 }

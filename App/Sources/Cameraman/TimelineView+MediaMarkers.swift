@@ -144,24 +144,24 @@ struct TimelineOverlayTrackRow: View {
                                 lineWidth: isSelected ? 2 : 1)
                 )
                 .offset(x: xPosition + (overlayDragOffset[overlay.id] ?? 0))
-                .onTapGesture {
-                    if isSelected {
-                        popoverOverlayId = overlay.id
-                        // Seek past fade-in so overlay is visible (opacity=0 at start with fadeInOut)
-                        let fadeIn = overlay.animation?.fadeInDuration ?? 0
-                        let duration = overlay.end - overlay.start
-                        let seekTarget = overlay.start + min(fadeIn + 0.05, duration * 0.3)
-                        onPopoverOpened?(seekTarget)
-                    } else {
-                        selectedOverlayId = overlay.id
-                    }
-                }
                 .popover(isPresented: Binding(
                     get: { popoverOverlayId == overlay.id },
                     set: { if !$0 { popoverOverlayId = nil } }
                 ), arrowEdge: .top) {
                     OverlayPopoverContent(editor: editor, overlayId: overlay.id)
                 }
+                // highPriority so the chip tap wins over the timeline's seek DragGesture(minimumDistance:0)
+                .highPriorityGesture(
+                    TapGesture()
+                        .onEnded {
+                            selectedOverlayId = overlay.id
+                            popoverOverlayId = overlay.id
+                            let fadeIn = overlay.animation?.fadeInDuration ?? 0
+                            let dur = overlay.end - overlay.start
+                            let seekTarget = overlay.start + min(fadeIn + 0.05, dur * 0.3)
+                            onPopoverOpened?(seekTarget)
+                        }
+                )
                 .highPriorityGesture(
                     DragGesture(minimumDistance: 4)
                         .onChanged { value in
