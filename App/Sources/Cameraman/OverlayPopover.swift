@@ -154,10 +154,6 @@ struct OverlayPopoverContent: View {
         }
     }
 
-    func hexString(from color: Color) -> String {
-        let c = NSColor(color).usingColorSpace(.sRGB) ?? NSColor(color)
-        return String(format: "#%02X%02X%02X", Int(c.redComponent * 255), Int(c.greenComponent * 255), Int(c.blueComponent * 255))
-    }
 }
 
 // PositionPreset + OverlayPositionCanvas moved to OverlayPositionCanvas.swift

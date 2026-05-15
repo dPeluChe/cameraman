@@ -69,8 +69,9 @@ extension MaskedVideoCompositor {
     /// grow this cache unbounded.
     private func loadImageAsset(path: String) -> NSImage? {
         if let cached = cachedOverlayAssets[path] {
-            // Bump LRU recency: move path to the end of the access order.
-            cachedOverlayAssetOrder.removeAll { $0 == path }
+            if let idx = cachedOverlayAssetOrder.firstIndex(of: path) {
+                cachedOverlayAssetOrder.remove(at: idx)
+            }
             cachedOverlayAssetOrder.append(path)
             return cached
         }

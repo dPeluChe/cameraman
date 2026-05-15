@@ -37,7 +37,7 @@ struct OverlayEditorView: View {
                 VStack(spacing: 4) {
                     ForEach(editor.project.overlays) { overlay in
                         HStack {
-                            Image(systemName: overlayIcon(overlay.type))
+                            Image(systemName: OverlayDisplayInfo.icon(for: overlay.type))
                                 .font(.caption)
                                 .frame(width: 16)
                             Text(overlay.type.rawValue.capitalized)
@@ -69,13 +69,4 @@ struct OverlayEditorView: View {
         }
     }
 
-    private func overlayIcon(_ type: Project.Overlay.OverlayType) -> String {
-        switch type {
-        case .arrow: return "arrow.up.right"
-        case .rect: return "rectangle"
-        case .line: return "line.diagonal"
-        case .text: return "textformat"
-        case .image: return "photo"
-        }
-    }
 }

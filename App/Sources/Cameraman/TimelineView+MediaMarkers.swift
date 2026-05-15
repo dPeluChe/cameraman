@@ -124,10 +124,10 @@ struct TimelineOverlayTrackRow: View {
                 let isSelected = overlay.id == selectedOverlayId
 
                 HStack(spacing: 2) {
-                    Image(systemName: overlayIcon(overlay.type))
+                    Image(systemName: OverlayDisplayInfo.icon(for: overlay.type))
                         .font(.system(size: 8))
                         .foregroundStyle(.white.opacity(0.8))
-                    Text(overlayTypeName(overlay.type))
+                    Text(OverlayDisplayInfo.label(for: overlay.type))
                         .font(.system(size: 8))
                         .foregroundStyle(.white)
                         .lineLimit(1)
@@ -174,17 +174,10 @@ struct TimelineOverlayTrackRow: View {
                             onOverlayDragged(overlay.id, deltaTime)
                         }
                 )
-                .help("Click to select, click again to edit properties")
+                .help("Click to select and edit properties")
             }
             } // end content ZStack
         } // end HStack
     }
 
-    private func overlayIcon(_ type: Project.Overlay.OverlayType) -> String {
-        OverlayDisplayInfo.icon(for: type)
-    }
-
-    private func overlayTypeName(_ type: Project.Overlay.OverlayType) -> String {
-        OverlayDisplayInfo.label(for: type)
-    }
 }

@@ -20,10 +20,10 @@ struct OverlayInteractionLayer: View {
     @Binding var selectedOverlayId: UUID?
 
     @State private var dragStartTransform: Project.Overlay.Transform?
-    @State private var dragStartProject: Project?
     @State private var draftTransform: Project.Overlay.Transform?
     @State private var lastDraftPush: Date = .distantPast
     @State private var isDragging = false
+    @State private var isCursorPushed = false
     private static let draftThrottle: TimeInterval = 1.0 / 30.0
 
     /// Overlays visible at the current playhead — only these are interactive.
@@ -70,9 +70,17 @@ struct OverlayInteractionLayer: View {
             .frame(width: displayRect.width, height: displayRect.height)
             .position(x: displayRect.midX, y: displayRect.midY)
             .onHover { inside in
-                if inside {
-                    (isDragging ? NSCursor.closedHand : isSelected ? NSCursor.openHand : NSCursor.pointingHand).push()
-                } else {
+                if inside && !isCursorPushed {
+                    isCursorPushed = true
+                    if isDragging {
+                        NSCursor.closedHand.push()
+                    } else if isSelected {
+                        NSCursor.openHand.push()
+                    } else {
+                        NSCursor.pointingHand.push()
+                    }
+                } else if !inside && isCursorPushed {
+                    isCursorPushed = false
                     NSCursor.pop()
                 }
             }
@@ -87,7 +95,6 @@ struct OverlayInteractionLayer: View {
             .onChanged { value in
                 if dragStartTransform == nil {
                     dragStartTransform = overlay.transform
-                    dragStartProject = editor.project
                     isDragging = true
                     NSCursor.closedHand.push()
                 }
@@ -107,7 +114,6 @@ struct OverlayInteractionLayer: View {
             }
             .onEnded { _ in
                 let final = draftTransform ?? overlay.transform
-                let snapshot = dragStartProject
                 Task {
                     _ = await editor.updateOverlay(
                         projectId: editor.project.projectId,
@@ -118,10 +124,8 @@ struct OverlayInteractionLayer: View {
                         end: nil,
                         animation: nil
                     )
-                    _ = snapshot
                 }
                 dragStartTransform = nil
-                dragStartProject = nil
                 draftTransform = nil
                 isDragging = false
                 NSCursor.pop()

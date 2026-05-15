@@ -89,7 +89,6 @@ extension OverlayPopoverContent {
                 .labelsHidden()
             }
 
-            // Only show fade duration sliders when there's an active fade.
             let animType = overlay.animation?.type ?? .none
             let maxFade = max(0.05, overlay.end - overlay.start)
             if animType == .fadeIn || animType == .fadeInOut {
@@ -147,7 +146,7 @@ extension OverlayPopoverContent {
                         ColorPicker("", selection: Binding(
                             get: { Color(hex: overlay.style.stroke) },
                             set: { newColor in
-                                mutate(overlay) { $0.style.stroke = hexString(from: newColor) }
+                                mutate(overlay) { $0.style.stroke = newColor.toHex() ?? "#FFFFFF" }
                             }
                         ))
                         .labelsHidden()
@@ -195,7 +194,7 @@ extension OverlayPopoverContent {
                         ColorPicker("", selection: Binding(
                             get: { Color(hex: overlay.style.color ?? "#FFFFFF") },
                             set: { newColor in
-                                mutate(overlay) { $0.style.color = hexString(from: newColor) }
+                                mutate(overlay) { $0.style.color = newColor.toHex() ?? "#FFFFFF" }
                             }
                         ))
                         .labelsHidden()
