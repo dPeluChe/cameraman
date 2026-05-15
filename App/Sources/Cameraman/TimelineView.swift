@@ -325,6 +325,9 @@ struct TimelineView: View {
                                             end: newStart + duration
                                         )
                                     }
+                                },
+                                onPopoverOpened: { startTime in
+                                    playerViewModel.seek(to: startTime)
                                 }
                             )
                             .frame(height: trackHeight)
@@ -363,6 +366,9 @@ struct TimelineView: View {
                             end: newStart + duration
                         )
                     }
+                },
+                onPopoverOpened: { startTime in
+                    playerViewModel.seek(to: startTime)
                 }
             )
         } else {

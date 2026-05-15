@@ -96,6 +96,7 @@ struct TimelineOverlayTrackRow: View {
     let height: TimelineScalar
     @Binding var selectedOverlayId: UUID?
     let onOverlayDragged: (UUID, TimeInterval) -> Void
+    var onPopoverOpened: ((TimeInterval) -> Void)? = nil
 
     @State private var overlayDragOffset: [UUID: TimelineScalar] = [:]
     @State private var popoverOverlayId: UUID?
@@ -135,6 +136,7 @@ struct TimelineOverlayTrackRow: View {
                 .onTapGesture {
                     if isSelected {
                         popoverOverlayId = overlay.id
+                        onPopoverOpened?(overlay.start)
                     } else {
                         selectedOverlayId = overlay.id
                     }
