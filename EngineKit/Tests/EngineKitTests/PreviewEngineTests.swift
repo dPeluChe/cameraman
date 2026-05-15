@@ -799,6 +799,17 @@ final class PreviewEngineTests: XCTestCase {
                 bg: "#00000080",
                 text: "Sample Text"
             )
+        case .image:
+            defaultStyle = Project.Overlay.Style(
+                stroke: "#FFFFFF",
+                strokeWidth: 0,
+                shadow: false,
+                font: nil,
+                size: nil,
+                color: nil,
+                bg: nil,
+                text: nil
+            )
         }
 
         return Project.Overlay(
