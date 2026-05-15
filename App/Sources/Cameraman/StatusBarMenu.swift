@@ -150,6 +150,7 @@ class StatusBarMenu {
         menu.addItem(NSMenuItem.separator())
 
         // App menu
+        menu.addItem(NSMenuItem(title: "Check for Updates...", action: #selector(checkForUpdates), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q"))
 
         statusItem?.menu = menu
@@ -202,6 +203,10 @@ class StatusBarMenu {
                 viewModel.includeMicrophone.toggle()
             }
         }
+    }
+
+    @objc private func checkForUpdates() {
+        AppUpdater.shared.checkForUpdates(userInitiated: true)
     }
 
     @objc private func quit() {
