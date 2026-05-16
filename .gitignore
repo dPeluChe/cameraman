@@ -2,11 +2,12 @@
 .build/
 .swiftpm/
 
-# Xcode
-*.xcodeproj
+# Xcode — track project/workspace but ignore per-user and derived files
 *.xcworkspace
 xcuserdata/
 DerivedData/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
 
 # macOS
 .DS_Store

@@ -13,6 +13,7 @@ import EngineKit
 struct AppNavigation: View {
     @StateObject private var viewModel: AppNavigationViewModel
     @Environment(\.openWindow) private var openWindow
+    @State private var showHelpPopover = false
     @State private var renameCandidate: ProjectSummary?
     @State private var deleteCandidate: ProjectSummary?
     @State private var renameText = ""
@@ -131,6 +132,17 @@ struct AppNavigation: View {
                 openWindow(id: WindowID.recordingControls)
             } label: {
                 Label("New Project", systemImage: "plus")
+            }
+        }
+
+        ToolbarItem(placement: .automatic) {
+            Button {
+                showHelpPopover = true
+            } label: {
+                Label("About", systemImage: "questionmark.circle")
+            }
+            .popover(isPresented: $showHelpPopover, arrowEdge: .bottom) {
+                HelpPopoverView()
             }
         }
 
