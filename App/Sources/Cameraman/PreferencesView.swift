@@ -18,6 +18,7 @@ struct PreferencesView: View {
         case hotkeys = "Hotkeys"
         case recording = "Recording"
         case export = "Export"
+        case about = "About"
 
         var icon: String {
             switch self {
@@ -25,6 +26,7 @@ struct PreferencesView: View {
             case .hotkeys: return "command"
             case .recording: return "record.circle"
             case .export: return "square.and.arrow.up"
+            case .about: return "info.circle"
             }
         }
     }
@@ -72,6 +74,8 @@ struct PreferencesView: View {
                         RecordingPreferencesView()
                     case .export:
                         ExportPreferencesView()
+                    case .about:
+                        AboutPreferencesView()
                     }
                 }
                 .padding(24)

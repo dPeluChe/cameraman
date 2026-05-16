@@ -22,37 +22,6 @@ struct CameramanApp: App {
         }
         .defaultSize(width: 1100, height: 700)
         .commands {
-            // About
-            CommandGroup(replacing: .appInfo) {
-                Button("About Cameraman") {
-                    let credits = NSMutableAttributedString(
-                        string: "Open source screen recording for macOS\n\n",
-                        attributes: [.font: NSFont.systemFont(ofSize: 11)]
-                    )
-                    credits.append(NSAttributedString(
-                        string: "github.com/dPeluChe/labs-cameraman",
-                        attributes: [.link: AppLinks.repo, .font: NSFont.systemFont(ofSize: 11)]
-                    ))
-                    credits.append(NSAttributedString(string: "\n"))
-                    credits.append(NSAttributedString(
-                        string: "Support with GitHub Sponsors ♥",
-                        attributes: [.link: AppLinks.sponsors, .font: NSFont.systemFont(ofSize: 11)]
-                    ))
-                    NSApp.orderFrontStandardAboutPanel(options: [
-                        .applicationName: "Cameraman",
-                        .credits: credits
-                    ])
-                }
-            }
-
-            // Preferences
-            CommandGroup(replacing: .appSettings) {
-                SettingsLink {
-                    Text("Preferences...")
-                }
-                .keyboardShortcut(",", modifiers: .command)
-            }
-
             // File → New Recording
             CommandGroup(replacing: .newItem) {
                 Button("New Recording") {
