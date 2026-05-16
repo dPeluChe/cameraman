@@ -16,7 +16,7 @@ final class AppUpdater {
     private init() {}
 
     private let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
-    private let releasesURL = URL(string: "https://api.github.com/repos/dPeluChe/labs-cameraman/releases/latest")!
+    private let releasesURL = URL(string: "https://api.github.com/repos/dPeluChe/cameraman/releases/latest")!
 
     func checkForUpdates(userInitiated: Bool = false) {
         Task {
@@ -76,10 +76,10 @@ final class AppUpdater {
 // MARK: - App-wide links
 
 enum AppLinks {
-    static let help      = URL(string: "https://github.com/dPeluChe/labs-cameraman#readme")!
-    static let releases  = URL(string: "https://github.com/dPeluChe/labs-cameraman/releases")!
-    static let repo      = URL(string: "https://github.com/dPeluChe/labs-cameraman")!
-    static let issues    = URL(string: "https://github.com/dPeluChe/labs-cameraman/issues/new")!
+    static let help      = URL(string: "https://github.com/dPeluChe/cameraman#readme")!
+    static let releases  = URL(string: "https://github.com/dPeluChe/cameraman/releases")!
+    static let repo      = URL(string: "https://github.com/dPeluChe/cameraman")!
+    static let issues    = URL(string: "https://github.com/dPeluChe/cameraman/issues/new")!
     static let contact   = URL(string: "mailto:antonio@dpeluche.dev?subject=Cameraman%20Support")!
     static let sponsors  = URL(string: "https://github.com/sponsors/dPeluChe")!
     static let paypal    = URL(string: "https://paypal.me/dpeluche")!
