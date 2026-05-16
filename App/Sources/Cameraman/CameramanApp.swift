@@ -49,6 +49,38 @@ struct CameramanApp: App {
                 }
                 .keyboardShortcut("e", modifiers: .command)
             }
+
+            // Help menu
+            CommandGroup(replacing: .help) {
+                Button("Project Studio Help") {
+                    NSWorkspace.shared.open(AppLinks.help)
+                }
+                .keyboardShortcut("?", modifiers: .command)
+
+                Button("View on GitHub") {
+                    NSWorkspace.shared.open(AppLinks.repo)
+                }
+
+                Button("Contact Support") {
+                    NSWorkspace.shared.open(AppLinks.contact)
+                }
+
+                Divider()
+
+                Button("Support with GitHub Sponsors ♥") {
+                    NSWorkspace.shared.open(AppLinks.sponsors)
+                }
+
+                Button("Donate via PayPal") {
+                    NSWorkspace.shared.open(AppLinks.paypal)
+                }
+
+                Divider()
+
+                Button("Check for Updates...") {
+                    AppUpdater.shared.checkForUpdates(userInitiated: true)
+                }
+            }
         }
 
         // Recording Controls Window (Standalone, single instance)
