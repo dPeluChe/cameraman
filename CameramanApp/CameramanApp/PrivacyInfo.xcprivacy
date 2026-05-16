@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Cameraman does not track users across apps or websites -->
+    <key>NSPrivacyTracking</key>
+    <false/>
+
+    <key>NSPrivacyTrackingDomains</key>
+    <array/>
+
+    <!-- No data is collected or transmitted — local-first app -->
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array/>
+
+    <key>NSPrivacyAccessedAPITypes</key>
+    <array>
+
+        <!-- File timestamps: used to detect when source files changed vs
+             cached proxies (ProxyGenerator.swift) and project mod-date
+             caching (ProjectStore.swift). -->
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <!-- Files within app container modified by another process -->
+                <string>3B52.1</string>
+                <!-- User-selected files via file picker -->
+                <string>C617.1</string>
+            </array>
+        </dict>
+
+        <!-- Disk space: checked before proxy generation to avoid filling
+             the disk (ProxyGenerator+Helpers.swift → .systemFreeSize). -->
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryDiskSpace</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <!-- Used to decide whether to proceed with an operation -->
+                <string>85F4.1</string>
+            </array>
+        </dict>
+
+        <!-- UserDefaults / @AppStorage: stores user preferences (hotkeys,
+             export settings, recording defaults) — PreferencesView+Sections. -->
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <!-- App uses UserDefaults to customize user experience -->
+                <string>CA92.1</string>
+            </array>
+        </dict>
+
+    </array>
+</dict>
+</plist>
