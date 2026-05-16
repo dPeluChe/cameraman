@@ -22,27 +22,46 @@ struct CameramanApp: App {
         }
         .defaultSize(width: 1100, height: 700)
         .commands {
-            // Add Preferences menu item
+            // About
+            CommandGroup(replacing: .appInfo) {
+                Button("About Cameraman") {
+                    let credits = NSMutableAttributedString(
+                        string: "Open source screen recording for macOS\n\n",
+                        attributes: [.font: NSFont.systemFont(ofSize: 11)]
+                    )
+                    credits.append(NSAttributedString(
+                        string: "github.com/dPeluChe/labs-cameraman",
+                        attributes: [.link: AppLinks.repo, .font: NSFont.systemFont(ofSize: 11)]
+                    ))
+                    credits.append(NSAttributedString(string: "\n"))
+                    credits.append(NSAttributedString(
+                        string: "Support with GitHub Sponsors ♥",
+                        attributes: [.link: AppLinks.sponsors, .font: NSFont.systemFont(ofSize: 11)]
+                    ))
+                    NSApp.orderFrontStandardAboutPanel(options: [
+                        .applicationName: "Cameraman",
+                        .credits: credits
+                    ])
+                }
+            }
+
+            // Preferences
             CommandGroup(replacing: .appSettings) {
-                Button {
-                    // Open preferences window
-                    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-                } label: {
+                SettingsLink {
                     Text("Preferences...")
                 }
                 .keyboardShortcut(",", modifiers: .command)
             }
-            
-            // Add Recording menu commands
+
+            // File → New Recording
             CommandGroup(replacing: .newItem) {
                 Button("New Recording") {
-                    // Open recording controls window
                     NSApp.sendAction(Selector(("showRecordingControlsWindow:")), to: nil, from: nil)
                 }
                 .keyboardShortcut("n", modifiers: .command)
             }
 
-            // File → Export... (only triggers when an editor is loaded)
+            // File → Export
             CommandGroup(after: .saveItem) {
                 Button("Export...") {
                     NotificationCenter.default.post(name: .openExportModal, object: nil)
@@ -52,13 +71,17 @@ struct CameramanApp: App {
 
             // Help menu
             CommandGroup(replacing: .help) {
-                Button("Project Studio Help") {
+                Button("Cameraman Help") {
                     NSWorkspace.shared.open(AppLinks.help)
                 }
                 .keyboardShortcut("?", modifiers: .command)
 
                 Button("View on GitHub") {
                     NSWorkspace.shared.open(AppLinks.repo)
+                }
+
+                Button("Report a Bug") {
+                    NSWorkspace.shared.open(AppLinks.issues)
                 }
 
                 Button("Contact Support") {
@@ -89,5 +112,10 @@ struct CameramanApp: App {
         }
         .windowResizability(.contentSize)
         .defaultSize(width: 420, height: 480)
+
+        // Preferences window — required for SettingsLink to work
+        Settings {
+            PreferencesView()
+        }
     }
 }

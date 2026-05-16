@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > `0.8.0 → 0.5.0` · `0.7.0 → 0.4.1` · `0.6.0 → 0.4.0` · `0.5.0 → 0.3.1` · `0.4.0 → 0.3.0` · `0.3.1 → 0.2.1` · `0.3.0 → 0.2.0` · `0.2.0 → 0.1.1` · `0.1.0 → 0.1.0`.
 > Las fechas y el contenido técnico se preservaron.
 
+## [0.6.0] - 2026-05-15
+
+Foco de la versión: overlay system unificado, Help menu, donaciones y polish pre-submit.
+
+### Added
+- **Overlay system unificado** — drag para reposicionar overlays directamente en el preview; tipo `.image` (PNG/JPG/SVG/GIF animado); fade in/out con duración configurable; LRU cache de assets (16 items); chip en timeline con seek automático al abrir popover
+- **Help menu** — Cameraman Help, View on GitHub, Report a Bug, Contact Support, GitHub Sponsors ♥, Donate via PayPal, Check for Updates
+- **About Cameraman** — panel nativo macOS con credits clickeables (repo + sponsors)
+- **Check for Updates** — verifica GitHub releases, compara semver, alerta con "Download Update / Later"
+- **GitHub Sponsors** — `github.com/sponsors/dPeluChe` + `FUNDING.yml` para botón Sponsor en el repo
+- **PayPal donations** — `paypal.me/dpeluche`
+- **AppLinks** — enum centralizado con todas las URLs externas (fácil de actualizar al lanzar)
+- **Settings scene** — `Settings { PreferencesView() }` + `SettingsLink` correcto (fix warning 53493)
+- **Report a Bug** → abre `github.com/dPeluChe/labs-cameraman/issues/new`
+
+### Fixed
+- Selection box Y-flip en overlay drag (coordenadas SwiftUI vs CG)
+- Drag direction invertido en overlay
+- Timeline chip desalineado respecto al playhead
+- NSCursor push/pop leak en hover continuo
+- O(n) LRU bump → `firstIndex(of:)` + `remove(at:)`
+- Cache key de overlays no incluía type/imagePath (renders stale)
+- Switch no exhaustivo en PreviewEngineTests (faltaba `.image`)
+
 ## [0.5.2] - 2026-05-12
 
 Foco de la versión: refinamiento de UI, flujo de export reescrito, compatibilidad macOS 13 y fix de performance en preview.
