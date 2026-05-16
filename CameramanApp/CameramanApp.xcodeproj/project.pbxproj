@@ -286,7 +286,8 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Cameraman;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Cameraman needs camera access to record your webcam.";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.video";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "© 2026 dPeluChe Studios";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Cameraman needs microphone access to record your voice.";
 				INFOPLIST_KEY_NSScreenCaptureUsageDescription = "Cameraman needs screen recording access to capture your display.";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -327,7 +328,8 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Cameraman;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Cameraman needs camera access to record your webcam.";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.video";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "© 2026 dPeluChe Studios";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Cameraman needs microphone access to record your voice.";
 				INFOPLIST_KEY_NSScreenCaptureUsageDescription = "Cameraman needs screen recording access to capture your display.";
 				LD_RUNPATH_SEARCH_PATHS = (
