@@ -156,10 +156,10 @@ See [`docs/CHANGELOG.md`](docs/CHANGELOG.md) for version history. See [`docs/TAS
 
 ## License
 
-[MIT](LICENSE) — © 2026 Antonio Martinez Quintero (dPeluChe) / Iteris.
+[MIT](LICENSE) — © 2026 Antonio Martinez Quintero (dPeluChe Studios).
 
 ---
 
 ## Built by
 
-[Iteris](https://iteris.tech) — independent product studio.
+[dPeluChe Studios](https://github.com/dPeluChe) — independent product studio.

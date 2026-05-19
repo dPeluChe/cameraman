@@ -128,8 +128,11 @@ public actor LoggingSystem {
             formattedMessage = "[\(filename):\(line) \(function)] \(message)"
         }
         
-        // Log to OSLog
-        logger.log(level: level.osLogType, "\(formattedMessage)")
+        // Log to OSLog. Mark the interpolated payload as `.private` so file
+        // paths or project names captured in log messages get redacted in
+        // Console.app for other processes — visible only when the device is
+        // attached to the developer's machine.
+        logger.log(level: level.osLogType, "\(formattedMessage, privacy: .private)")
         
         // Log to console if enabled
         if logToConsole {

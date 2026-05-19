@@ -99,7 +99,16 @@ screen recorder,screencast,video editor,capture,webcam,annotation,overlay,tutori
 
 ---
 
-## What's New — v0.6.0
+## What's New — v0.6.1
+
+```
+• Security hardening: stricter URL validation when checking for
+  updates, private logging by default, and minimum-needed sandbox
+  entitlements
+• Internal cleanup and documentation polish ahead of public release
+```
+
+### What's New — v0.6.0 (previous)
 
 ```
 • New overlay system: drag arrows, text, and images directly on the

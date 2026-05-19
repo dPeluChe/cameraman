@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > `0.8.0 → 0.5.0` · `0.7.0 → 0.4.1` · `0.6.0 → 0.4.0` · `0.5.0 → 0.3.1` · `0.4.0 → 0.3.0` · `0.3.1 → 0.2.1` · `0.3.0 → 0.2.0` · `0.2.0 → 0.1.1` · `0.1.0 → 0.1.0`.
 > Las fechas y el contenido técnico se preservaron.
 
+## [0.6.1] - 2026-05-19
+
+Foco de la versión: security audit pre-publicación y limpieza para abrir el repo al público.
+
+### Security
+- **AppUpdater valida la URL de release** — antes de pasar `html_url` del API de GitHub a `NSWorkspace.open`, se valida que sea `https://github.com/*`. Protege contra una payload comprometida que intente colar `javascript:`, `file://` u otro dominio.
+- **OSLog marcado `privacy: .private`** — `LoggingSystem.swift` redacta paths y nombres de proyecto del usuario para procesos externos que lean Console.app. Solo visible en debug con el dispositivo adjunto.
+- **Entitlement `files.downloads.read-write` removido** — no se usa en código. El acceso a Downloads en navegadores externos no requiere este permiso en la app.
+- **`scripts/code_sign.sh` sin paths personales** — deriva `REPO_ROOT` automáticamente, acepta `APP_PATH` override y lee el `CameramanApp.entitlements` real (antes inlineaba una copia divergente que omitía `device.camera` y `downloads.read-write`).
+- **`.claude/settings.local.json` untrackeado** — config local de Claude Code con paths absolutos del usuario sale del tree y entra a `.gitignore`.
+
+### Changed
+- **Email de contacto consolidado** — `antonio@dpeluche.dev` único en app (`AppLinks.contact`), `CONTRIBUTING.md` (security disclosure) y git config local. Antes había 3 dominios distintos (`dpeluche.dev`/`iteris.tech`/`feedby.ai`).
+- **Brand pública = dPeluChe Studios** — `README.md` y `docs/index.html` consolidan créditos bajo dPeluChe Studios. `LICENSE` mantiene Iteris como copyright holder legal.
+
+---
+
 ## [0.6.0] - 2026-05-15
 
 Foco de la versión: overlay system unificado, Help menu, donaciones y polish pre-submit.
@@ -22,7 +39,7 @@ Foco de la versión: overlay system unificado, Help menu, donaciones y polish pr
 - **PayPal donations** — `paypal.me/dpeluche`
 - **AppLinks** — enum centralizado con todas las URLs externas (fácil de actualizar al lanzar)
 - **Settings scene** — `Settings { PreferencesView() }` + `SettingsLink` correcto (fix warning 53493)
-- **Report a Bug** → abre `github.com/dPeluChe/labs-cameraman/issues/new`
+- **Report a Bug** → abre `github.com/dPeluChe/cameraman/issues/new`
 
 ### Fixed
 - Selection box Y-flip en overlay drag (coordenadas SwiftUI vs CG)
