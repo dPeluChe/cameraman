@@ -59,6 +59,43 @@ cameraman/
 └── CameramanApp/                ← Xcode project + entitlements
 ```
 
+### Diagrama de Arquitectura
+
+```mermaid
+graph TD
+    subgraph UI ["App (SwiftUI)"]
+        PV[ProjectView]
+        EV[EditorView]
+        RV[RecordingView]
+    end
+
+    subgraph Engine ["EngineKit (Swift Package)"]
+        direction TB
+        CE[CaptureEngine]
+        EM[EditorModel]
+        PE[PreviewEngine]
+        EE[ExportEngine]
+        ZP[ZoomPlanGenerator]
+        MVC[MaskedVideoCompositor]
+    end
+
+    subgraph OS ["macOS Systems"]
+        SCK[ScreenCaptureKit]
+        AVF[AVFoundation]
+    end
+
+    %% Flow
+    SCK -->|Streams| CE
+    CE -->|Files| EM
+    EM -->|Timeline| PE
+    PE -->|Instructions| MVC
+    MVC -->|Render| AVF
+    EM -->|Project| EE
+    EE -->|Render| MVC
+    CE -->|Telemetry| ZP
+    ZP -->|Keyframes| MVC
+```
+
 ---
 
 ## Modelo de datos
