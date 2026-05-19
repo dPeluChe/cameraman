@@ -66,8 +66,18 @@ public actor CaptureEngine {
         }
     }
 
-    /// Recording session
-    public final class RecordingSession: Identifiable {
+    /// Recording session.
+    ///
+    /// `@unchecked Sendable`: this class holds mutable state (writers,
+    /// timestamps, error flags) but every read/write is funneled through
+    /// the parent `CaptureEngine` actor — callers obtain the session via
+    /// `actor`-isolated methods (`startRecording`/`stopRecording`/etc.)
+    /// and the session never exposes setters publicly. Marking it as
+    /// `@unchecked Sendable` lets the actor pass it across isolation
+    /// boundaries without warnings under Swift 6 strict concurrency.
+    /// If we ever expose mutation from outside the actor, this annotation
+    /// must be removed and the session re-modeled (e.g. as its own actor).
+    public final class RecordingSession: Identifiable, @unchecked Sendable {
         public let id: UUID
         public private(set) var isRecording: Bool = false
         public private(set) var startTime: Date?
