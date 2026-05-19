@@ -1,12 +1,12 @@
 # Cameraman — Developer Onboarding
 
-**Versión**: 0.5.1-dev | **macOS 13+** | **Swift 5.9+** | **Última actualización**: 2026-04-23
+**Versión**: 0.6.1-dev | **macOS 13+** | **Swift 5.9+** | **Última actualización**: 2026-05-19
 
 ---
 
 ## ¿Qué es el proyecto?
 
-Cameraman (codename: labs-cameraman) es una app nativa macOS para grabar pantalla + cámara + audio como pistas separadas, editarlas en un timeline no-destructivo, y exportar a MP4/GIF con efectos por segmento.
+Cameraman es una app nativa macOS para grabar pantalla + cámara + audio como pistas separadas, editarlas en un timeline no-destructivo, y exportar a MP4/GIF con efectos por segmento.
 
 **Estado actual**: Beta funcional. Grabación, edición, export y auto-zoom funcionan end-to-end. Activamente en desarrollo.
 
@@ -41,7 +41,7 @@ swift test --filter ZoomPlanGeneratorTests  # test específico
 ## Arquitectura del proyecto
 
 ```
-labs-cameraman/
+cameraman/
 ├── App/Sources/Cameraman/       ← SwiftUI app (~16K LOC)
 ├── EngineKit/Sources/EngineKit/ ← Engine Swift Package (~22K LOC)
 │   ├── Capture/                 ← Grabación (screen, camera, mic, telemetry)
