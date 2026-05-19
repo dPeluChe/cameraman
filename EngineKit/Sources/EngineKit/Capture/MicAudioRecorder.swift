@@ -22,6 +22,16 @@ internal class MicAudioRecorder {
     private let audioProcessor: AudioProcessor?
     private let audioProcessingConfig: AudioProcessingConfiguration
 
+    /// Serial queue used to perform disk I/O off of the real-time audio tap
+    /// thread. `installTap`'s callback runs on a high-priority audio thread
+    /// and any blocking work there (file write, encoding) starves the audio
+    /// engine and causes `HALC overload` warnings + dropped frames. We hop
+    /// the buffer to this queue and write asynchronously.
+    private let writeQueue = DispatchQueue(
+        label: "com.projectstudio.enginekit.MicAudioRecorder.write",
+        qos: .userInitiated
+    )
+
     private let logger = Logger(subsystem: "com.projectstudio.enginekit", category: "MicAudioRecorder")
 
     init(outputURL: URL, audioProcessing: AudioProcessingConfiguration) {
@@ -94,15 +104,22 @@ internal class MicAudioRecorder {
 
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
             guard let self = self, self.isRecording, !self.isPaused else { return }
-            do {
-                guard let audioFile = self.audioFile else { return }
-                if let processor = self.audioProcessor, let processedBuffer = processor.process(buffer: buffer) {
-                    try audioFile.write(from: processedBuffer)
-                } else {
-                    try audioFile.write(from: buffer)
+
+            // Copy the buffer before leaving the real-time thread — the tap
+            // callback's `buffer` is owned by the audio engine and may be
+            // reused before our async write completes.
+            guard let bufferCopy = Self.copyBuffer(buffer) else { return }
+            let processed = self.audioProcessor?.process(buffer: bufferCopy) ?? bufferCopy
+
+            // Hop disk I/O to a serial background queue. Keeps the audio
+            // tap callback bounded and prevents starving the audio engine.
+            self.writeQueue.async { [weak self] in
+                guard let self = self, let audioFile = self.audioFile else { return }
+                do {
+                    try audioFile.write(from: processed)
+                } catch {
+                    self.logger.error("Error writing audio buffer: \(error.localizedDescription)")
                 }
-            } catch {
-                self.logger.error("Error writing audio buffer: \(error.localizedDescription)")
             }
         }
 
@@ -117,12 +134,50 @@ internal class MicAudioRecorder {
             throw Recorder.RecorderError.recordingNotStarted
         }
 
+        // Stop the engine first so no new buffers arrive on the tap callback.
         audioEngine?.stop()
         audioEngine?.inputNode.removeTap(onBus: 0)
         isRecording = false
         audioEngine = nil
 
+        // Drain any in-flight writes queued from the tap callback before we
+        // return — otherwise the caller may try to read a truncated file.
+        writeQueue.sync { }
+
         return outputURL
+    }
+
+    /// Deep-copy a PCM buffer so it survives past the tap callback's lifetime.
+    /// The audio engine reuses the underlying buffer storage as soon as the
+    /// callback returns; reading or writing from a background thread after
+    /// that point reads garbage.
+    private static func copyBuffer(_ buffer: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
+        guard let copy = AVAudioPCMBuffer(
+            pcmFormat: buffer.format,
+            frameCapacity: buffer.frameCapacity
+        ) else { return nil }
+
+        copy.frameLength = buffer.frameLength
+        let channelCount = Int(buffer.format.channelCount)
+        let frameLength = Int(buffer.frameLength)
+
+        if let src = buffer.floatChannelData, let dst = copy.floatChannelData {
+            for ch in 0..<channelCount {
+                dst[ch].update(from: src[ch], count: frameLength)
+            }
+        } else if let src = buffer.int16ChannelData, let dst = copy.int16ChannelData {
+            for ch in 0..<channelCount {
+                dst[ch].update(from: src[ch], count: frameLength)
+            }
+        } else if let src = buffer.int32ChannelData, let dst = copy.int32ChannelData {
+            for ch in 0..<channelCount {
+                dst[ch].update(from: src[ch], count: frameLength)
+            }
+        } else {
+            return nil
+        }
+
+        return copy
     }
 
     func pauseRecording() async throws {
