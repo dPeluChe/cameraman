@@ -239,6 +239,24 @@ Dos suites con fallos esperados (pre-existentes, no son regressions):
 
 ---
 
+## Extending Cameraman
+
+Cameraman is designed to be easily extensible. Here are the common "recipes" for adding new functionality.
+
+### 1. Adding a new Overlay Type
+To add a new shape or visual element:
+1.  **Model**: Add a new case to `Overlay.OverlayType` in [`Models/Project+Overlay.swift`](../EngineKit/Sources/EngineKit/Models/Project+Overlay.swift).
+2.  **Renderer**: Implement the drawing logic in [`Shared/OverlayRenderer.swift`](../EngineKit/Sources/EngineKit/Shared/OverlayRenderer.swift). Use CoreImage or CoreGraphics as needed.
+3.  **UI**: Add a button and controls to the popover in [`App/Sources/Cameraman/OverlayPopover.swift`](../App/Sources/Cameraman/OverlayPopover.swift) to allow users to create and customize the new type.
+
+### 2. Adding a new Export Preset
+To add a new output format (e.g., "YouTube 4K" or "Twitter Optim"):
+1.  **Preset**: Define a new `static let` in [`Export/ExportPresets.swift`](../EngineKit/Sources/EngineKit/Export/ExportPresets.swift) with your desired resolution, bitrate, and codec.
+2.  **UI**: Add the new preset to the picker in [`App/Sources/Cameraman/ExportView.swift`](../App/Sources/Cameraman/ExportView.swift).
+3.  **Engine**: If the codec is new (e.g., ProRes), update [`Export/VideoExportSession.swift`](../EngineKit/Sources/EngineKit/Export/VideoExportSession.swift) to handle the `AVAssetWriter` configuration.
+
+---
+
 ## Documentación relacionada
 
 | Doc | Contenido |
