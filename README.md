@@ -7,7 +7,7 @@
 [![Swift 5.9+](https://img.shields.io/badge/swift-5.9%2B-orange.svg)](https://swift.org)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-**Version**: 0.5.2 (beta) · **Platform**: macOS 13+ (Ventura)
+**Version**: 0.6.1 (beta) · **Platform**: macOS 13+ (Ventura)
 
 ---
 
@@ -44,7 +44,7 @@ Cameraman captures your screen, camera, and audio as **separate tracks**, gives 
 
 ## Install (beta)
 
-Pre-built `.dmg` releases are published to [GitHub Releases](https://github.com/dPeluChe/labs-cameraman/releases) (when available).
+Pre-built `.dmg` releases are published to [GitHub Releases](https://github.com/dPeluChe/cameraman/releases) (when available).
 
 The beta `.dmg` is **not signed with a Developer ID nor notarized** — testers will hit a Gatekeeper warning on first launch:
 
@@ -64,8 +64,8 @@ After the first authorized open, the app launches normally.
 Requirements: macOS 13+, Xcode 15+, Swift 5.9+.
 
 ```bash
-git clone https://github.com/dPeluChe/labs-cameraman.git
-cd labs-cameraman
+git clone https://github.com/dPeluChe/cameraman.git
+cd cameraman
 open CameramanApp/CameramanApp.xcodeproj
 # Scheme: CameramanApp → My Mac → Cmd+R
 ```
@@ -104,7 +104,7 @@ To remove the Gatekeeper warning entirely the app would need an Apple Developer 
 ## Architecture (at a glance)
 
 ```
-labs-cameraman/
+cameraman/
 ├── App/                       # SwiftUI app (CameramanApp scheme)
 ├── CameramanApp/              # Xcode project, entitlements, assets
 ├── EngineKit/                 # Pure Swift package — engine code (UI-free)
