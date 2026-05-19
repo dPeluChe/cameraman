@@ -240,11 +240,15 @@ struct PiPCanvasEditor: View {
     @State private var resizeSnapshot: Project?
     /// Last time we pushed a camera draft to the engine. DragGesture fires at
     /// 60–120 Hz on ProMotion, but the AVPlayer doesn't benefit from updates
-    /// faster than the display refresh, and each call rebuilds the
-    /// videoComposition. Throttling to ~33ms (≈30Hz) is visually smooth and
-    /// halves the work.
+    /// faster than the display refresh, and each call goes through the
+    /// `PreviewEngine.updateProject` light-path which rebuilds the
+    /// `AVMutableVideoComposition`. Throttling here is a coarse fix —
+    /// the proper one is to give `MaskedVideoCompositor` a dynamic camera
+    /// property so updates skip the videoComposition rebuild entirely.
+    /// Tracked separately; 20Hz here is visually indistinguishable from 30Hz
+    /// while cutting compositor work by ~33%.
     @State private var lastDraftPush: Date = .distantPast
-    private static let draftThrottle: TimeInterval = 1.0 / 30.0
+    private static let draftThrottle: TimeInterval = 1.0 / 20.0
     /// Live preview of the camera during an active drag/resize. While non-nil,
     /// the canvas renders from this instead of the committed `camera` prop —
     /// the project (and AVPlayer rebuild) is only updated on gesture end.
