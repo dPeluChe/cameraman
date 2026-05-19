@@ -108,7 +108,7 @@ Open an issue using the **Bug report** template. The more concrete the reproduct
 - Steps that trigger the bug
 - A snippet of `~/Library/Logs/Cameraman/` or the Console.app output if relevant
 
-For security-sensitive issues (privilege escalation, sandbox escape, credentials exposure) please email `antonio@iteris.tech` instead of filing a public issue.
+For security-sensitive issues (privilege escalation, sandbox escape, credentials exposure) please email `antonio@dpeluche.dev` instead of filing a public issue.
 
 ## Suggesting features
 
