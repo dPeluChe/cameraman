@@ -1,290 +1,149 @@
-# Backlog de Tareas Pendientes
+# Task Backlog
 
-> Actualizado: 2026-05-14
-> Solo features y mejoras NO implementadas. Para trabajo completado ver `TASK_COMPLETED/`.
-> Ordenado por fases: fundacion primero, features despues.
-
----
-
-## 🔴 Bloqueantes (detectados en pruebas reales — 2026-04-18)
-
-- [ ] **Recording: AVAssetWriter falla temprano y deja `screen.mov` corrupto**
-    - Síntoma observado en log de prueba: writer pasa a `status: 3` (failed) ~frame 73 con error `-10877`; todos los frames siguientes fallan silenciosamente ("Failed to append video frame N. Writer status: 3").
-    - Resultado: archivo de 221KB para 30s de grabación → `PreviewEngine.PreviewError error 1` al abrir el proyecto y "Failed to build composition: Cannot Open" al cargar.
-    - Contexto: display ultrawide 3440x1440 (SCDisplay id=3). Cámara sí grabó OK (901 frames). Mic y system audio OK.
-    - Precedente: mensaje `GetPropertyData background replacement pixel buffer size invalid or not available` + `CMIOObjectGetPropertyData Error: 2003332927` justo antes del fallo — posible colisión con efectos de sistema (Stickers/VFX de Messages visibles en el log).
-    - Acciones mínimas:
-      1. Detectar `writer.status == .failed` y abortar la grabación con error al usuario (no seguir acumulando 1700 frames perdidos).
-      2. Loguear `writer.error` al transicionar a failed (hoy solo se imprime el texto genérico).
-      3. Validar resolución/alignment antes de iniciar el writer (ultrawide puede requerir pixel format o dimensiones específicas).
-      4. Reproducir aislando efectos VFX de Messages para confirmar causa raíz.
+> Updated: 2026-05-19
+> Only unfinished work. Completed work lives in `TASK_COMPLETED/`.
+> Ordered by impact and proximity to release, not chronology.
 
 ---
 
-## 🔬 Hallazgos del test session 2026-05-14
+## Recently Closed
 
-> Prueba real de grabar + exportar sobre branch `review/skills-baseline-2605` en display ultrawide 3440x1440 (el mismo del bloqueante B1). Recording 14.5s → export web_1080_h264 6.3s, 15.4MB. **Funcionó end-to-end** — el writer terminó OK esta vez. Hallazgos del log + observación del usuario:
+Resolved during the May 2026 pre-publication push. Full per-item write-ups in `TASK_COMPLETED/2605.md`.
 
-- [ ] **🐛 Regresión: PiP camera overlay drag-to-reposition no funciona durante playback**
-    - Solo permite reposicionar cuando el preview está en pausa; antes funcionaba durante playback.
-    - Ningún commit del review tocó el gesture de PiP (`ProjectEditorPiPView` + `editor.updateCameraPosition`) directamente.
-    - Sospechosos por proximidad: commit `b7b2ebf` (PreviewPlayerViewModel sin `MainActor.run` redundante) cambió cómo se programan algunos updates desde la VM; también la regla `transaction.animation = nil` en `ConfigGroup` introducida en PR #5 puede estar interfiriendo con `DragGesture` durante playback.
-    - Acciones: bisect entre `main` y la branch para localizar el commit; si es nuestro, ajustar; si es pre-existente, investigar el gesture handler directamente.
-
-- [ ] **📋 Refine B1: instrumentar `-10877` + CMIO background replacement aunque no fallen**
-    - El log mostró los mismos precursores del bloqueante B1 (`throwing -10877` x2, `CMIO_DAL_CMIOExtension_Stream:GetPropertyData background replacement pixel buffer size invalid`, `CMIOHardware.cpp:331 Error: 2003332927`) pero esta vez el writer **no** falló (status=2 completed).
-    - Confirma la hipótesis del B1: el ruido viene de VFX de Messages (`__vfx_script_confetti/thumbsup/balloons/fireworks/hearts/lasers/rain` cargándose durante captura). En este run fueron benignos; en B1 escalaron a writer.failed.
-    - Acción: loguear cuántos `-10877` ocurren por sesión + correlacionar con `writer.status` para tener telemetría que confirme la causa raíz antes de invertir en mitigación.
-
-- [ ] **📋 Audio: `HALC_ProxyIOContext::IOWorkLoop: skipping cycle due to overload`**
-    - Aparece 2x en el log (una durante grabación, otra durante preview). Indica saturación del proxy de audio del sistema — puede causar audio drift en sesiones largas.
-    - Acción: instrumentar duración de cada cycle de audio en `MicAudioRecorder` + `SystemAudioRecorder`. Si en sesiones >5min se ven >N overloads, evaluar bajar sample rate, simplificar el procesamiento, o usar `AVAudioEngine` en lugar de `AudioQueue`.
-    - Conecta con TASK 'Validación de performance (larga duración)' de Fase 3.
-
-- [ ] **📋 UI debug: `Attempting to update all DD element frames, but bounds W:0 H:0`**
-    - Aparece 1x en preview. Probablemente Drag & Drop interno del sistema o RealityKit (DD = Drag & Drop o Display Devices), no necesariamente nuestro código.
-    - Acción: low priority. Reproducir con view debugger activo si vuelve a aparecer, identificar qué view está midiendo cero. Si es nuestro, fix; si es del sistema, ignorar.
-
-- [ ] **🧹 Limpieza de logs ruidosos antes de release**
-    - Los logs reales contienen mucho ruido del sistema (entity remap warnings de Messages VFX, `MLE5Engine disabled`, `ViewBridge to RemoteViewService Terminated`, `AddInstanceForFactory: No factory registered`, `AudioQueueObject Error -4 getting reporterIDs`). No son nuestros pero ahogan los logs útiles.
-    - Acción: revisar qué logs en `LoggingSystem` (categoría capture/preview/export) están en nivel `info`/`notice` cuando deberían estar en `debug`. Reducir verbosidad sin perder señal de errores reales.
+- Ultrawide `AVAssetWriter` error `-10877` (3440×1440 → corrupt `screen.mov`) — PR #15 (HEVC fallback for any output > 1920×1080).
+- `HALC_ProxyIOContext: skipping cycle due to overload` warnings + mic glitches — PR #15 (mic writes hopped off the real-time tap thread).
+- `TelemetryParser` memory peak ≈ `file_size × 3` on long sessions — PR #15 (`FileHandle.bytes.lines` streaming).
+- `RecordingSession` non-Sendable under Swift 6 strict concurrency — PR #15 (interim `@unchecked Sendable`; snapshot refactor still listed below).
+- Pre-publication security audit (4 critical + 3 recommended findings) — PR #14.
+- Repo rename `labs-cameraman` → `cameraman`, brand consolidation, `LICENSE`/`CONTRIBUTING`/`AppLinks` email unification — PR #14.
 
 ---
 
-## 🟡 Test session findings 2026-05-14 — items diferidos (post `fix/pip-drag-playback-and-logs-cleanup`)
+## Bugs & Stability
 
-> Durante la branch se aplicaron 8 fixes; estos 3 quedaron sin resolver tras múltiples intentos:
+> Real defects to clear before / during pre-release. None block App Store submission today, but each adds friction.
 
-- [ ] **Warning `Publishing changes from within view updates is not allowed` en load inicial**
-    - Aparece una vez al abrir un proyecto en el editor (no en el flujo de recording). Benigno en runtime — no causa crash, no afecta UX.
-    - **Intentos fallidos** (commits creados y revertidos o reemplazados):
-      1. `80cfa4e` — restaurar `await MainActor.run` en `PreviewPlayerViewModel.load()` bloque async. Insuficiente.
-      2. `1102beb` — diferir todo `PreviewPlayerViewModel.load()` con `Task @MainActor + await Task.yield()`. Insuficiente.
-      3. `a08fadf` — agregar `await MainActor.run` en `AppNavigationViewModel.loadProjects()`. Insuficiente + introdujo regresiones (revertido en `2825b89`).
-    - **Candidatos NO descartados**: `ProjectEditorViewModel.loadProject` (ya usa el patrón correcto pero el warning persiste), `Binding(get:set:)` del toast en `ProjectEditorView` línea 164, alguna mutación en la cadena de `.task` de AppNavigation. Necesita instrumentación runtime (breakpoints o `os_log` envuelto en el primer `objectWillChange.send()`) para localizar el emisor real.
-    - Acción futura: agregar logging temporal en cada `@Published` mutation point para identificar la fuente real, o usar Instruments con SwiftUI template.
-
-- [ ] **`NSHostingView is being laid out reentrantly` + `AttributeGraph: cycle detected` (~150 entries)**
-    - Apareció en el test session post-commit `a08fadf` (revertido). Probablemente causado por el throttle bump 30Hz→60Hz combinado con el rebuild de `videoComposition` que disparaba cascade de re-renders en SwiftUI.
-    - Síntomas adicionales en el run afectado: export tardó **14s vs 5.4s habitual** (~3x más lento).
-    - Estado actual: revertido, no debería reaparecer con throttle 30Hz.
-    - Acción si reaparece: investigar dependencia cíclica entre `PreviewPlayerView` (observa `viewModel.avPlayer`), `PiPCanvasEditor` (push a `engine.updateProject`), y SwiftUI's view-update dependency graph.
-
-- [ ] **PiP drag throttle: tunear 30Hz vs 60Hz**
-    - 30Hz: smooth pero "movimiento algo buggy pero pasable" según user feedback. Stable, no causa AttributeGraph cycles.
-    - 60Hz: smoothness ideal pero causa cycles + slowdown 3x del export.
-    - Posiblemente la causa raíz NO es el throttle sino el rebuild del `videoComposition`. Investigar: ¿se puede actualizar el camera position SIN rebuilear toda la composición? (e.g., custom MaskedVideoCompositor que lea de un publisher live).
-    - Decisión actual: 30Hz estable. Optimización futura.
+- [ ] **PiP camera overlay drag-to-reposition during playback** — historically only worked when paused. Likely resolved by the earlier `fix/pip-drag-playback-and-logs-cleanup` work (`draftCamera` @State pattern) and the throttle change in PR #15. Verify on a fresh build before closing.
+- [ ] **Warning: "Publishing changes from within view updates is not allowed" on project load** — fires once when opening a project in the editor; benign at runtime, no crash. Three prior fix attempts (`80cfa4e`, `1102beb`, `a08fadf`) were insufficient or regressed. Candidates not yet ruled out: `ProjectEditorViewModel.loadProject`, the toast `Binding(get:set:)` in `ProjectEditorView` line 164, or some mutation in the `.task` chain of `AppNavigation`. Needs runtime instrumentation (breakpoints or `os_log` around the first `objectWillChange.send()`) to locate the real emitter.
+- [ ] **`NSHostingView is being laid out reentrantly` / `AttributeGraph: cycle detected` (~150 entries)** — observed once when bumping the PiP throttle to 60Hz; that commit was reverted. Watch for recurrence; if it returns, investigate cyclic dependency between `PreviewPlayerView` (observing `viewModel.avPlayer`), `PiPCanvasEditor` (pushing to `engine.updateProject`), and SwiftUI's view-update graph. Symptom in the affected run: export took 14s vs. the usual 5.4s (~3× slowdown).
+- [ ] **Telemetry: count `-10877` errors per session, correlate with `writer.status`** — root cause was H.264 on ultrawide and is fixed, but instrumentation would catch any future writer pre-failure regressions and confirm the cause of the original B1 incident (Messages VFX vs. codec mismatch).
+- [ ] **UI debug: `Attempting to update all DD element frames, but bounds W:0 H:0`** — appears once during preview. Probably system Drag & Drop or RealityKit, not our code. Low priority; reproduce with the view debugger if it returns.
+- [ ] **Noisy system logs in release builds** — Messages VFX entity remaps, `MLE5Engine disabled`, `ViewBridge to RemoteViewService Terminated`, `AddInstanceForFactory: No factory registered`, `AudioQueueObject Error -4 getting reporterIDs`. None are ours but they drown out useful signal. Audit `LoggingSystem` levels: anything at `info` / `notice` in `capture` / `preview` / `export` that should be `debug`.
 
 ---
 
-## 🟠 UX Polish — backlog del PR #5 (2026-05-12)
+## UX Polish
 
-> Items detectados durante el review de UI/UX en la branch `feat/ui-refinements-macos13-compat`. Ninguno bloqueante.
+> Small, low-risk improvements. None change product direction.
 
-- [ ] **Race condition latente en `startNewTake()`** — `ProjectEditorLeftPanel.swift:103-107` asigna `recViewModel.targetProjectId` antes de postear `.openRecordingWindow`. Hoy el flujo es síncrono y funciona, pero si el observer de la notificación pasa a async (Task, scheduled), el window puede leer `nil`. Pasar el `projectId` en `userInfo` del Notification y leerlo en el observer hace el contrato explícito.
-- [ ] **Badge de cantidad en `ProjectAssetsBar` colapsada** — al estar colapsada (38pt) no hay indicador de cuántos takes/segmentos hay. Sumar `(\(count))` al lado del título "Project Assets" cuando esté colapsado.
-- [ ] **`AssetChip` ancho fijo trunca nombres largos** — `frame(width: 118)` corta takes con nombres descriptivos. Cambiar a `minWidth: 100, maxWidth: 180` con `fixedSize(horizontal: false)`.
-- [ ] **Preset picker perdió contexto visual** — pasó de `.segmented` a `.menu` (necesario por el ancho del panel), pero el menu colapsado oculta opciones. Evaluar `Picker` con `Label` + ícono por opción (HEVC, GIF, H264) para mantener affordance.
-- [ ] **Atajos de teclado faltantes**:
-    - `⌘E` abrir panel de export
-    - `⌘⇧E` re-ejecutar último export
-    - `⌘R` abrir ventana de recording
-- [ ] **Skeletons en `ProjectAssetsBar`** — cuando `editor.project.takes` está cargando no se distingue entre vacío y loading.
-- [ ] **Filename ghost-extension en `ExportView`** — el field muestra "name" y debajo "name.mp4" como label separado. Mostrar la extensión inline en el field (placeholder o sufijo gris) es más obvio.
+- [ ] **Latent race in `startNewTake()`** — `ProjectEditorLeftPanel.swift:103-107` assigns `recViewModel.targetProjectId` before posting `.openRecordingWindow`. Works today because the observer is synchronous; if it ever becomes async, the window may read `nil`. Pass `projectId` via `Notification.userInfo` to make the contract explicit.
+- [ ] **Count badge on collapsed `ProjectAssetsBar`** — at 38pt height there's no signal of how many takes/segments exist. Add `(\(count))` next to the title when collapsed.
+- [ ] **`AssetChip` fixed width truncates long names** — replace `frame(width: 118)` with `minWidth: 100, maxWidth: 180` + `fixedSize(horizontal: false)`.
+- [ ] **Export preset picker context** — `.menu` style hides the options; consider `Picker` with per-option icon labels (HEVC, GIF, H.264) to preserve affordance.
+- [ ] **Keyboard shortcuts** — `⌘E` open export panel, `⌘⇧E` rerun the last export, `⌘R` open recording window.
+- [ ] **Skeletons on `ProjectAssetsBar`** — distinguish "loading" from "empty" while takes are still being read.
+- [ ] **Inline filename extension in `ExportView`** — show `.mp4` / `.gif` as a grey inline suffix on the field instead of a separate caption.
 
 ---
 
-## 🟢 UX — propuestas grandes (roadmap)
+## UX Roadmap (needs alignment)
 
-> Cambios de diseño más invasivos que valen conversación antes de implementar.
+> Larger UX changes worth a conversation before implementing.
 
-- [ ] **Recent Exports** — recordar últimas 3-5 carpetas de export y ofrecerlas como sugerencias rápidas (patrón Final Cut / Premiere).
-- [ ] **Inspector tabs en panel derecho** — hoy es un `ScrollView` con todos los `ConfigGroup` apilados (Background, PiP, Zoom, Overlays). Tabs en la cabecera reducen el scroll y dan foco a una sección a la vez.
-- [ ] **Hover preview en `LayoutSelectorView`** — los thumbnails de presets son pequeños; mostrar preview del layout aplicado al video actual en hover ayuda a elegir.
-- [ ] **Asset bar position configurable** (top/left/right) en Settings → Layout. Algunos usuarios pueden preferir el sidebar vertical original.
-- [ ] **Empty state del editor recién abierto** — onboarding inline ("Drag a take from the bar above to start editing") con flecha animada al timeline vacío.
-- [ ] **Curva de zoom visible en timeline** — los markers de suggestions están pero no muestran intensidad. Un mini-gráfico de altura proporcional al zoom level hace la curva legible.
-
----
-
-## 🛠️ Tooling — Claude Code Skills (2026-05-14)
-
-- [ ] **Crear skill propio `cameraman-engine` con `/skill-creator`** (después de probar `AvdLee/swiftui-expert` + `patrickserrano/ios-swift-skills`):
-    - Gap detectado en research: ningún skill público cubre AVFoundation / ScreenCaptureKit / AVMutableComposition / pipeline de zoom keyframado, que es el core de cameraman.
-    - Empaquetar convenciones internas: `CompositionBuilder`, `MaskedVideoCompositor`, `AudioMixBuilder`, pipeline `DwellDetector → ZoomSuggestionEngine → ZoomPlanGenerator → PreviewRenderer`, separación Engine/UI con actors, reglas de 400-500 LOC/file y zero warnings.
-    - Validar contra una tarea real (ej. refactor de `ZoomSectionController` o nuevo overlay type).
-    - Decidir si publicarlo público o mantenerlo en `.claude/skills/` local.
+- [ ] **Recent Exports memory** — remember the last 3–5 destination folders and surface them as quick suggestions (Final Cut / Premiere pattern).
+- [ ] **Right inspector tabs** — replace the stacked `ScrollView` of `ConfigGroup`s (Background / PiP / Zoom / Overlays) with tabbed sections to reduce scroll depth.
+- [ ] **Layout preset hover preview** — overlay the chosen layout on the current frame inside the picker on hover.
+- [ ] **Configurable asset bar position** (top / left / right) in Settings → Layout.
+- [ ] **Empty state for a newly opened editor** — inline onboarding ("Drag a take from the bar above to start editing") with an animated arrow pointing at the empty timeline.
+- [ ] **Visible zoom curve in timeline** — replace flat markers with a height-proportional mini graph so zoom intensity is readable.
 
 ---
 
-## Distribución / Gatekeeper
+## Editor Features (planned)
 
-- [ ] **Firma ad-hoc en `build-dmg.sh`** — `codesign --force --deep --sign - CameramanApp.app` antes de empaquetar. No elimina el bloqueo de Gatekeeper en Tahoe pero estabiliza la firma interna y evita errores con frameworks embebidos. Documentado por feedback de testers en Tahoe 26.4.1 (ver `TASK_COMPLETED/2605.md`).
-- [ ] **Mac App Store / Developer ID + notarización** — única solución real al warning de Gatekeeper en Tahoe. Requiere subscripción Apple Developer ($99/año), cert `Developer ID Application`, y pipeline de `xcrun notarytool submit` + `stapler staple`.
+> Next batch of editor work. Depends on a stable export pipeline and `TimelineView`.
 
----
-
-## Fase 3 — Performance & Polish
-
-> Medicion y optimizacion sobre código ya estable.
-
-- [ ] **Validación de performance (larga duración):**
-    - No probado con videos > 1 hora.
-
----
-
-## Fase 4 — Features del Editor (3-4 sesiones)
-
-> Features de edición sobre una base sólida. Dependen de ExportPipeline y TimelineView limpios.
-
-- [ ] **Zoom animation tuning:**
-    - Hold duration, velocidad de zoom in/out, transiciones suaves entre puntos.
-    - El zoom-out entre dos puntos se siente abrupto; evaluar blend o crossfade.
-
-- [ ] **Overlays polish (branches: feature/overlays-timeline, feature/overlay-inspector):**
-    - **Timing**: overlays aparecen en rangos incorrectos en el preview — el start/end del overlay no coincide con cuándo se renderiza en el compositor. Debuggear el filtro `currentTime >= overlay.start && currentTime <= overlay.end` en MaskedVideoCompositor.
-    - **Edición no se refleja**: cambios de posición/escala/rotación desde el popover no se ven en el preview. Verificar que `rebuildVideoComposition` pase overlays actualizados y que el cache de overlay layer se invalide al cambiar propiedades.
-    - **Canvas visual para posicionar**: los presets de 9 posiciones son limitados. Implementar un mini-canvas (como PiP editor) donde se pueda arrastrar el overlay visualmente sobre una miniatura del frame.
-    - **Stacking en timeline**: múltiples overlays se empalman en un solo row — necesitan stacking visual o rows separadas.
-    - **Overlay rendering quality**: la flecha/rect se ven pero el tamaño y posición no corresponden con lo configurado.
-    - Lo que SÍ funciona: track en timeline, drag para mover, popover con controles, rendering básico de shapes en compositor y export.
-
-- [ ] **Captions visibles en preview (mejorar)**
-
-- [ ] **Noise gate / echo cancellation en mic:**
-    - Filtrar audio de bocinas capturado por el mic.
-    - Voice activity detection para grabar mic solo con voz.
-    - Nota: `attackCoef` removido de `AudioProcessing.swift` por warning de unused — el gate hoy salta a 1.0 sin smoothing en el attack. Si se implementa noise gate completo, restaurar attack coef con la fórmula original.
+- [ ] **Zoom animation tuning** — hold duration, in/out velocity, smoother transitions between adjacent zoom points. The zoom-out between two points currently feels abrupt; evaluate a blend or crossfade.
+- [ ] **Overlay polish**:
+    - **Timing**: overlays appear in the wrong range during preview — debug the `currentTime >= overlay.start && currentTime <= overlay.end` filter in `MaskedVideoCompositor`.
+    - **Edits not reflected**: position / scale / rotation changes from the popover don't show in preview. Verify `rebuildVideoComposition` propagates updated overlays and the overlay layer cache invalidates on property change.
+    - **Visual placement canvas**: the 9-position presets are limited. Implement a mini canvas (like the PiP editor) where the user drags the overlay over a thumbnail of the frame.
+    - **Stacking in timeline**: multiple overlays collapse onto a single row; needs visual stacking or per-overlay rows.
+    - **Render quality**: arrow / rect sizes and positions don't match the configured values.
+    - What works today: timeline track, drag to move, popover controls, basic shape rendering in compositor and export.
+- [ ] **Visible captions in preview** (improve current rendering).
+- [ ] **Mic noise gate / echo cancellation** — filter speaker bleed captured by the mic, voice-activity detection to suppress silence. Note: `attackCoef` was removed from `AudioProcessing.swift` (unused warning); the gate currently jumps straight to 1.0 with no attack smoothing. If a full noise gate ships, restore the original coefficient.
 
 ---
 
-## Fase 5 — Motores Reales (2-3 sesiones)
+## Engine Work (planned)
 
-> Integración de motores reales. Dependen de EngineContext (DI limpia) y JobQueue consolidado.
+> Replacing stubs and skeleton implementations with real ones.
 
-- [ ] **Integración Whisper.cpp real:**
-    - `TranscriptionEngine` actualmente devuelve texto simulado.
-    - Integrar `whisper.cpp` (o SwiftWhisper) para transcripción offline real.
-    - Depende de JobQueue consolidado.
-
-- [ ] **Preview de grabación en vivo:**
-    - Selector de fuentes muestra capturas estáticas.
-    - Implementar stream ligero de ScreenCaptureKit para vista previa en movimiento.
-    - Depende de EngineContext (DI limpia).
+- [ ] **Real Whisper.cpp integration** — `TranscriptionEngine` returns simulated text today. Integrate `whisper.cpp` (or `SwiftWhisper`) for true offline transcription. Depends on a consolidated `JobQueue`.
+- [ ] **Live recording preview** — the source selector currently shows static captures. Stream a lightweight ScreenCaptureKit feed during selection. Depends on the in-flight `EngineContext` DI refactor.
 
 ---
 
-## Fase 6 — Polish, Labs, Distribución
+## Overlay System — Phase 2
 
-> Features visuales, experimentos, y preparación para release.
+> Deferred from the `refactor/overlays-unified-system` branch.
 
-- [ ] **Motion blur en zoom transitions:**
-    - Blur proporcional a la velocidad de movimiento durante zoom in/out.
-    - Implementar via `CIMotionBlur` filter o Metal shader.
-    - Aplicar en `MaskedVideoCompositor` / `PreviewComposition` durante zooms.
-
-- [ ] **Ocultar iconos del desktop al grabar:**
-    - Toggle en RecordingControlView: "Hide desktop icons"
-    - Al iniciar grabación: `defaults write com.apple.finder CreateDesktop -bool false && killall Finder`
-    - Al parar grabación: restaurar `CreateDesktop -bool true && killall Finder`
-    - Guardar estado previo por si el usuario ya los tenía ocultos.
-    - Nota: requiere que Finder se reinicie (breve flash visual).
-
-- [ ] **Crop interactivo con aspect ratio presets:**
-    - Dialog visual con drag + inputs numéricos + lock de aspect ratio (16:9, 9:16, 4:3, 1:1, 21:9).
-    - Aplica crop region al source video antes de layout.
-
-- [ ] **Reordenar segmentos en timeline (v1.1)**
-
-- [ ] **Thumbnails al hover en scrubber del preview**
-
-- [ ] **Permisos y Entitlements para distribución**
-
-- [ ] **Auto-generar proxies al crear proyecto**
-
-- [ ] **Regenerar proxies al cambiar sync offsets**
-
-- [ ] **Refactoring de ZoomSectionController y ZoomPlanGenerator:**
-    - Sus tests son los más grandes: 49KB y 48KB respectivamente.
-    - Sugiere que el código bajo test es complejo y probablemente necesita simplificación.
-
-- [ ] **Evaluar migrar `LoggingSystem` a `nonisolated` con lock:**
-    - Actualmente es actor, lo que requiere `await` en cada call site.
-    - `os_log` es thread-safe por diseño — el actor agrega overhead innecesario.
-    - Solo vale la pena si el `await` causa friction significativa en uso.
-
-- [ ] **Cloud provider para generación de assets**
-
-- [ ] **Estilo frame-a-frame (experimental)**
-
-- [ ] **Auto-cortes por silencios (Fase 5 PRD)**
-
-- [ ] **Capítulos/títulos desde transcript (Fase 5 PRD)**
+- [ ] **`Style` bag-of-optionals → `OverlayContent` enum with associated values** — replace `Style { stroke, font?, size?, color?, bg?, text?, imagePath?, ... }` with a discriminated enum (`shape`, `text`, `image`, `video`). Requires a custom `Codable` with back-compat decoding for existing projects. Ties into adding video as an overlay type below.
+- [ ] **Reusable per-project asset library** — `imagePath` is absolute today and breaks when the user moves the source. On drop, copy into the project's `assets/` and store a relative path. UI: a sidebar grid of project assets, drag onto the timeline / preview to create an overlay.
+- [ ] **Animated GIF in export (not just first frame)** — `ExportOverlayRenderer.swift` adds a single-frame `CALayer.contents`. Switch to `CAKeyframeAnimation` over `.contents` with each frame as a keyframe and timing matching the source GIF.
+- [ ] **Drag overlay clip edges in timeline to trim** — currently the overlay clip only supports horizontal move. Mirror the trim pattern from `TimelineView+DragDrop` for edge drag → start / end change.
+- [ ] **Video overlay** (additional `AVMutableComposition` track) — enables B-roll / picture-in-picture from another video. Refactor `MaskedVideoCompositor` to read `request.sourceFrame(byTrackID:)` from the overlay track and composite. Audio mix needs updating.
+- [ ] **Granular subscription in `OverlayPopover`** (perf, low priority) — the popover observes the whole `editor` and re-renders on every project mutation (autosave / undo). Real cost is low (~1Hz max, popover visible only during edit) and the work was scoped out in the unified-overlay session. If it becomes perceptible with many overlays, model as `OverlayPopoverModel: ObservableObject` with `editor.$project.map { ...overlay-by-id... }.removeDuplicates()`.
 
 ---
 
-## 🎨 Overlay system — Fase 2 (post `refactor/overlays-unified-system`)
+## Engine — Polish & Experimental
 
-> Trabajo deferido tras aplicar skills sobre la branch del overlay refactor.
+> Larger backend items; many are speculative or post-v1.
 
-- [ ] **Refactor `Style` bag-of-optionals → `OverlayContent` enum con valores asociados**
-    - Hoy `Style { stroke, strokeWidth, shadow, font?, size?, color?, bg?, text?, imagePath?, imageOpacity? }` — todos los campos type-specific viven en la misma struct, mayoría opcionales según el tipo de overlay.
-    - Propuesta:
-      ```swift
-      enum OverlayContent {
-          case shape(ShapeStyle)
-          case text(TextStyle)
-          case image(ImageRef)
-          case video(VideoRef)  // futuro
-      }
-      ```
-    - Requiere custom Codable con back-compat decoder para proyectos existentes.
-    - Conecta con la futura adición de video como overlay (Fase 3).
-
-- [ ] **Library de assets reutilizables por proyecto**
-    - Hoy `imagePath` se guarda absoluto. Si el usuario mueve el archivo en disco, se rompe.
-    - Plan: al drop de imagen, copiar al `assets/` del proyecto + guardar path relativo.
-    - Panel UI: sidebar con grid de assets del proyecto, drag al timeline/preview crea overlay.
-
-- [ ] **GIF animado en export (no solo primer frame)**
-    - `ExportOverlayRenderer.swift` agrega un CALayer con `contents = CGImage` para `.image`. Para GIF eso solo muestra el primer frame.
-    - Plan: `CAKeyframeAnimation` sobre `.contents` con cada frame como keyframe, timing matchando el GIF original.
-
-- [ ] **Drag de edges del overlay clip en timeline para trim**
-    - Hoy el overlay clip en timeline solo se puede mover (drag horizontal). No se puede resize de los edges para cambiar start/end.
-    - Patrón: similar al trim de segments en TimelineView+DragDrop.
-
-- [ ] **Video overlay (track adicional en AVMutableComposition)**
-    - Permite usar otro video como overlay (B-roll, picture-in-picture).
-    - Requiere refactor de `MaskedVideoCompositor` para leer `request.sourceFrame(byTrackID:)` del track del overlay y composeear.
-    - Audio mix necesita actualización.
-
-- [ ] **Granular subscription en `OverlayPopover` (perf, low priority)**
-    - Popover observa `editor` completo; re-renderea en cualquier mutación de project (autosave/undo).
-    - Cost real: bajo (~1Hz max, popover visible solo durante edit). Considerado no-worth-it en sesión `refactor/overlays-unified-system`.
-    - Si se vuelve perceptible con muchos overlays, implementar `OverlayPopoverModel: ObservableObject` con `editor.$project.map { ...overlay con id... }.removeDuplicates()`.
+- [ ] **Motion blur on zoom transitions** — blur proportional to camera movement during zoom in/out via `CIMotionBlur` or a Metal shader. Applied in `MaskedVideoCompositor` / `PreviewComposition`.
+- [ ] **Hide desktop icons during recording** — toggle in `RecordingControlView`. On start: `defaults write com.apple.finder CreateDesktop -bool false && killall Finder`. On stop: restore. Save the prior value in case the user had them hidden already. Note: Finder restart causes a brief visual flash.
+- [ ] **Interactive crop with aspect-ratio presets** (16:9 / 9:16 / 4:3 / 1:1 / 21:9) — drag + numeric inputs + ratio lock. Applied to the source video before layout.
+- [ ] **Reorder segments in timeline** (v1.1).
+- [ ] **Hover thumbnails on preview scrubber**.
+- [ ] **Distribution permissions and entitlements review** before public launch.
+- [ ] **Auto-generate proxies on project creation**.
+- [ ] **Regenerate proxies when sync offsets change**.
+- [ ] **Refactor `ZoomSectionController` + `ZoomPlanGenerator`** — their tests are the largest in the suite (49KB / 48KB), which usually signals the code under test is overdue for simplification.
+- [ ] **Evaluate `LoggingSystem`: actor → `nonisolated` with lock** — `os_log` is thread-safe by design; the actor wrapper adds `await` friction in every call site. Only worth doing if the `await` causes real friction.
+- [ ] **Cloud provider for generated assets** (background art, voiceover, etc.).
+- [ ] **Frame-by-frame stylization** (experimental).
+- [ ] **Auto-cuts on silence** (PRD Phase 5).
+- [ ] **Chapters / titles from transcript** (PRD Phase 5).
 
 ---
 
-## 🔎 Pendientes del Skills Review (branch `review/skills-baseline-2605`, 2026-05-14)
+## Performance (deferred)
 
-> Hallazgos del review que se decidió **no aplicar** en esa sesión por scope/dependencias. Detalles completos en `docs/RESEARCH/SKILLS_REVIEW_2605.md`.
+> Items with a real cost but acceptable defaults today.
 
-- [ ] **`RecordingSession` cross-actor Sendable refactor** (review #3)
-    - `RecordingSession` es `public final class` con `private(set) var` mutables devuelta por `startRecording()` desde un actor. Los getters (`isRecording`, `duration`, `error`) son leídos desde cualquier thread.
-    - Recomendación: cambiar a snapshot `SessionState: Sendable` consultable on-demand.
-    - Conecta con la DI de Fase 1 ya parcialmente implementada (EngineContext).
+- [ ] **Long-duration validation** — never tested with videos > 1 hour. Stress test the writer, mic queue, telemetry parser, and preview composition end-to-end at that length.
+- [ ] **`TimelineView` body memoization** — `TimelineTrackBuilder.tracks(for:)` and `computeOverlayRows(...)` run on every body invalidation. During playback `currentTime` ticks constantly and triggers redundant recomputes. Requires extracting a sub-view or a derived `@StateObject`.
+- [ ] **`ThumbnailCache` LRU O(N) → O(log N) or O(1)** — `thumbnailAccessOrder.removeAll { $0 == key }` is O(N) per insert; with `maxThumbnailCount = 500` each miss is 500 comparisons. Needs `swift-collections` `OrderedDictionary` or a manual hash + linked list.
+- [ ] **`MaskedVideoCompositor` dynamic camera property** — proper fix for the PiP drag rebuild path. Updates would skip the `AVMutableVideoComposition` rebuild entirely. Touches every consumer of the custom compositor. The throttle bump in PR #15 is the interim mitigation.
+- [ ] **`RecordingSession` snapshot refactor** — the interim `@unchecked Sendable` from PR #15 is fine for now. Long-term, replace with a `Sendable` `SessionState` snapshot consultable on demand (no shared mutable state crossing actor isolation).
 
-- [ ] **`TimelineView` body memoization** (review #5)
-    - `TimelineTrackBuilder.tracks(for: project)` y `Self.computeOverlayRows(...)` se ejecutan en cada body invalidation. Durante playback `currentTime` cambia frecuentemente y dispara recomputaciones innecesarias.
-    - Requiere extraer sub-view o `@StateObject` derivado — refactor mayor.
+---
 
-- [ ] **`ThumbnailCache` LRU O(N) → O(log N) o O(1)** (review #7)
-    - `thumbnailAccessOrder.removeAll { $0 == key }` es O(N) por insert. Con `maxThumbnailCount=500` cada miss es 500 comparaciones.
-    - Necesita añadir dependencia `swift-collections` para `OrderedDictionary` o implementar índice manual.
+## Distribution / Gatekeeper
 
-- [ ] **2 warnings irreducibles en `MaskedVideoCompositor`** (review residual)
-    - `sourcePixelBufferAttributes` / `requiredPixelBufferAttributesForRenderContext` no aceptan getter `@Sendable` que el protocolo `AVVideoCompositing` espera vía `NS_SWIFT_SENDABLE`.
-    - Workarounds estándar probados sin éxito (`@preconcurrency import`, `@preconcurrency` en conformance, computed `nonisolated` con `static let`, `[String: any Sendable]`).
-    - Espera fix de Apple. Documentado in-line.
+- [ ] **Ad-hoc signing in `build-dmg.sh`** — `codesign --force --deep --sign - CameramanApp.app` before packaging. Does not bypass Gatekeeper on Tahoe but stabilizes the internal signature and avoids errors with embedded frameworks. Tester feedback recorded in `TASK_COMPLETED/2605.md`.
+- [ ] **Developer ID + notarization** — the only real fix for the Gatekeeper warning on macOS Tahoe. Requires the Apple Developer Program subscription, the `Developer ID Application` certificate, and a `xcrun notarytool submit` + `stapler staple` pipeline.
+
+---
+
+## Tooling — Claude Code Skills
+
+- [ ] **Create a `cameraman-engine` skill via `/skill-creator`** — gap identified during the skills baseline review: no public skill covers AVFoundation / ScreenCaptureKit / `AVMutableComposition` / the keyframed zoom pipeline. Package internal conventions: `CompositionBuilder`, `MaskedVideoCompositor`, `AudioMixBuilder`, the `DwellDetector → ZoomSuggestionEngine → ZoomPlanGenerator → PreviewRenderer` pipeline, the engine/UI actor split, the 400–500 LOC and zero-warnings rules. Validate against a real task (refactor of `ZoomSectionController` or a new overlay type). Decide whether to publish it or keep it under `.claude/skills/`.
+
+---
+
+## Compiler / SDK limitations (waiting on Apple)
+
+- [ ] **2 irreducible warnings in `MaskedVideoCompositor`** — `sourcePixelBufferAttributes` and `requiredPixelBufferAttributesForRenderContext` don't accept the `@Sendable` getter that `AVVideoCompositing` requires via `NS_SWIFT_SENDABLE`. Standard workarounds all fail: `@preconcurrency import`, `@preconcurrency` on conformance, `nonisolated` computed property with `static let`, `[String: any Sendable]`. Waiting on an SDK fix from Apple; documented inline in the file.
