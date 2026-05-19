@@ -115,29 +115,38 @@ public actor TelemetryParser {
 
     // MARK: - Private Methods
 
-    /// Load telemetry events from JSONL file
+    /// Load telemetry events from JSONL file.
+    ///
+    /// Streams the file line-by-line via `FileHandle.bytes.lines`. The old
+    /// approach loaded the entire file into a `Data`, decoded it as a
+    /// `String`, and split by newlines — fine for short recordings but
+    /// catastrophic on long sessions where the cursor JSONL can be hundreds
+    /// of MB (memory peaks at file_size × 3-4 due to Data + String + Array).
+    /// Streaming keeps peak memory bounded to a single line.
     private func loadTelemetryEvents(from url: URL) async throws -> [TelemetryRecorder.Event] {
         guard FileManager.default.fileExists(atPath: url.path) else {
             throw ParserError.fileNotFound(url)
         }
 
-        let data = try Data(contentsOf: url)
-        guard !data.isEmpty else {
+        let attrs = try FileManager.default.attributesOfItem(atPath: url.path)
+        let fileSize = (attrs[.size] as? NSNumber)?.intValue ?? 0
+        guard fileSize > 0 else {
             throw ParserError.emptyFile
         }
 
-        let lines = String(data: data, encoding: .utf8)?.components(separatedBy: .newlines) ?? []
+        let decoder = JSONDecoder()
         var events: [TelemetryRecorder.Event] = []
 
-        for line in lines where !line.isEmpty {
-            if let lineData = line.data(using: .utf8) {
-                do {
-                    let event = try JSONDecoder().decode(TelemetryRecorder.Event.self, from: lineData)
-                    events.append(event)
-                } catch {
-                    // Skip invalid lines
-                    continue
-                }
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+
+        for try await line in handle.bytes.lines {
+            guard !line.isEmpty else { continue }
+            guard let lineData = line.data(using: .utf8) else { continue }
+            // Skip malformed lines rather than abort — a partially-written
+            // last line is expected if the app was killed mid-recording.
+            if let event = try? decoder.decode(TelemetryRecorder.Event.self, from: lineData) {
+                events.append(event)
             }
         }
 
