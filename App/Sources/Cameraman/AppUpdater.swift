@@ -32,7 +32,9 @@ final class AppUpdater {
                     return
                 }
                 let latest = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
-                let releaseURL = (json["html_url"] as? String).flatMap(URL.init)
+                let releaseURL = (json["html_url"] as? String)
+                    .flatMap(URL.init)
+                    .flatMap(Self.safeGitHubURL)
 
                 if isNewer(latest, than: currentVersion) {
                     showUpdateAvailable(version: latest, releaseURL: releaseURL)
@@ -51,6 +53,14 @@ final class AppUpdater {
 
     private func isNewer(_ v1: String, than v2: String) -> Bool {
         v1.compare(v2, options: .numeric) == .orderedDescending
+    }
+
+    /// Only allow https://github.com/* URLs returned by the API to be opened
+    /// — guards against a compromised release payload smuggling javascript://,
+    /// file://, or off-domain redirects.
+    private static func safeGitHubURL(_ url: URL) -> URL? {
+        guard url.scheme == "https", url.host == "github.com" else { return nil }
+        return url
     }
 
     private func showUpdateAvailable(version: String, releaseURL: URL?) {
