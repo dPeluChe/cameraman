@@ -216,16 +216,31 @@ extension CaptureEngine {
 
         let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mov)
 
+        // H.264 High@Auto tops out around 4K and refuses some ultrawide
+        // dimensions — recordings on a 3440x1440 display triggered writer
+        // error -10877 ("invalid pixel format") at frame ~70. Fall back to
+        // HEVC for anything above 1080p; HEVC handles ultrawide and 4K
+        // without the format restrictions, and is supported on every Mac
+        // that meets our macOS 13+ deployment target.
+        let useHEVC = width > 1920 || height > 1080
+        let codec: AVVideoCodecType = useHEVC ? .hevc : .h264
+
+        var compressionProperties: [String: Any] = [
+            AVVideoAverageBitRateKey: width * height * 5,
+            AVVideoExpectedSourceFrameRateKey: frameRate
+        ]
+        if !useHEVC {
+            compressionProperties[AVVideoProfileLevelKey] = AVVideoProfileLevelH264HighAutoLevel
+        }
+
         let videoSettings: [String: Any] = [
-            AVVideoCodecKey: AVVideoCodecType.h264,
+            AVVideoCodecKey: codec,
             AVVideoWidthKey: width,
             AVVideoHeightKey: height,
-            AVVideoCompressionPropertiesKey: [
-                AVVideoAverageBitRateKey: width * height * 5,
-                AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
-                AVVideoExpectedSourceFrameRateKey: frameRate
-            ]
+            AVVideoCompressionPropertiesKey: compressionProperties
         ]
+
+        logger.info("Video writer using \(useHEVC ? "HEVC" : "H.264") at \(width)x\(height)@\(frameRate)fps")
 
         let writerInput = AVAssetWriterInput(
             mediaType: .video,
