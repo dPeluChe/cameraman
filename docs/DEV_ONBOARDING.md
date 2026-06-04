@@ -239,7 +239,7 @@ La app corre con App Sandbox. Entitlements en `CameramanApp/CameramanApp.entitle
 Info.plist: `NSCameraUsageDescription`, `NSMicrophoneUsageDescription`, `NSScreenCaptureUsageDescription`.
 
 Proyectos guardados en:
-`~/Library/Containers/com.dpeluchestudios.CameramanApp/Data/Library/Application Support/ProjectStudio/Projects/`
+`~/Library/Containers/dev.dpeluche.CameramanApp/Data/Library/Application Support/ProjectStudio/Projects/`
 
 ---
 

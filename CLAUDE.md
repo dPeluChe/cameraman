@@ -34,7 +34,7 @@ swift test --parallel            # Run tests in parallel
 
 When running the sandboxed app, recordings are saved under the app container:
 
-`~/Library/Containers/com.dpeluchestudios.CameramanApp/Data/Documents/Recordings/recording_<ISO8601>/`
+`~/Library/Containers/dev.dpeluche.CameramanApp/Data/Documents/Recordings/recording_<ISO8601>/`
 
 The recording produces separate track files:
 

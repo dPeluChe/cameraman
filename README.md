@@ -156,10 +156,10 @@ See [`docs/CHANGELOG.md`](docs/CHANGELOG.md) for version history. See [`docs/TAS
 
 ## License
 
-[MIT](LICENSE) — © 2026 Antonio Martinez Quintero (dPeluChe Studios).
+[MIT](LICENSE) — © 2026 Antonio Martinez Quintero (dPeluChe).
 
 ---
 
 ## Built by
 
-[dPeluChe Studios](https://github.com/dPeluChe) — independent product studio.
+[dPeluChe](https://github.com/dPeluChe) — independent developer building tools at [dpeluche.dev](https://dpeluche.dev).

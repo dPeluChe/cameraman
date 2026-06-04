@@ -554,7 +554,8 @@
               "fill": "#F5EDD8",
               "content": "Screen Recording & Editing",
               "fontFamily": "Inter",
-              "fontSize": 22
+              "fontSize": 22,
+              "fontWeight": "normal"
             }
           ]
         }

@@ -11,11 +11,11 @@ Fields marked ⚠️ need a URL before submitting.
 |---|---|
 | **App Name** | Cameraman |
 | **Subtitle** | Screen recorder for macOS |
-| **Bundle ID** | com.dpeluchestudios.CameramanApp |
+| **Bundle ID** | dev.dpeluche.CameramanApp |
 | **SKU** | cameraman-macos-2026 |
 | **Primary Category** | Video |
 | **Secondary Category** | Productivity |
-| **Copyright** | © 2026 dPeluChe Studios |
+| **Copyright** | © 2026 dPeluChe |
 
 ---
 
