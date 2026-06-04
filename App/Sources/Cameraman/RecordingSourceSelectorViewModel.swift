@@ -31,6 +31,9 @@ class SourceSelectorViewModel: ObservableObject {
     private let permissionManager = PermissionManager.shared
 
     func loadSources(for tab: SourceTab) async {
+        // Custom tab buttons (RecordingControlView) call this without binding selectedTab,
+        // so set it here or the rendered list + highlight stay stuck on the previous tab.
+        selectedTab = tab
         errorMessage = nil
         previewImage = nil
         permissionDenied = false
