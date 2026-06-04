@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > `0.8.0 → 0.5.0` · `0.7.0 → 0.4.1` · `0.6.0 → 0.4.0` · `0.5.0 → 0.3.1` · `0.4.0 → 0.3.0` · `0.3.1 → 0.2.1` · `0.3.0 → 0.2.0` · `0.2.0 → 0.1.1` · `0.1.0 → 0.1.0`.
 > Las fechas y el contenido técnico se preservaron.
 
+## [0.6.2] - 2026-06-03
+
+Foco de la versión: fixes del selector de fuentes de grabación y empaque para distribución directa (Developer ID + notarización).
+
+### Fixed
+- **Tabs Windows/Apps del selector ahora funcionan** — `loadSources` no actualizaba `selectedTab`, así que los botones de tab cargaban los datos pero la lista y el resaltado se quedaban en "Display".
+- **Lista de ventanas limpia** — se excluyen ventanas del escritorio, offscreen, sin título y de la propia app. Antes mezclaba capas del sistema y ventanas no visibles.
+- **Lista de apps limpia** — solo aparecen apps con al menos una ventana real visible (antes se colaban daemons/agents con nombre vacío).
+- **Captura de app robusta** — se elige la ventana visible más grande en lugar de la primera (que podía ser offscreen y no grababa nada).
+- **`MACOSX_DEPLOYMENT_TARGET` 15.7 → 13.0** — el target exigía macOS Sequoia, bloqueando la instalación en la mayoría de Macs.
+
+### Added
+- **Preview real de la fuente** — miniatura en vivo de ventana/display (vía `SCScreenshotManager`, macOS 14+) para confirmar la fuente antes de grabar.
+- **`scripts/notarize-dmg.sh`** — submit a Apple notary + staple del DMG; `build-dmg.sh` acepta `APP_PATH` para empaquetar un `.app` notarizado.
+
+---
+
 ## [0.6.1] - 2026-05-19
 
 Foco de la versión: security audit pre-publicación y limpieza para abrir el repo al público.

@@ -134,15 +134,19 @@ extension CaptureEngine {
                 throw CaptureError.noSourceSelected
             }
 
-            // Get all windows for this application
-            let appWindows = shareableContent.windows.filter { window in
-                window.owningApplication?.bundleIdentifier == app.bundleIdentifier
-            }
+            // Prefer the largest on-screen titled window; a stale .first could be an
+            // offscreen/utility window, which records nothing.
+            let appWindows = shareableContent.windows
+                .filter { $0.owningApplication?.bundleIdentifier == app.bundleIdentifier }
+                .filter { $0.isOnScreen && ($0.title?.isEmpty == false) }
+                .sorted { ($0.frame.width * $0.frame.height) > ($1.frame.width * $1.frame.height) }
 
-            guard let firstWindow = appWindows.first else {
+            guard let targetAppWindow = appWindows.first ?? shareableContent.windows.first(where: {
+                $0.owningApplication?.bundleIdentifier == app.bundleIdentifier
+            }) else {
                 throw CaptureError.noSourceSelected
             }
-            contentFilter = SCContentFilter(desktopIndependentWindow: firstWindow)
+            contentFilter = SCContentFilter(desktopIndependentWindow: targetAppWindow)
         }
 
         return (streamConfig, contentFilter)

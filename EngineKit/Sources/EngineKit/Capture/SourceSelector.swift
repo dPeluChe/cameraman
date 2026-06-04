@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CoreGraphics
 import ScreenCaptureKit
 
 /// SourceSelector provides functionality to enumerate available capture sources
@@ -148,15 +149,12 @@ public actor SourceSelector {
     /// - Throws: SourceSelectorError if enumeration fails
     public func listWindows() async throws -> [WindowSource] {
         do {
-            let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
+            // excludingDesktopWindows:true drops wallpaper/desktop-icon layers;
+            // onScreenWindowsOnly:true drops minimized/offscreen windows the user can't see.
+            let content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)
+            let ownBundleID = Bundle.main.bundleIdentifier
 
             var windows: [WindowSource] = []
-
-            // Create a map of bundleIdentifier to SCRunningApplication
-            var appMap: [String: SCRunningApplication] = [:]
-            for app in content.applications {
-                appMap[app.bundleIdentifier] = app
-            }
 
             for window in content.windows {
                 // Skip windows without titles or very small windows (likely menus, tooltips, etc.)
@@ -164,12 +162,15 @@ public actor SourceSelector {
                 guard window.frame.width > 50 && window.frame.height > 50 else { continue }
 
                 // Get application info from the window's owning application
-                let app = content.applications.first { $0.bundleIdentifier == window.owningApplication?.bundleIdentifier }
+                let app = window.owningApplication
+                guard let appName = app?.applicationName, !appName.isEmpty else { continue }
+                // Don't offer our own windows as a capture source
+                if let bid = app?.bundleIdentifier, bid == ownBundleID { continue }
 
                 let windowSource = WindowSource(
                     id: "\(window.windowID)",
                     title: title,
-                    applicationName: app?.applicationName ?? "Unknown",
+                    applicationName: appName,
                     applicationBundleIdentifier: app?.bundleIdentifier ?? "unknown",
                     width: Int(window.frame.width),
                     height: Int(window.frame.height),
@@ -202,10 +203,23 @@ public actor SourceSelector {
     /// - Throws: SourceSelectorError if enumeration fails
     public func listApplications() async throws -> [ApplicationSource] {
         do {
-            let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
+            let content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)
+            let ownBundleID = Bundle.main.bundleIdentifier
 
-            let applications = content.applications.map { application in
-                ApplicationSource(
+            // Only list apps that own at least one real, visible window — otherwise the
+            // list fills with background daemons/agents (empty rows) that can't be captured.
+            var capturableBundleIDs = Set<String>()
+            for window in content.windows {
+                guard let title = window.title, !title.isEmpty else { continue }
+                guard window.frame.width > 50 && window.frame.height > 50 else { continue }
+                if let bid = window.owningApplication?.bundleIdentifier { capturableBundleIDs.insert(bid) }
+            }
+
+            let applications = content.applications.compactMap { application -> ApplicationSource? in
+                guard !application.applicationName.isEmpty else { return nil }
+                guard application.bundleIdentifier != ownBundleID else { return nil }
+                guard capturableBundleIDs.contains(application.bundleIdentifier) else { return nil }
+                return ApplicationSource(
                     id: "\(application.bundleIdentifier)_\(application.processID)",
                     name: application.applicationName,
                     bundleIdentifier: application.bundleIdentifier,
@@ -222,6 +236,45 @@ public actor SourceSelector {
             }
             throw SourceSelectorError.failedToEnumerateApplications(underlying: error)
         }
+    }
+
+    // MARK: - Preview Thumbnails
+
+    /// Capture a still thumbnail of a window so the user can confirm the right source.
+    /// Returns nil on macOS 13 (SCScreenshotManager is 14+) or on failure — caller falls back to an icon.
+    public func captureWindowThumbnail(windowID: String, maxDimension: Int = 640) async -> CGImage? {
+        guard #available(macOS 14.0, *) else { return nil }
+        guard let content = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false),
+              let scWindow = content.windows.first(where: { String($0.windowID) == windowID }) else { return nil }
+        let filter = SCContentFilter(desktopIndependentWindow: scWindow)
+        return await captureThumbnail(filter: filter, sourceSize: scWindow.frame.size, maxDimension: maxDimension)
+    }
+
+    /// Capture a still thumbnail of a display.
+    public func captureDisplayThumbnail(displayID: String, maxDimension: Int = 640) async -> CGImage? {
+        guard #available(macOS 14.0, *) else { return nil }
+        guard let content = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false) else { return nil }
+        let scDisplay: SCDisplay?
+        if let idValue = UInt32(displayID) {
+            scDisplay = content.displays.first(where: { $0.displayID == idValue }) ?? content.displays.first
+        } else {
+            scDisplay = content.displays.first
+        }
+        guard let display = scDisplay else { return nil }
+        let filter = SCContentFilter(display: display, excludingWindows: [])
+        let size = CGSize(width: display.width, height: display.height)
+        return await captureThumbnail(filter: filter, sourceSize: size, maxDimension: maxDimension)
+    }
+
+    @available(macOS 14.0, *)
+    private func captureThumbnail(filter: SCContentFilter, sourceSize: CGSize, maxDimension: Int) async -> CGImage? {
+        let config = SCStreamConfiguration()
+        let longest = max(sourceSize.width, sourceSize.height, 1)
+        let scale = min(1.0, CGFloat(maxDimension) / longest)
+        config.width = max(1, Int(sourceSize.width * scale))
+        config.height = max(1, Int(sourceSize.height * scale))
+        config.showsCursor = false
+        return try? await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
     }
 
     // MARK: - Permission Check

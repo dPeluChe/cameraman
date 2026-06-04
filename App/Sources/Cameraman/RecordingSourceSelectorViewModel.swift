@@ -77,15 +77,21 @@ class SourceSelectorViewModel: ObservableObject {
     }
 
     func capturePreview(display: SourceSelector.DisplaySource) async {
-        await MainActor.run {
-            DisplayHighlighter.shared.toggleHighlight(displayID: display.id)
-        }
+        DisplayHighlighter.shared.toggleHighlight(displayID: display.id)
 
-        self.previewImage = NSImage(systemSymbolName: "display", accessibilityDescription: "Display Preview")
+        if let cgImage = await sourceSelector.captureDisplayThumbnail(displayID: display.id) {
+            self.previewImage = NSImage(cgImage: cgImage, size: .zero)
+        } else {
+            self.previewImage = NSImage(systemSymbolName: "display", accessibilityDescription: "Display Preview")
+        }
     }
 
     func capturePreview(window: SourceSelector.WindowSource) async {
-        self.previewImage = NSImage(systemSymbolName: "macwindow", accessibilityDescription: "Window Preview")
+        if let cgImage = await sourceSelector.captureWindowThumbnail(windowID: window.id) {
+            self.previewImage = NSImage(cgImage: cgImage, size: .zero)
+        } else {
+            self.previewImage = NSImage(systemSymbolName: "macwindow", accessibilityDescription: "Window Preview")
+        }
     }
 
     private func captureScreenshot(displayID: String? = nil, windowID: String? = nil) async {
