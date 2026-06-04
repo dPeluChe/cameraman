@@ -6,7 +6,8 @@ APP_NAME="CameramanApp"
 VOLUME_NAME="Cameraman"
 DMG_BASENAME="Cameraman-beta"
 
-SRC_APP="$ROOT/CameramanApp/build/Build/Products/Release/${APP_NAME}.app"
+# APP_PATH overrides the default (e.g. a notarized .app exported from Xcode Organizer)
+SRC_APP="${APP_PATH:-$ROOT/CameramanApp/build/Build/Products/Release/${APP_NAME}.app}"
 DIST_DIR="$ROOT/dist"
 STAGING="$DIST_DIR/staging"
 BG_SRC="$ROOT/docs/branding/dmg-background@2x.jpg"
