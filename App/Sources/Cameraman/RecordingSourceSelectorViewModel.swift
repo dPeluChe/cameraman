@@ -26,6 +26,8 @@ class SourceSelectorViewModel: ObservableObject {
     @Published var previewImage: NSImage?
     @Published var errorMessage: String?
     @Published var permissionDenied = false
+    /// id of the source currently shown in the preview panel (highlights its chip)
+    @Published var activeSourceID: String?
 
     private let sourceSelector = SourceSelector.shared
     private let permissionManager = PermissionManager.shared
@@ -36,6 +38,7 @@ class SourceSelectorViewModel: ObservableObject {
         selectedTab = tab
         errorMessage = nil
         previewImage = nil
+        activeSourceID = nil
         permissionDenied = false
 
         do {
@@ -77,6 +80,7 @@ class SourceSelectorViewModel: ObservableObject {
     }
 
     func capturePreview(display: SourceSelector.DisplaySource) async {
+        activeSourceID = display.id
         DisplayHighlighter.shared.toggleHighlight(displayID: display.id)
 
         if let cgImage = await sourceSelector.captureDisplayThumbnail(displayID: display.id) {
@@ -87,11 +91,32 @@ class SourceSelectorViewModel: ObservableObject {
     }
 
     func capturePreview(window: SourceSelector.WindowSource) async {
+        activeSourceID = window.id
+        bringToFront(bundleIdentifier: window.applicationBundleIdentifier)
         if let cgImage = await sourceSelector.captureWindowThumbnail(windowID: window.id) {
             self.previewImage = NSImage(cgImage: cgImage, size: .zero)
         } else {
             self.previewImage = NSImage(systemSymbolName: "macwindow", accessibilityDescription: "Window Preview")
         }
+    }
+
+    func capturePreview(application: SourceSelector.ApplicationSource) async {
+        activeSourceID = application.id
+        bringToFront(bundleIdentifier: application.bundleIdentifier)
+        if let cgImage = await sourceSelector.captureApplicationThumbnail(bundleIdentifier: application.bundleIdentifier) {
+            self.previewImage = NSImage(cgImage: cgImage, size: .zero)
+        } else {
+            self.previewImage = NSImage(systemSymbolName: "app.fill", accessibilityDescription: "Application Preview")
+        }
+    }
+
+    /// Bring the source's owning app forward so the user can visually confirm it.
+    /// macOS only lets us activate the app (not a single window of another app) reliably.
+    private func bringToFront(bundleIdentifier: String) {
+        guard bundleIdentifier != "unknown",
+              let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).first
+        else { return }
+        app.activate(options: [.activateAllWindows])
     }
 
     private func captureScreenshot(displayID: String? = nil, windowID: String? = nil) async {

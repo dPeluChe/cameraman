@@ -250,6 +250,18 @@ public actor SourceSelector {
         return await captureThumbnail(filter: filter, sourceSize: scWindow.frame.size, maxDimension: maxDimension)
     }
 
+    /// Capture a still thumbnail of an application's largest visible window.
+    public func captureApplicationThumbnail(bundleIdentifier: String, maxDimension: Int = 640) async -> CGImage? {
+        guard #available(macOS 14.0, *) else { return nil }
+        guard let content = try? await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true) else { return nil }
+        let window = content.windows
+            .filter { $0.owningApplication?.bundleIdentifier == bundleIdentifier && ($0.title?.isEmpty == false) }
+            .max(by: { ($0.frame.width * $0.frame.height) < ($1.frame.width * $1.frame.height) })
+        guard let scWindow = window else { return nil }
+        let filter = SCContentFilter(desktopIndependentWindow: scWindow)
+        return await captureThumbnail(filter: filter, sourceSize: scWindow.frame.size, maxDimension: maxDimension)
+    }
+
     /// Capture a still thumbnail of a display.
     public func captureDisplayThumbnail(displayID: String, maxDimension: Int = 640) async -> CGImage? {
         guard #available(macOS 14.0, *) else { return nil }
