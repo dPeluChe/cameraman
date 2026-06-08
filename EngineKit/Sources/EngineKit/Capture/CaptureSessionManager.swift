@@ -244,7 +244,7 @@ extension CaptureEngine {
             AVVideoCompressionPropertiesKey: compressionProperties
         ]
 
-        logger.info("Video writer using \(useHEVC ? "HEVC" : "H.264") at \(width)x\(height)@\(frameRate)fps")
+        logger.debug("Video writer using \(useHEVC ? "HEVC" : "H.264") at \(width)x\(height)@\(frameRate)fps")
 
         let writerInput = AVAssetWriterInput(
             mediaType: .video,
