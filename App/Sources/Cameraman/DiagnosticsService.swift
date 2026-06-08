@@ -66,8 +66,8 @@ enum DiagnosticsService {
 
     // MARK: - Report
 
-    /// Build the full plain-text report.
-    static func buildReport(logLimit: Int = 300) async -> String {
+    /// Build the full plain-text report. Pass `permissions` to avoid a second health check.
+    static func buildReport(logLimit: Int = 300, permissions: [PermissionRow]? = nil) async -> String {
         let formatter = ISO8601DateFormatter()
         var out = "Cameraman Diagnostics Report\n"
         out += "Generated: \(formatter.string(from: Date()))\n\n"
@@ -79,7 +79,13 @@ enum DiagnosticsService {
         out += "Arch: \(architecture)\n\n"
 
         out += "== Permissions ==\n"
-        for line in await permissionLines() {
+        let perms: [PermissionRow]
+        if let permissions {
+            perms = permissions
+        } else {
+            perms = await permissionLines()
+        }
+        for line in perms {
             out += "\(line.label): \(line.status)\(line.ok ? "" : "   <-- needs attention")\n"
         }
         out += "\n"

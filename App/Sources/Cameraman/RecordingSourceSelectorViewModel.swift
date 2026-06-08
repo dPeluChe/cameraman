@@ -82,31 +82,30 @@ class SourceSelectorViewModel: ObservableObject {
     func capturePreview(display: SourceSelector.DisplaySource) async {
         activeSourceID = display.id
         DisplayHighlighter.shared.toggleHighlight(displayID: display.id)
-
-        if let cgImage = await sourceSelector.captureDisplayThumbnail(displayID: display.id) {
-            self.previewImage = NSImage(cgImage: cgImage, size: .zero)
-        } else {
-            self.previewImage = NSImage(systemSymbolName: "display", accessibilityDescription: "Display Preview")
-        }
+        setPreview(await sourceSelector.captureDisplayThumbnail(displayID: display.id),
+                   fallbackSymbol: "display", description: "Display Preview")
     }
 
     func capturePreview(window: SourceSelector.WindowSource) async {
         activeSourceID = window.id
         bringToFront(bundleIdentifier: window.applicationBundleIdentifier)
-        if let cgImage = await sourceSelector.captureWindowThumbnail(windowID: window.id) {
-            self.previewImage = NSImage(cgImage: cgImage, size: .zero)
-        } else {
-            self.previewImage = NSImage(systemSymbolName: "macwindow", accessibilityDescription: "Window Preview")
-        }
+        setPreview(await sourceSelector.captureWindowThumbnail(windowID: window.id),
+                   fallbackSymbol: "macwindow", description: "Window Preview")
     }
 
     func capturePreview(application: SourceSelector.ApplicationSource) async {
         activeSourceID = application.id
         bringToFront(bundleIdentifier: application.bundleIdentifier)
-        if let cgImage = await sourceSelector.captureApplicationThumbnail(bundleIdentifier: application.bundleIdentifier) {
-            self.previewImage = NSImage(cgImage: cgImage, size: .zero)
+        setPreview(await sourceSelector.captureApplicationThumbnail(bundleIdentifier: application.bundleIdentifier),
+                   fallbackSymbol: "app.fill", description: "Application Preview")
+    }
+
+    /// Show the captured thumbnail, or an SF Symbol placeholder if capture failed (macOS 13 / no permission).
+    private func setPreview(_ cgImage: CGImage?, fallbackSymbol: String, description: String) {
+        if let cgImage {
+            previewImage = NSImage(cgImage: cgImage, size: .zero)
         } else {
-            self.previewImage = NSImage(systemSymbolName: "app.fill", accessibilityDescription: "Application Preview")
+            previewImage = NSImage(systemSymbolName: fallbackSymbol, accessibilityDescription: description)
         }
     }
 

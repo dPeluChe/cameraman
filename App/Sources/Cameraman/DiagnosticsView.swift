@@ -143,8 +143,9 @@ struct DiagnosticsView: View {
     // MARK: - Load
 
     private func load() async {
-        permissions = await DiagnosticsService.permissionLines()
-        report = await DiagnosticsService.buildReport()
+        let perms = await DiagnosticsService.permissionLines()
+        permissions = perms
+        report = await DiagnosticsService.buildReport(permissions: perms)
         isLoading = false
     }
 

@@ -145,6 +145,15 @@ public actor SourceSelector {
     // MARK: - Window Enumeration
 
     /// List all available windows
+    /// A window worth offering as a capture source: real, visible, titled, not our own.
+    private func isCapturableWindow(_ window: SCWindow, ownBundleID: String?) -> Bool {
+        guard let title = window.title, !title.isEmpty else { return false }
+        guard window.frame.width > 50 && window.frame.height > 50 else { return false }
+        guard let appName = window.owningApplication?.applicationName, !appName.isEmpty else { return false }
+        if let bid = window.owningApplication?.bundleIdentifier, bid == ownBundleID { return false }
+        return true
+    }
+
     /// - Returns: Array of WindowSource
     /// - Throws: SourceSelectorError if enumeration fails
     public func listWindows() async throws -> [WindowSource] {
@@ -156,27 +165,17 @@ public actor SourceSelector {
 
             var windows: [WindowSource] = []
 
-            for window in content.windows {
-                // Skip windows without titles or very small windows (likely menus, tooltips, etc.)
-                guard let title = window.title, !title.isEmpty else { continue }
-                guard window.frame.width > 50 && window.frame.height > 50 else { continue }
-
-                // Get application info from the window's owning application
+            for window in content.windows where isCapturableWindow(window, ownBundleID: ownBundleID) {
                 let app = window.owningApplication
-                guard let appName = app?.applicationName, !appName.isEmpty else { continue }
-                // Don't offer our own windows as a capture source
-                if let bid = app?.bundleIdentifier, bid == ownBundleID { continue }
-
                 let windowSource = WindowSource(
                     id: "\(window.windowID)",
-                    title: title,
-                    applicationName: appName,
+                    title: window.title ?? "",
+                    applicationName: app?.applicationName ?? "Unknown",
                     applicationBundleIdentifier: app?.bundleIdentifier ?? "unknown",
                     width: Int(window.frame.width),
                     height: Int(window.frame.height),
                     isOnScreen: window.isOnScreen
                 )
-
                 windows.append(windowSource)
             }
 
@@ -209,9 +208,7 @@ public actor SourceSelector {
             // Only list apps that own at least one real, visible window — otherwise the
             // list fills with background daemons/agents (empty rows) that can't be captured.
             var capturableBundleIDs = Set<String>()
-            for window in content.windows {
-                guard let title = window.title, !title.isEmpty else { continue }
-                guard window.frame.width > 50 && window.frame.height > 50 else { continue }
+            for window in content.windows where isCapturableWindow(window, ownBundleID: ownBundleID) {
                 if let bid = window.owningApplication?.bundleIdentifier { capturableBundleIDs.insert(bid) }
             }
 
