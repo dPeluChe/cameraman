@@ -57,6 +57,7 @@ struct AppNavigation: View {
     private var splitViewBase: some View {
         NavigationSplitView {
             sidebar
+                .navigationSplitViewColumnWidth(min: 240, ideal: 280)
         } detail: {
             detail
         }
@@ -179,7 +180,7 @@ struct AppNavigation: View {
                             .foregroundStyle(.secondary)
                             .font(.system(size: 14))
 
-                        TextField("Search projects...", text: $viewModel.searchText)
+                        TextField("Search", text: $viewModel.searchText)
                             .textFieldStyle(.plain)
                             .font(.system(size: 13))
                             .frame(maxWidth: .infinity)
