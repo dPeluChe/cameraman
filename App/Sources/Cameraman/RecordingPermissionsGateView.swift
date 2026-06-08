@@ -31,15 +31,17 @@ struct RecordingPermissionsGateView: View {
             VStack(spacing: 8) {
                 row(title: "Screen Recording", systemImage: "rectangle.dashed.badge.record",
                     status: viewModel.screenStatus,
-                    note: "If you just enabled it in Settings, reopen the app.") {
+                    note: "In Settings → Screen Recording, enable “\(appName)”, then Quit & Reopen.") {
                     Task { await viewModel.requestScreenPermission() }
                 }
                 row(title: "Camera", systemImage: "video",
-                    status: viewModel.cameraStatus, note: nil) {
+                    status: viewModel.cameraStatus,
+                    note: "In Settings → Camera, enable “\(appName)”.") {
                     Task { await viewModel.requestCameraPermission() }
                 }
                 row(title: "Microphone", systemImage: "mic",
-                    status: viewModel.micStatus, note: nil) {
+                    status: viewModel.micStatus,
+                    note: "In Settings → Microphone, enable “\(appName)”.") {
                     Task { await viewModel.requestMicPermission() }
                 }
             }
@@ -47,17 +49,43 @@ struct RecordingPermissionsGateView: View {
             .background(Color(NSColor.controlBackgroundColor))
             .cornerRadius(10)
 
-            Button {
-                Task { await viewModel.refreshPermissions() }
-            } label: {
-                Label("Re-check", systemImage: "arrow.clockwise")
-                    .font(.caption)
-            }
-            .buttonStyle(.link)
+            HStack(spacing: 16) {
+                Button {
+                    Task { await viewModel.refreshPermissions() }
+                } label: {
+                    Label("Re-check", systemImage: "arrow.clockwise").font(.caption)
+                }
+                .buttonStyle(.link)
 
-            Text("Continue unlocks once all three are granted.")
+                Button {
+                    relaunchApp()
+                } label: {
+                    Label("Quit & Reopen", systemImage: "arrow.triangle.2.circlepath").font(.caption)
+                }
+                .buttonStyle(.link)
+            }
+
+            Text("Continue unlocks once all three are granted. Screen Recording needs a reopen.")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
+        }
+    }
+
+    /// App's user-facing name (e.g. "Cameraman" or "Cameraman (Debug)") so the
+    /// instructions name the exact entry the user must find in System Settings.
+    private var appName: String {
+        (Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
+            ?? (Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String)
+            ?? "Cameraman"
+    }
+
+    private func relaunchApp() {
+        let url = Bundle.main.bundleURL
+        let config = NSWorkspace.OpenConfiguration()
+        config.createsNewApplicationInstance = true
+        NSWorkspace.shared.openApplication(at: url, configuration: config) { _, _ in
+            DispatchQueue.main.async { NSApp.terminate(nil) }
         }
     }
 
