@@ -53,8 +53,8 @@ struct CameramanApp: App {
                     DiagnosticsWindowController.shared.show()
                 }
 
-                Button("Contact Support") {
-                    NSWorkspace.shared.open(AppLinks.contact)
+                Button("Contact Support...") {
+                    ContactSupportWindowController.shared.show()
                 }
 
                 Divider()
