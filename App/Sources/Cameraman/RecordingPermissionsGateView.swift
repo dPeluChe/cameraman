@@ -29,11 +29,8 @@ struct RecordingPermissionsGateView: View {
             .padding(.top, 4)
 
             VStack(spacing: 8) {
-                row(title: "Screen Recording", systemImage: "rectangle.dashed.badge.record",
-                    status: viewModel.screenStatus,
-                    note: "In Settings → Screen Recording, enable “\(appName)”, then Quit & Reopen.") {
-                    Task { await viewModel.requestScreenPermission() }
-                }
+                // Camera & mic first (instant, no relaunch); Screen Recording last since it
+                // needs a one-time reopen — grant it at the end.
                 row(title: "Camera", systemImage: "video",
                     status: viewModel.cameraStatus,
                     note: "Settings → Camera, enable “\(appName)”. If macOS asks, choose Later — no reopen needed.") {
@@ -43,6 +40,11 @@ struct RecordingPermissionsGateView: View {
                     status: viewModel.micStatus,
                     note: "Settings → Microphone, enable “\(appName)”. If macOS asks, choose Later — no reopen needed.") {
                     Task { await viewModel.requestMicPermission() }
+                }
+                row(title: "Screen Recording", systemImage: "rectangle.dashed.badge.record",
+                    status: viewModel.screenStatus,
+                    note: "Settings → Screen Recording, enable “\(appName)”, then Quit & Reopen (last step).") {
+                    Task { await viewModel.requestScreenPermission() }
                 }
             }
             .padding(12)
