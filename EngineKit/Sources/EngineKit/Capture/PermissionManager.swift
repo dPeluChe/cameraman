@@ -130,23 +130,24 @@ public actor PermissionManager {
     /// This method will open the relevant system preference pane.
     /// - Returns: Permission status after attempting to request
     public func requestScreenRecordingPermission() async -> PermissionStatus {
-        let currentStatus = await checkScreenRecordingPermission()
-
-        if currentStatus == .authorized {
+        if await checkScreenRecordingPermission() == .authorized {
             return .authorized
         }
 
-        // Screen recording permission cannot be requested programmatically
-        // We need to guide the user to System Settings
-        // Open System Settings to Privacy & Security > Screen Recording
+        // CGRequestScreenCaptureAccess shows the system prompt when undetermined AND
+        // registers the app in System Settings > Screen Recording so it can be toggled
+        // on later. SCShareableContent alone does not reliably add the app to that list.
+        if CGRequestScreenCaptureAccess() {
+            return .authorized
+        }
+
+        // Previously denied: macOS won't re-prompt, so guide the user to System Settings
+        // (the app now appears there thanks to the request above).
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
             _ = await MainActor.run {
                 NSWorkspace.shared.open(url)
             }
         }
-
-        // Wait a bit for user to potentially grant permission
-        try? await Task.sleep(nanoseconds: UInt64(1 * 1_000_000_000))
 
         return await checkScreenRecordingPermission()
     }

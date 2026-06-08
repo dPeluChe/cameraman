@@ -81,7 +81,7 @@ struct DiagnosticsView: View {
                         .font(.caption)
                         .foregroundStyle(line.ok ? Color.secondary : Color.orange)
                     if !line.ok {
-                        Button("Open Settings") { openSettings(for: line.label) }
+                        Button("Grant") { Task { await grant(line.label) } }
                             .font(.caption)
                             .buttonStyle(.link)
                     }
@@ -170,6 +170,22 @@ struct DiagnosticsView: View {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(report, forType: .string)
         statusMessage = "Diagnostics copied to clipboard."
+    }
+
+    /// Request the permission (shows the system prompt when undetermined); fall back to
+    /// System Settings when it was previously denied and macOS won't re-prompt.
+    private func grant(_ label: String) async {
+        switch label {
+        case "Screen Recording":
+            _ = await PermissionManager.shared.requestScreenRecordingPermission()
+        case "Microphone":
+            if await PermissionManager.shared.requestMicrophonePermission() != .authorized { openSettings(for: label) }
+        case "Camera":
+            if await PermissionManager.shared.requestCameraPermission() != .authorized { openSettings(for: label) }
+        default:
+            openSettings(for: label)
+        }
+        await load()
     }
 
     private func openSettings(for label: String) {
