@@ -306,6 +306,39 @@ class RecordingControlViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Permission gate (Step 0)
+
+    @Published var screenStatus: PermissionManager.PermissionStatus = .notDetermined
+    @Published var cameraStatus: PermissionManager.PermissionStatus = .notDetermined
+    @Published var micStatus: PermissionManager.PermissionStatus = .notDetermined
+
+    /// All three permissions must be authorized before the user can pick a source / record.
+    var allRequiredPermissionsGranted: Bool {
+        screenStatus == .authorized && cameraStatus == .authorized && micStatus == .authorized
+    }
+
+    func refreshPermissions() async {
+        let health = await PermissionManager.shared.performHealthCheck()
+        screenStatus = health.screenRecording
+        cameraStatus = health.camera
+        micStatus = health.microphone
+    }
+
+    func requestScreenPermission() async {
+        _ = await PermissionManager.shared.requestScreenRecordingPermission()
+        await refreshPermissions()
+    }
+
+    func requestCameraPermission() async {
+        _ = await PermissionManager.shared.requestCameraPermission()
+        await refreshPermissions()
+    }
+
+    func requestMicPermission() async {
+        _ = await PermissionManager.shared.requestMicrophonePermission()
+        await refreshPermissions()
+    }
+
     /// Request camera/mic permission up-front (on entering configure or toggling on) so the
     /// system prompts don't all fire at "Start Recording". requestAccess only prompts when
     /// undetermined, so this is a no-op if already decided.

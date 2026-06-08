@@ -17,6 +17,7 @@ struct RecordingControlView: View {
     @StateObject private var viewModel = RecordingControlViewModel()
     @StateObject private var sourceViewModel = SourceSelectorViewModel()
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var selectedSource: RecordingSourceSelectorView.CaptureSource?
     @State private var showTeleprompter = false
@@ -32,6 +33,8 @@ struct RecordingControlView: View {
 
                 if viewModel.isRecording {
                     ScrollView { recordingView.padding(20) }
+            } else if !viewModel.allRequiredPermissionsGranted {
+                ScrollView { RecordingPermissionsGateView(viewModel: viewModel).padding(20) }
             } else if isSourceSelected {
                 ScrollView { configureView.padding(20) }
             } else {
@@ -47,7 +50,12 @@ struct RecordingControlView: View {
         .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
             RecordingStateManager.shared.viewModel = viewModel
+            Task { await viewModel.refreshPermissions() }
             Task { await sourceViewModel.loadSources(for: .display) }
+        }
+        .onChangeCompat(of: scenePhase) { phase in
+            // Re-check when returning from System Settings so granting reflects without manual refresh.
+            if phase == .active { Task { await viewModel.refreshPermissions() } }
         }
         .onChangeCompat(of: showTeleprompter) { show in
             if show {
