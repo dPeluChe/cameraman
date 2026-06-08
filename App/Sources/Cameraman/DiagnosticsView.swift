@@ -79,7 +79,7 @@ struct DiagnosticsView: View {
                     Spacer()
                     Text(line.status)
                         .font(.caption)
-                        .foregroundStyle(line.ok ? .secondary : .orange)
+                        .foregroundStyle(line.ok ? Color.secondary : Color.orange)
                     if !line.ok {
                         Button("Open Settings") { openSettings(for: line.label) }
                             .font(.caption)
