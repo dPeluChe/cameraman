@@ -306,6 +306,22 @@ class RecordingControlViewModel: ObservableObject {
         }
     }
 
+    /// Request camera/mic permission up-front (on entering configure or toggling on) so the
+    /// system prompts don't all fire at "Start Recording". requestAccess only prompts when
+    /// undetermined, so this is a no-op if already decided.
+    func requestEnabledMediaPermissions() async {
+        if includeCamera { _ = await PermissionManager.shared.requestCameraPermission() }
+        if includeMicrophone { _ = await PermissionManager.shared.requestMicrophonePermission() }
+    }
+
+    func requestCameraPermissionIfEnabled() async {
+        if includeCamera { _ = await PermissionManager.shared.requestCameraPermission() }
+    }
+
+    func requestMicrophonePermissionIfEnabled() async {
+        if includeMicrophone { _ = await PermissionManager.shared.requestMicrophonePermission() }
+    }
+
     private func updateElapsedTime() async {
         guard let session = recordingSession else { return }
 
