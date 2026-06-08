@@ -88,6 +88,16 @@ struct RecordingControlView: View {
             Spacer()
 
             Button {
+                DiagnosticsWindowController.shared.show()
+            } label: {
+                Image(systemName: "ladybug")
+                    .font(.caption)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .help("Report a Bug")
+
+            Button {
                 openWindow(id: WindowID.mainEditor)
                 NSApp.activate(ignoringOtherApps: true)
             } label: {

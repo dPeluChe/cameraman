@@ -192,6 +192,11 @@ struct SourcePickerView: View {
                 }
                 .controlSize(.small)
             }
+            Button("Report a Bug") {
+                DiagnosticsWindowController.shared.show()
+            }
+            .font(.caption)
+            .buttonStyle(.link)
         }
         .padding(.vertical, 16)
     }
