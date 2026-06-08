@@ -182,6 +182,8 @@ struct AppNavigation: View {
                         TextField("Search projects...", text: $viewModel.searchText)
                             .textFieldStyle(.plain)
                             .font(.system(size: 13))
+                            .frame(maxWidth: .infinity)
+                            .lineLimit(1)
 
                         if !viewModel.searchText.isEmpty {
                             Button {
@@ -196,6 +198,7 @@ struct AppNavigation: View {
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 6)
+                    .frame(maxWidth: .infinity)
                     .background(Color.primary.opacity(0.08))
                     .cornerRadius(8)
 
