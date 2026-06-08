@@ -41,7 +41,14 @@ enum DiagnosticsService {
 
     // MARK: - Permissions
 
-    static func permissionLines() async -> [(label: String, status: String, ok: Bool)] {
+    struct PermissionRow: Identifiable {
+        var id: String { label }
+        let label: String
+        let status: String
+        let ok: Bool
+    }
+
+    static func permissionLines() async -> [PermissionRow] {
         let health = await PermissionManager.shared.performHealthCheck()
         func name(_ s: PermissionManager.PermissionStatus) -> String {
             switch s {
@@ -51,9 +58,9 @@ enum DiagnosticsService {
             }
         }
         return [
-            ("Screen Recording", name(health.screenRecording), health.screenRecording == .authorized),
-            ("Microphone", name(health.microphone), health.microphone == .authorized),
-            ("Camera", name(health.camera), health.camera == .authorized),
+            PermissionRow(label: "Screen Recording", status: name(health.screenRecording), ok: health.screenRecording == .authorized),
+            PermissionRow(label: "Microphone", status: name(health.microphone), ok: health.microphone == .authorized),
+            PermissionRow(label: "Camera", status: name(health.camera), ok: health.camera == .authorized),
         ]
     }
 

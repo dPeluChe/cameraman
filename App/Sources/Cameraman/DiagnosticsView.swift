@@ -8,12 +8,13 @@
 
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 import EngineKit
 
 struct DiagnosticsView: View {
     var crashDetected: Bool = false
 
-    @State private var permissions: [(label: String, status: String, ok: Bool)] = []
+    @State private var permissions: [DiagnosticsService.PermissionRow] = []
     @State private var report: String = ""
     @State private var isLoading = true
     @State private var statusMessage: String?
@@ -70,7 +71,7 @@ struct DiagnosticsView: View {
     private var permissionsSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Permissions").font(.subheadline).fontWeight(.semibold)
-            ForEach(permissions, id: \.label) { line in
+            ForEach(permissions) { line in
                 HStack(spacing: 8) {
                     Image(systemName: line.ok ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
                         .foregroundStyle(line.ok ? .green : .orange)
