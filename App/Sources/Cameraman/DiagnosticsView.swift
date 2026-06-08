@@ -203,7 +203,7 @@ struct DiagnosticsView: View {
     }
 
     private func emailURL() -> URL {
-        var components = URLComponents(string: "mailto:antonio@dpeluche.dev")!
+        var components = URLComponents(string: "mailto:support@dpeluche.dev")!
         components.queryItems = [
             URLQueryItem(name: "subject", value: "Cameraman bug report — \(DiagnosticsService.appVersion)"),
             URLQueryItem(name: "body", value: summary),

@@ -90,7 +90,7 @@ enum AppLinks {
     static let releases  = URL(string: "https://github.com/dPeluChe/cameraman/releases")!
     static let repo      = URL(string: "https://github.com/dPeluChe/cameraman")!
     static let issues    = URL(string: "https://github.com/dPeluChe/cameraman/issues/new")!
-    static let contact   = URL(string: "mailto:antonio@dpeluche.dev?subject=Cameraman%20Support")!
+    static let contact   = URL(string: "mailto:support@dpeluche.dev?subject=Cameraman%20Support")!
     static let sponsors  = URL(string: "https://github.com/sponsors/dPeluChe")!
     static let paypal    = URL(string: "https://paypal.me/dpeluche")!
     // static let website = URL(string: "https://...")!  — add when landing is live
