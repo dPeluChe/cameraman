@@ -36,18 +36,30 @@ struct RecordingPermissionsGateView: View {
                 }
                 row(title: "Camera", systemImage: "video",
                     status: viewModel.cameraStatus,
-                    note: "In Settings → Camera, enable “\(appName)”.") {
+                    note: "Settings → Camera, enable “\(appName)”. If macOS asks, choose Later — no reopen needed.") {
                     Task { await viewModel.requestCameraPermission() }
                 }
                 row(title: "Microphone", systemImage: "mic",
                     status: viewModel.micStatus,
-                    note: "In Settings → Microphone, enable “\(appName)”.") {
+                    note: "Settings → Microphone, enable “\(appName)”. If macOS asks, choose Later — no reopen needed.") {
                     Task { await viewModel.requestMicPermission() }
                 }
             }
             .padding(12)
             .background(Color(NSColor.controlBackgroundColor))
             .cornerRadius(10)
+
+            if !viewModel.allRequiredPermissionsGranted {
+                Button {
+                    Task { await viewModel.requestAllPermissions() }
+                } label: {
+                    Text("Grant Permissions")
+                        .font(.system(size: 14, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                }
+                .buttonStyle(.borderedProminent)
+            }
 
             HStack(spacing: 16) {
                 Button {

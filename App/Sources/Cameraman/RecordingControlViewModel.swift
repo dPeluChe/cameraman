@@ -324,6 +324,17 @@ class RecordingControlViewModel: ObservableObject {
         micStatus = health.microphone
     }
 
+    /// Request all three in sequence. For first-run (undetermined) permissions this shows the
+    /// native prompts back-to-back (Camera → Mic → Screen) — Camera/Mic grant instantly with no
+    /// relaunch; only Screen Recording needs a reopen. Denied ones can't be re-prompted, so the
+    /// per-row "Open Settings" handles those.
+    func requestAllPermissions() async {
+        if cameraStatus == .notDetermined { _ = await PermissionManager.shared.requestCameraPermission() }
+        if micStatus == .notDetermined { _ = await PermissionManager.shared.requestMicrophonePermission() }
+        if screenStatus != .authorized { _ = await PermissionManager.shared.requestScreenRecordingPermission() }
+        await refreshPermissions()
+    }
+
     func requestScreenPermission() async {
         _ = await PermissionManager.shared.requestScreenRecordingPermission()
         await refreshPermissions()
