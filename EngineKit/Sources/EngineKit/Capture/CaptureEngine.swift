@@ -179,6 +179,9 @@ public actor CaptureEngine {
         case invalidConfiguration
         case recordingNotStarted
         case recordingAlreadyInProgress
+        /// The video encoder failed mid-recording (e.g. VTEncoder malfunction under load
+        /// or an unsupported resolution) — the output file is unusable.
+        case recordingFailed(reason: String)
 
         public static func == (lhs: CaptureError, rhs: CaptureError) -> Bool {
             switch (lhs, rhs) {
@@ -192,6 +195,8 @@ public actor CaptureEngine {
                  (.failedToCreateAssetWriter(let lhsError), .failedToCreateAssetWriter(let rhsError)),
                  (.failedToSetupAudio(let lhsError), .failedToSetupAudio(let rhsError)):
                 return lhsError.localizedDescription == rhsError.localizedDescription
+            case (.recordingFailed(let lhsReason), .recordingFailed(let rhsReason)):
+                return lhsReason == rhsReason
             default:
                 return false
             }
@@ -215,6 +220,8 @@ public actor CaptureEngine {
                 return "Recording has not been started"
             case .recordingAlreadyInProgress:
                 return "Recording is already in progress"
+            case .recordingFailed(let reason):
+                return "Recording failed: \(reason)"
             }
         }
     }
@@ -394,6 +401,15 @@ public actor CaptureEngine {
             logger.debug("Audio writer already finalized with status: \(audioWriter.status.rawValue)")
         }
         
+        // If the video encoder failed mid-recording the .mov is unusable (it opens as
+        // "Cannot Open" in the editor). Surface it as a failed recording instead of
+        // returning a corrupt file as if it succeeded.
+        if let videoWriter = session.getVideoWriter(), videoWriter.status == .failed {
+            let reason = videoWriter.error?.localizedDescription ?? "video encoder error"
+            logger.error("Recording failed — video writer status .failed: \(reason)")
+            throw CaptureError.recordingFailed(reason: reason)
+        }
+
         // Print frame statistics
         logger.debug("Total video frames: \(self.videoFrameCount)")
         logger.debug("Total audio frames: \(self.audioFrameCount)")
