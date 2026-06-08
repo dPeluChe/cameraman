@@ -28,6 +28,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Setup notification observers
         setupNotifications()
 
+        // Crash reporting: install handlers, and offer a bug report if we crashed last run.
+        Task {
+            await CrashReporter.shared.start()
+            if await DiagnosticsService.crashedSinceLastLaunch() {
+                await MainActor.run {
+                    DiagnosticsWindowController.shared.show(crashDetected: true)
+                }
+            }
+        }
+
         // Note: Floating panel removed - using WindowGroup instead
     }
 

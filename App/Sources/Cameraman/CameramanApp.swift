@@ -49,8 +49,8 @@ struct CameramanApp: App {
                     NSWorkspace.shared.open(AppLinks.repo)
                 }
 
-                Button("Report a Bug") {
-                    NSWorkspace.shared.open(AppLinks.issues)
+                Button("Report a Bug...") {
+                    DiagnosticsWindowController.shared.show()
                 }
 
                 Button("Contact Support") {

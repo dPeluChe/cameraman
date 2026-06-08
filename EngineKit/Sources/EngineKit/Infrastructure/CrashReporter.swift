@@ -114,6 +114,11 @@ public actor CrashReporter {
         _isEnabled = enabled
         logger.info("Crash reporting \(enabled ? "enabled" : "disabled")")
     }
+
+    /// Install crash handlers. Call once at app launch.
+    public func start() async {
+        await setupCrashHandlers()
+    }
     
     /// Set global metadata to include in all crash reports
     public func setGlobalMetadata(_ metadata: [String: String]) {
