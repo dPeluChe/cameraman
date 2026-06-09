@@ -344,7 +344,7 @@ class RecordingControlViewModel: ObservableObject {
         // requestAccess only prompts when undetermined; once denied it no-ops, so send
         // the user to the right Settings pane instead.
         if cameraStatus == .denied {
-            openPrivacySettings("Privacy_Camera")
+            await PermissionManager.shared.openSystemSettings(for: .camera)
         } else {
             _ = await PermissionManager.shared.requestCameraPermission()
         }
@@ -353,33 +353,11 @@ class RecordingControlViewModel: ObservableObject {
 
     func requestMicPermission() async {
         if micStatus == .denied {
-            openPrivacySettings("Privacy_Microphone")
+            await PermissionManager.shared.openSystemSettings(for: .microphone)
         } else {
             _ = await PermissionManager.shared.requestMicrophonePermission()
         }
         await refreshPermissions()
-    }
-
-    private func openPrivacySettings(_ pane: String) {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(pane)") {
-            NSWorkspace.shared.open(url)
-        }
-    }
-
-    /// Request camera/mic permission up-front (on entering configure or toggling on) so the
-    /// system prompts don't all fire at "Start Recording". requestAccess only prompts when
-    /// undetermined, so this is a no-op if already decided.
-    func requestEnabledMediaPermissions() async {
-        if includeCamera { _ = await PermissionManager.shared.requestCameraPermission() }
-        if includeMicrophone { _ = await PermissionManager.shared.requestMicrophonePermission() }
-    }
-
-    func requestCameraPermissionIfEnabled() async {
-        if includeCamera { _ = await PermissionManager.shared.requestCameraPermission() }
-    }
-
-    func requestMicrophonePermissionIfEnabled() async {
-        if includeMicrophone { _ = await PermissionManager.shared.requestMicrophonePermission() }
     }
 
     private func updateElapsedTime() async {

@@ -143,13 +143,28 @@ public actor PermissionManager {
 
         // Previously denied: macOS won't re-prompt, so guide the user to System Settings
         // (the app now appears there thanks to the request above).
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
-            _ = await MainActor.run {
-                NSWorkspace.shared.open(url)
-            }
-        }
+        await openSystemSettings(for: .screenRecording)
 
         return await checkScreenRecordingPermission()
+    }
+
+    /// Privacy permissions that map to a System Settings pane.
+    public enum Kind {
+        case screenRecording, camera, microphone
+
+        fileprivate var settingsAnchor: String {
+            switch self {
+            case .screenRecording: return "Privacy_ScreenCapture"
+            case .camera: return "Privacy_Camera"
+            case .microphone: return "Privacy_Microphone"
+            }
+        }
+    }
+
+    /// Open the System Settings > Privacy pane for a permission so the user can toggle it.
+    public func openSystemSettings(for kind: Kind) async {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(kind.settingsAnchor)") else { return }
+        _ = await MainActor.run { NSWorkspace.shared.open(url) }
     }
 
     // MARK: - Microphone Permission

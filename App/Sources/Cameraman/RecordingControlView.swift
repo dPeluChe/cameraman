@@ -190,14 +190,7 @@ struct RecordingControlView: View {
             // Hotkey hints
             hotkeyHints
         }
-        // Front-load camera/mic prompts so they don't all fire at "Start Recording".
-        .onAppear { Task { await viewModel.requestEnabledMediaPermissions() } }
-        .onChangeCompat(of: viewModel.includeCamera) { on in
-            if on { Task { await viewModel.requestCameraPermissionIfEnabled() } }
-        }
-        .onChangeCompat(of: viewModel.includeMicrophone) { on in
-            if on { Task { await viewModel.requestMicrophonePermissionIfEnabled() } }
-        }
+        // Camera/mic permission is already guaranteed by the Step 0 gate before this view.
     }
 
     private func sourceSummary(_ source: RecordingSourceSelectorView.CaptureSource) -> some View {

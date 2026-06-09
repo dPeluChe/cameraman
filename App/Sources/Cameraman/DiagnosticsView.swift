@@ -179,26 +179,17 @@ struct DiagnosticsView: View {
         case "Screen Recording":
             _ = await PermissionManager.shared.requestScreenRecordingPermission()
         case "Microphone":
-            if await PermissionManager.shared.requestMicrophonePermission() != .authorized { openSettings(for: label) }
+            if await PermissionManager.shared.requestMicrophonePermission() != .authorized {
+                await PermissionManager.shared.openSystemSettings(for: .microphone)
+            }
         case "Camera":
-            if await PermissionManager.shared.requestCameraPermission() != .authorized { openSettings(for: label) }
+            if await PermissionManager.shared.requestCameraPermission() != .authorized {
+                await PermissionManager.shared.openSystemSettings(for: .camera)
+            }
         default:
-            openSettings(for: label)
+            await PermissionManager.shared.openSystemSettings(for: .screenRecording)
         }
         await load()
-    }
-
-    private func openSettings(for label: String) {
-        let pane: String
-        switch label {
-        case "Screen Recording": pane = "Privacy_ScreenCapture"
-        case "Microphone": pane = "Privacy_Microphone"
-        case "Camera": pane = "Privacy_Camera"
-        default: pane = "Privacy"
-        }
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(pane)") {
-            NSWorkspace.shared.open(url)
-        }
     }
 
     // MARK: - URLs (short summary only — logs go in the saved file)
