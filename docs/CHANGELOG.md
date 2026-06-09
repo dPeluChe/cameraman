@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > `0.8.0 → 0.5.0` · `0.7.0 → 0.4.1` · `0.6.0 → 0.4.0` · `0.5.0 → 0.3.1` · `0.4.0 → 0.3.0` · `0.3.1 → 0.2.1` · `0.3.0 → 0.2.0` · `0.2.0 → 0.1.1` · `0.1.0 → 0.1.0`.
 > Las fechas y el contenido técnico se preservaron.
 
+## [0.6.3] - 2026-06-09
+
+Foco: experiencia de permisos, robustez de grabación y pulido del selector/UX.
+
+### Added
+- **Paso 0: gate de permisos** en la ventana de grabación — exige Grabación de pantalla + Cámara + Micrófono antes de poder elegir fuente, con instrucciones por permiso, botón **Grant Permissions** (pide los 3 en secuencia) y **Quit & Reopen** de un clic. Cámara/micro al final no requieren reinicio; Screen Recording sí (regla de macOS).
+- **Identidad de build Debug distinta** — `dev.dpeluche.CameramanApp.debug`, nombre "Cameraman (Debug)" e ícono con badge naranja "DEV", para coexistir con el release.
+
+### Fixed
+- **Permiso de grabación se solicita de verdad** vía `CGRequestScreenCaptureAccess` (antes solo `SCShareableContent`, que no registraba la app en Ajustes ni re-preguntaba).
+- **"Open Settings" de Cámara/Micrófono** ahora abre el panel correcto cuando el permiso está denegado.
+- **Grabación fallida ya no entrega un `.mov` corrupto** — si el encoder falla a media grabación se reporta error claro en vez de "Cannot Open" en el editor.
+- **Buscador del sidebar** ya no se corta (ancho mínimo + placeholder "Search").
+
+### Changed
+- Email de soporte a `support@dpeluche.dev`; "Contact Support" abre una ventana con opciones en vez de lanzar Mail directo.
+- Centralizado el manejo de paneles de Ajustes en `PermissionManager`.
+
+---
+
 ## [0.6.2] - 2026-06-03
 
 Foco de la versión: fixes del selector de fuentes de grabación y empaque para distribución directa (Developer ID + notarización).
