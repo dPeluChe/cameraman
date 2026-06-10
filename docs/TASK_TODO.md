@@ -73,6 +73,9 @@ Resolved during the May 2026 pre-publication push. Full per-item write-ups in `T
 
 > Next batch of editor work. Depends on a stable export pipeline and `TimelineView`.
 
+- [ ] **Mixed-resolution timelines — remaining paths** — the compositor now refits screen frames whose resolution changed mid-track (merged projects), but (1) the non-compositor layer-instruction paths (no overlays/mask/per-clip camera/video overlays) still use one static transform, and (2) a camera-resolution change between merged sections isn't refit (PiP transform is static). Generalize per-clip transforms if testers hit these.
+- [ ] **Auto-zoom tuning** — hidden behind `FeatureFlags.autoZoom` (default off): suggestion timing/intensity confused testers; auto-apply-on-open removed. Tune dwell thresholds, zoom-out blending and intensity before re-enabling by default.
+
 - [ ] **Zoom animation tuning** — hold duration, in/out velocity, smoother transitions between adjacent zoom points. The zoom-out between two points currently feels abrupt; evaluate a blend or crossfade.
 - [ ] **Overlay polish**:
     - **Timing**: overlays appear in the wrong range during preview — debug the `currentTime >= overlay.start && currentTime <= overlay.end` filter in `MaskedVideoCompositor`.
