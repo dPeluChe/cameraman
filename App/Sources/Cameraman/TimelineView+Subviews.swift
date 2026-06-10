@@ -36,6 +36,8 @@ struct TimelineTrackRow: View {
     var onVideoClipTrimmed: (Project.TimelineClip, TimelineTrimEdge, TimelineScalar) -> Void = { _, _, _ in }
     var onSelectVideoClip: (Project.TimelineClip) -> Void = { _ in }
     var onVideoClipAction: (Project.TimelineClip, VideoClipAction) -> Void = { _, _ in }
+    /// Adjusts a drag delta to magnetic snap points; identity by default.
+    var snapClipDeltaX: (Project.TimelineClip, TimelineScalar) -> TimelineScalar = { _, delta in delta }
     /// When false the label is replaced by a transparent spacer of the same
     /// width — used with the fixed label column that overlays the scroll view.
     var showsLabel: Bool = true
@@ -150,11 +152,11 @@ struct TimelineTrackRow: View {
                 .gesture(
                     DragGesture(minimumDistance: 4)
                         .onChanged { value in
-                            clipDragOffset[clip.id] = value.translation.width
+                            clipDragOffset[clip.id] = snapClipDeltaX(clip, value.translation.width)
                         }
                         .onEnded { value in
                             clipDragOffset.removeValue(forKey: clip.id)
-                            onVideoClipMoved(clip, value.translation.width)
+                            onVideoClipMoved(clip, snapClipDeltaX(clip, value.translation.width))
                         }
                 )
                 .contextMenu {

@@ -384,6 +384,16 @@ struct TimelineView: View {
                     )
                     .padding(.leading, 6)
                     .frame(height: trackHeight, alignment: .leading)
+                    .contextMenu {
+                        if let trackId = track.engineTrackId {
+                            Button("Move Row Up") {
+                                Task { _ = await editor.moveVideoTrack(trackId: trackId, up: true) }
+                            }
+                            Button("Move Row Down") {
+                                Task { _ = await editor.moveVideoTrack(trackId: trackId, up: false) }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -547,6 +557,9 @@ struct TimelineView: View {
                 onVideoClipAction: { clip, action in
                     guard let trackId = track.engineTrackId else { return }
                     handleVideoClipAction(action, clip: clip, trackId: trackId)
+                },
+                snapClipDeltaX: { clip, deltaX in
+                    snappedClipDeltaX(clip: clip, rawDeltaX: deltaX, layout: layout)
                 },
                 showsLabel: false
             )

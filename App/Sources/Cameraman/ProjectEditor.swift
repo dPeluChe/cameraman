@@ -111,6 +111,13 @@ final class ProjectEditor: ObservableObject {
         }
     }
 
+    /// Reorder a video track among its siblings (also changes compositing z-order).
+    func moveVideoTrack(trackId: UUID, up: Bool) async -> EditorResult {
+        await performEdit {
+            await self.editorModel.moveVideoTrack(trackId: trackId, up: up)
+        }
+    }
+
     /// Mute/unmute a timeline track (persists in the project, unlike UI-only mutes).
     func setTrackMuted(trackId: UUID, muted: Bool) async -> EditorResult {
         await performEdit {
