@@ -292,6 +292,7 @@ extension TimelineView {
 /// Context-menu actions on an imported-video clip chip.
 enum VideoClipAction {
     case jumpToEnd
+    case splitAtPlayhead
     case placeAfterPreviousTrack
     case placeAtStart
     case moveRowUp
@@ -306,6 +307,10 @@ extension TimelineView {
         switch action {
         case .jumpToEnd:
             playerViewModel.seek(to: clip.timelineOut)
+        case .splitAtPlayhead:
+            let time = playerViewModel.currentTime
+            guard time > clip.timelineIn + 0.05, time < clip.timelineOut - 0.05 else { return }
+            Task { _ = await editor.splitClip(clipId: clip.id, inTrackId: trackId, at: time) }
         case .placeAfterPreviousTrack:
             // Ignore ghost tracks (empty, hidden from the UI) so "above" matches
             // what the user actually sees.

@@ -111,6 +111,13 @@ final class ProjectEditor: ObservableObject {
         }
     }
 
+    /// Split a clip on a timeline track at a timeline position (one undo step).
+    func splitClip(clipId: String, inTrackId trackId: UUID, at timelineTime: TimeInterval) async -> EditorResult {
+        await performEdit {
+            await self.editorModel.splitClip(clipId: clipId, inTrackId: trackId, at: timelineTime)
+        }
+    }
+
     /// Reorder a video track among its siblings (also changes compositing z-order).
     func moveVideoTrack(trackId: UUID, up: Bool) async -> EditorResult {
         await performEdit {

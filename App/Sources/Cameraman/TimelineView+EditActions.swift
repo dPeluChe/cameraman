@@ -12,19 +12,47 @@ import EngineKit
 extension TimelineView {
     var canSplitAtPlayhead: Bool {
         TimelineEditingHelper.segmentForSplit(at: playerViewModel.currentTime, in: project.timeline.segments) != nil
+            || videoClipForSplit(at: playerViewModel.currentTime) != nil
+    }
+
+    /// Imported video clip under the playhead: the selected one if it qualifies,
+    /// otherwise the first hit across video tracks.
+    func videoClipForSplit(at time: TimeInterval) -> (clip: Project.TimelineClip, trackId: UUID)? {
+        let margin = 0.05
+        if let selected = selectedVideoClip,
+           let track = project.timeline.tracks.first(where: { $0.id == selected.trackId }),
+           let clip = track.clips.first(where: { $0.id == selected.clip.id }),
+           time > clip.timelineIn + margin, time < clip.timelineOut - margin {
+            return (clip, selected.trackId)
+        }
+        for track in project.timeline.videoTracks {
+            if let clip = track.clips.first(where: {
+                if case .video = $0.content {
+                    return time > $0.timelineIn + margin && time < $0.timelineOut - margin
+                }
+                return false
+            }) {
+                return (clip, track.id)
+            }
+        }
+        return nil
     }
 
     func splitAtPlayhead() {
         let playheadTime = playerViewModel.currentTime
-        guard let segment = TimelineEditingHelper.segmentForSplit(at: playheadTime, in: project.timeline.segments) else {
+
+        if let segment = TimelineEditingHelper.segmentForSplit(at: playheadTime, in: project.timeline.segments) {
+            Task {
+                let result = await editor.split(segmentId: segment.id, at: playheadTime)
+                if case .successWithInfo(_, .splitCreated(let newSegmentId)) = result {
+                    selectedSegmentId = newSegmentId
+                }
+            }
             return
         }
 
-        Task {
-            let result = await editor.split(segmentId: segment.id, at: playheadTime)
-            if case .successWithInfo(_, .splitCreated(let newSegmentId)) = result {
-                selectedSegmentId = newSegmentId
-            }
+        if let hit = videoClipForSplit(at: playheadTime) {
+            Task { _ = await editor.splitClip(clipId: hit.clip.id, inTrackId: hit.trackId, at: playheadTime) }
         }
     }
 

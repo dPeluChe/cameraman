@@ -160,6 +160,7 @@ struct TimelineTrackRow: View {
                         }
                 )
                 .contextMenu {
+                    Button("Split at Playhead") { onVideoClipAction(clip, .splitAtPlayhead) }
                     Button("Jump to Clip End") { onVideoClipAction(clip, .jumpToEnd) }
                     Button("Place After Track Above") { onVideoClipAction(clip, .placeAfterPreviousTrack) }
                     Button("Place at Start") { onVideoClipAction(clip, .placeAtStart) }
