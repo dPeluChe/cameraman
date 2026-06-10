@@ -209,18 +209,11 @@ public actor PreviewEngine {
     ///   - projectDirectory: Optional project directory path (for proxy generation)
     /// - Throws: PreviewError if project cannot be loaded
     public func loadProject(_ project: Project, projectDirectory: String? = nil) async throws {
-        guard let primaryTrack = project.timeline.primaryTrack, !primaryTrack.clips.isEmpty else {
+        // Clips on ANY track count — empty projects play imported overlay clips
+        // without a recording (and without primarySources).
+        guard project.timeline.tracks.contains(where: { !$0.clips.isEmpty }) else {
             throw PreviewError.noSegments
         }
-        
-        guard let sources = project.primarySources else {
-            throw PreviewError.playbackFailed("No sources found in project")
-        }
-
-        // Verify screen media file exists
-        // In a real implementation, we would check file existence here
-        // For testing, we'll just store the project
-        _ = sources.screen.path
 
         self.project = project
         self.projectDirectory = projectDirectory

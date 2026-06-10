@@ -19,7 +19,7 @@ extension PreviewEngine {
             throw PreviewError.noProjectLoaded
         }
 
-        guard let primaryTrack = project.timeline.primaryTrack, !primaryTrack.clips.isEmpty else {
+        guard project.timeline.tracks.contains(where: { !$0.clips.isEmpty }) else {
             throw PreviewError.noSegments
         }
 
