@@ -324,9 +324,10 @@ final class ExportViewModel: ObservableObject {
             return
         }
 
-        let folderURL = exportResult.deletingLastPathComponent()
-        LogInfo(.export, "Opening export folder: \(folderURL.path)")
-        NSWorkspace.shared.open(folderURL)
+        // Select the file in Finder — opening the folder URL directly needs a
+        // security scope the sandbox doesn't have for arbitrary destinations.
+        LogInfo(.export, "Revealing export in Finder: \(exportResult.path)")
+        NSWorkspace.shared.activateFileViewerSelecting([exportResult])
     }
 
     deinit {

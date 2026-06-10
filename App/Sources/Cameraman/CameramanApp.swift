@@ -49,6 +49,10 @@ struct CameramanApp: App {
                     NSWorkspace.shared.open(AppLinks.repo)
                 }
 
+                Button("Check for Updates...") {
+                    AppUpdater.shared.checkForUpdates(userInitiated: true)
+                }
+
                 Button("Report a Bug...") {
                     DiagnosticsWindowController.shared.show()
                 }

@@ -1,6 +1,6 @@
 # Task Backlog
 
-> Updated: 2026-05-19
+> Updated: 2026-06-10
 > Only unfinished work. Completed work lives in `TASK_COMPLETED/`.
 > Ordered by impact and proximity to release, not chronology.
 
@@ -8,14 +8,8 @@
 
 ## Recently Closed
 
-Resolved during the May 2026 pre-publication push. Full per-item write-ups in `TASK_COMPLETED/2605.md`.
-
-- Ultrawide `AVAssetWriter` error `-10877` (3440×1440 → corrupt `screen.mov`) — PR #15 (HEVC fallback for any output > 1920×1080).
-- `HALC_ProxyIOContext: skipping cycle due to overload` warnings + mic glitches — PR #15 (mic writes hopped off the real-time tap thread).
-- `TelemetryParser` memory peak ≈ `file_size × 3` on long sessions — PR #15 (`FileHandle.bytes.lines` streaming).
-- `RecordingSession` non-Sendable under Swift 6 strict concurrency — PR #15 (interim `@unchecked Sendable`; snapshot refactor still listed below).
-- Pre-publication security audit (4 critical + 3 recommended findings) — PR #14.
-- Repo rename `labs-cameraman` → `cameraman`, brand consolidation, `LICENSE`/`CONTRIBUTING`/`AppLinks` email unification — PR #14.
+June 2026 (0.6.4 push): merge projects, video import with full clip editing (snap/trim/split/PiP/reorder), empty projects, timeline ruler + fit zoom + pinned labels, rename fix, mixed-resolution rendering, preview-toggle audit. Full write-ups in `TASK_COMPLETED/2606.md`.
+May 2026 (pre-publication push): ultrawide writer fix, mic overload, telemetry streaming, security audit, repo publication. Write-ups in `TASK_COMPLETED/2605.md`.
 
 ---
 
@@ -63,9 +57,19 @@ Resolved during the May 2026 pre-publication push. Full per-item write-ups in `T
 
 > Raised 2026-06-10 after the first public-link beta. Analysis done (see session notes); ordered by agreed priority.
 
-- [ ] **Merge projects** *(in progress — branch `feat/merge-projects`)* — combine project A + B into a new project C whose timeline is A's blocks followed by B's (sources copied, takes appended, clip times/chapters offset by A's duration). Risk: takeId/path remapping and time-offsetting all metadata (chapters, captions, overlays).
+- [x] **Merge projects** — shipped (see `TASK_COMPLETED/2606.md`).
 - [ ] **Export / Import project bundle** — export a whole project (project.json + sources/ all channels + telemetry + thumbnail; skip cache/proxies/renders) to a user-chosen folder/zip, plus an Import counterpart that re-assigns the projectId. Context-menu entry + NSSavePanel (same sandbox pattern as Diagnostics). Enables sharing projects between machines.
-- [x] **Import video (with audio) into timeline** — shipped on `feat/import-video-track`: Import button accepts movies; each import gets its own `.video` track row; frames composited (aspect-fit, post-zoom) and **embedded audio extracted** for preview + export. Follow-ups: clip drag/trim UI for these chips (engine split/trim APIs exist, chips are static), per-clip position/size on canvas (MediaPosition is modeled but compositor renders fullscreen-fit only).
+- [x] **Import video (with audio) into timeline** — shipped, including chips with drag/snap/trim/split, PiP positioning, row colors/reorder, and empty projects (see `TASK_COMPLETED/2606.md`).
+
+---
+
+## Tester Feedback — 0.6.4 round (next branch)
+
+> Raised 2026-06-10 during the import/merge validation run.
+
+- [ ] **Export presets: bitrate control + estimated file size** — presets expose nothing about compression today. Show per-preset estimated output size (`videoBitrate + audioBitrate) × duration` is a good first approximation; the run that motivated this produced 951MB for 8min at web_1080_h264) and add a quality/bitrate option (e.g. Low/Medium/High multiplying `bitrateMbps` in `ExportPresets`). Update the estimate live as preset/quality changes, like other exporters do.
+- [ ] **Split → drag UX on video chips** — after splitting, grabbing the new half near its edge starts a TRIM when the user expects a MOVE ("felt like extending it"). The 8pt edge handles win over the body drag on short clips. Ideas: shrink handles on narrow chips, require a modifier for trim, show resize cursors on hover, or make trim need a small initial pause.
+- [ ] **Export/Import project bundle** — still pending from the 0.6.3 round (carried below).
 
 ---
 
