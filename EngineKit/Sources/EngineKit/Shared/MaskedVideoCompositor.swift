@@ -227,7 +227,13 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         self.videoOverlays = videoOverlays
         super.init()
 
-        var trackIDs: [NSValue] = [screenTrackID as NSValue]
+        // An invalid screenTrackID means "no recording on the primary track"
+        // (empty projects) — requiring a media-less track invalidates the whole
+        // videoComposition with AVError -11800.
+        var trackIDs: [NSValue] = []
+        if screenTrackID != kCMPersistentTrackID_Invalid {
+            trackIDs.append(screenTrackID as NSValue)
+        }
         if let camID = cameraTrackID {
             trackIDs.append(camID as NSValue)
         }

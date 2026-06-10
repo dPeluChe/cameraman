@@ -146,6 +146,8 @@ extension ExportEngine {
         videoOverlays: [MaskedVideoCompositionInstruction.VideoOverlaySource] = []
     ) async throws {
         let forceCompositor = !videoOverlays.isEmpty || project.hasMixedScreenResolutions
+        // Empty primary track (no recording): never reference it as a source.
+        let screenTrackID = videoTrack.segments.isEmpty ? kCMPersistentTrackID_Invalid : videoTrack.trackID
         let instruction = AVMutableVideoCompositionInstruction()
         instruction.timeRange = CMTimeRangeMake(start: .zero, duration: composition.duration)
 
@@ -219,7 +221,7 @@ extension ExportEngine {
                     videoComposition: videoComposition,
                     composition: composition,
                     project: project,
-                    screenTrackID: videoTrack.trackID,
+                    screenTrackID: screenTrackID,
                     cameraTrackID: cameraTrack.trackID,
                     screenTransform: transform,
                     cameraTransform: cameraTransform,
@@ -244,7 +246,7 @@ extension ExportEngine {
                 videoComposition: videoComposition,
                 composition: composition,
                 project: project,
-                screenTrackID: videoTrack.trackID,
+                screenTrackID: screenTrackID,
                 cameraTrackID: nil,
                 screenTransform: transform,
                 cameraTransform: nil,

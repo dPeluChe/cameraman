@@ -42,6 +42,9 @@ extension PreviewEngine {
             return videoComposition
         }
 
+        // Empty primary track (no recording): never reference it as a source.
+        let screenTrackID = screenTrack.segments.isEmpty ? kCMPersistentTrackID_Invalid : screenTrack.trackID
+
         let screenLayerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: screenTrack)
         let screenMuted = mutedVideoTracks.contains(.screen)
         let cameraMuted = mutedVideoTracks.contains(.camera)
@@ -79,7 +82,7 @@ extension PreviewEngine {
             if maskShape != .none {
                 let maskedInstruction = MaskedVideoCompositionInstruction(
                     timeRange: CMTimeRangeMake(start: .zero, duration: composition.duration),
-                    screenTrackID: screenTrack.trackID,
+                    screenTrackID: screenTrackID,
                     cameraTrackID: cameraTrack.trackID,
                     renderSize: renderSize,
                     screenTransform: CGAffineTransform.identity,
@@ -147,7 +150,7 @@ extension PreviewEngine {
                 let overlayConfigs = project.overlayConfigs
                 let maskedInstruction = MaskedVideoCompositionInstruction(
                     timeRange: instruction.timeRange,
-                    screenTrackID: screenTrack.trackID,
+                    screenTrackID: screenTrackID,
                     cameraTrackID: cameraTrack.trackID,
                     renderSize: renderSize,
                     screenTransform: screenTransform,
@@ -236,7 +239,7 @@ extension PreviewEngine {
 
                         maskedInstructions.append(MaskedVideoCompositionInstruction(
                             timeRange: CMTimeRangeMake(start: segStart, duration: segDuration),
-                            screenTrackID: screenTrack.trackID,
+                            screenTrackID: screenTrackID,
                             cameraTrackID: cameraTrack.trackID,
                             renderSize: renderSize,
                             screenTransform: screenTransform,
@@ -279,7 +282,7 @@ extension PreviewEngine {
                     let overlayConfigs = project.overlayConfigs
                     let maskedInstruction = MaskedVideoCompositionInstruction(
                         timeRange: instruction.timeRange,
-                        screenTrackID: screenTrack.trackID,
+                        screenTrackID: screenTrackID,
                         cameraTrackID: cameraTrack.trackID,
                         renderSize: renderSize,
                         screenTransform: screenTransform,
@@ -312,7 +315,7 @@ extension PreviewEngine {
                     let overlayConfigs = project.overlayConfigs
                     let maskedInstruction = MaskedVideoCompositionInstruction(
                         timeRange: instruction.timeRange,
-                        screenTrackID: screenTrack.trackID,
+                        screenTrackID: screenTrackID,
                         cameraTrackID: nil,
                         renderSize: renderSize,
                         screenTransform: screenTransform,

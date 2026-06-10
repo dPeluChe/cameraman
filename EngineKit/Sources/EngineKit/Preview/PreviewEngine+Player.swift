@@ -79,7 +79,12 @@ extension PreviewEngine {
         let unsafeVideoComposition = videoComposition
         let playerItem = await MainActor.run {
             let item = AVPlayerItem(asset: unsafeComposition)
-            item.videoComposition = unsafeVideoComposition
+            // A zero-duration composition (empty project before any import) can't
+            // carry a videoComposition — its lone instruction would have an empty
+            // time range, which AVFoundation rejects as invalid.
+            if unsafeComposition.duration.seconds > 0 {
+                item.videoComposition = unsafeVideoComposition
+            }
             return item
         }
         player = AVPlayer(playerItem: playerItem)
