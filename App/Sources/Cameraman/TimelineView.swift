@@ -275,6 +275,10 @@ struct TimelineView: View {
     ) -> some View {
         ZStack(alignment: .topLeading) {
         ScrollView(.horizontal) {
+            VStack(alignment: .leading, spacing: 2) {
+            TimelineRulerView(layout: layout) { time in
+                playerViewModel.seek(to: time)
+            }
             ZStack(alignment: .topLeading) {
                 timelineTracks(layout: layout, tracks: tracks)
 
@@ -308,6 +312,7 @@ struct TimelineView: View {
             .gesture(timelineDragGesture(layout: layout))
             .onDrop(of: [.text], isTargeted: nil) { providers, location in
                 handleDrop(providers: providers, location: location, layout: layout)
+            }
             }
         }
         // Fixed label column: stays put while the timeline content scrolls
@@ -356,6 +361,7 @@ struct TimelineView: View {
                 }
             }
         }
+        .padding(.top, TimelineRulerView.rulerHeight + 2)
         .padding(.vertical, 4)
         .frame(width: labelWidth + 6, alignment: .leading)
         .background(Color(nsColor: .windowBackgroundColor))
