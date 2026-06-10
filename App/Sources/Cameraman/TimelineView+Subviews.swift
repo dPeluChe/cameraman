@@ -112,6 +112,35 @@ struct TimelineTrackRow: View {
                 .help("\(item.name) — \(String(format: "%.1fs", item.duration))")
             }
 
+            // Render imported-video clips (new-model .video tracks)
+            ForEach(track.timelineClips) { clip in
+                let width = layout.segmentWidth(for: clip.duration)
+                let xPosition = layout.xPosition(for: clip.timelineIn) - layout.labelWidth
+
+                HStack(spacing: 2) {
+                    Image(systemName: "film")
+                        .font(.system(size: 7))
+                        .foregroundStyle(.white.opacity(0.7))
+                    Text(clipDisplayName(clip))
+                        .font(.system(size: 8))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 3)
+                .frame(width: width, height: height - 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(track.color)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .stroke(Color.white.opacity(0.4), lineWidth: 1)
+                )
+                .opacity(isMuted ? 0.3 : 1.0)
+                .offset(x: xPosition)
+                .help("\(clipDisplayName(clip)) — \(String(format: "%.1fs", clip.duration))")
+            }
+
             ForEach(track.segments) { segment in
                 let isSelected = segment.id == selectedSegmentId
                 let width = layout.segmentWidth(for: segment.timelineDuration)
@@ -208,6 +237,17 @@ struct TimelineTrackRow: View {
             RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .fill(Color.primary.opacity(0.03))
         )
+    }
+
+    /// File name for an imported video/audio clip chip (e.g. "assets/broll.mp4" -> "broll.mp4")
+    private func clipDisplayName(_ clip: Project.TimelineClip) -> String {
+        switch clip.content {
+        case .video(let ref): return (ref.path as NSString).lastPathComponent
+        case .audio(let ref): return (ref.path as NSString).lastPathComponent
+        case .image(let ref): return (ref.path as NSString).lastPathComponent
+        case .color: return "Color"
+        case .recording: return "Recording"
+        }
     }
 }
 

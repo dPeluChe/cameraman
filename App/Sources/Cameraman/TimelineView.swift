@@ -109,7 +109,7 @@ struct TimelineView: View {
         }
         .fileImporter(
             isPresented: $showImportPanel,
-            allowedContentTypes: [.audio, .image],
+            allowedContentTypes: [.audio, .image, .movie],
             allowsMultipleSelection: false
         ) { result in
             handleImportedFile(result)
@@ -185,7 +185,7 @@ struct TimelineView: View {
         } label: {
             Label("Import", systemImage: "plus.circle")
         }
-        .help("Import audio or image asset")
+        .help("Import video, audio or image asset")
 
         Toggle("Thumbnails", isOn: $showThumbnails)
             .toggleStyle(.switch)

@@ -85,6 +85,13 @@ final class ProjectEditor: ObservableObject {
         }
     }
 
+    /// Import a video as a clip on its own new video track (one undo step).
+    func importVideoClip(path: String, duration: TimeInterval, at timelineIn: TimeInterval, trackName: String = "") async -> EditorResult {
+        await performEdit {
+            await self.editorModel.importVideoClip(path: path, duration: duration, at: timelineIn, trackName: trackName)
+        }
+    }
+
     func delete(segmentId: String) async -> EditorResult {
         await performEdit { await self.editorModel.delete(segmentId: segmentId) }
     }

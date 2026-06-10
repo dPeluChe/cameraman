@@ -20,6 +20,7 @@ enum TimelineTrackKind: String, CaseIterable, Identifiable, Hashable {
     case additionalAudio
     case imageOverlay
     case overlay
+    case videoClip
 
     var id: String { rawValue }
 
@@ -43,6 +44,8 @@ enum TimelineTrackKind: String, CaseIterable, Identifiable, Hashable {
             return "Images"
         case .overlay:
             return "Overlays"
+        case .videoClip:
+            return "Video"
         }
     }
 
@@ -62,6 +65,8 @@ enum TimelineTrackKind: String, CaseIterable, Identifiable, Hashable {
             return Color.yellow.opacity(0.85)
         case .overlay:
             return Color.cyan.opacity(0.85)
+        case .videoClip:
+            return Color.teal.opacity(0.85)
         }
     }
 }
@@ -72,16 +77,33 @@ struct TimelineTrack: Identifiable {
     let segments: [Project.Timeline.Segment]
     let mediaItems: [Project.MediaItem]
     let overlays: [Project.Overlay]
+    /// Clips from a new-model timeline track (imported video rows)
+    let timelineClips: [Project.TimelineClip]
+    /// Backing Project.TimelineTrack id for new-model rows (nil for legacy kinds)
+    let engineTrackId: UUID?
+    private let labelOverride: String?
 
-    var id: TimelineTrackKind { kind }
-    var label: String { kind.label }
+    // Kind alone isn't unique anymore: each imported video lives on its own row
+    var id: String { engineTrackId.map { "\(kind.rawValue)_\($0.uuidString)" } ?? kind.rawValue }
+    var label: String { labelOverride ?? kind.label }
     var color: Color { kind.color }
 
-    init(kind: TimelineTrackKind, segments: [Project.Timeline.Segment], mediaItems: [Project.MediaItem] = [], overlays: [Project.Overlay] = []) {
+    init(
+        kind: TimelineTrackKind,
+        segments: [Project.Timeline.Segment],
+        mediaItems: [Project.MediaItem] = [],
+        overlays: [Project.Overlay] = [],
+        timelineClips: [Project.TimelineClip] = [],
+        engineTrackId: UUID? = nil,
+        labelOverride: String? = nil
+    ) {
         self.kind = kind
         self.segments = segments
         self.mediaItems = mediaItems
         self.overlays = overlays
+        self.timelineClips = timelineClips
+        self.engineTrackId = engineTrackId
+        self.labelOverride = labelOverride
     }
 }
 
@@ -111,6 +133,18 @@ enum TimelineTrackBuilder {
         let imageItems = project.mediaItems.filter { $0.type == .image }
         if !imageItems.isEmpty {
             tracks.append(TimelineTrack(kind: .imageOverlay, segments: [], mediaItems: imageItems))
+        }
+
+        // Imported-video tracks (new model): one row per .video timeline track,
+        // above the screen like other overlay content.
+        for videoTrack in project.timeline.videoTracks where !videoTrack.clips.isEmpty {
+            tracks.append(TimelineTrack(
+                kind: .videoClip,
+                segments: [],
+                timelineClips: videoTrack.clips,
+                engineTrackId: videoTrack.id,
+                labelOverride: videoTrack.name.isEmpty ? nil : videoTrack.name
+            ))
         }
 
         tracks.append(TimelineTrack(kind: .screen, segments: project.timeline.segments))

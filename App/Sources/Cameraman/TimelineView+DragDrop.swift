@@ -95,9 +95,9 @@ extension TimelineView {
         let ext = url.pathExtension.lowercased()
         let isAudio = ["mp3", "wav", "m4a", "aac", "aiff", "flac"].contains(ext)
         let isImage = ["png", "jpg", "jpeg", "heic", "webp", "tiff"].contains(ext)
-        guard isAudio || isImage else { return }
+        let isVideo = ["mp4", "mov", "m4v", "mpg", "mpeg"].contains(ext)
+        guard isAudio || isImage || isVideo else { return }
 
-        let type: Project.MediaItemType = isAudio ? .audio : .image
         let fileName = url.lastPathComponent
         let currentPlayhead = playerViewModel.currentTime
 
@@ -121,15 +121,26 @@ extension TimelineView {
             }
 
             var duration: TimeInterval = 5.0
-            if isAudio {
+            if isAudio || isVideo {
                 let asset = AVURLAsset(url: destURL)
                 if let assetDuration = try? await asset.load(.duration) {
                     duration = assetDuration.seconds
                 }
             }
 
+            if isVideo {
+                // Imported video gets its own timeline track row (new model)
+                _ = await editor.importVideoClip(
+                    path: "assets/\(fileName)",
+                    duration: duration,
+                    at: currentPlayhead,
+                    trackName: fileName
+                )
+                return
+            }
+
             let item = Project.MediaItem(
-                type: type,
+                type: isAudio ? .audio : .image,
                 path: "assets/\(fileName)",
                 name: fileName,
                 timelineIn: currentPlayhead,

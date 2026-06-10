@@ -40,6 +40,22 @@ public actor EditorModel {
         return .successWithInfo(project, .trackAdded(trackId: trackId))
     }
 
+    /// Import a video file as a clip on its own new `.video` track (one row per
+    /// import). Single operation so callers get one undo step.
+    public func importVideoClip(
+        path: String,
+        duration: TimeInterval,
+        at timelineIn: TimeInterval,
+        trackName: String = ""
+    ) async -> EditorResult {
+        let trackId = project.timeline.addTrack(type: .video, name: trackName)
+        let clip = Project.TimelineClip(
+            timelineIn: timelineIn,
+            content: .video(Project.VideoClipRef(path: path, sourceOut: duration))
+        )
+        return await addClip(clip, toTrackId: trackId)
+    }
+
     /// Remove a track from the timeline by ID
     public func removeTrack(trackId: UUID) async -> EditorResult {
         guard let index = project.timeline.tracks.firstIndex(where: { $0.id == trackId }) else {
