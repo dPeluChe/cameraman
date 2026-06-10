@@ -143,7 +143,7 @@ struct TimelineTrackRow: View {
                     RoundedRectangle(cornerRadius: 4, style: .continuous)
                         .stroke(isSelected ? Color.white.opacity(0.9) : Color.white.opacity(0.4), lineWidth: isSelected ? 2 : 1)
                 )
-                .overlay(videoClipTrimHandles(for: clip))
+                .overlay(isSelected ? videoClipTrimHandles(for: clip) : nil)
                 .opacity(isMuted ? 0.3 : 1.0)
                 .offset(x: xPosition)
                 .onTapGesture {
@@ -282,9 +282,14 @@ struct TimelineTrackRow: View {
     }
 
     private func trimHandle(for clip: Project.TimelineClip, edge: TimelineTrimEdge) -> some View {
-        Rectangle()
-            .fill(Color.white.opacity(clipTrimOffset[clip.id]?.edge == edge ? 0.5 : 0.001))
-            .frame(width: 8)
+        // Visible affordance: handles only exist on the SELECTED chip (body drags
+        // on short clips kept landing on invisible 8pt handles and trimming when
+        // the user meant to move).
+        RoundedRectangle(cornerRadius: 2, style: .continuous)
+            .fill(Color.white.opacity(clipTrimOffset[clip.id]?.edge == edge ? 0.9 : 0.55))
+            .frame(width: 5)
+            .padding(.vertical, 4)
+            .padding(.horizontal, 1.5)
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 2)
