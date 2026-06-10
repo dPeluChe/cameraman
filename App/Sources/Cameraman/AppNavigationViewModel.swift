@@ -141,6 +141,9 @@ final class AppNavigationViewModel: ObservableObject {
         do {
             try await library.renameProject(projectId: projectId, to: trimmedName)
             await loadProjects()
+            // If this project is open in the editor, make it reload from disk —
+            // otherwise its debounced autosave writes the old name back.
+            NotificationCenter.default.post(name: .projectUpdated, object: projectId)
         } catch {
             loadErrorMessage = error.localizedDescription
         }
@@ -181,6 +184,7 @@ final class AppNavigationViewModel: ObservableObject {
         do {
             try await library.setTags(projectId: projectId, tags: cleanedTags)
             await loadProjects()
+            NotificationCenter.default.post(name: .projectUpdated, object: projectId)
         } catch {
             loadErrorMessage = error.localizedDescription
         }

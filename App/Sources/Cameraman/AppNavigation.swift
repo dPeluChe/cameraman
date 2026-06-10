@@ -78,8 +78,11 @@ struct AppNavigation: View {
                 TextField("Project name", text: $renameText)
 
                 Button("Save") {
+                    // Capture before the Task runs: dismissing the alert resets
+                    // renameText to "" and the async read would see the empty value.
+                    let newName = renameText
                     Task {
-                        await viewModel.renameProject(projectId: project.projectId, to: renameText)
+                        await viewModel.renameProject(projectId: project.projectId, to: newName)
                     }
                 }
                 .disabled(renameText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -92,8 +95,8 @@ struct AppNavigation: View {
                 TextField("Tags (comma separated)", text: $tagsText)
 
                 Button("Save") {
+                    let tags = AppNavigationViewModel.parseTagsInput(tagsText)
                     Task {
-                        let tags = AppNavigationViewModel.parseTagsInput(tagsText)
                         await viewModel.setTags(projectId: project.projectId, tags: tags)
                     }
                 }
