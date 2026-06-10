@@ -334,8 +334,27 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
             return renderBackground(instruction: instruction, renderSize: renderSize)
         }
 
-        let rawScreen = CIImage(cvPixelBuffer: screenBuffer)
-            .transformed(by: instruction.screenTransform)
+        // The static screenTransform was computed for one source resolution, but a
+        // merged project's track can switch resolutions mid-timeline (clips from
+        // different displays). If this frame doesn't fill the canvas under the
+        // static transform, refit it aspect-fit centered.
+        let sourceImage = CIImage(cvPixelBuffer: screenBuffer)
+        let staticExtent = sourceImage.extent.applying(instruction.screenTransform)
+        let effectiveTransform: CGAffineTransform
+        if abs(staticExtent.width - renderSize.width) < 2 || abs(staticExtent.height - renderSize.height) < 2 {
+            effectiveTransform = instruction.screenTransform
+        } else {
+            let extent = sourceImage.extent
+            let scale = min(renderSize.width / extent.width, renderSize.height / extent.height)
+            effectiveTransform = CGAffineTransform(
+                a: scale, b: 0, c: 0, d: scale,
+                tx: (renderSize.width - extent.width * scale) / 2 - extent.minX * scale,
+                ty: (renderSize.height - extent.height * scale) / 2 - extent.minY * scale
+            )
+        }
+
+        let rawScreen = sourceImage
+            .transformed(by: effectiveTransform)
             .cropped(to: canvasRect)
 
         var background: CIImage
