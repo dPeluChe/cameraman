@@ -74,6 +74,7 @@ Resolved during the May 2026 pre-publication push. Full per-item write-ups in `T
 > Next batch of editor work. Depends on a stable export pipeline and `TimelineView`.
 
 - [ ] **Mixed-resolution timelines — residual edge** — screen and camera-PiP frames now refit per-frame, and mixed-res projects always route through the compositor (preview + export). Remaining: camera refit needs `cameraRect` in the instruction (the single-instruction overlay paths pass nil), and zoom focus mapping uses the first clip's transform — both only matter if a merged section with a different-resolution camera also uses those paths.
+- [ ] **Preview visibility toggles (Overlays/Layout/Captions)** — removed from the bar under the preview because they were never wired (local @State, no effect on render). Implementing them for real means gating overlay/layout/caption rendering in the preview pipeline per toggle.
 - [ ] **Auto-zoom tuning** — hidden behind `FeatureFlags.autoZoom` (default off): suggestion timing/intensity confused testers; auto-apply-on-open removed. Tune dwell thresholds, zoom-out blending and intensity before re-enabling by default.
 
 - [ ] **Zoom animation tuning** — hold duration, in/out velocity, smoother transitions between adjacent zoom points. The zoom-out between two points currently feels abrupt; evaluate a blend or crossfade.
