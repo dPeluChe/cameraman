@@ -294,6 +294,8 @@ enum VideoClipAction {
     case jumpToEnd
     case placeAfterPreviousTrack
     case placeAtStart
+    case moveRowUp
+    case moveRowDown
     case remove
 }
 
@@ -316,6 +318,10 @@ extension TimelineView {
             }
         case .placeAtStart:
             Task { _ = await editor.updateClip(clipId: clip.id, inTrackId: trackId, timelineIn: 0) }
+        case .moveRowUp:
+            Task { _ = await editor.moveVideoTrack(trackId: trackId, up: true) }
+        case .moveRowDown:
+            Task { _ = await editor.moveVideoTrack(trackId: trackId, up: false) }
         case .remove:
             if selectedVideoClip?.clip.id == clip.id { selectedVideoClip = nil }
             Task { _ = await editor.removeClip(clipId: clip.id, fromTrackId: trackId) }

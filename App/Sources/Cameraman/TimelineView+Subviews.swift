@@ -164,6 +164,9 @@ struct TimelineTrackRow: View {
                     Button("Place After Track Above") { onVideoClipAction(clip, .placeAfterPreviousTrack) }
                     Button("Place at Start") { onVideoClipAction(clip, .placeAtStart) }
                     Divider()
+                    Button("Move Row Up") { onVideoClipAction(clip, .moveRowUp) }
+                    Button("Move Row Down") { onVideoClipAction(clip, .moveRowDown) }
+                    Divider()
                     Button("Remove Clip", role: .destructive) { onVideoClipAction(clip, .remove) }
                 }
                 .help("\(clipDisplayName(clip)) — \(String(format: "%.1fs", clip.duration)). Drag to move, edges to trim, click to position.")

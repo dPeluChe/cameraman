@@ -383,7 +383,9 @@ struct TimelineView: View {
                         }
                     )
                     .padding(.leading, 6)
-                    .frame(height: trackHeight, alignment: .leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: trackHeight)
+                    .contentShape(Rectangle())
                     .contextMenu {
                         if let trackId = track.engineTrackId {
                             Button("Move Row Up") {
