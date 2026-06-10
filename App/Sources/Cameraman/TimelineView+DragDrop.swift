@@ -167,6 +167,44 @@ extension TimelineView {
         }
     }
 
+    /// Magnetic snapping for clip drags: when either edge of the moving clip
+    /// comes within ~10pt of another clip's edge (any row), the playhead, or 0,
+    /// the drag delta locks onto it.
+    func snappedClipDeltaX(clip: Project.TimelineClip, rawDeltaX: TimelineScalar, layout: TimelineLayout) -> TimelineScalar {
+        let pps = max(layout.pixelsPerSecond, 0.001)
+        let rawDelta = TimeInterval(rawDeltaX / pps)
+        let threshold = TimeInterval(10 / pps)
+
+        var points: [TimeInterval] = [0, playerViewModel.currentTime]
+        for track in editor.project.timeline.videoTracks {
+            for other in track.clips where other.id != clip.id {
+                points.append(other.timelineIn)
+                points.append(other.timelineOut)
+            }
+        }
+        for segment in editor.project.timeline.segments {
+            points.append(segment.timelineIn)
+            points.append(segment.timelineIn + segment.timelineDuration)
+        }
+
+        let start = clip.timelineIn + rawDelta
+        let end = clip.timelineOut + rawDelta
+        var best: (distance: TimeInterval, delta: TimeInterval)?
+        for point in points {
+            let startDistance = abs(start - point)
+            if startDistance < (best?.distance ?? threshold) {
+                best = (startDistance, point - clip.timelineIn)
+            }
+            let endDistance = abs(end - point)
+            if endDistance < (best?.distance ?? threshold) {
+                best = (endDistance, point - clip.timelineOut)
+            }
+        }
+
+        guard let best else { return rawDeltaX }
+        return TimelineScalar(best.delta) * pps
+    }
+
     /// Trim an imported video clip from either edge. Leading trim shifts both
     /// sourceIn and timelineIn; trailing trim adjusts sourceOut, clamped to the
     /// real asset duration so AVFoundation never gets an out-of-range insert.
@@ -267,7 +305,9 @@ extension TimelineView {
         case .jumpToEnd:
             playerViewModel.seek(to: clip.timelineOut)
         case .placeAfterPreviousTrack:
-            let videoTracks = editor.project.timeline.videoTracks
+            // Ignore ghost tracks (empty, hidden from the UI) so "above" matches
+            // what the user actually sees.
+            let videoTracks = editor.project.timeline.videoTracks.filter { !$0.clips.isEmpty }
             guard let index = videoTracks.firstIndex(where: { $0.id == trackId }), index > 0 else { return }
             let previousEnd = videoTracks[index - 1].clips.map(\.timelineOut).max() ?? 0
             Task {

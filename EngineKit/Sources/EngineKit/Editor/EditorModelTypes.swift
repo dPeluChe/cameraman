@@ -37,6 +37,7 @@ public enum EditorResultInfo: Equatable {
     // Track/clip operations
     case trackAdded(trackId: UUID)
     case trackRemoved(trackId: UUID)
+    case trackMoved(trackId: UUID)
     case clipAdded(clipId: String, trackId: UUID)
     case clipRemoved(clipId: String, trackId: UUID)
     case clipMoved(clipId: String, fromTrackId: UUID, toTrackId: UUID)

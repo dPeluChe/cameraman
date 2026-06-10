@@ -56,6 +56,30 @@ public actor EditorModel {
         return await addClip(clip, toTrackId: trackId)
     }
 
+    /// Swap a .video track with its nearest .video neighbor (up = earlier in the
+    /// array). Order matters twice: row order in the timeline UI and compositing
+    /// z-order (later tracks render on top).
+    public func moveVideoTrack(trackId: UUID, up: Bool) async -> EditorResult {
+        let videoIndices = project.timeline.tracks.indices.filter {
+            project.timeline.tracks[$0].type == .video
+        }
+        guard let position = videoIndices.firstIndex(where: {
+            project.timeline.tracks[$0].id == trackId
+        }) else {
+            return .failure(.trackNotFound(trackId.uuidString))
+        }
+
+        let neighborPosition = up ? position - 1 : position + 1
+        guard videoIndices.indices.contains(neighborPosition) else {
+            // Already first/last — nothing to do, not an error
+            return .successWithInfo(project, .trackMoved(trackId: trackId))
+        }
+
+        project.timeline.tracks.swapAt(videoIndices[position], videoIndices[neighborPosition])
+        project.updatedAt = Date()
+        return .successWithInfo(project, .trackMoved(trackId: trackId))
+    }
+
     /// Remove a track from the timeline by ID
     public func removeTrack(trackId: UUID) async -> EditorResult {
         guard let index = project.timeline.tracks.firstIndex(where: { $0.id == trackId }) else {
@@ -145,6 +169,14 @@ public actor EditorModel {
         }
 
         project.timeline.tracks[trackIndex].clips.removeAll { $0.id == clipId }
+
+        // A non-primary track with no clips left is a ghost: invisible in the
+        // UI but still in the array, where it corrupts neighbor-based actions
+        // (e.g. "place after track above" reading its end as 0).
+        if project.timeline.tracks[trackIndex].clips.isEmpty,
+           project.timeline.tracks[trackIndex].type != .primary {
+            project.timeline.tracks.remove(at: trackIndex)
+        }
 
         recalculateTimelineDuration()
         project.updatedAt = Date()
