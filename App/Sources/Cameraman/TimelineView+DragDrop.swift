@@ -136,6 +136,7 @@ extension TimelineView {
                     at: currentPlayhead,
                     trackName: fileName
                 )
+                await warnIfBelowCanvasResolution(videoURL: destURL, fileName: fileName)
                 return
             }
 
@@ -148,6 +149,21 @@ extension TimelineView {
             )
 
             await editor.addMediaItem(item)
+        }
+    }
+
+    /// Upscaling looks soft fullscreen; downscaling (bigger than canvas) is fine,
+    /// and smaller videos are also fine as PiP — so only warn on the former.
+    func warnIfBelowCanvasResolution(videoURL: URL, fileName: String) async {
+        let asset = AVURLAsset(url: videoURL)
+        guard let track = try? await asset.loadTracks(withMediaType: .video).first,
+              let size = try? await track.load(.naturalSize) else { return }
+
+        let canvas = editor.project.canvas.format
+        guard size.width < CGFloat(canvas.w), size.height < CGFloat(canvas.h) else { return }
+
+        await MainActor.run {
+            importNotice = "“\(fileName)” is \(Int(size.width))×\(Int(size.height)) and the project canvas is \(canvas.w)×\(canvas.h). Fullscreen it may look soft — as a smaller PiP it will look sharp."
         }
     }
 

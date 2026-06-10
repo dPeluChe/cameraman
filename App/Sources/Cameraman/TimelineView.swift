@@ -42,6 +42,7 @@ struct TimelineView: View {
     @State var isTrimming = false
     @State var showImportPanel = false
     @State var selectedVideoClip: SelectedVideoClip?
+    @State var importNotice: String?
     @State var zoomSuggestions: [ZoomSuggestion] = []
     @State var dismissedSuggestionIds: Set<UUID> = []
     @State var isGeneratingSuggestions = false
@@ -116,6 +117,17 @@ struct TimelineView: View {
         ) { result in
             handleImportedFile(result)
         }
+        .alert(
+            "Lower-resolution video",
+            isPresented: Binding(
+                get: { importNotice != nil },
+                set: { if !$0 { importNotice = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(importNotice ?? "")
+        }
     }
 
     // MARK: - Toolbar
@@ -152,7 +164,9 @@ struct TimelineView: View {
 
     @ViewBuilder
     private var zoomSuggestionButtons: some View {
-        if !zoomSuggestions.isEmpty {
+        if !FeatureFlags.autoZoom {
+            EmptyView()
+        } else if !zoomSuggestions.isEmpty {
             Button {
                 applyZoomSuggestions()
             } label: {
