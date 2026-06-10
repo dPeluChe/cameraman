@@ -114,6 +114,20 @@ extension ProjectStore {
         )
     }
 
+    /// Default name for a new recording: "MMM d · Word" (e.g. "Jun 10 · Falcon").
+    /// Date + a random word keeps unedited projects distinguishable in the library.
+    static func defaultProjectName(date: Date = Date()) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "MMM d"
+        let words = [
+            "Aurora", "Comet", "Drift", "Ember", "Falcon", "Harbor", "Indigo",
+            "Lumen", "Meadow", "Nimbus", "Onyx", "Pixel", "Quartz", "Ripple",
+            "Sierra", "Tundra", "Umbra", "Vega", "Willow", "Zephyr"
+        ]
+        return "\(formatter.string(from: date)) · \(words.randomElement() ?? "Recording")"
+    }
+
     /// Create the directory structure for a new project
     func createProjectDirectoryStructure(at url: URL) throws {
         let paths = [

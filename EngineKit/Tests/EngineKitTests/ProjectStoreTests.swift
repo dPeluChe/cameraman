@@ -66,7 +66,9 @@ final class ProjectStoreTests: XCTestCase {
 
         // Then
         let project = try await sut.loadProject(projectId: projectId)
-        XCTAssertEqual(project.name, "Untitled Recording")
+        // Default name is now "MMM d · Word" (date + random word)
+        XCTAssertFalse(project.name.isEmpty)
+        XCTAssertTrue(project.name.contains(" · "), "Expected generated default name, got: \(project.name)")
         XCTAssertEqual(project.tags, [])
     }
 

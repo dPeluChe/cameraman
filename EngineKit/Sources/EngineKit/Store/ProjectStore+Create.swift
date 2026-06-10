@@ -98,7 +98,7 @@ extension ProjectStore {
 
         let project = Project(
             projectId: projectId,
-            name: name ?? "Untitled Recording",
+            name: name ?? Self.defaultProjectName(),
             takes: [take],
             timeline: Project.Timeline(
                 duration: recordingResult.duration,
@@ -171,7 +171,7 @@ extension ProjectStore {
 
         let project = Project(
             projectId: projectId,
-            name: name ?? "Untitled Recording",
+            name: name ?? Self.defaultProjectName(),
             takes: [take],
             timeline: Project.Timeline(
                 duration: recordingResult.duration,
