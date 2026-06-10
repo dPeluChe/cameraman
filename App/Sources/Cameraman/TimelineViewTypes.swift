@@ -81,12 +81,15 @@ struct TimelineTrack: Identifiable {
     let timelineClips: [Project.TimelineClip]
     /// Backing Project.TimelineTrack id for new-model rows (nil for legacy kinds)
     let engineTrackId: UUID?
+    /// Persisted mute state of the backing engine track (new-model rows)
+    let engineMuted: Bool
     private let labelOverride: String?
+    private let colorOverride: Color?
 
     // Kind alone isn't unique anymore: each imported video lives on its own row
     var id: String { engineTrackId.map { "\(kind.rawValue)_\($0.uuidString)" } ?? kind.rawValue }
     var label: String { labelOverride ?? kind.label }
-    var color: Color { kind.color }
+    var color: Color { colorOverride ?? kind.color }
 
     init(
         kind: TimelineTrackKind,
@@ -95,7 +98,9 @@ struct TimelineTrack: Identifiable {
         overlays: [Project.Overlay] = [],
         timelineClips: [Project.TimelineClip] = [],
         engineTrackId: UUID? = nil,
-        labelOverride: String? = nil
+        engineMuted: Bool = false,
+        labelOverride: String? = nil,
+        colorOverride: Color? = nil
     ) {
         self.kind = kind
         self.segments = segments
@@ -103,7 +108,9 @@ struct TimelineTrack: Identifiable {
         self.overlays = overlays
         self.timelineClips = timelineClips
         self.engineTrackId = engineTrackId
+        self.engineMuted = engineMuted
         self.labelOverride = labelOverride
+        self.colorOverride = colorOverride
     }
 }
 
@@ -136,14 +143,21 @@ enum TimelineTrackBuilder {
         }
 
         // Imported-video tracks (new model): one row per .video timeline track,
-        // above the screen like other overlay content.
-        for videoTrack in project.timeline.videoTracks where !videoTrack.clips.isEmpty {
+        // above the screen like other overlay content. Cycle colors so rows are
+        // distinguishable at a glance.
+        let videoRowPalette: [Color] = [
+            Color.teal.opacity(0.85), Color.mint.opacity(0.85), Color.indigo.opacity(0.85),
+            Color.brown.opacity(0.85), Color.red.opacity(0.7), Color.blue.opacity(0.7)
+        ]
+        for (index, videoTrack) in project.timeline.videoTracks.enumerated() where !videoTrack.clips.isEmpty {
             tracks.append(TimelineTrack(
                 kind: .videoClip,
                 segments: [],
                 timelineClips: videoTrack.clips,
                 engineTrackId: videoTrack.id,
-                labelOverride: videoTrack.name.isEmpty ? nil : videoTrack.name
+                engineMuted: videoTrack.isMuted,
+                labelOverride: videoTrack.name.isEmpty ? nil : videoTrack.name,
+                colorOverride: videoRowPalette[index % videoRowPalette.count]
             ))
         }
 

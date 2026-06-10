@@ -396,7 +396,7 @@ struct TimelineView: View {
                 height: trackHeight,
                 selectedSegmentId: selectedSegmentId,
                 isInteractive: track.kind == .screen,
-                isMuted: mutedTracks.contains(track.kind),
+                isMuted: track.engineTrackId != nil ? track.engineMuted : mutedTracks.contains(track.kind),
                 showThumbnails: showThumbnails && track.kind == .screen,
                 thumbnails: thumbnails,
                 showWaveforms: showWaveforms && track.kind.isAudioTrack,
@@ -425,7 +425,12 @@ struct TimelineView: View {
                     selectedMediaItemId = itemId
                 },
                 onToggleMute: {
-                    if mutedTracks.contains(track.kind) {
+                    if let trackId = track.engineTrackId {
+                        // Per-row mute persisted on the engine track — the shared
+                        // kind-based set would mute every imported video row at once.
+                        let muted = track.engineMuted
+                        Task { _ = await editor.setTrackMuted(trackId: trackId, muted: !muted) }
+                    } else if mutedTracks.contains(track.kind) {
                         mutedTracks.remove(track.kind)
                     } else {
                         mutedTracks.insert(track.kind)
@@ -452,6 +457,10 @@ struct TimelineView: View {
                         selectedVideoClip = SelectedVideoClip(clip: clip, trackId: trackId)
                         playerViewModel.seek(to: clip.timelineIn)
                     }
+                },
+                onVideoClipAction: { clip, action in
+                    guard let trackId = track.engineTrackId else { return }
+                    handleVideoClipAction(action, clip: clip, trackId: trackId)
                 }
             )
         }

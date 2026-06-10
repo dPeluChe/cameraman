@@ -251,6 +251,38 @@ extension TimelineView {
 }
 
 
+/// Context-menu actions on an imported-video clip chip.
+enum VideoClipAction {
+    case jumpToEnd
+    case placeAfterPreviousTrack
+    case placeAtStart
+    case remove
+}
+
+extension TimelineView {
+    /// Ordering helpers for imported clips: chain a clip after the video row
+    /// above it, snap it to the start, jump the playhead, or remove it.
+    func handleVideoClipAction(_ action: VideoClipAction, clip: Project.TimelineClip, trackId: UUID) {
+        switch action {
+        case .jumpToEnd:
+            playerViewModel.seek(to: clip.timelineOut)
+        case .placeAfterPreviousTrack:
+            let videoTracks = editor.project.timeline.videoTracks
+            guard let index = videoTracks.firstIndex(where: { $0.id == trackId }), index > 0 else { return }
+            let previousEnd = videoTracks[index - 1].clips.map(\.timelineOut).max() ?? 0
+            Task {
+                _ = await editor.updateClip(clipId: clip.id, inTrackId: trackId, timelineIn: previousEnd)
+                playerViewModel.seek(to: previousEnd)
+            }
+        case .placeAtStart:
+            Task { _ = await editor.updateClip(clipId: clip.id, inTrackId: trackId, timelineIn: 0) }
+        case .remove:
+            if selectedVideoClip?.clip.id == clip.id { selectedVideoClip = nil }
+            Task { _ = await editor.removeClip(clipId: clip.id, fromTrackId: trackId) }
+        }
+    }
+}
+
 /// A selected imported-video clip plus its engine track id (for updates/removal).
 struct SelectedVideoClip: Identifiable, Equatable {
     let clip: Project.TimelineClip

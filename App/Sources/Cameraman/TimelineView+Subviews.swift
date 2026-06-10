@@ -35,6 +35,7 @@ struct TimelineTrackRow: View {
     var onVideoClipMoved: (Project.TimelineClip, TimelineScalar) -> Void = { _, _ in }
     var onVideoClipTrimmed: (Project.TimelineClip, TimelineTrimEdge, TimelineScalar) -> Void = { _, _, _ in }
     var onSelectVideoClip: (Project.TimelineClip) -> Void = { _ in }
+    var onVideoClipAction: (Project.TimelineClip, VideoClipAction) -> Void = { _, _ in }
 
     @State private var mediaItemDragOffset: [UUID: TimelineScalar] = [:]
     @State private var clipDragOffset: [String: TimelineScalar] = [:]
@@ -166,6 +167,13 @@ struct TimelineTrackRow: View {
                             onVideoClipMoved(clip, value.translation.width)
                         }
                 )
+                .contextMenu {
+                    Button("Jump to Clip End") { onVideoClipAction(clip, .jumpToEnd) }
+                    Button("Place After Track Above") { onVideoClipAction(clip, .placeAfterPreviousTrack) }
+                    Button("Place at Start") { onVideoClipAction(clip, .placeAtStart) }
+                    Divider()
+                    Button("Remove Clip", role: .destructive) { onVideoClipAction(clip, .remove) }
+                }
                 .help("\(clipDisplayName(clip)) — \(String(format: "%.1fs", clip.duration)). Drag to move, edges to trim, click to position.")
             }
 

@@ -111,6 +111,13 @@ final class ProjectEditor: ObservableObject {
         }
     }
 
+    /// Mute/unmute a timeline track (persists in the project, unlike UI-only mutes).
+    func setTrackMuted(trackId: UUID, muted: Bool) async -> EditorResult {
+        await performEdit {
+            await self.editorModel.setTrackMuted(trackId: trackId, muted: muted)
+        }
+    }
+
     /// Remove a clip from a timeline track.
     func removeClip(clipId: String, fromTrackId trackId: UUID) async -> EditorResult {
         await performEdit {
