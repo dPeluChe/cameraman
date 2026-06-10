@@ -92,6 +92,32 @@ final class ProjectEditor: ObservableObject {
         }
     }
 
+    /// Update a clip on a timeline track — move, trim (via content), reposition.
+    func updateClip(
+        clipId: String,
+        inTrackId trackId: UUID,
+        timelineIn: TimeInterval? = nil,
+        position: Project.MediaPosition? = nil,
+        content: Project.ClipContent? = nil
+    ) async -> EditorResult {
+        await performEdit {
+            await self.editorModel.updateClip(
+                clipId: clipId,
+                inTrackId: trackId,
+                timelineIn: timelineIn,
+                position: position,
+                content: content
+            )
+        }
+    }
+
+    /// Remove a clip from a timeline track.
+    func removeClip(clipId: String, fromTrackId trackId: UUID) async -> EditorResult {
+        await performEdit {
+            await self.editorModel.removeClip(clipId: clipId, fromTrackId: trackId)
+        }
+    }
+
     func delete(segmentId: String) async -> EditorResult {
         await performEdit { await self.editorModel.delete(segmentId: segmentId) }
     }

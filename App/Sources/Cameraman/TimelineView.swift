@@ -41,6 +41,7 @@ struct TimelineView: View {
     @State var dragStartTime: TimeInterval?
     @State var isTrimming = false
     @State var showImportPanel = false
+    @State var selectedVideoClip: SelectedVideoClip?
     @State var zoomSuggestions: [ZoomSuggestion] = []
     @State var dismissedSuggestionIds: Set<UUID> = []
     @State var isGeneratingSuggestions = false
@@ -79,6 +80,7 @@ struct TimelineView: View {
         VStack(alignment: .leading, spacing: 12) {
             timelineToolbar
             segmentInspector
+            videoClipInspector
             timelineScrollContent(layout: layout, tracks: tracks, totalHeight: totalHeight)
         }
         .background(
@@ -413,6 +415,28 @@ struct TimelineView: View {
                         mutedTracks.remove(track.kind)
                     } else {
                         mutedTracks.insert(track.kind)
+                    }
+                },
+                selectedVideoClipId: selectedVideoClip?.clip.id,
+                onVideoClipMoved: { clip, deltaX in
+                    guard let trackId = track.engineTrackId else { return }
+                    let deltaTime = TimeInterval(deltaX / layout.pixelsPerSecond)
+                    Task {
+                        let newTimelineIn = max(0, clip.timelineIn + deltaTime)
+                        _ = await editor.updateClip(clipId: clip.id, inTrackId: trackId, timelineIn: newTimelineIn)
+                    }
+                },
+                onVideoClipTrimmed: { clip, edge, deltaX in
+                    guard let trackId = track.engineTrackId else { return }
+                    applyVideoClipTrim(clip: clip, trackId: trackId, edge: edge, deltaX: deltaX, layout: layout)
+                },
+                onSelectVideoClip: { clip in
+                    guard let trackId = track.engineTrackId else { return }
+                    if selectedVideoClip?.clip.id == clip.id {
+                        selectedVideoClip = nil
+                    } else {
+                        selectedVideoClip = SelectedVideoClip(clip: clip, trackId: trackId)
+                        playerViewModel.seek(to: clip.timelineIn)
                     }
                 }
             )

@@ -30,8 +30,15 @@ struct TimelineTrackRow: View {
     let onMediaItemDragged: (UUID, TimelineScalar) -> Void
     let onSelectMediaItem: (UUID?) -> Void
     let onToggleMute: () -> Void
+    // Imported-video clip interactions (only used by .videoClip rows)
+    var selectedVideoClipId: String?
+    var onVideoClipMoved: (Project.TimelineClip, TimelineScalar) -> Void = { _, _ in }
+    var onVideoClipTrimmed: (Project.TimelineClip, TimelineTrimEdge, TimelineScalar) -> Void = { _, _, _ in }
+    var onSelectVideoClip: (Project.TimelineClip) -> Void = { _ in }
 
     @State private var mediaItemDragOffset: [UUID: TimelineScalar] = [:]
+    @State private var clipDragOffset: [String: TimelineScalar] = [:]
+    @State private var clipTrimOffset: [String: (edge: TimelineTrimEdge, delta: TimelineScalar)] = [:]
 
     var body: some View {
         HStack(spacing: 0) {
@@ -112,10 +119,17 @@ struct TimelineTrackRow: View {
                 .help("\(item.name) — \(String(format: "%.1fs", item.duration))")
             }
 
-            // Render imported-video clips (new-model .video tracks)
+            // Render imported-video clips (new-model .video tracks):
+            // body drag = move, edge drags = trim, click = select/position
             ForEach(track.timelineClips) { clip in
-                let width = layout.segmentWidth(for: clip.duration)
+                let trim = clipTrimOffset[clip.id]
+                let leadingDelta: TimelineScalar = trim?.edge == .leading ? (trim?.delta ?? 0) : 0
+                let trailingDelta: TimelineScalar = trim?.edge == .trailing ? (trim?.delta ?? 0) : 0
+                let baseWidth = layout.segmentWidth(for: clip.duration)
+                let width = max(10, baseWidth - leadingDelta + trailingDelta)
                 let xPosition = layout.xPosition(for: clip.timelineIn) - layout.labelWidth
+                    + leadingDelta + (clipDragOffset[clip.id] ?? 0)
+                let isSelected = clip.id == selectedVideoClipId
 
                 HStack(spacing: 2) {
                     Image(systemName: "film")
@@ -134,11 +148,25 @@ struct TimelineTrackRow: View {
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .stroke(Color.white.opacity(0.4), lineWidth: 1)
+                        .stroke(isSelected ? Color.white.opacity(0.9) : Color.white.opacity(0.4), lineWidth: isSelected ? 2 : 1)
                 )
+                .overlay(videoClipTrimHandles(for: clip))
                 .opacity(isMuted ? 0.3 : 1.0)
                 .offset(x: xPosition)
-                .help("\(clipDisplayName(clip)) — \(String(format: "%.1fs", clip.duration))")
+                .onTapGesture {
+                    onSelectVideoClip(clip)
+                }
+                .gesture(
+                    DragGesture(minimumDistance: 4)
+                        .onChanged { value in
+                            clipDragOffset[clip.id] = value.translation.width
+                        }
+                        .onEnded { value in
+                            clipDragOffset.removeValue(forKey: clip.id)
+                            onVideoClipMoved(clip, value.translation.width)
+                        }
+                )
+                .help("\(clipDisplayName(clip)) — \(String(format: "%.1fs", clip.duration)). Drag to move, edges to trim, click to position.")
             }
 
             ForEach(track.segments) { segment in
@@ -237,6 +265,33 @@ struct TimelineTrackRow: View {
             RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .fill(Color.primary.opacity(0.03))
         )
+    }
+
+    /// Invisible 8pt drag zones on each edge of a video clip chip for trimming.
+    @ViewBuilder
+    private func videoClipTrimHandles(for clip: Project.TimelineClip) -> some View {
+        HStack(spacing: 0) {
+            trimHandle(for: clip, edge: .leading)
+            Spacer(minLength: 0)
+            trimHandle(for: clip, edge: .trailing)
+        }
+    }
+
+    private func trimHandle(for clip: Project.TimelineClip, edge: TimelineTrimEdge) -> some View {
+        Rectangle()
+            .fill(Color.white.opacity(clipTrimOffset[clip.id]?.edge == edge ? 0.5 : 0.001))
+            .frame(width: 8)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 2)
+                    .onChanged { value in
+                        clipTrimOffset[clip.id] = (edge: edge, delta: value.translation.width)
+                    }
+                    .onEnded { value in
+                        clipTrimOffset.removeValue(forKey: clip.id)
+                        onVideoClipTrimmed(clip, edge, value.translation.width)
+                    }
+            )
     }
 
     /// File name for an imported video/audio clip chip (e.g. "assets/broll.mp4" -> "broll.mp4")

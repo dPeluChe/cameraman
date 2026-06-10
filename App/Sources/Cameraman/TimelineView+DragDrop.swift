@@ -151,6 +151,50 @@ extension TimelineView {
         }
     }
 
+    /// Trim an imported video clip from either edge. Leading trim shifts both
+    /// sourceIn and timelineIn; trailing trim adjusts sourceOut, clamped to the
+    /// real asset duration so AVFoundation never gets an out-of-range insert.
+    func applyVideoClipTrim(
+        clip: Project.TimelineClip,
+        trackId: UUID,
+        edge: TimelineTrimEdge,
+        deltaX: TimelineScalar,
+        layout: TimelineLayout
+    ) {
+        guard case .video(let ref) = clip.content, let projectDir = projectDirectory else { return }
+        let deltaTime = TimeInterval(deltaX / layout.pixelsPerSecond)
+        let minDuration: TimeInterval = 0.25
+
+        Task {
+            var newRef = ref
+            var newTimelineIn: TimeInterval? = nil
+
+            switch edge {
+            case .leading:
+                let maxIn = ref.sourceOut - minDuration * clip.speed
+                let newSourceIn = min(max(0, ref.sourceIn + deltaTime * clip.speed), maxIn)
+                newTimelineIn = max(0, clip.timelineIn + (newSourceIn - ref.sourceIn) / clip.speed)
+                newRef.sourceIn = newSourceIn
+            case .trailing:
+                let assetURL = projectDir.appendingPathComponent(ref.path)
+                var assetDuration = ref.sourceOut
+                if let loaded = try? await AVURLAsset(url: assetURL).load(.duration) {
+                    assetDuration = loaded.seconds
+                }
+                let minOut = ref.sourceIn + minDuration * clip.speed
+                newRef.sourceOut = min(max(minOut, ref.sourceOut + deltaTime * clip.speed), assetDuration)
+            }
+
+            guard newRef != ref || newTimelineIn != nil else { return }
+            _ = await editor.updateClip(
+                clipId: clip.id,
+                inTrackId: trackId,
+                timelineIn: newTimelineIn,
+                content: .video(newRef)
+            )
+        }
+    }
+
     func applyTrim(
         for segment: Project.Timeline.Segment,
         edge: TimelineTrimEdge,
@@ -188,4 +232,12 @@ extension TimelineView {
             }
         }
     }
+}
+
+
+/// A selected imported-video clip plus its engine track id (for updates/removal).
+struct SelectedVideoClip: Identifiable, Equatable {
+    let clip: Project.TimelineClip
+    let trackId: UUID
+    var id: String { clip.id }
 }
