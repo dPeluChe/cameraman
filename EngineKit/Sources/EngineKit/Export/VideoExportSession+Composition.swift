@@ -145,6 +145,7 @@ extension ExportEngine {
         options: ExportOptions,
         videoOverlays: [MaskedVideoCompositionInstruction.VideoOverlaySource] = []
     ) async throws {
+        let forceCompositor = !videoOverlays.isEmpty || project.hasMixedScreenResolutions
         let instruction = AVMutableVideoCompositionInstruction()
         instruction.timeRange = CMTimeRangeMake(start: .zero, duration: composition.duration)
 
@@ -207,8 +208,8 @@ extension ExportEngine {
                 videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
                 videoComposition.instructions = maskedInstructions
                 logger.debug("Export: \(maskedInstructions.count) per-segment compositor instructions")
-            } else if !videoOverlays.isEmpty {
-                // Imported-video overlays need the custom compositor (zoom included via zoomPlan)
+            } else if forceCompositor {
+                // Imported-video overlays / mixed-resolution timelines need the custom compositor
                 let cameraTransform = calculateCameraOverlayTransform(
                     cameraPosition: defaultCamera,
                     cameraSourceSize: cameraSourceSize,
@@ -238,7 +239,7 @@ extension ExportEngine {
                 instruction.layerInstructions = [cameraLayerInstruction, layerInstruction]
                 videoComposition.instructions = [instruction]
             }
-        } else if !videoOverlays.isEmpty {
+        } else if forceCompositor {
             applyCompositorInstruction(
                 videoComposition: videoComposition,
                 composition: composition,

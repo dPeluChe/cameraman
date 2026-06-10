@@ -23,6 +23,7 @@ extension PreviewEngine {
         // path below that would otherwise use standard layer instructions must
         // switch to MaskedVideoCompositor when videoOverlays exist.
         let needsCompositor = !project.overlays.isEmpty || !videoOverlays.isEmpty
+            || project.hasMixedScreenResolutions
 
         let renderSize = CoreFoundation.CGSize(
             width: CGFloat(project.canvas.format.w),

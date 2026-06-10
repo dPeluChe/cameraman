@@ -8,6 +8,14 @@
 import Foundation
 
 extension Project {
+    /// True when takes were recorded at different screen resolutions (e.g. a
+    /// merged project) — rendering then needs per-frame transforms, so preview
+    /// and export must route through the custom compositor.
+    public var hasMixedScreenResolutions: Bool {
+        let sizes = Set(takes.map { "\($0.sources.screen.size.w)x\($0.sources.screen.size.h)" })
+        return sizes.count > 1
+    }
+
     /// A Take represents a single recording session containing multiple media sources (screen, camera, mic, etc.)
     public struct Take: Codable, Equatable, Identifiable {
         public let id: UUID

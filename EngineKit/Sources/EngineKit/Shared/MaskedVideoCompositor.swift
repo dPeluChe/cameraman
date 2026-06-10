@@ -399,7 +399,32 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
         }
 
         var result = finalImage
-        let cameraImage = CIImage(cvPixelBuffer: cameraBuffer).transformed(by: cameraTransform)
+        let rawCamera = CIImage(cvPixelBuffer: cameraBuffer)
+
+        // Same mixed-resolution guard as the screen layer: the static transform
+        // was computed for one camera resolution; if this frame lands outside its
+        // intended PiP rect (known via cameraRect), refit it aspect-fit centered.
+        var effectiveCameraTransform = cameraTransform
+        if let normalizedRect = instruction.cameraRect {
+            let target = CGRect(
+                x: normalizedRect.minX * renderSize.width,
+                y: (1.0 - normalizedRect.minY - normalizedRect.height) * renderSize.height,
+                width: normalizedRect.width * renderSize.width,
+                height: normalizedRect.height * renderSize.height
+            )
+            let staticExtent = rawCamera.extent.applying(cameraTransform)
+            if abs(staticExtent.width - target.width) > 2 && abs(staticExtent.height - target.height) > 2 {
+                let extent = rawCamera.extent
+                let scale = min(target.width / extent.width, target.height / extent.height)
+                effectiveCameraTransform = CGAffineTransform(
+                    a: scale, b: 0, c: 0, d: scale,
+                    tx: target.minX + (target.width - extent.width * scale) / 2 - extent.minX * scale,
+                    ty: target.minY + (target.height - extent.height * scale) / 2 - extent.minY * scale
+                )
+            }
+        }
+
+        let cameraImage = rawCamera.transformed(by: effectiveCameraTransform)
         let camExtent = cameraImage.extent.intersection(CGRect(origin: .zero, size: renderSize))
 
         if instruction.maskShape != .none && !camExtent.isEmpty {
