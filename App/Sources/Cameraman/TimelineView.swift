@@ -30,7 +30,7 @@ struct TimelineView: View {
     private let trackSpacing: TimelineScalar = 8
     private let pixelsPerSecond: TimelineScalar = 40
     private let labelWidth: TimelineScalar = 160
-    private let minZoomScale: TimelineScalar = 0.5
+    private let minZoomScale: TimelineScalar = 0.05
     private let maxZoomScale: TimelineScalar = 4
     private let zoomStep: TimelineScalar = 0.25
     let minimumTrimDuration: TimeInterval = 0.1
@@ -59,13 +59,19 @@ struct TimelineView: View {
 
     private var playheadTime: Double { playerViewModel.currentTime }
 
+    /// Pixels/second that makes the whole timeline fit the visible width.
+    private var fitPPS: TimelineScalar {
+        guard project.timeline.duration > 0 else { return pixelsPerSecond }
+        return max(1, (availableWidth - labelWidth - 8) / TimelineScalar(project.timeline.duration))
+    }
+
     private var currentLayout: TimelineLayout {
-        let basePPS: TimelineScalar = project.timeline.duration > 0
-            ? max(pixelsPerSecond, (availableWidth - labelWidth) / TimelineScalar(project.timeline.duration))
-            : pixelsPerSecond
+        // 100% = default density (or fill for short projects). Zooming out is
+        // floored at fit-to-width so long timelines can always shrink into view.
+        let basePPS = max(pixelsPerSecond, fitPPS)
         return TimelineLayout(
             duration: project.timeline.duration,
-            pixelsPerSecond: basePPS * zoomScale,
+            pixelsPerSecond: max(fitPPS, basePPS * zoomScale),
             labelWidth: labelWidth
         )
     }
@@ -203,33 +209,51 @@ struct TimelineView: View {
         }
         .help("Import video, audio or image asset")
 
-        Toggle("Thumbnails", isOn: $showThumbnails)
-            .toggleStyle(.switch)
-            .help("Show/hide video thumbnails in timeline")
-            .disabled(thumbnailCache == nil)
-
-        Toggle("Waveforms", isOn: $showWaveforms)
-            .toggleStyle(.switch)
-            .help("Show/hide audio waveforms in timeline")
-            .disabled(thumbnailCache == nil || waveforms.isEmpty)
+        Menu {
+            Toggle("Thumbnails", isOn: $showThumbnails)
+                .disabled(thumbnailCache == nil)
+            Toggle("Waveforms", isOn: $showWaveforms)
+                .disabled(thumbnailCache == nil || waveforms.isEmpty)
+            Divider()
+            Toggle("Zoom Plan", isOn: $playerViewModel.showZoom)
+            Divider()
+            Toggle("Cursor", isOn: $playerViewModel.showCursor)
+            Toggle("Clicks", isOn: $playerViewModel.showClicks)
+            Toggle("Keystrokes", isOn: $playerViewModel.showKeystrokes)
+        } label: {
+            Label("View", systemImage: "eye")
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help("Timeline and preview visibility options")
     }
 
     @ViewBuilder
     private var zoomScaleControls: some View {
         Button {
-            zoomScale = max(minZoomScale, zoomScale - zoomStep)
+            // Halve on the way down — fixed 25% steps took forever to shrink
+            // a long timeline; the floor is fit-to-width either way.
+            zoomScale = max(minZoomScale, zoomScale / 2)
         } label: {
             Image(systemName: "minus.magnifyingglass")
         }
         .buttonStyle(.borderless)
         .disabled(zoomScale <= minZoomScale + 0.001)
+        .help("Zoom out (floors at fit-to-width)")
+
+        Button("Fit") {
+            zoomScale = max(minZoomScale, fitPPS / max(pixelsPerSecond, fitPPS))
+        }
+        .buttonStyle(.borderless)
+        .font(.caption)
+        .help("Fit the whole timeline in view")
 
         Text("\(Int(zoomScale * 100))%")
             .font(.caption)
             .foregroundStyle(.secondary)
 
         Button {
-            zoomScale = min(maxZoomScale, zoomScale + zoomStep)
+            zoomScale = min(maxZoomScale, zoomScale * 2)
         } label: {
             Image(systemName: "plus.magnifyingglass")
         }
