@@ -54,7 +54,7 @@ final class ProjectStoreMergeTests: XCTestCase {
         duration: TimeInterval,
         screenFile: String,
         takeId: UUID = UUID(),
-        clipTakeId: UUID?? = nil, // .some(nil) = explicit nil takeId (legacy clip)
+        legacyNilClipTakeId: Bool = false, // true = clip stores takeId nil ("first take", legacy)
         chapters: [Project.Chapter] = [],
         overlays: [Project.Overlay] = [],
         tags: [String] = []
@@ -66,7 +66,7 @@ final class ProjectStoreMergeTests: XCTestCase {
         let sourcePath = dir.appendingPathComponent("sources/\(screenFile)")
         try Data("fake-video".utf8).write(to: sourcePath)
 
-        let resolvedClipTakeId: UUID? = clipTakeId.map { $0 } ?? takeId
+        let resolvedClipTakeId: UUID? = legacyNilClipTakeId ? nil : takeId
 
         let clip = Project.TimelineClip(
             timelineIn: 0,
@@ -151,8 +151,8 @@ final class ProjectStoreMergeTests: XCTestCase {
         let takeA = UUID()
         let takeB = UUID()
         // Both projects use legacy clips with takeId == nil ("first take")
-        let idA = try await makeProject(name: "A", duration: 10, screenFile: "aaaa_screen.mov", takeId: takeA, clipTakeId: .some(nil))
-        let idB = try await makeProject(name: "B", duration: 5, screenFile: "bbbb_screen.mov", takeId: takeB, clipTakeId: .some(nil))
+        let idA = try await makeProject(name: "A", duration: 10, screenFile: "aaaa_screen.mov", takeId: takeA, legacyNilClipTakeId: true)
+        let idB = try await makeProject(name: "B", duration: 5, screenFile: "bbbb_screen.mov", takeId: takeB, legacyNilClipTakeId: true)
 
         let mergedId = try await sut.mergeProjects(idA, idB)
         let merged = try await sut.loadProject(projectId: mergedId)

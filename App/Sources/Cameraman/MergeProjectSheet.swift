@@ -15,7 +15,7 @@ struct MergeProjectSheet: View {
     let onMerge: (ProjectSummary) -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @State private var selected: ProjectSummary?
+    @State private var selectedId: ProjectId?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -27,17 +27,14 @@ struct MergeProjectSheet: View {
                     .foregroundStyle(.secondary)
             }
 
-            List(candidates, selection: Binding(
-                get: { selected?.projectId },
-                set: { id in selected = candidates.first { $0.projectId == id } }
-            )) { project in
+            List(candidates, selection: $selectedId) { project in
                 HStack {
                     Image(systemName: "film")
                         .foregroundStyle(.secondary)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(project.name)
                             .font(.system(size: 13, weight: .medium))
-                        Text(durationText(project.duration))
+                        Text(ProjectSummaryFormatting.duration(project.duration))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -51,23 +48,17 @@ struct MergeProjectSheet: View {
                 Button("Cancel") { dismiss() }
                     .keyboardShortcut(.cancelAction)
                 Button("Merge") {
-                    if let selected {
+                    if let selected = candidates.first(where: { $0.projectId == selectedId }) {
                         onMerge(selected)
                         dismiss()
                     }
                 }
                 .keyboardShortcut(.defaultAction)
                 .buttonStyle(.borderedProminent)
-                .disabled(selected == nil)
+                .disabled(selectedId == nil)
             }
         }
         .padding(20)
         .frame(width: 380, height: 330)
-    }
-
-    private func durationText(_ duration: TimeInterval) -> String {
-        let minutes = Int(duration) / 60
-        let seconds = Int(duration) % 60
-        return String(format: "%d:%02d", minutes, seconds)
     }
 }

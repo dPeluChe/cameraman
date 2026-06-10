@@ -141,28 +141,22 @@ extension ProjectStore {
     /// skipped. A filename collision aborts the merge (only possible with legacy
     /// un-prefixed files; modern files are prefixed by takeId).
     private func copyMergeAssets(from sourceDir: URL, into destDir: URL) throws {
-        let skip: Set<String> = ["project.json", "thumbnail.jpg", "cache", "proxies", "renders", "transcript"]
-        let items = try fileManager.contentsOfDirectory(at: sourceDir, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles])
-
-        for item in items where !skip.contains(item.lastPathComponent) {
-            let isDirectory = (try? item.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
-            let dest = destDir.appendingPathComponent(item.lastPathComponent, isDirectory: isDirectory)
-            if isDirectory {
-                try copyDirectoryMerging(from: item, to: dest)
-            } else {
-                try copyFileChecked(from: item, to: dest)
-            }
-        }
+        try copyTree(
+            from: sourceDir,
+            to: destDir,
+            skipping: ["project.json", "thumbnail.jpg", "cache", "proxies", "renders", "transcript"]
+        )
     }
 
-    private func copyDirectoryMerging(from source: URL, to dest: URL) throws {
+    /// Recursively merge-copy a directory tree. `skipping` applies to this level only.
+    private func copyTree(from source: URL, to dest: URL, skipping: Set<String> = []) throws {
         try fileManager.createDirectory(at: dest, withIntermediateDirectories: true)
         let items = try fileManager.contentsOfDirectory(at: source, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles])
-        for item in items {
+        for item in items where !skipping.contains(item.lastPathComponent) {
             let isDirectory = (try? item.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
             let itemDest = dest.appendingPathComponent(item.lastPathComponent, isDirectory: isDirectory)
             if isDirectory {
-                try copyDirectoryMerging(from: item, to: itemDest)
+                try copyTree(from: item, to: itemDest)
             } else {
                 try copyFileChecked(from: item, to: itemDest)
             }

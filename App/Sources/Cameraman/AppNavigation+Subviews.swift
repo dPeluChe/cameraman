@@ -45,10 +45,7 @@ struct ProjectSummaryRow: View {
     }
 
     private var formattedDuration: String {
-        let totalSeconds = Int(project.duration)
-        let minutes = totalSeconds / 60
-        let seconds = totalSeconds % 60
-        return String(format: "%02d:%02d", minutes, seconds)
+        ProjectSummaryFormatting.duration(project.duration)
     }
 
     private static let dateFormatter = ProjectSummaryFormatting.dateFormatter
@@ -137,10 +134,7 @@ struct ProjectSummaryCard: View {
     }
 
     private var formattedDuration: String {
-        let totalSeconds = Int(project.duration)
-        let minutes = totalSeconds / 60
-        let seconds = totalSeconds % 60
-        return String(format: "%02d:%02d", minutes, seconds)
+        ProjectSummaryFormatting.duration(project.duration)
     }
 }
 
@@ -153,6 +147,11 @@ enum ProjectSummaryFormatting {
         formatter.timeStyle = .none
         return formatter
     }()
+
+    static func duration(_ duration: TimeInterval) -> String {
+        let totalSeconds = Int(duration)
+        return String(format: "%02d:%02d", totalSeconds / 60, totalSeconds % 60)
+    }
 }
 
 // MARK: - Tag Filter Button
