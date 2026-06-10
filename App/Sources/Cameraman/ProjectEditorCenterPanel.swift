@@ -14,13 +14,8 @@ struct CenterPanel: View {
     @Binding var showExportModal: Bool
     @Binding var showTranscriptionModal: Bool
 
-    // Overlay visibility toggles
-    @State private var showOverlays = true
-    @State private var showLayout = true
-    @State private var showCaptions = true
-    @State private var showCursor = false
-    @State private var showClicks = false
-    @State private var showKeystrokes = false
+    // Visibility toggles live on PreviewPlayerViewModel — binding local @State
+    // here was the bug that made the old checkboxes do nothing.
 
     var body: some View {
         VStack(spacing: 0) {
@@ -61,17 +56,23 @@ struct CenterPanel: View {
                     .frame(height: 250)
             }
 
-            // Visibility toggles (below timeline)
+            // Preview visibility toggles (below timeline). Only switches that are
+            // actually wired to the preview live here — Overlays/Layout/Captions
+            // checkboxes were dead UI (local state, connected to nothing) and were
+            // removed until those features gate the render for real.
             if viewModel.editor != nil {
                 HStack(spacing: 14) {
-                    Toggle("Overlays", isOn: $showOverlays)
-                    Toggle("Layout", isOn: $showLayout)
+                    Text("View:")
+                        .foregroundStyle(.secondary)
                     Toggle("Zoom", isOn: $playerViewModel.showZoom)
-                    Toggle("Captions", isOn: $showCaptions)
+                        .help("Apply the zoom plan during preview")
                     Divider().frame(height: 14)
-                    Toggle("Cursor", isOn: $showCursor)
-                    Toggle("Clicks", isOn: $showClicks)
-                    Toggle("Keys", isOn: $showKeystrokes)
+                    Toggle("Cursor", isOn: $playerViewModel.showCursor)
+                        .help("Show the recorded cursor position")
+                    Toggle("Clicks", isOn: $playerViewModel.showClicks)
+                        .help("Show recorded click markers")
+                    Toggle("Keys", isOn: $playerViewModel.showKeystrokes)
+                        .help("Show recorded keystrokes")
                 }
                 .toggleStyle(.checkbox)
                 .font(.caption)
