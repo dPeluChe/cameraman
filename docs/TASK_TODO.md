@@ -73,7 +73,7 @@ Resolved during the May 2026 pre-publication push. Full per-item write-ups in `T
 
 > Next batch of editor work. Depends on a stable export pipeline and `TimelineView`.
 
-- [ ] **Mixed-resolution timelines — remaining paths** — the compositor now refits screen frames whose resolution changed mid-track (merged projects), but (1) the non-compositor layer-instruction paths (no overlays/mask/per-clip camera/video overlays) still use one static transform, and (2) a camera-resolution change between merged sections isn't refit (PiP transform is static). Generalize per-clip transforms if testers hit these.
+- [ ] **Mixed-resolution timelines — residual edge** — screen and camera-PiP frames now refit per-frame, and mixed-res projects always route through the compositor (preview + export). Remaining: camera refit needs `cameraRect` in the instruction (the single-instruction overlay paths pass nil), and zoom focus mapping uses the first clip's transform — both only matter if a merged section with a different-resolution camera also uses those paths.
 - [ ] **Auto-zoom tuning** — hidden behind `FeatureFlags.autoZoom` (default off): suggestion timing/intensity confused testers; auto-apply-on-open removed. Tune dwell thresholds, zoom-out blending and intensity before re-enabling by default.
 
 - [ ] **Zoom animation tuning** — hold duration, in/out velocity, smoother transitions between adjacent zoom points. The zoom-out between two points currently feels abrupt; evaluate a blend or crossfade.
