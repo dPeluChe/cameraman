@@ -144,15 +144,36 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
     }
 
     /// An imported-video overlay source the compositor should composite above
-    /// the screen/camera (aspect-fit). Gaps in the track yield no source frame,
-    /// so the overlay only shows while one of its clips is under the playhead.
+    /// the screen/camera. Gaps in the track yield no source frame, so the
+    /// overlay only shows while one of its clips is under the playhead.
     public struct VideoOverlaySource {
+        /// Timeline window of one clip on this track, with its canvas placement.
+        public struct ClipWindow {
+            public let start: TimeInterval
+            public let end: TimeInterval
+            /// Normalized canvas rect (0-1, y from top). nil = fullscreen aspect-fit.
+            public let position: CGRect?
+
+            public init(start: TimeInterval, end: TimeInterval, position: CGRect?) {
+                self.start = start
+                self.end = end
+                self.position = position
+            }
+        }
+
         public let trackID: CMPersistentTrackID
         public let opacity: Double
+        public let clipWindows: [ClipWindow]
 
-        public init(trackID: CMPersistentTrackID, opacity: Double) {
+        public init(trackID: CMPersistentTrackID, opacity: Double, clipWindows: [ClipWindow] = []) {
             self.trackID = trackID
             self.opacity = opacity
+            self.clipWindows = clipWindows
+        }
+
+        /// Placement for the clip active at `time` (nil = fullscreen aspect-fit).
+        func position(at time: TimeInterval) -> CGRect? {
+            clipWindows.first { time >= $0.start && time <= $0.end }?.position
         }
     }
 
@@ -446,6 +467,7 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
 
         var result = image
         let canvasRect = CGRect(origin: .zero, size: renderSize)
+        let time = request.compositionTime.seconds
 
         for source in instruction.videoOverlays {
             guard let buffer = request.sourceFrame(byTrackID: source.trackID) else { continue }
@@ -454,10 +476,24 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
             let extent = overlayImage.extent
             guard extent.width > 0, extent.height > 0 else { continue }
 
-            // Aspect-fit into the canvas, centered
-            let scale = min(renderSize.width / extent.width, renderSize.height / extent.height)
-            let tx = (renderSize.width - extent.width * scale) / 2 - extent.origin.x * scale
-            let ty = (renderSize.height - extent.height * scale) / 2 - extent.origin.y * scale
+            // Target rect: the active clip's normalized placement (y from top,
+            // flipped into CI bottom-up space) or the full canvas.
+            let targetRect: CGRect
+            if let pos = source.position(at: time) {
+                targetRect = CGRect(
+                    x: pos.origin.x * renderSize.width,
+                    y: (1.0 - pos.origin.y - pos.height) * renderSize.height,
+                    width: pos.width * renderSize.width,
+                    height: pos.height * renderSize.height
+                )
+            } else {
+                targetRect = canvasRect
+            }
+
+            // Aspect-fit into the target rect, centered
+            let scale = min(targetRect.width / extent.width, targetRect.height / extent.height)
+            let tx = targetRect.minX + (targetRect.width - extent.width * scale) / 2 - extent.origin.x * scale
+            let ty = targetRect.minY + (targetRect.height - extent.height * scale) / 2 - extent.origin.y * scale
             overlayImage = overlayImage
                 .transformed(by: CGAffineTransform(a: scale, b: 0, c: 0, d: scale, tx: tx, ty: ty))
                 .cropped(to: canvasRect)

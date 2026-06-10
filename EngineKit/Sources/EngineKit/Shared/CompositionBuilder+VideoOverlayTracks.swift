@@ -11,12 +11,21 @@ import Foundation
 import AVFoundation
 
 extension CompositionBuilder.Result {
-    /// Compositor-ready sources for the imported-video overlay tracks.
+    /// Compositor-ready sources for the imported-video overlay tracks, including
+    /// each clip's timeline window and canvas placement (PiP position).
     public var videoOverlaySources: [MaskedVideoCompositionInstruction.VideoOverlaySource] {
-        videoOverlayTracks.map {
-            MaskedVideoCompositionInstruction.VideoOverlaySource(
-                trackID: $0.track.trackID,
-                opacity: $0.timelineTrack.opacity
+        videoOverlayTracks.map { info in
+            let windows = info.timelineTrack.clips.compactMap { clip -> MaskedVideoCompositionInstruction.VideoOverlaySource.ClipWindow? in
+                guard case .video = clip.content else { return nil }
+                let rect = clip.position.map {
+                    CGRect(x: $0.x, y: $0.y, width: $0.w, height: $0.h)
+                }
+                return .init(start: clip.timelineIn, end: clip.timelineOut, position: rect)
+            }
+            return MaskedVideoCompositionInstruction.VideoOverlaySource(
+                trackID: info.track.trackID,
+                opacity: info.timelineTrack.opacity,
+                clipWindows: windows
             )
         }
     }
