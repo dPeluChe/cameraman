@@ -72,7 +72,8 @@ extension PreviewEngine {
         let videoComposition = buildVideoComposition(
             for: project,
             composition: composition,
-            staticClips: result.staticClips
+            staticClips: result.staticClips,
+            videoOverlays: result.videoOverlaySources
         )
 
         nonisolated(unsafe) let unsafeComposition = composition
@@ -120,7 +121,8 @@ extension PreviewEngine {
         let videoComposition = buildVideoComposition(
             for: project,
             composition: composition,
-            staticClips: compositionResult?.staticClips ?? []
+            staticClips: compositionResult?.staticClips ?? [],
+            videoOverlays: compositionResult?.videoOverlaySources ?? []
         )
         self.videoCompositionConfig = videoComposition
 

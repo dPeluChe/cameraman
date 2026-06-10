@@ -37,6 +37,7 @@ extension ExportEngine {
 
         let screenMuted = options.videoMuteState?.screenMuted ?? false
         let cameraMuted = options.videoMuteState?.cameraMuted ?? false
+        let videoOverlays = compositionResult.videoOverlaySources
 
         if screenMuted, let cameraTrack = cameraTrack, !cameraMuted {
             applyFullscreenCameraInstructions(
@@ -46,7 +47,8 @@ extension ExportEngine {
                 cameraTrack: cameraTrack,
                 project: project,
                 primarySources: primarySources,
-                options: options
+                options: options,
+                videoOverlays: videoOverlays
             )
         } else {
             try await applyStandardExportInstructions(
@@ -58,7 +60,8 @@ extension ExportEngine {
                 cameraMuted: cameraMuted,
                 project: project,
                 primarySources: primarySources,
-                options: options
+                options: options,
+                videoOverlays: videoOverlays
             )
         }
 
@@ -75,7 +78,8 @@ extension ExportEngine {
         cameraTrack: AVMutableCompositionTrack,
         project: Project,
         primarySources: Project.Sources,
-        options: ExportOptions
+        options: ExportOptions,
+        videoOverlays: [MaskedVideoCompositionInstruction.VideoOverlaySource] = []
     ) {
         let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: videoTrack)
         layerInstruction.setOpacity(0, at: .zero)
@@ -98,7 +102,7 @@ extension ExportEngine {
         let maskShape = project.canvas.layout.camera?.maskShape ?? .none
         let cornerRadius = project.canvas.layout.camera?.cornerRadius ?? 0
 
-        if maskShape != .none {
+        if maskShape != .none || !videoOverlays.isEmpty {
             let maskedInstruction = MaskedVideoCompositionInstruction(
                 timeRange: CMTimeRangeMake(start: .zero, duration: composition.duration),
                 screenTrackID: videoTrack.trackID,
@@ -111,7 +115,8 @@ extension ExportEngine {
                 cornerRadius: CGFloat(cornerRadius),
                 layoutType: "fullscreenCamera",
                 screenMuted: true,
-                zoomPlan: options.applyZoom ? options.zoomPlan : nil
+                zoomPlan: options.applyZoom ? options.zoomPlan : nil,
+                videoOverlays: videoOverlays
             )
             videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
             videoComposition.instructions = [maskedInstruction]
@@ -137,7 +142,8 @@ extension ExportEngine {
         cameraMuted: Bool,
         project: Project,
         primarySources: Project.Sources,
-        options: ExportOptions
+        options: ExportOptions,
+        videoOverlays: [MaskedVideoCompositionInstruction.VideoOverlaySource] = []
     ) async throws {
         let instruction = AVMutableVideoCompositionInstruction()
         instruction.timeRange = CMTimeRangeMake(start: .zero, duration: composition.duration)
@@ -195,11 +201,31 @@ extension ExportEngine {
                     cameraSourceSize: cameraSourceSize,
                     screenTransform: transform,
                     defaultCamera: defaultCamera,
-                    options: options
+                    options: options,
+                    videoOverlays: videoOverlays
                 )
                 videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
                 videoComposition.instructions = maskedInstructions
                 logger.debug("Export: \(maskedInstructions.count) per-segment compositor instructions")
+            } else if !videoOverlays.isEmpty {
+                // Imported-video overlays need the custom compositor (zoom included via zoomPlan)
+                let cameraTransform = calculateCameraOverlayTransform(
+                    cameraPosition: defaultCamera,
+                    cameraSourceSize: cameraSourceSize,
+                    renderSize: videoComposition.renderSize
+                )
+                applyCompositorInstruction(
+                    videoComposition: videoComposition,
+                    composition: composition,
+                    project: project,
+                    screenTrackID: videoTrack.trackID,
+                    cameraTrackID: cameraTrack.trackID,
+                    screenTransform: transform,
+                    cameraTransform: cameraTransform,
+                    screenMuted: screenMuted,
+                    options: options,
+                    videoOverlays: videoOverlays
+                )
             } else {
                 // Standard PiP (no mask, uniform across timeline).
                 let cameraTransform = calculateCameraOverlayTransform(
@@ -212,10 +238,61 @@ extension ExportEngine {
                 instruction.layerInstructions = [cameraLayerInstruction, layerInstruction]
                 videoComposition.instructions = [instruction]
             }
+        } else if !videoOverlays.isEmpty {
+            applyCompositorInstruction(
+                videoComposition: videoComposition,
+                composition: composition,
+                project: project,
+                screenTrackID: videoTrack.trackID,
+                cameraTrackID: nil,
+                screenTransform: transform,
+                cameraTransform: nil,
+                screenMuted: screenMuted,
+                options: options,
+                videoOverlays: videoOverlays
+            )
         } else {
             instruction.layerInstructions = [layerInstruction]
             videoComposition.instructions = [instruction]
         }
+    }
+
+    /// Single full-range compositor instruction — used when imported-video overlays
+    /// force the custom compositor on what would otherwise be a layer-instruction path.
+    private func applyCompositorInstruction(
+        videoComposition: AVMutableVideoComposition,
+        composition: AVComposition,
+        project: Project,
+        screenTrackID: CMPersistentTrackID,
+        cameraTrackID: CMPersistentTrackID?,
+        screenTransform: CGAffineTransform,
+        cameraTransform: CGAffineTransform?,
+        screenMuted: Bool,
+        options: ExportOptions,
+        videoOverlays: [MaskedVideoCompositionInstruction.VideoOverlaySource]
+    ) {
+        let maskedInstruction = MaskedVideoCompositionInstruction(
+            timeRange: CMTimeRangeMake(start: .zero, duration: composition.duration),
+            screenTrackID: screenTrackID,
+            cameraTrackID: cameraTrackID,
+            renderSize: videoComposition.renderSize,
+            screenTransform: screenTransform,
+            cameraTransform: cameraTransform,
+            cameraRect: nil,
+            maskShape: .none,
+            cornerRadius: 0,
+            layoutType: project.canvas.layout.type,
+            screenMuted: screenMuted,
+            videoCornerRadius: CGFloat(project.canvas.videoCornerRadius),
+            videoShadowIntensity: CGFloat(project.canvas.videoShadowIntensity),
+            padding: CGFloat(project.canvas.padding),
+            backgroundType: project.canvas.background.type,
+            backgroundValue: project.canvas.background.value,
+            zoomPlan: options.applyZoom ? options.zoomPlan : nil,
+            videoOverlays: videoOverlays
+        )
+        videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
+        videoComposition.instructions = [maskedInstruction]
     }
 
     // MARK: - Per-segment masked instructions
@@ -229,7 +306,8 @@ extension ExportEngine {
         cameraSourceSize: CGSize,
         screenTransform: CGAffineTransform,
         defaultCamera: Project.Canvas.Layout.CameraPosition,
-        options: ExportOptions
+        options: ExportOptions,
+        videoOverlays: [MaskedVideoCompositionInstruction.VideoOverlaySource] = []
     ) -> [MaskedVideoCompositionInstruction] {
         var maskedInstructions: [MaskedVideoCompositionInstruction] = []
         let totalDuration = composition.duration
@@ -275,7 +353,8 @@ extension ExportEngine {
                 backgroundValue: project.canvas.background.value,
                 cameraBorderWidth: CGFloat(segCamera.borderWidth),
                 cameraBorderColor: segCamera.borderColor,
-                zoomPlan: zoomPlan
+                zoomPlan: zoomPlan,
+                videoOverlays: videoOverlays
             ))
         }
 

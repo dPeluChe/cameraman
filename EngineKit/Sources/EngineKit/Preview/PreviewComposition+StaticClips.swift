@@ -18,7 +18,8 @@ extension PreviewEngine {
         composition: AVComposition,
         staticClips: [CompositionBuilder.StaticClipInfo],
         renderSize: CGSize,
-        baseInstruction: AVMutableVideoCompositionInstruction
+        baseInstruction: AVMutableVideoCompositionInstruction,
+        videoOverlays: [MaskedVideoCompositionInstruction.VideoOverlaySource] = []
     ) -> [AVVideoCompositionInstructionProtocol] {
         let screenTrack = composition.tracks(withMediaType: .video).first
         let overlayConfigs = project.overlayConfigs
@@ -40,7 +41,8 @@ extension PreviewEngine {
                         screenTrackID: screenTrackID,
                         renderSize: renderSize,
                         project: project,
-                        overlays: overlayConfigs
+                        overlays: overlayConfigs,
+                        videoOverlays: videoOverlays
                     ))
                 }
             }
@@ -75,7 +77,8 @@ extension PreviewEngine {
                 backgroundType: project.canvas.background.type,
                 backgroundValue: project.canvas.background.value,
                 overlays: overlayConfigs,
-                staticContent: staticContent
+                staticContent: staticContent,
+                videoOverlays: videoOverlays
             )
             allInstructions.append(staticInstruction)
             coveredEnd = staticEnd
@@ -103,7 +106,8 @@ extension PreviewEngine {
         screenTrackID: CMPersistentTrackID,
         renderSize: CGSize,
         project: Project,
-        overlays: [OverlayConfig]
+        overlays: [OverlayConfig],
+        videoOverlays: [MaskedVideoCompositionInstruction.VideoOverlaySource] = []
     ) -> MaskedVideoCompositionInstruction {
         MaskedVideoCompositionInstruction(
             timeRange: timeRange,
@@ -122,7 +126,8 @@ extension PreviewEngine {
             backgroundType: project.canvas.background.type,
             backgroundValue: project.canvas.background.value,
             overlays: overlays,
-            zoomPlan: self.zoomPlan
+            zoomPlan: self.zoomPlan,
+            videoOverlays: videoOverlays
         )
     }
 }

@@ -15,9 +15,14 @@ extension PreviewEngine {
     func buildVideoComposition(
         for project: Project,
         composition: AVComposition,
-        staticClips: [CompositionBuilder.StaticClipInfo] = []
+        staticClips: [CompositionBuilder.StaticClipInfo] = [],
+        videoOverlays: [MaskedVideoCompositionInstruction.VideoOverlaySource] = []
     ) -> AVMutableVideoComposition {
         let videoComposition = AVMutableVideoComposition()
+        // Imported-video overlay tracks render via the custom compositor, so any
+        // path below that would otherwise use standard layer instructions must
+        // switch to MaskedVideoCompositor when videoOverlays exist.
+        let needsCompositor = !project.overlays.isEmpty || !videoOverlays.isEmpty
 
         let renderSize = CoreFoundation.CGSize(
             width: CGFloat(project.canvas.format.w),
@@ -84,7 +89,8 @@ extension PreviewEngine {
                     layoutType: "fullscreenCamera",
                     screenMuted: true,
                     overlays: overlayConfigs,
-                    zoomPlan: self.zoomPlan
+                    zoomPlan: self.zoomPlan,
+                    videoOverlays: videoOverlays
                 )
                 videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
                 videoComposition.instructions = [maskedInstruction]
@@ -136,7 +142,7 @@ extension PreviewEngine {
             instruction.layerInstructions = [cameraLayerInstruction, screenLayerInstruction]
 
             // If there are overlays, use the custom compositor
-            if !project.overlays.isEmpty {
+            if needsCompositor {
                 let overlayConfigs = project.overlayConfigs
                 let maskedInstruction = MaskedVideoCompositionInstruction(
                     timeRange: instruction.timeRange,
@@ -158,7 +164,8 @@ extension PreviewEngine {
                     cameraBorderWidth: 0,
                     cameraBorderColor: "#FFFFFF",
                     overlays: overlayConfigs,
-                    zoomPlan: self.zoomPlan
+                    zoomPlan: self.zoomPlan,
+                    videoOverlays: videoOverlays
                 )
                 videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
                 videoComposition.instructions = [maskedInstruction]
@@ -245,7 +252,8 @@ extension PreviewEngine {
                             cameraBorderWidth: CGFloat(clipCamera.borderWidth),
                             cameraBorderColor: clipCamera.borderColor,
                             overlays: overlayConfigs,
-                            zoomPlan: self.zoomPlan
+                            zoomPlan: self.zoomPlan,
+                            videoOverlays: videoOverlays
                         ))
                     }
 
@@ -266,7 +274,7 @@ extension PreviewEngine {
                 instruction.layerInstructions = [cameraLayerInstruction, screenLayerInstruction]
 
                 // If there are overlays, use the custom compositor so they render during playback
-                if !project.overlays.isEmpty {
+                if needsCompositor {
                     let overlayConfigs = project.overlayConfigs
                     let maskedInstruction = MaskedVideoCompositionInstruction(
                         timeRange: instruction.timeRange,
@@ -288,7 +296,8 @@ extension PreviewEngine {
                         cameraBorderWidth: CGFloat(defaultCamera.borderWidth),
                         cameraBorderColor: defaultCamera.borderColor,
                         overlays: overlayConfigs,
-                        zoomPlan: self.zoomPlan
+                        zoomPlan: self.zoomPlan,
+                        videoOverlays: videoOverlays
                     )
                     videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
                     videoComposition.instructions = [maskedInstruction]
@@ -298,7 +307,7 @@ extension PreviewEngine {
                 instruction.layerInstructions = [screenLayerInstruction]
 
                 // If there are overlays but no camera, use custom compositor
-                if !project.overlays.isEmpty {
+                if needsCompositor {
                     let overlayConfigs = project.overlayConfigs
                     let maskedInstruction = MaskedVideoCompositionInstruction(
                         timeRange: instruction.timeRange,
@@ -320,7 +329,8 @@ extension PreviewEngine {
                         cameraBorderWidth: 0,
                         cameraBorderColor: "#FFFFFF",
                         overlays: overlayConfigs,
-                        zoomPlan: self.zoomPlan
+                        zoomPlan: self.zoomPlan,
+                        videoOverlays: videoOverlays
                     )
                     videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
                     videoComposition.instructions = [maskedInstruction]
@@ -336,7 +346,8 @@ extension PreviewEngine {
                 composition: composition,
                 staticClips: staticClips,
                 renderSize: renderSize,
-                baseInstruction: instruction
+                baseInstruction: instruction,
+                videoOverlays: videoOverlays
             )
             videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
             videoComposition.instructions = allInstructions

@@ -304,7 +304,8 @@ public actor PreviewEngine {
         let videoComposition = buildVideoComposition(
             for: project,
             composition: composition,
-            staticClips: compositionResult?.staticClips ?? []
+            staticClips: compositionResult?.staticClips ?? [],
+            videoOverlays: compositionResult?.videoOverlaySources ?? []
         )
         self.videoCompositionConfig = videoComposition
         await MainActor.run {
