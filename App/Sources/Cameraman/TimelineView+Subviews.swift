@@ -36,6 +36,9 @@ struct TimelineTrackRow: View {
     var onVideoClipTrimmed: (Project.TimelineClip, TimelineTrimEdge, TimelineScalar) -> Void = { _, _, _ in }
     var onSelectVideoClip: (Project.TimelineClip) -> Void = { _ in }
     var onVideoClipAction: (Project.TimelineClip, VideoClipAction) -> Void = { _, _ in }
+    /// When false the label is replaced by a transparent spacer of the same
+    /// width — used with the fixed label column that overlays the scroll view.
+    var showsLabel: Bool = true
 
     @State private var mediaItemDragOffset: [UUID: TimelineScalar] = [:]
     @State private var clipDragOffset: [String: TimelineScalar] = [:]
@@ -43,34 +46,21 @@ struct TimelineTrackRow: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            // Track label with mute toggle and optional volume slider (fixed width, not in ZStack)
-            HStack(spacing: 4) {
-                Button(action: onToggleMute) {
-                    Image(systemName: isMuted
-                        ? (track.kind.isAudioTrack ? "speaker.slash" : "eye.slash")
-                        : (track.kind.isAudioTrack ? "speaker.wave.2" : "eye"))
-                        .font(.caption2)
-                        .foregroundStyle(isMuted ? .tertiary : .secondary)
-                        .frame(width: 20, height: 20)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-
-                Text(track.label)
-                    .font(.caption)
-                    .foregroundStyle(isMuted ? .tertiary : .secondary)
-                    .lineLimit(1)
-
-                if let binding = volumeBinding {
-                    Slider(value: binding, in: 0...3)
-                        .frame(width: 48)
-                        .controlSize(.mini)
-                        .opacity(isMuted ? 0.4 : 1.0)
-                        .help(String(format: "Volume: %.1fx", binding.wrappedValue))
-                }
+            // Track label (or a same-width spacer when the fixed column shows it)
+            if showsLabel {
+                TimelineTrackLabelView(
+                    track: track,
+                    isMuted: isMuted,
+                    volumeBinding: volumeBinding,
+                    onToggleMute: onToggleMute
+                )
+                .frame(width: layout.labelWidth, alignment: .leading)
+                .padding(.leading, 6)
+            } else {
+                Color.clear
+                    .frame(width: layout.labelWidth)
+                    .padding(.leading, 6)
             }
-            .frame(width: layout.labelWidth, alignment: .leading)
-            .padding(.leading, 6)
 
             // Track content (segments)
             ZStack(alignment: .leading) {
@@ -438,3 +428,43 @@ struct TimelineThumbnailStrip: View {
     }
 }
 
+
+
+// MARK: - Track Label
+
+/// Eye/mute toggle + name + optional volume slider for one track row. Used both
+/// inline (legacy) and by the fixed label column that overlays the scroll view.
+struct TimelineTrackLabelView: View {
+    let track: TimelineTrack
+    let isMuted: Bool
+    let volumeBinding: Binding<Float>?
+    let onToggleMute: () -> Void
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Button(action: onToggleMute) {
+                Image(systemName: isMuted
+                    ? (track.kind.isAudioTrack ? "speaker.slash" : "eye.slash")
+                    : (track.kind.isAudioTrack ? "speaker.wave.2" : "eye"))
+                    .font(.caption2)
+                    .foregroundStyle(isMuted ? .tertiary : .secondary)
+                    .frame(width: 20, height: 20)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Text(track.label)
+                .font(.caption)
+                .foregroundStyle(isMuted ? .tertiary : .secondary)
+                .lineLimit(1)
+
+            if let binding = volumeBinding {
+                Slider(value: binding, in: 0...3)
+                    .frame(width: 48)
+                    .controlSize(.mini)
+                    .opacity(isMuted ? 0.4 : 1.0)
+                    .help(String(format: "Volume: %.1fx", binding.wrappedValue))
+            }
+        }
+    }
+}

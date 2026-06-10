@@ -98,6 +98,7 @@ struct TimelineOverlayTrackRow: View {
     let onOverlayDragged: (UUID, TimeInterval) -> Void
     var onPopoverOpened: ((TimeInterval) -> Void)? = nil
     var rowLabel: String = "Overlays"
+    var showsLabel: Bool = true
 
     @State private var overlayDragOffset: [UUID: TimelineScalar] = [:]
     @State private var popoverOverlayId: UUID?
@@ -105,12 +106,16 @@ struct TimelineOverlayTrackRow: View {
     var body: some View {
         HStack(spacing: 0) {
             // Label column — matches other track rows for visual alignment
-            Text(rowLabel)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .padding(.leading, 6)
-                .frame(width: layout.labelWidth, alignment: .leading)
+            if showsLabel {
+                Text(rowLabel)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .padding(.leading, 6)
+                    .frame(width: layout.labelWidth, alignment: .leading)
+            } else {
+                Color.clear.frame(width: layout.labelWidth)
+            }
 
             // Content ZStack — xPosition uses layout.xPosition - labelWidth (same as other tracks)
             ZStack(alignment: .leading) {

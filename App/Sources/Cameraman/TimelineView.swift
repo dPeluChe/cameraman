@@ -273,6 +273,7 @@ struct TimelineView: View {
         tracks: [TimelineTrack],
         totalHeight: TimelineScalar
     ) -> some View {
+        ZStack(alignment: .topLeading) {
         ScrollView(.horizontal) {
             ZStack(alignment: .topLeading) {
                 timelineTracks(layout: layout, tracks: tracks)
@@ -309,9 +310,60 @@ struct TimelineView: View {
                 handleDrop(providers: providers, location: location, layout: layout)
             }
         }
+        // Fixed label column: stays put while the timeline content scrolls
+        // beneath it (clips slide under the opaque labels).
+        fixedTrackLabels(tracks: tracks)
+        }
         .frame(maxWidth: .infinity)
         .background(Color.primary.opacity(0.03))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    /// The pinned label column rendered above the horizontal scroll view.
+    private func fixedTrackLabels(tracks: [TimelineTrack]) -> some View {
+        VStack(alignment: .leading, spacing: trackSpacing) {
+            ForEach(tracks) { track in
+                if track.kind == .overlay {
+                    let overlayRows = Self.computeOverlayRows(overlays: track.overlays)
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(Array(overlayRows.enumerated()), id: \.element.id) { index, _ in
+                            Text(overlayRows.count > 1 ? "Overlay \(index + 1)" : "Overlays")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .padding(.leading, 6)
+                                .frame(height: trackHeight, alignment: .leading)
+                        }
+                    }
+                } else {
+                    TimelineTrackLabelView(
+                        track: track,
+                        isMuted: track.engineTrackId != nil ? track.engineMuted : mutedTracks.contains(track.kind),
+                        volumeBinding: volumeBinding(for: track.kind),
+                        onToggleMute: {
+                            if let trackId = track.engineTrackId {
+                                let muted = track.engineMuted
+                                Task { _ = await editor.setTrackMuted(trackId: trackId, muted: !muted) }
+                            } else if mutedTracks.contains(track.kind) {
+                                mutedTracks.remove(track.kind)
+                            } else {
+                                mutedTracks.insert(track.kind)
+                            }
+                        }
+                    )
+                    .padding(.leading, 6)
+                    .frame(height: trackHeight, alignment: .leading)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+        .frame(width: labelWidth + 6, alignment: .leading)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .overlay(alignment: .trailing) {
+            Rectangle()
+                .fill(Color.primary.opacity(0.12))
+                .frame(width: 1)
+        }
     }
 
     private func timelineTracks(layout: TimelineLayout, tracks: [TimelineTrack]) -> some View {
@@ -345,7 +397,8 @@ struct TimelineView: View {
                                 onPopoverOpened: { startTime in
                                     playerViewModel.seek(to: startTime)
                                 },
-                                rowLabel: overlayRows.count > 1 ? "Overlay \(index + 1)" : "Overlays"
+                                rowLabel: overlayRows.count > 1 ? "Overlay \(index + 1)" : "Overlays",
+                                showsLabel: false
                             )
                             .frame(height: trackHeight)
                         }
@@ -387,7 +440,8 @@ struct TimelineView: View {
                 onPopoverOpened: { startTime in
                     playerViewModel.seek(to: startTime)
                 },
-                rowLabel: "Overlays"
+                rowLabel: "Overlays",
+                showsLabel: false
             )
         } else {
             TimelineTrackRow(
@@ -461,7 +515,8 @@ struct TimelineView: View {
                 onVideoClipAction: { clip, action in
                     guard let trackId = track.engineTrackId else { return }
                     handleVideoClipAction(action, clip: clip, trackId: trackId)
-                }
+                },
+                showsLabel: false
             )
         }
     }
