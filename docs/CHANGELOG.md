@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > `0.8.0 → 0.5.0` · `0.7.0 → 0.4.1` · `0.6.0 → 0.4.0` · `0.5.0 → 0.3.1` · `0.4.0 → 0.3.0` · `0.3.1 → 0.2.1` · `0.3.0 → 0.2.0` · `0.2.0 → 0.1.1` · `0.1.0 → 0.1.0`.
 > Las fechas y el contenido técnico se preservaron.
 
+## [0.6.4] - 2026-06-10
+
+Foco: edición con clips importados, merge de proyectos y navegación del timeline.
+
+### Added
+- **Merge de proyectos** — clic derecho → *Merge Into New Project…*: crea un proyecto nuevo con el timeline de A seguido del de B (medios copiados, capítulos/overlays desplazados; los originales no se tocan). Aviso cuando los canvas tienen forma distinta.
+- **Importar video al timeline** — el botón Import acepta videos (mp4/mov/m4v); cada import vive en su propia fila con color propio, **con su audio**. Chips editables: arrastrar con *snap magnético* a bordes de otros clips/playhead, recorte por bordes, **split** (⌘B o menú), posición PiP (grid 3×3, tamaños S/M/L, fullscreen), menú de orden (colocar tras la fila de arriba, mover fila arriba/abajo) y mute por fila.
+- **Proyectos vacíos** — menú "+" → *New Empty Project*: canvas 16:9 en blanco para editar solo con imports; preview y export funcionan sin grabación. Se puede grabar encima después (Take 1).
+- **Regla de tiempo** sobre el timeline (marcas adaptativas de 1s a 10min, clic/arrastre para mover el playhead) y **zoom recalibrado**: 100% = proyecto completo visible, +/− duplican/reducen, botón *Fit*.
+- **Columna de etiquetas fija** — los nombres de las pistas ya no se desplazan con el scroll.
+- Nombres por defecto distinguibles: "Jun 10 · Falcon" en vez de "Untitled Recording".
+- *Check for Updates…* en el menú Help.
+
+### Fixed
+- **Rename/tags fallaba siempre** — el alert reseteaba el campo antes de que el guardado asíncrono lo leyera; además un editor abierto revertía el nombre vía autosave.
+- **Proyectos merged con resoluciones mezcladas** — la sección con otra resolución se veía diminuta en una esquina; ahora cada frame se reajusta (pantalla y cámara PiP), en preview y export.
+- El ojo de una fila de video silenciaba todas las filas; ahora cada una persiste su propio estado.
+- "Show in Finder" tras exportar no abría nada (sandbox); ahora selecciona el archivo exportado.
+- Auditoría de los toggles bajo el preview: solo Zoom funcionaba — Cursor/Clicks/Keys quedaron conectados de verdad (overlay de telemetría) y los muertos se retiraron; todo agrupado en el menú **View** del timeline.
+
+### Changed
+- **Auto-zoom desactivado por defecto** (flag oculta `feature.autoZoom`) — generaba zooms inesperados al abrir proyectos; el zoom manual por segmento sigue disponible.
+- Alturas mínimas: el timeline crece con sus filas, el preview no baja de 240pt y la ventana tiene piso de 1080×720.
+
 ## [0.6.3] - 2026-06-09
 
 Foco: experiencia de permisos, robustez de grabación y pulido del selector/UX.
