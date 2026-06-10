@@ -295,6 +295,11 @@ public actor ProjectLibrary {
         try await store.deleteProject(projectId: projectId)
     }
 
+    /// Create a blank project (no recording) for import-based editing.
+    public func createEmptyProject(name: String? = nil, tags: [String]? = nil) async throws -> ProjectId {
+        try await store.createEmptyProject(name: name, tags: tags)
+    }
+
     public func createProject(from recordingResult: Recorder.RecordingResult, name: String? = nil, tags: [String]? = nil) async throws -> ProjectId {
         try await store.createProject(from: recordingResult, name: name, tags: tags)
     }

@@ -72,6 +72,22 @@ final class ProjectStoreTests: XCTestCase {
         XCTAssertEqual(project.tags, [])
     }
 
+    func testCreateEmptyProject_HasNoTakesAndZeroDuration() async throws {
+        let projectId = try await sut.createEmptyProject(name: "Blank")
+
+        let project = try await sut.loadProject(projectId: projectId)
+        XCTAssertEqual(project.name, "Blank")
+        XCTAssertTrue(project.takes.isEmpty)
+        XCTAssertNil(project.primarySources)
+        XCTAssertEqual(project.timeline.duration, 0)
+        XCTAssertNotNil(project.timeline.primaryTrack)
+        XCTAssertEqual(project.canvas.format.w, 1920)
+
+        // Directory structure exists for later imports (assets land in the project dir)
+        let dir = tempDirectory.appendingPathComponent(projectId.uuidString)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent("sources").path))
+    }
+
     // MARK: - Project Loading Tests
 
     func testLoadProject_WithValidId_LoadsProject() async throws {

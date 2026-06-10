@@ -208,6 +208,39 @@ extension ProjectStore {
         return projectId
     }
 
+    // MARK: - Empty Project
+
+    /// Create a project with no recording — a blank 1920x1080 canvas the user
+    /// fills by importing video/audio/images. A recording can be added later
+    /// as Take 1 via addTake.
+    public func createEmptyProject(name: String? = nil, tags: [String]? = nil) async throws -> ProjectId {
+        let projectId = ProjectId()
+        let projectDirectory = baseDirectory.appendingPathComponent(projectId.uuidString, isDirectory: true)
+        try createProjectDirectoryStructure(at: projectDirectory)
+
+        let now = Date()
+        let project = Project(
+            projectId: projectId,
+            name: name ?? Self.defaultProjectName(),
+            takes: [],
+            timeline: Project.Timeline(duration: 0, tracks: [
+                Project.TimelineTrack(id: Project.TimelineTrack.primaryTrackId, type: .primary, clips: [])
+            ]),
+            canvas: Project.Canvas(
+                format: Project.Canvas.Format(aspect: "16:9", w: 1920, h: 1080),
+                background: Project.Canvas.Background(type: "solid", value: "#0B0B0D", fitMode: nil),
+                layout: Project.Canvas.Layout(type: "pip", camera: nil)
+            ),
+            tags: tags ?? [],
+            schemaVersion: currentSchemaVersion,
+            createdAt: now,
+            updatedAt: now
+        )
+
+        try await saveProject(project)
+        return projectId
+    }
+
     // MARK: - Add Take
 
     public func addTake(projectId: ProjectId, recordingResult: Recorder.RecordingResult) async throws -> Project.Take {
