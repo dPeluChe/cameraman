@@ -30,9 +30,8 @@ struct TimelineView: View {
     private let trackSpacing: TimelineScalar = 8
     private let pixelsPerSecond: TimelineScalar = 40
     private let labelWidth: TimelineScalar = 160
-    private let minZoomScale: TimelineScalar = 0.05
-    private let maxZoomScale: TimelineScalar = 4
-    private let zoomStep: TimelineScalar = 0.25
+    /// Hard ceiling for zoom-in density: 1 second = 240pt is plenty for frame-level cuts.
+    private let maxPixelsPerSecond: TimelineScalar = 240
     let minimumTrimDuration: TimeInterval = 0.1
 
     @State var zoomScale: TimelineScalar = 1
@@ -66,14 +65,18 @@ struct TimelineView: View {
     }
 
     private var currentLayout: TimelineLayout {
-        // 100% = default density (or fill for short projects). Zooming out is
-        // floored at fit-to-width so long timelines can always shrink into view.
-        let basePPS = max(pixelsPerSecond, fitPPS)
+        // 100% = the whole timeline (recorded + imported) fits the visible
+        // width; zoom multiplies from there, capped for frame-level editing.
+        let pps = min(fitPPS * zoomScale, max(fitPPS, maxPixelsPerSecond))
         return TimelineLayout(
             duration: project.timeline.duration,
-            pixelsPerSecond: max(fitPPS, basePPS * zoomScale),
+            pixelsPerSecond: pps,
             labelWidth: labelWidth
         )
+    }
+
+    private var canZoomIn: Bool {
+        currentLayout.pixelsPerSecond < max(fitPPS, maxPixelsPerSecond) - 0.5
     }
 
     var body: some View {
@@ -231,21 +234,20 @@ struct TimelineView: View {
     @ViewBuilder
     private var zoomScaleControls: some View {
         Button {
-            // Halve on the way down — fixed 25% steps took forever to shrink
-            // a long timeline; the floor is fit-to-width either way.
-            zoomScale = max(minZoomScale, zoomScale / 2)
+            zoomScale = max(1, zoomScale / 2)
         } label: {
             Image(systemName: "minus.magnifyingglass")
         }
         .buttonStyle(.borderless)
-        .disabled(zoomScale <= minZoomScale + 0.001)
-        .help("Zoom out (floors at fit-to-width)")
+        .disabled(zoomScale <= 1.001)
+        .help("Zoom out (100% = whole timeline)")
 
         Button("Fit") {
-            zoomScale = max(minZoomScale, fitPPS / max(pixelsPerSecond, fitPPS))
+            zoomScale = 1
         }
         .buttonStyle(.borderless)
         .font(.caption)
+        .disabled(zoomScale <= 1.001)
         .help("Fit the whole timeline in view")
 
         Text("\(Int(zoomScale * 100))%")
@@ -253,12 +255,12 @@ struct TimelineView: View {
             .foregroundStyle(.secondary)
 
         Button {
-            zoomScale = min(maxZoomScale, zoomScale * 2)
+            zoomScale = zoomScale * 2
         } label: {
             Image(systemName: "plus.magnifyingglass")
         }
         .buttonStyle(.borderless)
-        .disabled(zoomScale >= maxZoomScale - 0.001)
+        .disabled(!canZoomIn)
     }
 
     // MARK: - Segment Inspector
