@@ -258,10 +258,15 @@ public actor PreviewEngine {
 
         let oldFormat = self.project?.canvas.format
         let oldClipCount = self.project?.timeline.primaryTrack?.clips.count
+        // Overlay (.video/.audio) tracks live inside the AVComposition and the
+        // cached compositionResult — any clip change there (import, move, trim,
+        // PiP position) needs the full rebuild, not just a videoComposition pass.
+        let oldOverlayTracks = self.project?.timeline.tracks.filter { $0.type != .primary }
         self.project = project
 
         let needsFullRebuild = oldFormat != project.canvas.format
             || oldClipCount != project.timeline.primaryTrack?.clips.count
+            || oldOverlayTracks != project.timeline.tracks.filter { $0.type != .primary }
 
         if needsFullRebuild {
             // Full rebuild needed (different tracks or render size)
