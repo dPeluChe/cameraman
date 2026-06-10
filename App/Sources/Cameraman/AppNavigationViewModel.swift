@@ -158,6 +158,17 @@ final class AppNavigationViewModel: ObservableObject {
         }
     }
 
+    /// Create a blank project (no recording) and open it for import-based editing.
+    func createEmptyProject() async {
+        do {
+            let newId = try await library.createEmptyProject()
+            await loadProjects()
+            selectedItem = .project(newId)
+        } catch {
+            loadErrorMessage = error.localizedDescription
+        }
+    }
+
     func duplicateProject(projectId: ProjectId) async {
         do {
             let newId = try await library.duplicateProject(projectId: projectId)

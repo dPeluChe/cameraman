@@ -141,8 +141,17 @@ struct AppNavigation: View {
         }
 
         ToolbarItem(placement: .automatic) {
-            Button {
-                openWindow(id: WindowID.recordingControls)
+            Menu {
+                Button {
+                    openWindow(id: WindowID.recordingControls)
+                } label: {
+                    Label("New Recording...", systemImage: "record.circle")
+                }
+                Button {
+                    Task { await viewModel.createEmptyProject() }
+                } label: {
+                    Label("New Empty Project", systemImage: "rectangle.dashed")
+                }
             } label: {
                 Label("New Project", systemImage: "plus")
             }
