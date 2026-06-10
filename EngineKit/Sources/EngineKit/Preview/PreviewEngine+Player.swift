@@ -25,9 +25,8 @@ extension PreviewEngine {
             throw PreviewError.noProjectLoaded
         }
 
-        guard project.primarySources != nil else {
-            throw PreviewError.playbackFailed("No sources found")
-        }
+        // Empty projects (no recording) are valid: imported clips on overlay
+        // tracks still build a playable composition.
 
         guard let projectDir = projectDirectory else {
             throw PreviewError.playbackFailed("No project directory set")

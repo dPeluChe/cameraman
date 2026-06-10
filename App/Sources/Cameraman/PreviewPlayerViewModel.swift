@@ -124,14 +124,14 @@ final class PreviewPlayerViewModel: ObservableObject {
         aspectRatio = Self.aspectRatio(for: project)
         updateDuration(project.timeline.duration)
 
-        guard project.primarySources != nil else {
-            reset()
-            return
+        // Empty projects have no recording sources; the engine still builds a
+        // composition from imported overlay clips, so only validate the screen
+        // file when a recording exists.
+        let screenSourcePath = project.primarySources.map {
+            projectDirectory.appendingPathComponent($0.screen.path).path
         }
 
-        let sourcePath = projectDirectory.appendingPathComponent(project.primarySources!.screen.path).path
-
-        guard FileManager.default.fileExists(atPath: sourcePath) else {
+        guard screenSourcePath == nil || FileManager.default.fileExists(atPath: screenSourcePath!) else {
             previewEngine = nil
             avPlayer = nil
             currentFrame = nil

@@ -26,14 +26,17 @@ extension ExportEngine {
         let startTime = Date()
         logger.debug("Starting export performance for job: \(jobId.uuidString)")
 
-        guard let primarySources = project.primarySources else {
-            await failExport(
-                jobId: jobId,
-                error: ExportError.mediaFileNotFound("No sources found in project"),
-                stage: .validation
+        // Empty projects (imported clips only) have no recording sources —
+        // synthesize screen metadata from the canvas so downstream transforms
+        // use the right dimensions; the compositor renders the background where
+        // the (empty) screen track has no frames.
+        let primarySources = project.primarySources ?? Project.Sources(
+            screen: Project.Sources.MediaTrack(
+                path: "",
+                fps: 60,
+                size: Project.Sources.Size(w: project.canvas.format.w, h: project.canvas.format.h)
             )
-            return
-        }
+        )
 
         do {
             let projectDirectory = try await projectStore.projectDirectoryURL(for: projectId)
@@ -47,7 +50,9 @@ extension ExportEngine {
             // Stage 2: Load and validate source assets
             try await checkCancellation(jobId: jobId)
             await updateExportStage(jobId: jobId, stage: .assetLoading, progress: 0.1)
-            try await validatePrimaryScreenAsset(projectDirectory: projectDirectory, primarySources: primarySources)
+            if project.primarySources != nil {
+                try await validatePrimaryScreenAsset(projectDirectory: projectDirectory, primarySources: primarySources)
+            }
 
             // Stage 3: Build composition
             try await checkCancellation(jobId: jobId)

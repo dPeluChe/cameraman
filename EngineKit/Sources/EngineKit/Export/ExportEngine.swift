@@ -121,7 +121,8 @@ public actor ExportEngine {
         let project = try await projectStore.loadProject(projectId: projectId)
         logger.debug("Loaded project '\(project.name)' with \(project.timeline.primaryTrack?.clips.count ?? 0) primary clips")
 
-        guard let primaryTrack = project.timeline.primaryTrack, !primaryTrack.clips.isEmpty else {
+        // Imported-only projects are exportable: any track with clips counts.
+        guard project.timeline.tracks.contains(where: { !$0.clips.isEmpty }) else {
             logger.error("Export failed: project has no timeline clips")
             throw ExportError.noSegments
         }
