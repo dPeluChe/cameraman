@@ -21,12 +21,16 @@ Foco: edición con clips importados, merge de proyectos y navegación del timeli
 - **Columna de etiquetas fija** — los nombres de las pistas ya no se desplazan con el scroll.
 - Nombres por defecto distinguibles: "Jun 10 · Falcon" en vez de "Untitled Recording".
 - *Check for Updates…* en el menú Help.
+- **Export/Import de proyectos** — clic derecho → *Export Bundle…* genera una carpeta `.cameramanproject` portátil (solo lo esencial); "+" → *Import Project…* la trae de vuelta como proyecto nuevo. Para compartir proyectos entre equipos.
+- **Control de calidad en export** — selector *Smaller file / Standard / Higher quality* y estimación de peso en vivo.
 
 ### Fixed
 - **Rename/tags fallaba siempre** — el alert reseteaba el campo antes de que el guardado asíncrono lo leyera; además un editor abierto revertía el nombre vía autosave.
 - **Proyectos merged con resoluciones mezcladas** — la sección con otra resolución se veía diminuta en una esquina; ahora cada frame se reajusta (pantalla y cámara PiP), en preview y export.
 - El ojo de una fila de video silenciaba todas las filas; ahora cada una persiste su propio estado.
 - "Show in Finder" tras exportar no abría nada (sandbox); ahora selecciona el archivo exportado.
+- **El bitrate de los presets de export era decorativo** — la sesión siempre usaba HighestQuality (8 min → ~950MB) y los presets HEVC exportaban H.264. Ahora el codec y el bitrate objetivo se aplican de verdad, y la estimación de tamaño coincide con el resultado.
+- Tras un split, mover la mitad nueva "estiraba" en vez de mover — los handles de recorte ahora solo aparecen en el clip seleccionado.
 - Auditoría de los toggles bajo el preview: solo Zoom funcionaba — Cursor/Clicks/Keys quedaron conectados de verdad (overlay de telemetría) y los muertos se retiraron; todo agrupado en el menú **View** del timeline.
 
 ### Changed

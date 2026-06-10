@@ -58,7 +58,7 @@ May 2026 (pre-publication push): ultrawide writer fix, mic overload, telemetry s
 > Raised 2026-06-10 after the first public-link beta. Analysis done (see session notes); ordered by agreed priority.
 
 - [x] **Merge projects** — shipped (see `TASK_COMPLETED/2606.md`).
-- [ ] **Export / Import project bundle** — export a whole project (project.json + sources/ all channels + telemetry + thumbnail; skip cache/proxies/renders) to a user-chosen folder/zip, plus an Import counterpart that re-assigns the projectId. Context-menu entry + NSSavePanel (same sandbox pattern as Diagnostics). Enables sharing projects between machines.
+- [x] **Export / Import project bundle** — shipped in the 0.6.4 round (see above).
 - [x] **Import video (with audio) into timeline** — shipped, including chips with drag/snap/trim/split, PiP positioning, row colors/reorder, and empty projects (see `TASK_COMPLETED/2606.md`).
 
 ---
@@ -67,9 +67,9 @@ May 2026 (pre-publication push): ultrawide writer fix, mic overload, telemetry s
 
 > Raised 2026-06-10 during the import/merge validation run.
 
-- [ ] **Export presets: bitrate control + estimated file size** — presets expose nothing about compression today. Show per-preset estimated output size (`videoBitrate + audioBitrate) × duration` is a good first approximation; the run that motivated this produced 951MB for 8min at web_1080_h264) and add a quality/bitrate option (e.g. Low/Medium/High multiplying `bitrateMbps` in `ExportPresets`). Update the estimate live as preset/quality changes, like other exporters do.
-- [ ] **Split → drag UX on video chips** — after splitting, grabbing the new half near its edge starts a TRIM when the user expects a MOVE ("felt like extending it"). The 8pt edge handles win over the body drag on short clips. Ideas: shrink handles on narrow chips, require a modifier for trim, show resize cursors on hover, or make trim need a small initial pause.
-- [ ] **Export/Import project bundle** — still pending from the 0.6.3 round (carried below).
+- [x] **Export presets: bitrate control + estimated file size** — shipped: session preset now honors the codec (HEVC presets really export HEVC), `fileLengthLimit` targets the preset bitrate (it was decorative — hence the 951MB export), quality picker (Smaller/Standard/Higher) scales it, and the size estimate uses the same formula.
+- [x] **Split → drag UX on video chips** — shipped: trim handles only exist (and are visibly drawn) on the SELECTED chip; unselected chips always move on drag.
+- [x] **Export/Import project bundle** — shipped: `.cameramanproject` folder bundles (essentials only), context-menu Export Bundle… + '+' menu Import Project… with fresh project id.
 
 ---
 
