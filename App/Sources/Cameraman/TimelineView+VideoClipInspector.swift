@@ -92,20 +92,24 @@ extension TimelineView {
             ("arrow.down.right", 1 - size - margin, 1 - size - margin)
         ]
 
-        return LazyVGrid(columns: Array(repeating: GridItem(.fixed(16), spacing: 2), count: 3), spacing: 2) {
+        return LazyVGrid(columns: Array(repeating: GridItem(.fixed(20), spacing: 3), count: 3), spacing: 3) {
             ForEach(cells, id: \.0) { icon, x, y in
                 Button {
                     apply(position: Project.MediaPosition(x: x, y: y, w: size, h: size), to: clip, trackId: trackId)
                 } label: {
                     Image(systemName: icon)
-                        .font(.system(size: 7))
-                        .frame(width: 16, height: 12)
+                        .font(.system(size: 8, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 20, height: 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                .fill(Color.primary.opacity(0.12))
+                        )
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.mini)
+                .buttonStyle(.plain)
             }
         }
-        .help("PiP position on canvas")
+        .help("Position the video on the canvas (PiP)")
     }
 
     private func sizeBinding(for clip: Project.TimelineClip, trackId: UUID) -> Binding<Double> {
