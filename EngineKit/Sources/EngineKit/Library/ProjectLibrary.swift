@@ -282,6 +282,13 @@ public actor ProjectLibrary {
         try await store.duplicateProject(projectId: projectId)
     }
 
+    /// Merge two projects into a new one (second appended after first).
+    /// Originals are untouched.
+    /// - Returns: The merged project's id.
+    public func mergeProjects(_ firstId: ProjectId, _ secondId: ProjectId, name: String? = nil) async throws -> ProjectId {
+        try await store.mergeProjects(firstId, secondId, name: name)
+    }
+
     /// Delete a project
     /// - Parameter projectId: Project ID to delete
     public func deleteProject(projectId: ProjectId) async throws {
