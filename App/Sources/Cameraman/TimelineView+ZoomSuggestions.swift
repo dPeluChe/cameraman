@@ -30,18 +30,8 @@ extension TimelineView {
             let generator = ZoomSuggestionGenerator(project: project, projectDirectory: projDir)
             let suggestions = await generator.generate()
 
-            if !suggestions.isEmpty {
-                // Surface failures from applyAsPlan — a silent try? here was hiding
-                // rate-limit rejections that left timeline markers with no actual zoom.
-                do {
-                    let plan = try await generator.applyAsPlan(suggestions)
-                    await MainActor.run { playerViewModel.setZoomPlan(plan) }
-                    LogInfo(.telemetry, "Auto-applied zoom plan with \(plan.keyframes.count) keyframes")
-                } catch {
-                    LogError(.telemetry, "Failed to apply zoom plan: \(error.localizedDescription)")
-                }
-            }
-
+            // Suggestions only mark the timeline — the user opts in via Apply.
+            // (Auto-applying the plan on open confused testers.)
             await MainActor.run {
                 zoomSuggestions = suggestions
                 isGeneratingSuggestions = false

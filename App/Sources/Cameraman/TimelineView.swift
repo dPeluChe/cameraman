@@ -102,7 +102,7 @@ struct TimelineView: View {
             if let path = projectDirectory?.path {
                 initializeThumbnailCache(projectDirectory: path)
             }
-            if hasCursorTelemetry && zoomSuggestions.isEmpty && !isGeneratingSuggestions {
+            if FeatureFlags.autoZoom && hasCursorTelemetry && zoomSuggestions.isEmpty && !isGeneratingSuggestions {
                 generateZoomSuggestions()
             }
         }
