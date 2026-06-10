@@ -269,9 +269,20 @@ struct ExportView: View {
     }
 
     private var estimatedSizeText: some View {
-        Text("Estimated size: \(viewModel.estimatedFileSize)")
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 8) {
+            if !viewModel.isGIFPreset {
+                Picker("Quality", selection: $viewModel.qualityMultiplier) {
+                    Text("Smaller file").tag(0.6)
+                    Text("Standard").tag(1.0)
+                    Text("Higher quality").tag(1.5)
+                }
+                .pickerStyle(.segmented)
+                .help("Scales the preset's target bitrate — the estimate updates accordingly")
+            }
+            Text("Estimated size: \(viewModel.estimatedFileSize)")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
     }
 
     private var exportButton: some View {

@@ -96,9 +96,15 @@ extension ExportEngine {
     ) async throws -> AVAssetExportSession {
         logger.debug("Configuring export session")
 
+        // Honor the preset's codec — HEVC presets exported H.264 before because
+        // the session was always created with HighestQuality.
+        let sessionPreset = preset.output.codec == "hevc"
+            ? AVAssetExportPresetHEVCHighestQuality
+            : AVAssetExportPresetHighestQuality
+
         guard let exportSession = AVAssetExportSession(
             asset: composition,
-            presetName: AVAssetExportPresetHighestQuality
+            presetName: sessionPreset
         ) else {
             logger.error("Failed to create export session")
             throw ExportError.exportSessionCreationFailed
@@ -107,6 +113,19 @@ extension ExportEngine {
         exportSession.outputURL = outputURL
         exportSession.outputFileType = .mp4
         exportSession.shouldOptimizeForNetworkUse = true
+
+        // The preset's bitrate was decorative before (HighestQuality ignored it →
+        // a 951MB 8-minute export). AVAssetExportSession has no direct bitrate
+        // knob; fileLengthLimit makes it hit the preset's target data rate.
+        if preset.output.bitrateMbps > 0 {
+            let durationSeconds = composition.duration.seconds
+            let limit = preset.targetFileSizeBytes(
+                duration: durationSeconds,
+                qualityMultiplier: options.qualityMultiplier
+            )
+            exportSession.fileLengthLimit = limit
+            logger.debug("File length limit: \(limit / 1_000_000)MB for \(Int(durationSeconds))s at quality x\(options.qualityMultiplier)")
+        }
 
         logger.debug("Export output URL: \(outputURL.path)")
         logger.debug("Export file type: \(exportSession.outputFileType?.rawValue ?? "unknown")")

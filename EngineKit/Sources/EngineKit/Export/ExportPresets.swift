@@ -147,6 +147,8 @@ public struct ExportOptions: Equatable, Sendable {
     public let audioMuteState: AudioMixBuilder.TrackMuteState?
     /// Video mute state for hiding screen/camera during export
     public let videoMuteState: VideoMuteState?
+    /// Scales the preset's target bitrate: 0.6 = smaller file, 1.5 = higher quality
+    public let qualityMultiplier: Double
 
     public init(
         burnCaptions: Bool = false,
@@ -156,7 +158,8 @@ public struct ExportOptions: Equatable, Sendable {
         applyZoom: Bool = true,
         zoomPlan: ZoomPlanGenerator.ZoomPlan? = nil,
         audioMuteState: AudioMixBuilder.TrackMuteState? = nil,
-        videoMuteState: VideoMuteState? = nil
+        videoMuteState: VideoMuteState? = nil,
+        qualityMultiplier: Double = 1.0
     ) {
         self.burnCaptions = burnCaptions
         self.includeCursorHighlight = includeCursorHighlight
@@ -166,12 +169,34 @@ public struct ExportOptions: Equatable, Sendable {
         self.zoomPlan = zoomPlan
         self.audioMuteState = audioMuteState
         self.videoMuteState = videoMuteState
+        self.qualityMultiplier = qualityMultiplier
     }
 
     public static let `default` = ExportOptions()
 
     /// Export options with zoom disabled
     public static let noZoom = ExportOptions(applyZoom: false)
+}
+
+extension ExportPreset {
+    /// Target output size in bytes for a given duration: (video + audio bitrate)
+    /// scaled by the quality multiplier, with 5% container overhead.
+    public func targetFileSizeBytes(duration: TimeInterval, qualityMultiplier: Double = 1.0) -> Int64 {
+        let videoBitsPerSecond = output.bitrateMbps * 1_000_000 * qualityMultiplier
+        let audioBitsPerSecond = Double(output.audioBitrateKbps) * 1_000
+        let totalBits = (videoBitsPerSecond + audioBitsPerSecond) * duration * 1.05
+        return Int64(totalBits / 8)
+    }
+
+    /// Human-readable estimate ("~120 MB") for the UI; nil when the preset has
+    /// no target bitrate (GIF).
+    public func estimatedSizeText(duration: TimeInterval, qualityMultiplier: Double = 1.0) -> String? {
+        guard output.bitrateMbps > 0, duration > 0 else { return nil }
+        let bytes = targetFileSizeBytes(duration: duration, qualityMultiplier: qualityMultiplier)
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        return "~" + formatter.string(fromByteCount: bytes)
+    }
 }
 
 /// Video track mute state for export

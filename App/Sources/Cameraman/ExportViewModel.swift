@@ -13,6 +13,8 @@ import AppKit
 
 @MainActor
 final class ExportViewModel: ObservableObject {
+    /// Scales the preset's target bitrate (0.6 smaller / 1.0 standard / 1.5 higher)
+    @Published var qualityMultiplier: Double = 1.0
     @Published var selectedPreset: ExportPreset = .web1080h264 {
         didSet { refreshOutputURL() }
     }
@@ -137,15 +139,10 @@ final class ExportViewModel: ObservableObject {
     }
 
     var estimatedFileSize: String {
-        let duration = project.timeline.duration
-        let bitrateMbps = selectedPreset.output.bitrateMbps
-        let estimatedSizeMB = (duration * bitrateMbps) / 8
-
-        if estimatedSizeMB < 1024 {
-            return String(format: "%.1f MB", estimatedSizeMB)
-        } else {
-            return String(format: "%.2f GB", estimatedSizeMB / 1024)
-        }
+        selectedPreset.estimatedSizeText(
+            duration: project.timeline.duration,
+            qualityMultiplier: qualityMultiplier
+        ) ?? "—"
     }
 
     var estimatedTimeRemaining: String? {
@@ -245,7 +242,8 @@ final class ExportViewModel: ObservableObject {
                     videoMuteState: VideoMuteState(
                         screenMuted: mutedTracks.contains(.screen),
                         cameraMuted: mutedTracks.contains(.camera)
-                    )
+                    ),
+                    qualityMultiplier: qualityMultiplier
                 )
             )
 
