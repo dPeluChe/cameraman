@@ -19,6 +19,7 @@ struct AppNavigation: View {
     @State private var renameText = ""
     @State private var tagsCandidate: ProjectSummary?
     @State private var tagsText = ""
+    @State private var mergeCandidate: ProjectSummary?
 
     init(viewModel: AppNavigationViewModel = AppNavigationViewModel()) {
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -52,6 +53,14 @@ struct AppNavigation: View {
 
     private var splitView: some View {
         projectAlerts(for: splitViewBase)
+            .sheet(item: $mergeCandidate) { source in
+                MergeProjectSheet(
+                    source: source,
+                    candidates: viewModel.projects.filter { $0.projectId != source.projectId }
+                ) { other in
+                    Task { await viewModel.mergeProjects(source.projectId, with: other.projectId) }
+                }
+            }
     }
 
     private var splitViewBase: some View {
@@ -372,6 +381,11 @@ private extension AppNavigation {
         Button("Duplicate") {
             Task { await viewModel.duplicateProject(projectId: project.projectId) }
         }
+
+        Button("Merge Into New Project...") {
+            mergeCandidate = project
+        }
+        .disabled(viewModel.projects.count < 2)
 
         Divider()
 

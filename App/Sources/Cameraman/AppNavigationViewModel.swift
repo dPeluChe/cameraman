@@ -165,6 +165,17 @@ final class AppNavigationViewModel: ObservableObject {
         }
     }
 
+    /// Merge two projects into a new one (second appended after first) and select it.
+    func mergeProjects(_ firstId: ProjectId, with secondId: ProjectId) async {
+        do {
+            let newId = try await library.mergeProjects(firstId, secondId)
+            await loadProjects()
+            selectedItem = .project(newId)
+        } catch {
+            loadErrorMessage = error.localizedDescription
+        }
+    }
+
     func setTags(projectId: ProjectId, tags: [String]) async {
         let cleanedTags = Self.normalizeTags(tags)
         do {
