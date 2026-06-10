@@ -143,6 +143,21 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         case color(hexColor: String)
     }
 
+    /// An imported-video overlay source the compositor should composite above
+    /// the screen/camera (aspect-fit). Gaps in the track yield no source frame,
+    /// so the overlay only shows while one of its clips is under the playhead.
+    public struct VideoOverlaySource {
+        public let trackID: CMPersistentTrackID
+        public let opacity: Double
+
+        public init(trackID: CMPersistentTrackID, opacity: Double) {
+            self.trackID = trackID
+            self.opacity = opacity
+        }
+    }
+
+    let videoOverlays: [VideoOverlaySource]
+
     init(
         timeRange: CMTimeRange,
         screenTrackID: CMPersistentTrackID,
@@ -164,7 +179,8 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         cameraBorderColor: String = "#FFFFFF",
         overlays: [OverlayConfig] = [],
         staticContent: StaticClipContent? = nil,
-        zoomPlan: ZoomPlanGenerator.ZoomPlan? = nil
+        zoomPlan: ZoomPlanGenerator.ZoomPlan? = nil,
+        videoOverlays: [VideoOverlaySource] = []
     ) {
         self.timeRange = timeRange
         self.screenTrackID = screenTrackID
@@ -187,12 +203,14 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         self.overlays = overlays
         self.staticContent = staticContent
         self.zoomPlan = zoomPlan
+        self.videoOverlays = videoOverlays
         super.init()
 
         var trackIDs: [NSValue] = [screenTrackID as NSValue]
         if let camID = cameraTrackID {
             trackIDs.append(camID as NSValue)
         }
+        trackIDs.append(contentsOf: videoOverlays.map { $0.trackID as NSValue })
         self.requiredSourceTrackIDs = trackIDs
     }
 }
@@ -266,6 +284,7 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
         var finalImage = buildScreenLayer(request: request, instruction: instruction, renderSize: renderSize, canvasRect: canvasRect)
         finalImage = compositeCamera(over: finalImage, request: request, instruction: instruction, renderSize: renderSize)
         finalImage = applyZoom(to: finalImage, request: request, instruction: instruction, renderSize: renderSize)
+        finalImage = compositeVideoOverlays(over: finalImage, request: request, instruction: instruction, renderSize: renderSize)
         finalImage = compositeOverlays(over: finalImage, request: request, instruction: instruction, renderSize: renderSize)
 
         ciContext.render(finalImage, to: outputBuffer, bounds: canvasRect, colorSpace: Self.sharedRenderColorSpace)
@@ -412,6 +431,47 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
         return image
             .transformed(by: CGAffineTransform(a: scale, b: 0, c: 0, d: scale, tx: tx, ty: ty))
             .cropped(to: canvasRect)
+    }
+
+    /// Composite imported-video overlay frames (B-roll) above the zoomed
+    /// screen/camera, aspect-fit centered, honoring track opacity. Tracks with
+    /// no media at this time yield no source frame and are skipped.
+    private func compositeVideoOverlays(
+        over image: CIImage,
+        request: AVAsynchronousVideoCompositionRequest,
+        instruction: MaskedVideoCompositionInstruction,
+        renderSize: CGSize
+    ) -> CIImage {
+        guard !instruction.videoOverlays.isEmpty else { return image }
+
+        var result = image
+        let canvasRect = CGRect(origin: .zero, size: renderSize)
+
+        for source in instruction.videoOverlays {
+            guard let buffer = request.sourceFrame(byTrackID: source.trackID) else { continue }
+
+            var overlayImage = CIImage(cvPixelBuffer: buffer)
+            let extent = overlayImage.extent
+            guard extent.width > 0, extent.height > 0 else { continue }
+
+            // Aspect-fit into the canvas, centered
+            let scale = min(renderSize.width / extent.width, renderSize.height / extent.height)
+            let tx = (renderSize.width - extent.width * scale) / 2 - extent.origin.x * scale
+            let ty = (renderSize.height - extent.height * scale) / 2 - extent.origin.y * scale
+            overlayImage = overlayImage
+                .transformed(by: CGAffineTransform(a: scale, b: 0, c: 0, d: scale, tx: tx, ty: ty))
+                .cropped(to: canvasRect)
+
+            if source.opacity < 0.999 {
+                overlayImage = overlayImage.applyingFilter("CIColorMatrix", parameters: [
+                    "inputAVector": CIVector(x: 0, y: 0, z: 0, w: CGFloat(source.opacity))
+                ])
+            }
+
+            result = overlayImage.composited(over: result)
+        }
+
+        return result
     }
 
     private func compositeOverlays(

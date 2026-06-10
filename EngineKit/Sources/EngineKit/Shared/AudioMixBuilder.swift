@@ -82,6 +82,14 @@ public struct AudioMixBuilder {
             parameters.append(params)
         }
 
+        // Embedded audio from imported video clips
+        for videoClipAudio in compositionResult.videoClipAudioTracks {
+            let params = AVMutableAudioMixInputParameters(track: videoClipAudio.track)
+            let clipVolume = videoClipAudio.clip.volume ?? 1.0
+            params.setVolume(Float(clipVolume), at: .zero)
+            parameters.append(params)
+        }
+
         guard !parameters.isEmpty else { return nil }
 
         let mix = AVMutableAudioMix()

@@ -41,6 +41,10 @@ public struct CompositionBuilder {
         /// Non-recording clips in the primary track (image, color, video) with their timeline positions.
         /// The compositor uses this to render static content where the video track has gaps.
         public let staticClips: [StaticClipInfo]
+        /// Imported-video overlay tracks (one per timeline .video track), composited over the screen
+        public let videoOverlayTracks: [VideoOverlayTrackInfo]
+        /// Embedded audio extracted from imported video clips on .video tracks
+        public let videoClipAudioTracks: [(track: AVMutableCompositionTrack, clip: Project.TimelineClip)]
     }
 
     /// Info about a non-recording clip that the compositor needs to render
@@ -157,6 +161,19 @@ public struct CompositionBuilder {
             resolver: resolver
         )
 
+        // 7. Build imported-video overlay tracks (frames) + their embedded audio
+        let videoOverlayTracks = try await buildVideoOverlayTracks(
+            into: composition,
+            tracks: project.timeline.videoTracks,
+            resolver: resolver,
+            cancellationCheck: cancellationCheck
+        )
+        let videoClipAudioTracks = await buildVideoClipAudioTracks(
+            into: composition,
+            tracks: project.timeline.videoTracks,
+            resolver: resolver
+        )
+
         return Result(
             composition: composition,
             videoTrack: videoTrack,
@@ -165,7 +182,9 @@ public struct CompositionBuilder {
             micAudioTrack: micAudioTrack,
             additionalAudioTracks: additionalAudioTracks,
             audioClipTracks: audioClipTracks,
-            staticClips: staticClips
+            staticClips: staticClips,
+            videoOverlayTracks: videoOverlayTracks,
+            videoClipAudioTracks: videoClipAudioTracks
         )
     }
 
