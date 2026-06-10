@@ -53,6 +53,7 @@ struct AppNavigation: View {
 
     private var splitView: some View {
         projectAlerts(for: splitViewBase)
+            .frame(minWidth: 1080, minHeight: 720)
             .sheet(item: $mergeCandidate) { source in
                 MergeProjectSheet(
                     source: source,

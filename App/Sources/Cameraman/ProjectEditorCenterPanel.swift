@@ -14,6 +14,19 @@ struct CenterPanel: View {
     @Binding var showExportModal: Bool
     @Binding var showTranscriptionModal: Bool
 
+    /// Height that shows every timeline row without inner clipping: the window
+    /// grows (or the user scrolls the window) instead of rows vanishing.
+    private var timelineHeight: CGFloat {
+        guard let editor = viewModel.editor else { return 250 }
+        let rows = TimelineTrackBuilder.tracks(for: editor.project).reduce(0) { count, track in
+            count + (track.kind == .overlay
+                ? max(1, TimelineView.computeOverlayRows(overlays: track.overlays).count)
+                : 1)
+        }
+        // toolbar + ruler + paddings ~= 120; row = 34 + 8 spacing
+        return max(230, CGFloat(rows) * 42 + 120)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Preview area
@@ -32,7 +45,7 @@ struct CenterPanel: View {
                     ProgressView()
                 }
             }
-            .frame(maxHeight: .infinity)
+            .frame(minHeight: 240, maxHeight: .infinity)
 
             Divider()
 
@@ -47,7 +60,7 @@ struct CenterPanel: View {
                     selectedMediaItemId: $viewModel.selectedMediaItemId,
                     selectedOverlayId: $viewModel.selectedOverlayId
                 )
-                .frame(height: 250)
+                .frame(height: timelineHeight)
             } else {
                  Color(NSColor.controlBackgroundColor)
                     .frame(height: 250)
