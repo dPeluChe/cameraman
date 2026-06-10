@@ -149,7 +149,8 @@ extension ProjectStore {
     }
 
     /// Recursively merge-copy a directory tree. `skipping` applies to this level only.
-    private func copyTree(from source: URL, to dest: URL, skipping: Set<String> = []) throws {
+    /// Shared with project bundle export (ProjectStore+Bundle).
+    func copyTree(from source: URL, to dest: URL, skipping: Set<String> = []) throws {
         try fileManager.createDirectory(at: dest, withIntermediateDirectories: true)
         let items = try fileManager.contentsOfDirectory(at: source, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles])
         for item in items where !skipping.contains(item.lastPathComponent) {
@@ -163,7 +164,7 @@ extension ProjectStore {
         }
     }
 
-    private func copyFileChecked(from source: URL, to dest: URL) throws {
+    func copyFileChecked(from source: URL, to dest: URL) throws {
         guard !fileManager.fileExists(atPath: dest.path) else {
             throw EngineKitError.invalidConfiguration(
                 "Merge file name collision: \(dest.lastPathComponent). Both projects contain a file with this name."

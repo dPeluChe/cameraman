@@ -153,6 +153,12 @@ struct AppNavigation: View {
                 } label: {
                     Label("New Empty Project", systemImage: "rectangle.dashed")
                 }
+                Divider()
+                Button {
+                    Task { await viewModel.importProjectBundle() }
+                } label: {
+                    Label("Import Project...", systemImage: "square.and.arrow.down")
+                }
             } label: {
                 Label("New Project", systemImage: "plus")
             }
@@ -399,6 +405,10 @@ private extension AppNavigation {
             mergeCandidate = project
         }
         .disabled(viewModel.projects.count < 2)
+
+        Button("Export Bundle...") {
+            Task { await viewModel.exportProjectBundle(projectId: project.projectId) }
+        }
 
         Divider()
 

@@ -179,6 +179,43 @@ final class AppNavigationViewModel: ObservableObject {
         }
     }
 
+    /// Export a project as a portable .cameramanproject folder: the user picks a
+    /// destination, then the bundle is revealed in Finder.
+    func exportProjectBundle(projectId: ProjectId) async {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.prompt = "Export Here"
+        panel.message = "Choose where to save the project bundle"
+        guard panel.runModal() == .OK, let destination = panel.url else { return }
+
+        do {
+            let bundleURL = try await library.exportProjectBundle(projectId: projectId, to: destination)
+            NSWorkspace.shared.activateFileViewerSelecting([bundleURL])
+        } catch {
+            loadErrorMessage = error.localizedDescription
+        }
+    }
+
+    /// Import a .cameramanproject bundle (or copied project folder) as a new project.
+    func importProjectBundle() async {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.prompt = "Import"
+        panel.message = "Choose a .cameramanproject bundle (or a copied project folder)"
+        guard panel.runModal() == .OK, let bundleURL = panel.url else { return }
+
+        do {
+            let newId = try await library.importProjectBundle(from: bundleURL)
+            await loadProjects()
+            selectedItem = .project(newId)
+        } catch {
+            loadErrorMessage = error.localizedDescription
+        }
+    }
+
     /// Merge two projects into a new one (second appended after first) and select it.
     func mergeProjects(_ firstId: ProjectId, with secondId: ProjectId) async {
         do {

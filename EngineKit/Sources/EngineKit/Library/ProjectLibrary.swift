@@ -289,6 +289,16 @@ public actor ProjectLibrary {
         try await store.mergeProjects(firstId, secondId, name: name)
     }
 
+    /// Export a project as a portable folder bundle. Returns the bundle URL.
+    public func exportProjectBundle(projectId: ProjectId, to destinationFolder: URL) async throws -> URL {
+        try await store.exportProjectBundle(projectId: projectId, to: destinationFolder)
+    }
+
+    /// Import a project bundle as a new project. Returns the new project id.
+    public func importProjectBundle(from bundleURL: URL) async throws -> ProjectId {
+        try await store.importProjectBundle(from: bundleURL)
+    }
+
     /// Delete a project
     /// - Parameter projectId: Project ID to delete
     public func deleteProject(projectId: ProjectId) async throws {
