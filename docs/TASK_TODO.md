@@ -59,6 +59,16 @@ Resolved during the May 2026 pre-publication push. Full per-item write-ups in `T
 
 ---
 
+## Tester Feedback — 0.6.3 beta round (Diego/Jackie)
+
+> Raised 2026-06-10 after the first public-link beta. Analysis done (see session notes); ordered by agreed priority.
+
+- [ ] **Merge projects** *(in progress — branch `feat/merge-projects`)* — combine project A + B into a new project C whose timeline is A's blocks followed by B's (sources copied, takes appended, clip times/chapters offset by A's duration). Risk: takeId/path remapping and time-offsetting all metadata (chapters, captions, overlays).
+- [ ] **Export / Import project bundle** — export a whole project (project.json + sources/ all channels + telemetry + thumbnail; skip cache/proxies/renders) to a user-chosen folder/zip, plus an Import counterpart that re-assigns the projectId. Context-menu entry + NSSavePanel (same sandbox pattern as Diagnostics). Enables sharing projects between machines.
+- [ ] **Import video (with audio) into timeline** — model/editor APIs are done; gaps: (1) imported video's **embedded audio is never extracted** → plays/exports muted (`CompositionBuilder+AudioTracks` has no `.video` case — riskiest), (2) timeline `fileImporter`/drag-drop only accepts audio/images (`TimelineView.swift:110`, `TimelineView+DragDrop.swift:96`), (3) verify `.video` clip preview rendering on overlay tracks.
+
+---
+
 ## Editor Features (planned)
 
 > Next batch of editor work. Depends on a stable export pipeline and `TimelineView`.
