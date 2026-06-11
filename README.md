@@ -29,6 +29,9 @@ Cameraman captures your screen, camera, and audio as **separate tracks**, gives 
 - Overlays: arrows, rectangles, lines, text with timing controls
 - Canvas effects: background gradients, blur, padding, corner radius
 - Auto-zoom suggestions from cursor telemetry (click + dwell detection)
+- Import external videos (with their audio) onto their own timeline rows — magnetic snap, trim, split, PiP positioning, row reorder
+- Merge two projects into a new one (B appended after A)
+- Empty projects: edit imported clips without recording anything
 - Undo/redo with autosave
 - Non-destructive — source files are never modified
 
@@ -38,7 +41,9 @@ Cameraman captures your screen, camera, and audio as **separate tracks**, gives 
 - **4K (HEVC)** — 3840×2160, 60fps
 - **Portrait 1080p (H.264)** — vertical format
 - **Animated GIF** — configurable fps, size, loop
+- Quality control (smaller file / standard / higher quality) with a live size estimate
 - Per-segment camera positions, visual effects and audio are all preserved in export
+- Share whole projects between machines as portable `.cameramanproject` bundles
 
 ---
 

@@ -90,7 +90,8 @@ Transcription/  - Offline STT via Whisper.cpp (TranscriptionEngine)
 Intelligence/   - AI service interface (AIService actor)
                 - Local analysis: silence detection, chapter suggestion
 
-Shared/         - AudioMixBuilder (per-track volume/mute for preview + export)
+Shared/         - AudioMixBuilder (per-track volume/mute for preview + export, incl. video-clip audio)
+                - CompositionBuilder+VideoOverlayTracks (imported video rows: frames + embedded audio)
                 - CompositionBuilder (AVComposition from multi-track timeline)
                 - MaskedVideoCompositor (custom AVVideoCompositing: PiP masks, zoom, overlays)
                 - CompositorRenderers (mask, background, static content, video effects)
@@ -99,6 +100,9 @@ Shared/         - AudioMixBuilder (per-track volume/mute for preview + export)
 Infrastructure/ - Logging (LoggingSystem), crash reporting (CrashReporter)
 
 Store/          - Project persistence (ProjectStore, summary cache with mod-date invalidation)
+                - Project merge (ProjectStore+Merge: B appended after A, media copied, times offset)
+                - Portable bundles (ProjectStore+Bundle: export/import .cameramanproject folders)
+                - Empty projects (createEmptyProject: import-only editing, no recording)
 Queue/          - Background job orchestration (JobQueue)
 Library/        - Project listing, search, tags (ProjectLibrary)
 Models/         - Core types: Project, Job, Overlay, MediaItem, ZoomConfiguration
@@ -138,7 +142,10 @@ AppNavigation.swift      - Main split view: sidebar (project list) + detail (edi
 ProjectEditor.swift      - @MainActor wrapper around EditorModel with undo/redo stack
 ProjectEditorView.swift  - 3-panel layout: left (settings) + center (preview+timeline) + right (inspector)
 PreviewPlayerViewModel   - AVPlayer management, playback rate, per-track volume sliders
-TimelineView.swift       - Timeline with tracks, segments, playhead, zoom suggestion markers
+TimelineView.swift       - Timeline: tracks, clips with snap/trim/split, playhead, ruler
+                           (TimelineRulerView), pinned label column, fit-based zoom
+FeatureFlags.swift       - Hidden defaults-backed switches (e.g. feature.autoZoom, default off)
+MergeProjectSheet.swift  - Picker for "Merge Into New Project…"
 RecordingControlView     - Recording window: source selector, options, start/stop
 ScreenAreaSelector.swift - Full-screen overlay for area selection (KeyablePanel + AreaHighlightController)
 ExportView/ViewModel     - Export UI with preset selection, GIF options, progress monitoring
@@ -175,5 +182,5 @@ Inside `docs/`:
 - `docs/TECH_SPEC.md` - API contracts, data schemas, sync strategy
 - `docs/TASK_TODO.md` - Pending features and improvements
 - `docs/TASK_COMPLETED/` - Completed work by session (YYMM.md format)
-- `docs/CHANGELOG.md` - Version changelog (current: **v0.6.1**)
+- `docs/CHANGELOG.md` - Version changelog (current: **v0.6.4**)
 - `docs/ARCHIVED/` - Historical docs (recovery summaries, validation reports)
