@@ -62,22 +62,7 @@ extension ProjectStore {
             throw error
         }
 
-        let imported = Project(
-            projectId: newId,
-            name: original.name,
-            sources: original.sources,
-            takes: original.takes,
-            timeline: original.timeline,
-            canvas: original.canvas,
-            overlays: original.overlays,
-            chapters: original.chapters,
-            captions: original.captions,
-            tags: original.tags,
-            schemaVersion: original.schemaVersion,
-            createdAt: original.createdAt,
-            updatedAt: Date(),
-            mediaItems: original.mediaItems
-        )
+        let imported = original.withNewIdentity(projectId: newId)
         try await saveProject(imported)
         logger.info("Imported project bundle as \(newId.uuidString)")
         return newId

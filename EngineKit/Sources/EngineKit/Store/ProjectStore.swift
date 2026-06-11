@@ -157,21 +157,10 @@ public actor ProjectStore {
         decoder.dateDecodingStrategy = .iso8601
         var project = try decoder.decode(Project.self, from: data)
 
-        project = Project(
+        project = project.withNewIdentity(
             projectId: newProjectId,
             name: "\(project.name) (Copy)",
-            sources: project.sources,
-            takes: project.takes,
-            timeline: project.timeline,
-            canvas: project.canvas,
-            overlays: project.overlays,
-            chapters: project.chapters,
-            captions: project.captions,
-            tags: project.tags,
-            schemaVersion: project.schemaVersion,
-            createdAt: Date(),
-            updatedAt: Date(),
-            mediaItems: project.mediaItems
+            resetCreatedAt: true
         )
 
         let encoder = JSONEncoder()

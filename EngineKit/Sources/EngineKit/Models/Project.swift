@@ -103,6 +103,30 @@ public struct Project: Codable, Equatable {
         self.mediaItems = mediaItems
     }
 
+    /// Copy of this project under a different id — used by duplicate and
+    /// bundle import, which must not collide with the original.
+    public func withNewIdentity(
+        projectId newId: ProjectId,
+        name newName: String? = nil,
+        resetCreatedAt: Bool = false
+    ) -> Project {
+        Project(
+            projectId: newId,
+            name: newName ?? name,
+            sources: sources,
+            takes: takes,
+            timeline: timeline,
+            canvas: canvas,
+            overlays: overlays,
+            chapters: chapters,
+            captions: captions,
+            tags: tags,
+            schemaVersion: schemaVersion,
+            createdAt: resetCreatedAt ? Date() : createdAt,
+            updatedAt: Date(),
+            mediaItems: mediaItems
+        )
+    }
 }
 
 /// Project summary for library listing

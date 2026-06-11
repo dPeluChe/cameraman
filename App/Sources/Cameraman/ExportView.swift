@@ -268,9 +268,11 @@ struct ExportView: View {
         .buttonStyle(.bordered)
     }
 
+    @ViewBuilder
     private var estimatedSizeText: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if !viewModel.isGIFPreset {
+        // GIF has no target bitrate, so neither control applies there
+        if !viewModel.isGIFPreset {
+            VStack(alignment: .leading, spacing: 8) {
                 Picker("Quality", selection: $viewModel.qualityMultiplier) {
                     Text("Smaller file").tag(0.6)
                     Text("Standard").tag(1.0)
@@ -278,10 +280,11 @@ struct ExportView: View {
                 }
                 .pickerStyle(.segmented)
                 .help("Scales the preset's target bitrate — the estimate updates accordingly")
+
+                Text("Estimated size: \(viewModel.estimatedFileSize)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
-            Text("Estimated size: \(viewModel.estimatedFileSize)")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
         }
     }
 
