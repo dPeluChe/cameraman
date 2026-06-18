@@ -85,7 +85,8 @@ Zoom/           - Auto-zoom pipeline:
                 - Easing functions (ZoomEasing)
                 - Types: ZoomKeyframe, ZoomEvent, ZoomPlan, ZoomSuggestion
 
-Transcription/  - Offline STT via Whisper.cpp (TranscriptionEngine)
+Transcription/  - On-device STT via WhisperKit (CoreML/ANE, Apple Silicon only;
+                  TranscriptionEngine + WhisperKitTranscriber, runtime-gated)
                 - SRT/VTT caption generation
 
 Intelligence/   - AI service interface (AIService actor)

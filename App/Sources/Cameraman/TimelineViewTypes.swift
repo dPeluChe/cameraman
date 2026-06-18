@@ -20,6 +20,7 @@ enum TimelineTrackKind: String, CaseIterable, Identifiable, Hashable {
     case additionalAudio
     case imageOverlay
     case overlay
+    case subtitle
     case videoClip
 
     var id: String { rawValue }
@@ -44,6 +45,8 @@ enum TimelineTrackKind: String, CaseIterable, Identifiable, Hashable {
             return "Images"
         case .overlay:
             return "Overlays"
+        case .subtitle:
+            return "Subtitles"
         case .videoClip:
             return "Video"
         }
@@ -65,6 +68,8 @@ enum TimelineTrackKind: String, CaseIterable, Identifiable, Hashable {
             return Color.yellow.opacity(0.85)
         case .overlay:
             return Color.cyan.opacity(0.85)
+        case .subtitle:
+            return Color.indigo.opacity(0.85)
         case .videoClip:
             return Color.teal.opacity(0.85)
         }
@@ -132,6 +137,11 @@ enum TimelineTrackBuilder {
         // Shape + image overlay track (arrows, rects, lines, text, image)
         if !project.overlays.isEmpty {
             tracks.append(TimelineTrack(kind: .overlay, segments: [], overlays: project.overlays))
+        }
+
+        // Subtitle track (auto-generated/edited text cues), shown as its own lane.
+        if !project.subtitles.isEmpty {
+            tracks.append(TimelineTrack(kind: .subtitle, segments: [], overlays: project.subtitles))
         }
 
         // Legacy image overlay tracks (mediaItems-based, predates the unified

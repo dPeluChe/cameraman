@@ -22,7 +22,8 @@ extension PreviewEngine {
         // Imported-video overlay tracks render via the custom compositor, so any
         // path below that would otherwise use standard layer instructions must
         // switch to MaskedVideoCompositor when videoOverlays exist.
-        let needsCompositor = !project.overlays.isEmpty || !videoOverlays.isEmpty
+        let needsCompositor = !project.overlays.isEmpty || !project.subtitles.isEmpty
+            || !videoOverlays.isEmpty
             || project.hasMixedScreenResolutions || project.hasVisualAdjustments
 
         let renderSize = CoreFoundation.CGSize(

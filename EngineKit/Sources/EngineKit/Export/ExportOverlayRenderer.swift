@@ -141,7 +141,9 @@ extension ExportEngine {
     ) async throws -> AVVideoCompositionCoreAnimationTool? {
         let hasCaptions = burnCaptions && project.captions != nil
         let hasImageOverlays = !project.mediaItems.filter { $0.type == .image }.isEmpty
-        let hasShapeOverlays = !project.overlays.isEmpty
+        // Subtitles are text overlays burned in alongside annotation overlays.
+        let shapeOverlays = project.overlays + project.subtitles
+        let hasShapeOverlays = !shapeOverlays.isEmpty
 
         guard hasCaptions || hasImageOverlays || hasShapeOverlays else {
             return nil
@@ -206,7 +208,7 @@ extension ExportEngine {
             shapeLayer.frame = CoreFoundation.CGRect(origin: .zero, size: renderSize)
             parentLayer.addSublayer(shapeLayer)
 
-            for overlay in project.overlays {
+            for overlay in shapeOverlays {
                 guard let layer = buildShapeOverlayLayer(
                     overlay: overlay, renderSize: renderSize,
                     compositionDuration: compositionDuration

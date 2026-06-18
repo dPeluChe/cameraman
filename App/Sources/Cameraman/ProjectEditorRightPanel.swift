@@ -25,6 +25,10 @@ struct RightPanel: View {
     @Binding var isExportExpanded: Bool
     @Binding var showExportModal: Bool
 
+    // Subtitles section manages its own expansion locally so the parent layout
+    // doesn't need a new binding wired through every call site.
+    @State private var isSubtitlesExpanded: Bool = false
+
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
@@ -109,7 +113,17 @@ struct RightPanel: View {
                     }
                     
                     Divider()
-                    
+
+                    // Subtitles Group
+                    ConfigGroup(title: "Subtitles", isExpanded: $isSubtitlesExpanded) {
+                        SubtitleEditorView(
+                            editor: editor,
+                            onSeek: { time in playerViewModel?.seek(to: time) }
+                        )
+                    }
+
+                    Divider()
+
                     // Export Section (Always visible or in a group)
                     ConfigGroup(title: "Export", isExpanded: $isExportExpanded) {
                         Button {
