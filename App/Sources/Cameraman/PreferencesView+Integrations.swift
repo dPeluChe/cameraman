@@ -22,6 +22,13 @@ struct IntegrationsPreferencesView: View {
         !binaryPath.isEmpty && FileManager.default.isExecutableFile(atPath: binaryPath)
     }
 
+    /// This (sandboxed) app's Projects directory — the MCP server must be pointed
+    /// here via CAMERAMAN_PROJECTS_DIR or it reads a different, empty folder.
+    private var projectsDir: String {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        return appSupport.appendingPathComponent("ProjectStudio/Projects", isDirectory: true).path
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 6) {
@@ -73,13 +80,18 @@ struct IntegrationsPreferencesView: View {
                 clientRow(
                     "Claude Code",
                     detail: "Run in your terminal",
-                    snippet: "claude mcp add cameraman -- \(resolvedPath)"
+                    snippet: "claude mcp add cameraman -e CAMERAMAN_PROJECTS_DIR=\"\(projectsDir)\" -- \(resolvedPath)"
                 )
                 clientRow(
                     "Codex CLI",
                     detail: "Add to ~/.codex/config.toml",
                     snippet: codexTOMLSnippet
                 )
+
+                Text("Snippets point the server at this app's projects via CAMERAMAN_PROJECTS_DIR, so it sees the same projects you edit here.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Spacer()
@@ -95,7 +107,11 @@ struct IntegrationsPreferencesView: View {
         """
         {
           "mcpServers": {
-            "cameraman": { "command": "\(resolvedPath)", "args": [] }
+            "cameraman": {
+              "command": "\(resolvedPath)",
+              "args": [],
+              "env": { "CAMERAMAN_PROJECTS_DIR": "\(projectsDir)" }
+            }
           }
         }
         """
@@ -106,6 +122,7 @@ struct IntegrationsPreferencesView: View {
         [mcp_servers.cameraman]
         command = "\(resolvedPath)"
         args = []
+        env = { CAMERAMAN_PROJECTS_DIR = "\(projectsDir)" }
         """
     }
 
