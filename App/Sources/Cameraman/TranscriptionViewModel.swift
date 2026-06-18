@@ -29,8 +29,6 @@ final class TranscriptionViewModel: ObservableObject {
 
     @Published var selectedLanguage: String?
     private var transcriptionJobId: JobId?
-    private var progressTimer: Timer?
-    private var projectLibrary: ProjectLibrary?
 
     enum TranscriptionState {
         case notStarted
@@ -43,10 +41,6 @@ final class TranscriptionViewModel: ObservableObject {
         case srt
         case vtt
         case txt
-    }
-
-    init() {
-        self.projectLibrary = ProjectLibrary.shared
     }
 
     func checkTranscriptionStatus(project: Project) {
