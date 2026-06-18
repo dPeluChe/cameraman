@@ -135,7 +135,7 @@ extension ExportEngine {
         // Burn-in overlays: captions, images, shapes
         let hasCaptions = options.burnCaptions || preset.options.burnCaptions
         let hasImageOverlays = !project.mediaItems.filter { $0.type == .image }.isEmpty
-        let hasShapeOverlays = !project.overlays.isEmpty
+        let hasShapeOverlays = !project.overlays.isEmpty || !project.subtitles.isEmpty
 
         if hasCaptions || hasImageOverlays || hasShapeOverlays {
             logger.debug("Creating combined overlay layer (captions: \(hasCaptions), images: \(hasImageOverlays), shapes: \(hasShapeOverlays))")

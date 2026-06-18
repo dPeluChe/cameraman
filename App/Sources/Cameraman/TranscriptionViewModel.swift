@@ -29,8 +29,6 @@ final class TranscriptionViewModel: ObservableObject {
 
     @Published var selectedLanguage: String?
     private var transcriptionJobId: JobId?
-    private var progressTimer: Timer?
-    private var projectLibrary: ProjectLibrary?
 
     enum TranscriptionState {
         case notStarted
@@ -45,99 +43,108 @@ final class TranscriptionViewModel: ObservableObject {
         case txt
     }
 
-    init() {
-        self.projectLibrary = ProjectLibrary.shared
+    func checkTranscriptionStatus(project: Project) {
+        // A transcript may already exist on disk from a previous run — load it so
+        // the user can review/edit (and re-add to the timeline) without re-running.
+        guard project.captions != nil else { return }
+        Task { await loadExistingTranscript(projectId: project.projectId) }
     }
 
-    func checkTranscriptionStatus(project: Project) {
-        if project.captions != nil {
-            LogDebug(.transcription, "Project has existing captions")
+    private func loadExistingTranscript(projectId: ProjectId) async {
+        do {
+            let dir = try await ProjectLibrary.shared.getProjectDirectory(projectId: projectId)
+            let url = dir.appendingPathComponent("transcript/transcript.json")
+            let data = try Data(contentsOf: url)
+            transcript = try JSONDecoder().decode(TranscriptionEngine.Transcript.self, from: data)
+            transcriptionState = .completed
+        } catch {
+            LogDebug(.transcription, "No existing transcript to load: \(error.localizedDescription)")
         }
     }
 
-    func startTranscription(projectId: ProjectId, language: String?) async {
+    /// Run a real transcription job via the EngineKit pipeline: extract audio,
+    /// run the (offline) recognizer, write transcript.json + SRT/VTT, then load
+    /// the produced transcript back for review/editing.
+    func startTranscription(project: Project, language: String?) async {
         isStarting = true
         defer { isStarting = false }
 
+        transcriptionState = .inProgress
+        transcriptionProgress = 0
+        errorMessage = nil
+        progressMessage = "Preparing…"
+
         do {
-            guard projectLibrary != nil else {
-                throw TranscriptionError.transcriptionFailed("Project library not available")
-            }
+            // Persist latest edits so the engine loads the project with its sources.
+            try? await ProjectLibrary.shared.updateProject(project)
 
-            transcriptionState = .inProgress
-            progressMessage = "Initializing transcription..."
+            let engine = try await ProjectLibrary.shared.getTranscriptionEngine()
+            let jobQueue = try await ProjectLibrary.shared.getJobQueue()
 
-            await simulateTranscription()
+            let options = TranscriptionEngine.Options(language: language)
+            let jobId = try await engine.transcribe(projectId: project.projectId, options: options)
+            transcriptionJobId = jobId
 
+            try await pollJob(jobId: jobId, jobQueue: jobQueue)
+
+            let dir = try await ProjectLibrary.shared.getProjectDirectory(projectId: project.projectId)
+            let transcriptURL = dir.appendingPathComponent("transcript/transcript.json")
+            let data = try Data(contentsOf: transcriptURL)
+            transcript = try JSONDecoder().decode(TranscriptionEngine.Transcript.self, from: data)
+
+            transcriptionProgress = 1
+            transcriptionState = .completed
+        } catch is CancellationError {
+            transcriptionState = .notStarted
+            transcriptionProgress = 0
         } catch {
-            transcriptionState = .failed
             errorMessage = error.localizedDescription
+            transcriptionState = .failed
         }
     }
 
-    private func simulateTranscription() async {
-        for progress in stride(from: 0.0, through: 1.0, by: 0.1) {
-            try? await Task.sleep(nanoseconds: 200_000_000)
+    /// Poll the job queue until the transcription job reaches a terminal state,
+    /// surfacing progress along the way.
+    private func pollJob(jobId: JobId, jobQueue: JobQueue) async throws {
+        while true {
+            if Task.isCancelled { throw CancellationError() }
 
-            transcriptionProgress = progress
-
-            if progress < 0.3 {
-                progressMessage = "Extracting audio..."
-            } else if progress < 0.8 {
-                progressMessage = "Transcribing audio..."
-            } else if progress < 0.9 {
-                progressMessage = "Generating captions..."
-            } else {
-                progressMessage = "Finalizing..."
-            }
-        }
-
-        let mockTranscriptJSON = """
-        {
-            "language": "\(selectedLanguage ?? "en")",
-            "duration": 60.0,
-            "segments": [
-                {
-                    "id": 0,
-                    "start": 0.0,
-                    "end": 3.2,
-                    "text": "Welcome to this video tutorial"
-                },
-                {
-                    "id": 1,
-                    "start": 3.2,
-                    "end": 7.5,
-                    "text": "In this video, we'll explore how to build a modern macOS application"
-                },
-                {
-                    "id": 2,
-                    "start": 7.5,
-                    "end": 12.0,
-                    "text": "using SwiftUI and the AVFoundation framework"
-                },
-                {
-                    "id": 3,
-                    "start": 12.0,
-                    "end": 16.8,
-                    "text": "We'll cover recording, editing, and exporting videos"
+            if let job = await jobQueue.getJob(jobId: jobId) {
+                switch job.status {
+                case .running(let progress):
+                    transcriptionProgress = progress
+                    progressMessage = progressLabel(for: progress)
+                case .success:
+                    return
+                case .failed:
+                    throw TranscriptionError.transcriptionFailed(
+                        job.error?.message ?? "Transcription failed"
+                    )
+                case .canceled:
+                    throw CancellationError()
+                case .queued:
+                    progressMessage = "Queued…"
                 }
-            ]
-        }
-        """
+            }
 
-        do {
-            let data = mockTranscriptJSON.data(using: .utf8)!
-            transcript = try JSONDecoder().decode(TranscriptionEngine.Transcript.self, from: data)
-        } catch {
-            LogError(.transcription, "Failed to decode mock transcript: \(error)")
+            try await Task.sleep(nanoseconds: 150_000_000)
         }
+    }
 
-        transcriptionState = .completed
+    private func progressLabel(for progress: Double) -> String {
+        switch progress {
+        case ..<0.3: return "Extracting audio…"
+        case ..<0.8: return "Transcribing audio…"
+        case ..<0.9: return "Generating captions…"
+        default: return "Finalizing…"
+        }
     }
 
     func cancelTranscription() async {
-        progressTimer?.invalidate()
-        progressTimer = nil
+        if let jobId = transcriptionJobId,
+           let queue = try? await ProjectLibrary.shared.getJobQueue() {
+            try? await queue.cancelJob(jobId: jobId)
+        }
         transcriptionJobId = nil
         transcriptionState = .notStarted
         transcriptionProgress = 0

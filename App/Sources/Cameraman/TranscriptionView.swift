@@ -73,6 +73,18 @@ struct TranscriptionView: View {
             Text("Transcribe the audio track of your video to create captions and searchable text.")
                 .foregroundStyle(.secondary)
 
+            if !TranscriptionEngine.isAvailable {
+                Label(
+                    "On-device transcription requires a Mac with Apple Silicon — it isn't available on this Mac yet.",
+                    systemImage: "exclamationmark.triangle"
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.yellow.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+            }
+
             VStack(alignment: .leading, spacing: 8) {
                 Text("Language")
                     .font(.subheadline)
@@ -98,7 +110,7 @@ struct TranscriptionView: View {
                 Button {
                     Task {
                         await viewModel.startTranscription(
-                            projectId: editor.project.projectId,
+                            project: editor.project,
                             language: viewModel.selectedLanguage
                         )
                     }
@@ -106,7 +118,7 @@ struct TranscriptionView: View {
                     Label("Generate Transcript", systemImage: "waveform")
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(viewModel.isStarting)
+                .disabled(viewModel.isStarting || !TranscriptionEngine.isAvailable)
 
                 if viewModel.isStarting {
                     ProgressView()
@@ -180,6 +192,15 @@ struct TranscriptionView: View {
                 }
                 .buttonStyle(.bordered)
                 .disabled(viewModel.transcript == nil)
+
+                Button {
+                    generateSubtitles()
+                } label: {
+                    Label("Add to Timeline", systemImage: "captions.bubble")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(viewModel.transcript == nil)
+                .help("Create editable subtitles on the timeline from this transcript")
 
                 Spacer()
 
@@ -273,7 +294,7 @@ struct TranscriptionView: View {
                 Button("Retry") {
                     Task {
                         await viewModel.startTranscription(
-                            projectId: editor.project.projectId,
+                            project: editor.project,
                             language: viewModel.selectedLanguage
                         )
                     }
@@ -287,6 +308,23 @@ struct TranscriptionView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+    }
+
+    /// Build editable subtitle cues on the timeline from the current transcript,
+    /// honoring any inline edits the user made to segment text.
+    private func generateSubtitles() {
+        guard let transcript = viewModel.transcript else { return }
+        let cues = transcript.segments.map { segment in
+            ProjectEditor.TranscriptCue(
+                text: viewModel.editedText(for: segment),
+                start: segment.start,
+                end: segment.end
+            )
+        }
+        Task {
+            _ = await editor.generateSubtitles(from: cues)
+            await MainActor.run { dismiss() }
+        }
     }
 }
 

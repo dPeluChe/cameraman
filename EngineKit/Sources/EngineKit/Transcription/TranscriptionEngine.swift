@@ -66,8 +66,9 @@ public actor TranscriptionEngine {
         options: Options
     ) async {
         do {
-            // Build full paths
-            let projectDirectory = getProjectDirectory(for: projectId)
+            // Resolve the project directory from the store so transcript.json lands
+            // where the rest of the app reads it (honors a custom store base dir).
+            let projectDirectory = try await projectStore.projectDirectoryURL(for: projectId)
             let audioFullPath = projectDirectory.appendingPathComponent(audioPath)
 
             // Create transcript directory
@@ -134,16 +135,6 @@ public actor TranscriptionEngine {
             )
             await jobQueue.failJob(jobId: jobId, error: jobError)
         }
-    }
-
-    /// Get project directory for a given project ID
-    private func getProjectDirectory(for projectId: ProjectId) -> URL {
-        // Access the base directory from ProjectStore
-        // Since ProjectStore is an actor and we don't have direct access to its baseDirectory,
-        // we'll construct the path manually
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let baseDirectory = appSupport.appendingPathComponent("ProjectStudio/Projects", isDirectory: true)
-        return baseDirectory.appendingPathComponent(projectId.uuidString, isDirectory: true)
     }
 
     /// Get the audio path for transcription (prefer mic, fallback to system audio)
@@ -227,59 +218,41 @@ public actor TranscriptionEngine {
         }
     }
 
-    /// Run Whisper.cpp transcription (placeholder implementation)
+    /// Run on-device transcription via WhisperKit (CoreML / Apple Neural Engine)
+    /// and write the result as transcript.json. Only runs on Apple Silicon.
     private func runWhisperTranscription(
         audioPath: URL,
         outputPath: URL,
         options: Options
     ) async throws {
-        // NOTE: This is a placeholder implementation.
-        // In production, this would:
-        // 1. Load Whisper.cpp model from bundle or download cache
-        // 2. Run inference on the audio file
-        // 3. Parse results and generate transcript.json
-        //
-        // For now, we'll generate a mock transcript for testing purposes.
+        guard WhisperKitTranscriber.isSupported else {
+            throw TranscriptionError.unsupportedHardware
+        }
 
-        // Simulate processing time
-        try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-
-        // Generate mock transcript
-        let mockTranscript = Transcript(
-            language: options.language ?? "en",
-            duration: 60.0,
-            segments: [
-                Transcript.Segment(
-                    id: 0,
-                    start: 0.0,
-                    end: 3.2,
-                    text: "Hello, in this video we're going to explore"
-                ),
-                Transcript.Segment(
-                    id: 1,
-                    start: 3.2,
-                    end: 6.8,
-                    text: "how to build a modern macOS application"
-                ),
-                Transcript.Segment(
-                    id: 2,
-                    start: 6.8,
-                    end: 10.5,
-                    text: "using SwiftUI and the AVFoundation framework"
-                ),
-                Transcript.Segment(
-                    id: 3,
-                    start: 10.5,
-                    end: 15.0,
-                    text: "We'll cover recording, editing, and exporting videos"
-                )
-            ]
+        let result = try await WhisperKitTranscriber.transcribe(
+            audioPath: audioPath,
+            modelName: options.model.whisperKitName,
+            language: options.language
         )
 
-        // Write transcript to file
+        let segments = result.segments.enumerated().map { index, segment in
+            Transcript.Segment(
+                id: index,
+                start: segment.start,
+                end: segment.end,
+                text: segment.text
+            )
+        }
+
+        let transcript = Transcript(
+            language: result.language,
+            duration: segments.last?.end ?? 0,
+            segments: segments
+        )
+
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        let data = try encoder.encode(mockTranscript)
+        let data = try encoder.encode(transcript)
         try data.write(to: outputPath)
     }
 
@@ -353,6 +326,16 @@ public extension TranscriptionEngine {
             case small
             case medium
             case large
+
+            /// WhisperKit model identifier for this size.
+            var whisperKitName: String {
+                switch self {
+                case .base: return "base"
+                case .small: return "small"
+                case .medium: return "medium"
+                case .large: return "large-v3"
+                }
+            }
         }
 
         public init(model: Model = .base, language: String? = nil, sampleRate: Int = 16000) {
@@ -381,12 +364,21 @@ public extension TranscriptionEngine {
     }
 }
 
+/// Availability of on-device transcription.
+public extension TranscriptionEngine {
+    /// Whether on-device transcription (WhisperKit, CoreML / Apple Neural Engine)
+    /// can run on this machine. `false` on Intel Macs.
+    static var isAvailable: Bool { WhisperKitTranscriber.isSupported }
+}
+
 /// Transcription errors
 public enum TranscriptionError: LocalizedError {
     case noAudioSource
     case audioExtractionFailed(String)
     case transcriptionFailed(String)
     case fileNotFound(URL)
+    case unsupportedHardware
+    case transcriberUnavailable
 
     public var errorDescription: String? {
         switch self {
@@ -398,6 +390,10 @@ public enum TranscriptionError: LocalizedError {
             return "Transcription failed: \(message)"
         case .fileNotFound(let url):
             return "File not found: \(url.path)"
+        case .unsupportedHardware:
+            return "On-device transcription requires a Mac with Apple Silicon. It isn't available on this Mac yet."
+        case .transcriberUnavailable:
+            return "The transcription engine (WhisperKit) isn't available in this build."
         }
     }
 }
