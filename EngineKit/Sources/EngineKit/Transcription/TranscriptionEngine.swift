@@ -66,8 +66,9 @@ public actor TranscriptionEngine {
         options: Options
     ) async {
         do {
-            // Build full paths
-            let projectDirectory = getProjectDirectory(for: projectId)
+            // Resolve the project directory from the store so transcript.json lands
+            // where the rest of the app reads it (honors a custom store base dir).
+            let projectDirectory = try await projectStore.projectDirectoryURL(for: projectId)
             let audioFullPath = projectDirectory.appendingPathComponent(audioPath)
 
             // Create transcript directory
@@ -134,16 +135,6 @@ public actor TranscriptionEngine {
             )
             await jobQueue.failJob(jobId: jobId, error: jobError)
         }
-    }
-
-    /// Get project directory for a given project ID
-    private func getProjectDirectory(for projectId: ProjectId) -> URL {
-        // Access the base directory from ProjectStore
-        // Since ProjectStore is an actor and we don't have direct access to its baseDirectory,
-        // we'll construct the path manually
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let baseDirectory = appSupport.appendingPathComponent("ProjectStudio/Projects", isDirectory: true)
-        return baseDirectory.appendingPathComponent(projectId.uuidString, isDirectory: true)
     }
 
     /// Get the audio path for transcription (prefer mic, fallback to system audio)
