@@ -44,7 +44,7 @@ enum AudioAdjustmentTap {
         var callbacks = MTAudioProcessingTapCallbacks(
             version: kMTAudioProcessingTapCallbacksVersion_0,
             clientInfo: clientInfo,
-            init: tapInit,
+            `init`: tapInit,
             finalize: tapFinalize,
             prepare: tapPrepare,
             unprepare: tapUnprepare,

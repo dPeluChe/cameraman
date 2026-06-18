@@ -14,6 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Xcode app project:** `CameramanApp/CameramanApp.xcodeproj` (scheme: `CameramanApp`)
 - **EngineKit package:** `EngineKit/` (Swift Package)
+- **MCP server package:** `MCPServer/` (Swift Package, binary `cameraman-mcp`) — stdio JSON-RPC MCP server reusing EngineKit; see `MCPServer/README.md`
 
 ## Build & Test Commands
 
@@ -93,8 +94,10 @@ Intelligence/   - AI service interface (AIService actor)
 Shared/         - AudioMixBuilder (per-track volume/mute for preview + export, incl. video-clip audio)
                 - CompositionBuilder+VideoOverlayTracks (imported video rows: frames + embedded audio)
                 - CompositionBuilder (AVComposition from multi-track timeline)
-                - MaskedVideoCompositor (custom AVVideoCompositing: PiP masks, zoom, overlays)
+                - MaskedVideoCompositor (custom AVVideoCompositing: PiP masks, zoom, overlays, per-layer adjustments)
                 - CompositorRenderers (mask, background, static content, video effects)
+                - AdjustmentRenderer (CoreImage filter chain for clip/layer effects: sepia, B&W, color, blur…)
+                - AudioAdjustmentTap (MTAudioProcessingTap + AUNewTimePitch: voice pitch shift)
                 - OverlayRenderer (arrow, rect, line, text overlay shapes)
 
 Infrastructure/ - Logging (LoggingSystem), crash reporting (CrashReporter)
@@ -108,6 +111,8 @@ Library/        - Project listing, search, tags (ProjectLibrary)
 Models/         - Core types: Project, Job, Overlay, MediaItem, ZoomConfiguration
                 - Timeline: TimelineTrack, TimelineClip, ClipContent (recording/image/video/audio/color)
                 - Clip refs: RecordingClipRef, ImageClipRef, VideoClipRef, AudioClipRef, ColorClipRef
+                - Effects: Adjustment/AdjustmentKind/AdjustmentTarget on TimelineClip (Project+Adjustment),
+                  flattened to AdjustmentConfig (visual) / AudioAdjustmentSpec (audio) for rendering
                 - Legacy compat: Timeline.Segment (computed from primary track clips)
 ```
 
