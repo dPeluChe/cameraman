@@ -18,6 +18,8 @@ struct PreferencesView: View {
         case hotkeys = "Hotkeys"
         case recording = "Recording"
         case export = "Export"
+        case transcription = "Transcription"
+        case integrations = "Integrations"
         case diagnostics = "Diagnostics"
         case about = "About"
 
@@ -27,6 +29,8 @@ struct PreferencesView: View {
             case .hotkeys: return "command"
             case .recording: return "record.circle"
             case .export: return "square.and.arrow.up"
+            case .transcription: return "captions.bubble"
+            case .integrations: return "puzzlepiece.extension"
             case .diagnostics: return "stethoscope"
             case .about: return "info.circle"
             }
@@ -76,6 +80,10 @@ struct PreferencesView: View {
                         RecordingPreferencesView()
                     case .export:
                         ExportPreferencesView()
+                    case .transcription:
+                        TranscriptionPreferencesView()
+                    case .integrations:
+                        IntegrationsPreferencesView()
                     case .diagnostics:
                         DiagnosticsView()
                     case .about:
