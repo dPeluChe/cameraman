@@ -73,6 +73,18 @@ struct TranscriptionView: View {
             Text("Transcribe the audio track of your video to create captions and searchable text.")
                 .foregroundStyle(.secondary)
 
+            if !TranscriptionEngine.isAvailable {
+                Label(
+                    "On-device transcription requires a Mac with Apple Silicon — it isn't available on this Mac yet.",
+                    systemImage: "exclamationmark.triangle"
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.yellow.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+            }
+
             VStack(alignment: .leading, spacing: 8) {
                 Text("Language")
                     .font(.subheadline)
@@ -106,7 +118,7 @@ struct TranscriptionView: View {
                     Label("Generate Transcript", systemImage: "waveform")
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(viewModel.isStarting)
+                .disabled(viewModel.isStarting || !TranscriptionEngine.isAvailable)
 
                 if viewModel.isStarting {
                     ProgressView()
