@@ -366,6 +366,14 @@ struct TimelineView: View {
                                 .frame(height: trackHeight, alignment: .leading)
                         }
                     }
+                } else if track.kind == .subtitle {
+                    Text("Subtitles")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .padding(.leading, 6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(height: trackHeight)
                 } else {
                     TimelineTrackLabelView(
                         track: track,
@@ -447,6 +455,14 @@ struct TimelineView: View {
                             .frame(height: trackHeight)
                         }
                     }
+                    .frame(width: layout.contentWidth, alignment: .leading)
+                } else if track.kind == .subtitle {
+                    TimelineSubtitleTrackRow(
+                        cues: track.overlays,
+                        layout: layout,
+                        height: trackHeight,
+                        onSeek: { time in playerViewModel.seek(to: time) }
+                    )
                     .frame(width: layout.contentWidth, alignment: .leading)
                 } else {
                     timelineTrackContent(for: track, layout: layout)

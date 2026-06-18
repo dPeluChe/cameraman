@@ -181,6 +181,15 @@ struct TranscriptionView: View {
                 .buttonStyle(.bordered)
                 .disabled(viewModel.transcript == nil)
 
+                Button {
+                    generateSubtitles()
+                } label: {
+                    Label("Add to Timeline", systemImage: "captions.bubble")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(viewModel.transcript == nil)
+                .help("Create editable subtitles on the timeline from this transcript")
+
                 Spacer()
 
                 Toggle("Burn-in Captions", isOn: $viewModel.burnInCaptions)
@@ -287,6 +296,23 @@ struct TranscriptionView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+    }
+
+    /// Build editable subtitle cues on the timeline from the current transcript,
+    /// honoring any inline edits the user made to segment text.
+    private func generateSubtitles() {
+        guard let transcript = viewModel.transcript else { return }
+        let cues = transcript.segments.map { segment in
+            ProjectEditor.TranscriptCue(
+                text: viewModel.editedText(for: segment),
+                start: segment.start,
+                end: segment.end
+            )
+        }
+        Task {
+            _ = await editor.generateSubtitles(from: cues)
+            await MainActor.run { dismiss() }
+        }
     }
 }
 

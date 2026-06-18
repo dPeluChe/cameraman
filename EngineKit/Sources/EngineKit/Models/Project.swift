@@ -31,6 +31,12 @@ public struct Project: Codable, Equatable {
     public var canvas: Canvas
     /// Overlays (annotations)
     public var overlays: [Overlay]
+    /// Subtitles — timed, styled text cues rendered as text overlays. Stored
+    /// separately from `overlays` so they can be generated/restyled/cleared as a
+    /// group (typically auto-generated from the transcript).
+    public var subtitles: [Overlay]
+    /// Default styling template for subtitles (color, position, size).
+    public var subtitleStyle: SubtitleStyle
     /// Captions configuration
     public var captions: Captions?
     /// Chapter markers for video navigation
@@ -43,14 +49,15 @@ public struct Project: Codable, Equatable {
         sources ?? takes.first?.sources
     }
 
-    /// Serialized overlay configs ready for the compositor
+    /// Serialized overlay configs ready for the compositor. Includes subtitles
+    /// (which are text overlays) so the preview compositor renders them too.
     public var overlayConfigs: [OverlayConfig] {
-        overlays.map { OverlayConfig(overlay: $0) }
+        (overlays + subtitles).map { OverlayConfig(overlay: $0) }
     }
 
     enum CodingKeys: String, CodingKey {
         case schemaVersion, projectId, name, tags, createdAt, updatedAt
-        case sources, takes, timeline, canvas, overlays, captions, chapters, mediaItems
+        case sources, takes, timeline, canvas, overlays, subtitles, subtitleStyle, captions, chapters, mediaItems
     }
 
     public init(from decoder: Decoder) throws {
@@ -66,6 +73,8 @@ public struct Project: Codable, Equatable {
         timeline = try container.decode(Timeline.self, forKey: .timeline)
         canvas = try container.decode(Canvas.self, forKey: .canvas)
         overlays = try container.decodeIfPresent([Overlay].self, forKey: .overlays) ?? []
+        subtitles = try container.decodeIfPresent([Overlay].self, forKey: .subtitles) ?? []
+        subtitleStyle = try container.decodeIfPresent(SubtitleStyle.self, forKey: .subtitleStyle) ?? .default
         captions = try container.decodeIfPresent(Captions.self, forKey: .captions)
         chapters = try container.decodeIfPresent([Chapter].self, forKey: .chapters) ?? []
         mediaItems = try container.decodeIfPresent([MediaItem].self, forKey: .mediaItems) ?? []
@@ -79,6 +88,8 @@ public struct Project: Codable, Equatable {
         timeline: Timeline,
         canvas: Canvas,
         overlays: [Overlay] = [],
+        subtitles: [Overlay] = [],
+        subtitleStyle: SubtitleStyle = .default,
         chapters: [Chapter] = [],
         captions: Captions? = nil,
         tags: [String] = [],
@@ -94,6 +105,8 @@ public struct Project: Codable, Equatable {
         self.timeline = timeline
         self.canvas = canvas
         self.overlays = overlays
+        self.subtitles = subtitles
+        self.subtitleStyle = subtitleStyle
         self.chapters = chapters
         self.captions = captions
         self.tags = tags
@@ -118,6 +131,8 @@ public struct Project: Codable, Equatable {
             timeline: timeline,
             canvas: canvas,
             overlays: overlays,
+            subtitles: subtitles,
+            subtitleStyle: subtitleStyle,
             chapters: chapters,
             captions: captions,
             tags: tags,
