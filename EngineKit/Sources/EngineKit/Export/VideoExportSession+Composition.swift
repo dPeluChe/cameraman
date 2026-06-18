@@ -102,7 +102,7 @@ extension ExportEngine {
         let maskShape = project.canvas.layout.camera?.maskShape ?? .none
         let cornerRadius = project.canvas.layout.camera?.cornerRadius ?? 0
 
-        if maskShape != .none || !videoOverlays.isEmpty {
+        if maskShape != .none || !videoOverlays.isEmpty || project.hasVisualAdjustments {
             let maskedInstruction = MaskedVideoCompositionInstruction(
                 timeRange: CMTimeRangeMake(start: .zero, duration: composition.duration),
                 screenTrackID: videoTrack.trackID,
@@ -115,6 +115,7 @@ extension ExportEngine {
                 cornerRadius: CGFloat(cornerRadius),
                 layoutType: "fullscreenCamera",
                 screenMuted: true,
+                adjustments: project.adjustmentConfigs,
                 zoomPlan: options.applyZoom ? options.zoomPlan : nil,
                 videoOverlays: videoOverlays
             )
@@ -146,6 +147,7 @@ extension ExportEngine {
         videoOverlays: [MaskedVideoCompositionInstruction.VideoOverlaySource] = []
     ) async throws {
         let forceCompositor = !videoOverlays.isEmpty || project.hasMixedScreenResolutions
+            || project.hasVisualAdjustments
         // Empty primary track (no recording): never reference it as a source.
         let screenTrackID = videoTrack.segments.isEmpty ? kCMPersistentTrackID_Invalid : videoTrack.trackID
         let instruction = AVMutableVideoCompositionInstruction()
@@ -291,6 +293,7 @@ extension ExportEngine {
             padding: CGFloat(project.canvas.padding),
             backgroundType: project.canvas.background.type,
             backgroundValue: project.canvas.background.value,
+            adjustments: project.adjustmentConfigs,
             zoomPlan: options.applyZoom ? options.zoomPlan : nil,
             videoOverlays: videoOverlays
         )
@@ -356,6 +359,7 @@ extension ExportEngine {
                 backgroundValue: project.canvas.background.value,
                 cameraBorderWidth: CGFloat(segCamera.borderWidth),
                 cameraBorderColor: segCamera.borderColor,
+                adjustments: project.adjustmentConfigs,
                 zoomPlan: zoomPlan,
                 videoOverlays: videoOverlays
             ))

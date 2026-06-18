@@ -24,7 +24,7 @@ extension PreviewEngine {
         // switch to MaskedVideoCompositor when videoOverlays exist.
         let needsCompositor = !project.overlays.isEmpty || !project.subtitles.isEmpty
             || !videoOverlays.isEmpty
-            || project.hasMixedScreenResolutions
+            || project.hasMixedScreenResolutions || project.hasVisualAdjustments
 
         let renderSize = CoreFoundation.CGSize(
             width: CGFloat(project.canvas.format.w),
@@ -94,6 +94,7 @@ extension PreviewEngine {
                     layoutType: "fullscreenCamera",
                     screenMuted: true,
                     overlays: overlayConfigs,
+                    adjustments: project.adjustmentConfigs,
                     zoomPlan: self.zoomPlan,
                     videoOverlays: videoOverlays
                 )
@@ -169,6 +170,7 @@ extension PreviewEngine {
                     cameraBorderWidth: 0,
                     cameraBorderColor: "#FFFFFF",
                     overlays: overlayConfigs,
+                    adjustments: project.adjustmentConfigs,
                     zoomPlan: self.zoomPlan,
                     videoOverlays: videoOverlays
                 )
@@ -257,6 +259,7 @@ extension PreviewEngine {
                             cameraBorderWidth: CGFloat(clipCamera.borderWidth),
                             cameraBorderColor: clipCamera.borderColor,
                             overlays: overlayConfigs,
+                            adjustments: project.adjustmentConfigs,
                             zoomPlan: self.zoomPlan,
                             videoOverlays: videoOverlays
                         ))
@@ -301,6 +304,7 @@ extension PreviewEngine {
                         cameraBorderWidth: CGFloat(defaultCamera.borderWidth),
                         cameraBorderColor: defaultCamera.borderColor,
                         overlays: overlayConfigs,
+                        adjustments: project.adjustmentConfigs,
                         zoomPlan: self.zoomPlan,
                         videoOverlays: videoOverlays
                     )
@@ -334,6 +338,7 @@ extension PreviewEngine {
                         cameraBorderWidth: 0,
                         cameraBorderColor: "#FFFFFF",
                         overlays: overlayConfigs,
+                        adjustments: project.adjustmentConfigs,
                         zoomPlan: self.zoomPlan,
                         videoOverlays: videoOverlays
                     )

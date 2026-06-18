@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > `0.8.0 → 0.5.0` · `0.7.0 → 0.4.1` · `0.6.0 → 0.4.0` · `0.5.0 → 0.3.1` · `0.4.0 → 0.3.0` · `0.3.1 → 0.2.1` · `0.3.0 → 0.2.0` · `0.2.0 → 0.1.1` · `0.1.0 → 0.1.0`.
 > Las fechas y el contenido técnico se preservaron.
 
+## [Unreleased]
+
+Foco: efectos extensibles en el timeline y un servidor MCP para automatización.
+
+### Added
+- **Efectos / ajustes en el timeline** — sistema extensible y no destructivo de
+  *adjustments* por clip, apuntables a una **capa** (`frame` / `screen` /
+  `camera` / `background` / `audio`) sobre un rango opcional. Así se puede, p. ej.,
+  poner la **cámara en sepia** y el **fondo en blanco y negro** en el mismo bloque.
+  Filtros de video vía CoreImage (sepia, monocromo/B&N, brillo, contraste,
+  saturación, vibrance, hue, invertir, viñeta, desenfoque; cualquier `CIFilter`
+  por nombre como fallback) y audio (`audioPitch` para voz grave/aguda vía
+  `MTAudioProcessingTap` + `AUNewTimePitch`). Aplicado en preview **y** export.
+- **Servidor MCP** (`MCPServer/`, binario `cameraman-mcp`) — expone los proyectos
+  a clientes MCP (Claude Desktop/Code) por stdio JSON-RPC, reutilizando EngineKit:
+  listar/ver proyectos, **grabar** (crear proyecto vacío, start/stop recording),
+  **cortar/split**, **mute** de audio/video (pista y clip), **agregar** items
+  (imagen/video/audio/color/texto) en un tiempo dado, y aplicar **efectos**.
+
 ## [0.6.4] - 2026-06-10
 
 Foco: edición con clips importados, merge de proyectos y navegación del timeline.

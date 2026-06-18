@@ -164,7 +164,8 @@ extension ExportEngine {
             let audioMix = AudioMixBuilder.buildAudioMix(
                 compositionResult: compositionResult,
                 muteState: audioMuteState,
-                segments: project.timeline.segments
+                segments: project.timeline.segments,
+                audioAdjustments: project.audioAdjustmentSpecs
             )
             exportSession.audioMix = audioMix
         }

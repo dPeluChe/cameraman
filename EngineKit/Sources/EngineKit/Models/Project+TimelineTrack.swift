@@ -87,6 +87,10 @@ extension Project {
         public var opacity: Double?
         /// Position on canvas for image/video clips (nil = fullscreen)
         public var position: MediaPosition?
+        /// Non-destructive visual/audio effects applied to this clip.
+        /// Optional for backward-compatibility: projects saved before effects
+        /// existed simply omit the key (decoded as `nil`).
+        public var adjustments: [Adjustment]?
 
         /// Duration on the timeline (derived from content and speed)
         public var duration: TimeInterval {
@@ -116,7 +120,8 @@ extension Project {
             speed: Double = 1.0,
             volume: Double? = nil,
             opacity: Double? = nil,
-            position: MediaPosition? = nil
+            position: MediaPosition? = nil,
+            adjustments: [Adjustment]? = nil
         ) {
             self.id = id
             self.timelineIn = timelineIn
@@ -125,6 +130,7 @@ extension Project {
             self.volume = volume
             self.opacity = opacity
             self.position = position
+            self.adjustments = adjustments
         }
     }
 }

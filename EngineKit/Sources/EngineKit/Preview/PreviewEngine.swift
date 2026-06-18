@@ -320,7 +320,8 @@ public actor PreviewEngine {
             let audioMix = AudioMixBuilder.buildAudioMix(
                 compositionResult: compositionResult,
                 muteState: lastAudioMuteState,
-                segments: project.timeline.segments
+                segments: project.timeline.segments,
+                audioAdjustments: project.audioAdjustmentSpecs
             )
             nonisolated(unsafe) let unsafeAudioMix = audioMix
             await MainActor.run {

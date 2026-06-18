@@ -95,7 +95,8 @@ extension PreviewEngine {
             let defaultMix = AudioMixBuilder.buildAudioMix(
                 compositionResult: result,
                 muteState: AudioMixBuilder.TrackMuteState(),
-                segments: project.timeline.segments
+                segments: project.timeline.segments,
+                audioAdjustments: project.audioAdjustmentSpecs
             )
             nonisolated(unsafe) let unsafeDefaultMix = defaultMix
             await MainActor.run {
@@ -145,7 +146,8 @@ extension PreviewEngine {
         let audioMix = AudioMixBuilder.buildAudioMix(
             compositionResult: compositionResult,
             muteState: muteState,
-            segments: project?.timeline.segments ?? []
+            segments: project?.timeline.segments ?? [],
+            audioAdjustments: project?.audioAdjustmentSpecs ?? []
         )
 
         nonisolated(unsafe) let unsafeAudioMix = audioMix

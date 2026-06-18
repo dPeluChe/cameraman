@@ -1,0 +1,99 @@
+# cameraman-mcp
+
+An [MCP](https://modelcontextprotocol.io) (Model Context Protocol) server for
+**Project Studio** (labs-cameraman). It lets an MCP client — Claude Desktop,
+Claude Code, or any MCP-capable agent — inspect and edit your Project Studio
+projects through tools, driving the same non-destructive `EngineKit` editing
+logic the app uses.
+
+> Because all editing is metadata in `project.json`, the server can split clips,
+> toggle mute, add items, and apply effects without ever touching source media.
+
+## What it can do
+
+| Area | Tools |
+|------|-------|
+| **Inspect** | `list_projects`, `get_project`, `list_adjustments` |
+| **Create / record** | `create_empty_project`, `start_recording`, `stop_recording` |
+| **Cut / split** | `split_clip`, `delete_clip` |
+| **Mute audio/video** | `set_track_muted`, `set_track_volume`, `set_clip_audio_muted` |
+| **Add items** | `add_image_clip`, `add_video_clip`, `add_audio_clip`, `add_color_clip`, `add_text_overlay` |
+| **Effects** | `add_adjustment`, `remove_adjustment` |
+
+> **Recording** captures the main display via `ScreenCaptureKit`. `start_recording`
+> returns immediately and `stop_recording` finalizes the take into a new project.
+> The host process must hold **Screen Recording** permission (and **Microphone**
+> if `captureMicAudio` is set) — grant it to whichever app launches the server.
+
+Typical flow: call `get_project` to discover track ids and clip ids, then call
+an editing tool with those ids.
+
+### Effects (`add_adjustment`)
+
+Effects are extensible and target a **layer** so you can, e.g., make the camera
+sepia while the background goes black & white in the same block:
+
+- Visual kinds: `sepia`, `monochrome`, `brightness`, `contrast`, `saturation`,
+  `colorControls`, `vibrance`, `hue`, `invert`, `vignette`, `gaussianBlur`
+  (any CoreImage filter name also works as a fallback).
+- Audio kinds: `audioPitch` (params `cents` or `semitones`), `audioGain`.
+- `target`: `frame` (whole output), `screen`, `camera`, `background`, `audio`.
+- `parameters`: effect-specific scalars, e.g. `{"intensity": 0.8}`,
+  `{"semitones": -3}`.
+
+Example: deepen the voice and sepia the camera for a recording clip
+
+```jsonc
+// 1) deeper voice
+add_adjustment { projectId, trackId, clipId, kind: "audioPitch",
+                 target: "audio", parameters: { "semitones": -4 } }
+// 2) sepia camera only
+add_adjustment { projectId, trackId, clipId, kind: "sepia",
+                 target: "camera", parameters: { "intensity": 1.0 } }
+// 3) black & white background only
+add_adjustment { projectId, trackId, clipId, kind: "monochrome",
+                 target: "background" }
+```
+
+## Build
+
+Requires macOS 13+ and a Swift toolchain (it links `EngineKit`).
+
+```bash
+cd MCPServer
+swift build -c release
+# binary at: .build/release/cameraman-mcp
+```
+
+## Register with an MCP client
+
+The server speaks MCP over **stdio**. Point your client at the built binary.
+
+Claude Desktop (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "cameraman": {
+      "command": "/absolute/path/to/cameraman/MCPServer/.build/release/cameraman-mcp"
+    }
+  }
+}
+```
+
+Claude Code:
+
+```bash
+claude mcp add cameraman -- /absolute/path/to/cameraman/MCPServer/.build/release/cameraman-mcp
+```
+
+It operates on the default Project Studio store
+(`~/Library/Application Support/ProjectStudio/Projects/`), the same location the
+app uses.
+
+## Protocol notes
+
+- Transport: newline-delimited JSON-RPC 2.0 on stdin/stdout (implemented
+  directly in Foundation — no external SDK).
+- `stdout` is reserved for protocol messages; logs go to `stderr`.
+- Implements `initialize`, `tools/list`, `tools/call`, and `ping`.
