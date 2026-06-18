@@ -51,17 +51,17 @@ enum AudioAdjustmentTap {
             process: tapProcess
         )
 
-        var tap: Unmanaged<MTAudioProcessingTap>?
+        var tap: MTAudioProcessingTap?
         let status = MTAudioProcessingTapCreate(
             kCFAllocatorDefault, &callbacks,
             kMTAudioProcessingTapCreationFlag_PostEffects, &tap
         )
-        guard status == noErr, let unmanagedTap = tap else {
+        guard status == noErr, let createdTap = tap else {
             // Balance the retain we did for clientInfo since init won't run.
             Unmanaged<Context>.fromOpaque(clientInfo).release()
             return nil
         }
-        return unmanagedTap.takeRetainedValue()
+        return createdTap
     }
 
     // MARK: - Tap callbacks
