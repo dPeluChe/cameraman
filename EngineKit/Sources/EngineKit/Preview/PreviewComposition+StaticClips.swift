@@ -77,6 +77,7 @@ extension PreviewEngine {
                 backgroundType: project.canvas.background.type,
                 backgroundValue: project.canvas.background.value,
                 overlays: overlayConfigs,
+                adjustments: project.adjustmentConfigs,
                 staticContent: staticContent,
                 videoOverlays: videoOverlays
             )
@@ -126,6 +127,7 @@ extension PreviewEngine {
             backgroundType: project.canvas.background.type,
             backgroundValue: project.canvas.background.value,
             overlays: overlays,
+            adjustments: project.adjustmentConfigs,
             zoomPlan: self.zoomPlan,
             videoOverlays: videoOverlays
         )

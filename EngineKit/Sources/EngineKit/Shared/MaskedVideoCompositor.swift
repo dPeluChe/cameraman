@@ -132,6 +132,9 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
     let cameraBorderWidth: CGFloat
     let cameraBorderColor: String
     let overlays: [OverlayConfig]
+    /// Visual effects to apply, filtered per-frame by target layer + time.
+    /// Carried whole (like `overlays`/`zoomPlan`) and resolved at render time.
+    let adjustments: [AdjustmentConfig]
     let staticContent: StaticClipContent?
     /// Effective zoom plan to apply for this instruction's time range.
     /// `nil` means no zoom. Already filtered by per-segment enabled state and
@@ -199,6 +202,7 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         cameraBorderWidth: CGFloat = 0,
         cameraBorderColor: String = "#FFFFFF",
         overlays: [OverlayConfig] = [],
+        adjustments: [AdjustmentConfig] = [],
         staticContent: StaticClipContent? = nil,
         zoomPlan: ZoomPlanGenerator.ZoomPlan? = nil,
         videoOverlays: [VideoOverlaySource] = []
@@ -222,6 +226,7 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         self.cameraBorderWidth = cameraBorderWidth
         self.cameraBorderColor = cameraBorderColor
         self.overlays = overlays
+        self.adjustments = adjustments
         self.staticContent = staticContent
         self.zoomPlan = zoomPlan
         self.videoOverlays = videoOverlays
@@ -312,6 +317,9 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
         finalImage = compositeCamera(over: finalImage, request: request, instruction: instruction, renderSize: renderSize)
         finalImage = applyZoom(to: finalImage, request: request, instruction: instruction, renderSize: renderSize)
         finalImage = compositeVideoOverlays(over: finalImage, request: request, instruction: instruction, renderSize: renderSize)
+        // Frame-wide effects apply to the fully composited image (screen + camera
+        // + overlays), before annotation overlays so text/arrows stay crisp.
+        finalImage = applyAdjustments(.frame, to: finalImage, request: request, instruction: instruction, extent: canvasRect)
         finalImage = compositeOverlays(over: finalImage, request: request, instruction: instruction, renderSize: renderSize)
 
         ciContext.render(finalImage, to: outputBuffer, bounds: canvasRect, colorSpace: Self.sharedRenderColorSpace)
@@ -319,6 +327,27 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
     }
 
     public func cancelAllPendingVideoCompositionRequests() {}
+
+    // MARK: - Effects
+
+    /// Apply the instruction's effects for one layer at the current frame time.
+    /// No-op when the instruction carries no adjustments for that target.
+    func applyAdjustments(
+        _ target: Project.AdjustmentTarget,
+        to image: CIImage,
+        request: AVAsynchronousVideoCompositionRequest,
+        instruction: MaskedVideoCompositionInstruction,
+        extent: CGRect
+    ) -> CIImage {
+        guard !instruction.adjustments.isEmpty else { return image }
+        return AdjustmentRenderer.apply(
+            instruction.adjustments,
+            target: target,
+            to: image,
+            at: request.compositionTime.seconds,
+            extent: extent
+        )
+    }
 
     // MARK: - Composition Pipeline
 
@@ -329,11 +358,14 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
         canvasRect: CGRect
     ) -> CIImage {
         if instruction.screenMuted {
-            return renderBackground(instruction: instruction, renderSize: renderSize)
+            let bg = renderBackground(instruction: instruction, renderSize: renderSize)
+            return applyAdjustments(.background, to: bg, request: request, instruction: instruction, extent: canvasRect)
         }
 
         if let staticContent = instruction.staticContent {
-            return renderStaticContent(staticContent, renderSize: renderSize)
+            // Static image/color is the "screen" content for this clip.
+            let content = renderStaticContent(staticContent, renderSize: renderSize)
+            return applyAdjustments(.screen, to: content, request: request, instruction: instruction, extent: canvasRect)
         }
 
         guard let screenBuffer = request.sourceFrame(byTrackID: instruction.screenTrackID) else {
@@ -389,6 +421,10 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
             screenImage = applyCornerRadius(to: screenImage, radius: instruction.videoCornerRadius, renderSize: renderSize, padding: pad)
         }
 
+        // Per-layer effects: e.g. sepia the screen while the background goes B&W.
+        background = applyAdjustments(.background, to: background, request: request, instruction: instruction, extent: canvasRect)
+        screenImage = applyAdjustments(.screen, to: screenImage, request: request, instruction: instruction, extent: canvasRect)
+
         return screenImage.composited(over: background)
     }
 
@@ -430,7 +466,10 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
             }
         }
 
-        let cameraImage = rawCamera.transformed(by: effectiveCameraTransform)
+        var cameraImage = rawCamera.transformed(by: effectiveCameraTransform)
+        // Camera-layer effects (e.g. sepia camera) applied before masking so the
+        // mask/border frame the filtered image.
+        cameraImage = applyAdjustments(.camera, to: cameraImage, request: request, instruction: instruction, extent: cameraImage.extent)
         let camExtent = cameraImage.extent.intersection(CGRect(origin: .zero, size: renderSize))
 
         if instruction.maskShape != .none && !camExtent.isEmpty {

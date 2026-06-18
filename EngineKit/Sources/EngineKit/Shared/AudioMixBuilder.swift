@@ -39,7 +39,8 @@ public struct AudioMixBuilder {
     public static func buildAudioMix(
         compositionResult: CompositionBuilder.Result,
         muteState: TrackMuteState,
-        segments: [Project.Timeline.Segment] = []
+        segments: [Project.Timeline.Segment] = [],
+        audioAdjustments: [AudioAdjustmentSpec] = []
     ) -> AVMutableAudioMix? {
         let hasSegmentOverrides = segments.contains { $0.volume != nil || $0.audioMuted != nil }
         var parameters: [AVMutableAudioMixInputParameters] = []
@@ -52,6 +53,7 @@ public struct AudioMixBuilder {
             } else {
                 params.setVolume(globalVolume, at: .zero)
             }
+            applyPitch(to: params, specs: audioAdjustments.filter { $0.lane == .system })
             parameters.append(params)
         }
 
@@ -63,6 +65,7 @@ public struct AudioMixBuilder {
             } else {
                 params.setVolume(globalVolume, at: .zero)
             }
+            applyPitch(to: params, specs: audioAdjustments.filter { $0.lane == .mic })
             parameters.append(params)
         }
 
@@ -79,6 +82,7 @@ public struct AudioMixBuilder {
             let params = AVMutableAudioMixInputParameters(track: audioClip.track)
             let clipVolume = audioClip.clip.volume ?? 1.0
             params.setVolume(Float(clipVolume), at: .zero)
+            applyPitch(to: params, specs: audioAdjustments.filter { $0.lane == .clip(audioClip.clip.id) })
             parameters.append(params)
         }
 
@@ -112,6 +116,25 @@ public struct AudioMixBuilder {
             let segVolume = segMuted ? Float(0.0) : Float(segment.volume ?? Double(globalVolume))
             params.setVolumeRamp(fromStartVolume: segVolume, toEndVolume: segVolume, timeRange: timeRange)
         }
+    }
+
+    /// Attach a pitch-shift processing tap if any pitch spec targets this track.
+    /// Pitch is applied to the whole track (time-windowed pitch is a future
+    /// enhancement); non-pitch audio kinds are handled via volume controls.
+    /// `cents` is taken directly, or derived from `semitones` (×100).
+    private static func applyPitch(to params: AVMutableAudioMixInputParameters, specs: [AudioAdjustmentSpec]) {
+        let pitchSpecs = specs.filter { $0.kind == Project.AdjustmentKind.audioPitch.rawValue }
+        guard let spec = pitchSpecs.first else { return }
+        let cents: Double
+        if let c = spec.parameters["cents"] {
+            cents = c
+        } else if let semitones = spec.parameters["semitones"] {
+            cents = semitones * 100
+        } else {
+            return
+        }
+        guard abs(cents) > 0.5, let tap = AudioAdjustmentTap.makePitchTap(cents: Float(cents)) else { return }
+        params.audioTapProcessor = tap
     }
 
 }
