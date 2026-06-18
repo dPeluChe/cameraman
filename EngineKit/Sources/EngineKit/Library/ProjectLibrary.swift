@@ -349,6 +349,12 @@ public actor ProjectLibrary {
         return service
     }
 
+    /// Get the TranscriptionEngine for speech-to-text transcription
+    /// - Returns: TranscriptionEngine wired to the shared store and job queue
+    public func getTranscriptionEngine() async throws -> TranscriptionEngine {
+        return TranscriptionEngine(jobQueue: jobQueue, projectStore: store)
+    }
+
     /// Get the shared job queue for operations
     /// - Returns: JobQueue instance
     public func getJobQueue() async throws -> JobQueue {

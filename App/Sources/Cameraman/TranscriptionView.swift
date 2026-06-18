@@ -98,7 +98,7 @@ struct TranscriptionView: View {
                 Button {
                     Task {
                         await viewModel.startTranscription(
-                            projectId: editor.project.projectId,
+                            project: editor.project,
                             language: viewModel.selectedLanguage
                         )
                     }
@@ -282,7 +282,7 @@ struct TranscriptionView: View {
                 Button("Retry") {
                     Task {
                         await viewModel.startTranscription(
-                            projectId: editor.project.projectId,
+                            project: editor.project,
                             language: viewModel.selectedLanguage
                         )
                     }

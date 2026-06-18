@@ -461,7 +461,25 @@ struct TimelineView: View {
                         cues: track.overlays,
                         layout: layout,
                         height: trackHeight,
-                        onSeek: { time in playerViewModel.seek(to: time) }
+                        selectedOverlayId: $selectedOverlayId,
+                        onSeek: { time in playerViewModel.seek(to: time) },
+                        onMove: { id, deltaTime in
+                            guard let cue = editor.project.subtitles.first(where: { $0.id == id }) else { return }
+                            let duration = cue.end - cue.start
+                            let newStart = max(0, cue.start + deltaTime)
+                            Task { await editor.updateSubtitle(id: id, start: newStart, end: newStart + duration) }
+                        },
+                        onTrim: { id, edge, deltaTime in
+                            guard let cue = editor.project.subtitles.first(where: { $0.id == id }) else { return }
+                            switch edge {
+                            case .leading:
+                                let newStart = min(max(0, cue.start + deltaTime), cue.end - 0.2)
+                                Task { await editor.updateSubtitle(id: id, start: newStart) }
+                            case .trailing:
+                                let newEnd = max(cue.start + 0.2, cue.end + deltaTime)
+                                Task { await editor.updateSubtitle(id: id, end: newEnd) }
+                            }
+                        }
                     )
                     .frame(width: layout.contentWidth, alignment: .leading)
                 } else {
