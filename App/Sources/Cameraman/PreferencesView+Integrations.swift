@@ -14,9 +14,20 @@ struct IntegrationsPreferencesView: View {
     @AppStorage("mcp.binaryPath") private var binaryPath = ""
     @State private var showBinaryPicker = false
 
-    private var resolvedPath: String {
-        binaryPath.isEmpty ? "/path/to/cameraman-mcp" : binaryPath
+    /// The MCP binary shipped inside the app bundle (Contents/Helpers), if present.
+    private var bundledPath: String? {
+        let url = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/cameraman-mcp")
+        return FileManager.default.isExecutableFile(atPath: url.path) ? url.path : nil
     }
+
+    /// Path used in the snippets: user override wins, else the bundled binary,
+    /// else a placeholder for the build-it-yourself flow.
+    private var resolvedPath: String {
+        if !binaryPath.isEmpty { return binaryPath }
+        return bundledPath ?? "/path/to/cameraman-mcp"
+    }
+
+    private var usingBundled: Bool { binaryPath.isEmpty && bundledPath != nil }
 
     private var binaryExists: Bool {
         !binaryPath.isEmpty && FileManager.default.isExecutableFile(atPath: binaryPath)
@@ -34,42 +45,47 @@ struct IntegrationsPreferencesView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Cameraman MCP Server")
                     .font(.headline)
-                Text("Expose Cameraman's tools (list/create projects, record, split, add clips, effects) to AI assistants over MCP. Build the server, point to the binary, then paste the snippet into each client.")
+                Text("Expose Cameraman's tools (list/create projects, record, split, add clips, effects) to AI assistants over MCP. Copy the snippet for your client and paste it in.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            // Build instructions
+            // Binary status — bundled with the app, or build-it-yourself fallback
             VStack(alignment: .leading, spacing: 6) {
-                Text("1. Build the server")
-                    .font(.subheadline.weight(.semibold))
-                snippetBox("cd MCPServer && swift build -c release")
-                Text("Produces the binary at MCPServer/.build/release/cameraman-mcp")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            // Binary path
-            VStack(alignment: .leading, spacing: 6) {
-                Text("2. Locate the binary")
-                    .font(.subheadline.weight(.semibold))
-                HStack {
-                    Image(systemName: binaryExists ? "checkmark.circle.fill" : "circle.dashed")
-                        .foregroundStyle(binaryExists ? .green : .secondary)
-                    Text(binaryPath.isEmpty ? "No binary selected" : binaryPath)
-                        .font(.system(size: 11, design: .monospaced))
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Spacer()
-                    Button("Choose…") { showBinaryPicker = true }
+                if usingBundled {
+                    Label("Server bundled with the app — ready to use.", systemImage: "checkmark.circle.fill")
+                        .font(.callout)
+                        .foregroundStyle(.green)
+                } else {
+                    Text("Server binary")
+                        .font(.subheadline.weight(.semibold))
+                    Text("Build it with: cd MCPServer && swift build -c release, then choose the binary at MCPServer/.build/release/cameraman-mcp.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack {
+                        Image(systemName: binaryExists ? "checkmark.circle.fill" : "circle.dashed")
+                            .foregroundStyle(binaryExists ? .green : .secondary)
+                        Text(binaryPath.isEmpty ? "No binary selected" : binaryPath)
+                            .font(.system(size: 11, design: .monospaced))
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Spacer()
+                        Button("Choose…") { showBinaryPicker = true }
+                            .controlSize(.small)
+                    }
+                }
+                if !binaryPath.isEmpty {
+                    Button("Use bundled binary") { binaryPath = "" }
                         .controlSize(.small)
+                        .disabled(bundledPath == nil)
                 }
             }
 
             // Client snippets
             VStack(alignment: .leading, spacing: 6) {
-                Text("3. Register with a client")
+                Text("Register with a client")
                     .font(.subheadline.weight(.semibold))
 
                 clientRow(

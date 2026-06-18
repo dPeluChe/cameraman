@@ -67,6 +67,12 @@ swift build -c release
 
 ## Register with an MCP client
 
+> **App users:** the binary ships inside the app at
+> `CameramanApp.app/Contents/Helpers/cameraman-mcp` (built and signed by the
+> Xcode build phase). Settings → Integrations auto-detects it and fills the
+> snippets — no manual build needed. The instructions below are for running the
+> package standalone (contributors / non-app use).
+
 The server speaks MCP over **stdio**. Point your client at the built binary.
 
 > **Point it at the app's projects.** The app is sandboxed and stores projects
