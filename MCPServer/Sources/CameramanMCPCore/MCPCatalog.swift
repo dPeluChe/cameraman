@@ -16,6 +16,13 @@ extension MCPTools {
                  "List all Project Studio projects with their id, name, tags, duration and timestamps.",
                  properties: [:], required: []),
 
+            tool("delete_project",
+                 "Permanently delete a project and all its files. Irreversible.",
+                 properties: [
+                    "projectId": str("Project UUID")
+                 ],
+                 required: ["projectId"]),
+
             tool("get_project",
                  "Get the full project: timeline tracks & clips (with ids), canvas, takes, overlays and per-clip adjustments. Call this first to discover track/clip ids for editing.",
                  properties: ["projectId": str("Project UUID")],
@@ -96,7 +103,7 @@ extension MCPTools {
                  "Add a still image as a clip on a new video track at a given time.",
                  properties: [
                     "projectId": str("Project UUID"),
-                    "path": str("Image file path (absolute, or relative to the project)"),
+                    "path": str("Absolute path to an existing image file; copied into the project."),
                     "at": num("Timeline start time in seconds"),
                     "duration": num("How long to show the image (seconds, default 5)")
                  ],
@@ -106,7 +113,7 @@ extension MCPTools {
                  "Add an imported video as a clip on a new video track at a given time.",
                  properties: [
                     "projectId": str("Project UUID"),
-                    "path": str("Video file path"),
+                    "path": str("Absolute path to an existing video file; copied into the project."),
                     "at": num("Timeline start time in seconds"),
                     "duration": num("Source duration to use (seconds)")
                  ],
@@ -116,7 +123,7 @@ extension MCPTools {
                  "Add an audio file (music / voiceover) as a clip on a new audio track.",
                  properties: [
                     "projectId": str("Project UUID"),
-                    "path": str("Audio file path"),
+                    "path": str("Absolute path to an existing audio file; copied into the project."),
                     "at": num("Timeline start time in seconds"),
                     "duration": num("Duration to play (seconds)"),
                     "sourceIn": num("Start offset inside the source audio (seconds, default 0)")

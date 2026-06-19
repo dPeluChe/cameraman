@@ -47,6 +47,7 @@ final class MCPTools {
         case "add_adjustment":       return try await addAdjustment(arguments)
         case "remove_adjustment":    return try await removeAdjustment(arguments)
         case "list_adjustments":     return try await listAdjustments(arguments)
+        case "delete_project":       return try await deleteProject(arguments)
         default:
             throw MCPToolError("Unknown tool: \(name)")
         }
@@ -160,7 +161,8 @@ final class MCPTools {
         let project = try await mutate(args) { editor in
             await editor.setTrackVolume(trackId: trackId, volume: volume)
         }
-        return try summary("Track \(trackId) volume=\(volume)", project)
+        let stored = project.timeline.tracks.first(where: { $0.id == trackId })?.volume ?? volume
+        return try summary("Track \(trackId) volume=\(stored)", project)
     }
 
     private func setClipAudioMuted(_ args: [String: Any]) async throws -> String {
@@ -176,27 +178,30 @@ final class MCPTools {
     // MARK: - Add items
 
     private func addImageClip(_ args: [String: Any]) async throws -> String {
-        let path = try args.str("path")
+        let projectId = try args.uuid("projectId")
+        let relPath = try await stageAsset(try args.str("path"), projectId: projectId)
         let at = try args.num("at")
         let duration = args.optNum("duration") ?? 5.0
         let project = try await mutate(args) { editor in
-            await editor.addImageClip(path: path, duration: duration, at: at)
+            await editor.addImageClip(path: relPath, duration: duration, at: at)
         }
-        return try summary("Added image clip at \(at)s", project)
+        return try summary("Added image clip (\(relPath)) at \(at)s", project)
     }
 
     private func addVideoClip(_ args: [String: Any]) async throws -> String {
-        let path = try args.str("path")
+        let projectId = try args.uuid("projectId")
+        let relPath = try await stageAsset(try args.str("path"), projectId: projectId)
         let at = try args.num("at")
         let duration = try args.num("duration")
         let project = try await mutate(args) { editor in
-            await editor.importVideoClip(path: path, duration: duration, at: at)
+            await editor.importVideoClip(path: relPath, duration: duration, at: at)
         }
-        return try summary("Added video clip at \(at)s", project)
+        return try summary("Added video clip (\(relPath)) at \(at)s", project)
     }
 
     private func addAudioClip(_ args: [String: Any]) async throws -> String {
-        let path = try args.str("path")
+        let projectId = try args.uuid("projectId")
+        let path = try await stageAsset(try args.str("path"), projectId: projectId)
         let at = try args.num("at")
         let duration = try args.num("duration")
         let sourceIn = args.optNum("sourceIn") ?? 0
@@ -237,7 +242,11 @@ final class MCPTools {
     private func addAdjustment(_ args: [String: Any]) async throws -> String {
         let trackId = try args.uuid("trackId")
         let clipId = try args.str("clipId")
-        let kind = Project.AdjustmentKind(rawValue: try args.str("kind"))
+        let kindRaw = try args.str("kind")
+        guard Self.knownAdjustmentKinds.contains(kindRaw) else {
+            throw MCPToolError("Unknown adjustment kind '\(kindRaw)'. Valid kinds: \(Self.knownAdjustmentKinds.sorted().joined(separator: ", "))")
+        }
+        let kind = Project.AdjustmentKind(rawValue: kindRaw)
         let target = Project.AdjustmentTarget(rawValue: args.optStr("target") ?? "frame") ?? .frame
         let parameters = args.doubleDict("parameters")
         let adjustment = Project.Adjustment(
@@ -283,6 +292,40 @@ final class MCPTools {
         }
         try await ProjectLibrary.shared.updateProject(updated)
         return updated
+    }
+
+    /// Recognized visual/audio adjustment kinds (see AdjustmentRenderer).
+    static let knownAdjustmentKinds: Set<String> = [
+        "sepia", "monochrome", "brightness", "contrast", "saturation",
+        "colorControls", "vibrance", "hue", "invert", "vignette",
+        "gaussianBlur", "audioPitch"
+    ]
+
+    private func deleteProject(_ args: [String: Any]) async throws -> String {
+        let projectId = try args.uuid("projectId")
+        try await ProjectLibrary.shared.deleteProject(projectId: projectId)
+        return "Deleted project \(projectId)"
+    }
+
+    /// Validate an external media file exists, copy it into the project's
+    /// assets/ folder, and return the project-relative path the compositor
+    /// resolves at render time. Prevents phantom clips and makes the media
+    /// actually render (mirrors the app's import).
+    private func stageAsset(_ sourcePath: String, projectId: UUID) async throws -> String {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: sourcePath) else {
+            throw MCPToolError("File not found: \(sourcePath). Pass an absolute path to an existing file.")
+        }
+        let dir = try await ProjectLibrary.shared.getProjectDirectory(projectId: projectId)
+        let assets = dir.appendingPathComponent("assets", isDirectory: true)
+        try fm.createDirectory(at: assets, withIntermediateDirectories: true)
+        let name = (sourcePath as NSString).lastPathComponent
+        let dest = assets.appendingPathComponent(name)
+        if dest.path != sourcePath {
+            if fm.fileExists(atPath: dest.path) { try fm.removeItem(at: dest) }
+            try fm.copyItem(at: URL(fileURLWithPath: sourcePath), to: dest)
+        }
+        return "assets/\(name)"
     }
 
     private func loadProject(_ args: [String: Any]) async throws -> Project {
