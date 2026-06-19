@@ -11,8 +11,9 @@ import AppKit
 // MARK: - Export Errors
 
 /// Export engine errors
-public enum ExportError: Error, Equatable, Sendable {
+public enum ExportError: Error, LocalizedError, Equatable, Sendable {
     case noSegments
+    case noVideoFrames
     case missingSourceFile(String)
     case sourceFileNotFound(String)
     case mediaFileNotFound(String)
@@ -29,6 +30,8 @@ public enum ExportError: Error, Equatable, Sendable {
         switch self {
         case .noSegments:
             return "Project has no timeline segments to export"
+        case .noVideoFrames:
+            return "This project has no video frames to render. Add a recording or an imported video clip — pure image/color slideshows aren't supported yet."
         case .missingSourceFile(let message):
             return "Missing source file: \(message)"
         case .sourceFileNotFound(let path):
@@ -53,6 +56,10 @@ public enum ExportError: Error, Equatable, Sendable {
             return "Audio sync drift detected: \(drift * 1000)ms"
         }
     }
+
+    // LocalizedError: without this, `error.localizedDescription` (used when an
+    // export job fails) falls back to the opaque "ExportError error N" NSError text.
+    public var errorDescription: String? { localizedDescription }
 }
 
 // MARK: - Export Result

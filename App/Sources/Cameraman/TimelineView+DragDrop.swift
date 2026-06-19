@@ -102,23 +102,16 @@ extension TimelineView {
         let currentPlayhead = playerViewModel.currentTime
 
         Task {
-            let fileManager = FileManager.default
-            let assetsDir = projectDir.appendingPathComponent("assets", isDirectory: true)
-            try? fileManager.createDirectory(at: assetsDir, withIntermediateDirectories: true)
-
-            let destURL = assetsDir.appendingPathComponent(fileName)
-
             let didAccess = url.startAccessingSecurityScopedResource()
             defer { if didAccess { url.stopAccessingSecurityScopedResource() } }
 
+            let relativePath: String
             do {
-                if fileManager.fileExists(atPath: destURL.path) {
-                    try fileManager.removeItem(at: destURL)
-                }
-                try fileManager.copyItem(at: url, to: destURL)
+                relativePath = try ProjectLibrary.stageAsset(from: url, intoProjectDirectory: projectDir)
             } catch {
                 return
             }
+            let destURL = projectDir.appendingPathComponent(relativePath)
 
             var duration: TimeInterval = 5.0
             if isAudio || isVideo {
@@ -131,7 +124,7 @@ extension TimelineView {
             if isVideo {
                 // Imported video gets its own timeline track row (new model)
                 _ = await editor.importVideoClip(
-                    path: "assets/\(fileName)",
+                    path: relativePath,
                     duration: duration,
                     at: currentPlayhead,
                     trackName: fileName
@@ -142,7 +135,7 @@ extension TimelineView {
 
             let item = Project.MediaItem(
                 type: isAudio ? .audio : .image,
-                path: "assets/\(fileName)",
+                path: relativePath,
                 name: fileName,
                 timelineIn: currentPlayhead,
                 duration: duration

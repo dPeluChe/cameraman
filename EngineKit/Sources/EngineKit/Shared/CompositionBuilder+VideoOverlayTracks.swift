@@ -20,7 +20,8 @@ extension CompositionBuilder.Result {
                 let rect = clip.position.map {
                     CGRect(x: $0.x, y: $0.y, width: $0.w, height: $0.h)
                 }
-                return .init(start: clip.timelineIn, end: clip.timelineOut, position: rect)
+                // Visual effects on this imported clip, flattened to absolute time.
+                return .init(start: clip.timelineIn, end: clip.timelineOut, position: rect, adjustments: clip.visualAdjustmentConfigs())
             }
             return MaskedVideoCompositionInstruction.VideoOverlaySource(
                 trackID: info.track.trackID,

@@ -81,7 +81,7 @@ final class TranscriptionViewModel: ObservableObject {
             let engine = try await ProjectLibrary.shared.getTranscriptionEngine()
             let jobQueue = try await ProjectLibrary.shared.getJobQueue()
 
-            let options = TranscriptionEngine.Options(language: language)
+            let options = TranscriptionEngine.Options(model: TranscriptionModelPreference.current, language: language)
             let jobId = try await engine.transcribe(projectId: project.projectId, options: options)
             transcriptionJobId = jobId
 

@@ -66,6 +66,7 @@
 				8674BA282F2059B1005D004A /* Sources */,
 				8674BA292F2059B1005D004A /* Frameworks */,
 				8674BA2A2F2059B1005D004A /* Resources */,
+				9F2C1A6B3C4D5E6F7A8B9C20 /* Embed Cameraman MCP server */,
 			);
 			buildRules = (
 			);
@@ -130,6 +131,24 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		9F2C1A6B3C4D5E6F7A8B9C20 /* Embed Cameraman MCP server */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Embed Cameraman MCP server";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"$SRCROOT/../scripts/embed-mcp.sh\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		8674BA282F2059B1005D004A /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -180,7 +199,7 @@
 				DEVELOPMENT_TEAM = V2U37KWA8D;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -246,7 +265,7 @@
 				DEVELOPMENT_TEAM = V2U37KWA8D;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;

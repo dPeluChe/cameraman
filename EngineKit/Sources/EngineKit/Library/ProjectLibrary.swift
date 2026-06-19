@@ -305,6 +305,26 @@ public actor ProjectLibrary {
         try await store.deleteProject(projectId: projectId)
     }
 
+    /// Copy an external file into a project's `assets/` folder, returning the
+    /// project-relative path ("assets/<name>"). Shared by drag-drop import and
+    /// the MCP server. Pure filesystem work, hence `nonisolated static`; callers
+    /// in a sandbox are responsible for security-scoped access on `sourceURL`.
+    public nonisolated static func stageAsset(from sourceURL: URL, intoProjectDirectory projectDir: URL) throws -> String {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: sourceURL.path) else {
+            throw EngineKitError.invalidConfiguration("File not found: \(sourceURL.path). Pass an absolute path to an existing file.")
+        }
+        let assets = projectDir.appendingPathComponent("assets", isDirectory: true)
+        try fm.createDirectory(at: assets, withIntermediateDirectories: true)
+        let name = sourceURL.lastPathComponent
+        let dest = assets.appendingPathComponent(name)
+        if dest.path != sourceURL.path {
+            if fm.fileExists(atPath: dest.path) { try fm.removeItem(at: dest) }
+            try fm.copyItem(at: sourceURL, to: dest)
+        }
+        return "assets/\(name)"
+    }
+
     /// Create a blank project (no recording) for import-based editing.
     public func createEmptyProject(name: String? = nil, tags: [String]? = nil) async throws -> ProjectId {
         try await store.createEmptyProject(name: name, tags: tags)

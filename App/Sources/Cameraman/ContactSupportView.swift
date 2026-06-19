@@ -67,8 +67,7 @@ struct ContactSupportView: View {
             }
             Spacer()
             Button(copied ? "Copied" : "Copy") {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(supportEmail, forType: .string)
+                Clipboard.copy(supportEmail)
                 copied = true
             }
             .controlSize(.small)

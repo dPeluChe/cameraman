@@ -127,6 +127,13 @@ public actor ExportEngine {
             throw ExportError.noSegments
         }
 
+        // AVAssetExportSession needs real video frames; a project with only
+        // image/color cards (no recording or imported video) can't be rendered yet.
+        guard project.hasRenderableVideo else {
+            logger.error("Export failed: project has no renderable video frames")
+            throw ExportError.noVideoFrames
+        }
+
         try await validateSourceFiles(for: project, projectId: projectId)
         logger.debug("All source files validated successfully")
 
@@ -162,9 +169,15 @@ public actor ExportEngine {
         let project = try await projectStore.loadProject(projectId: projectId)
         logger.debug("Loaded project '\(project.name)' with \(project.timeline.primaryTrack?.clips.count ?? 0) primary clips")
 
-        guard let primaryTrack = project.timeline.primaryTrack, !primaryTrack.clips.isEmpty else {
+        // Import-only projects are exportable too: any track with clips counts.
+        guard project.timeline.tracks.contains(where: { !$0.clips.isEmpty }) else {
             logger.error("GIF export failed: project has no timeline clips")
             throw ExportError.noSegments
+        }
+
+        guard project.hasRenderableVideo else {
+            logger.error("GIF export failed: project has no renderable video frames")
+            throw ExportError.noVideoFrames
         }
 
         try await validateSourceFiles(for: project, projectId: projectId)

@@ -33,8 +33,10 @@ public actor ProjectStore {
     func fileSize(of url: URL) -> UInt64 {
         (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? UInt64) ?? 0
     }
-    /// Base directory for all projects
-    let baseDirectory: URL
+    /// Base directory for all projects (resolved from CAMERAMAN_PROJECTS_DIR or
+    /// the app-support default). Immutable, so `nonisolated` lets the app read it
+    /// synchronously (e.g. to watch the directory for live refresh).
+    public nonisolated let baseDirectory: URL
     /// File manager for disk operations
     let fileManager: FileManager
     /// Structured logging
@@ -50,8 +52,13 @@ public actor ProjectStore {
 
         if let baseDirectory = baseDirectory {
             self.baseDirectory = baseDirectory
+        } else if let override = ProcessInfo.processInfo.environment["CAMERAMAN_PROJECTS_DIR"], !override.isEmpty {
+            // The (non-sandboxed) MCP server points here at the sandboxed app's
+            // container Projects dir so both processes see the same projects.
+            self.baseDirectory = URL(fileURLWithPath: override, isDirectory: true)
         } else {
-            // Default to Application Support/ProjectStudio/Projects
+            // Default to Application Support/ProjectStudio/Projects. When the app
+            // is sandboxed the OS resolves this inside its container.
             let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
             self.baseDirectory = appSupport.appendingPathComponent("ProjectStudio/Projects", isDirectory: true)
         }

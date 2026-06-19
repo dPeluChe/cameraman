@@ -185,18 +185,27 @@ extension EditorModel {
         return .success(projectRef)
     }
 
-    /// Delete all segments within a timeline time range
+    /// Ripple-delete a timeline range across every (unlocked) track: clips inside
+    /// the range are removed, clips overlapping it are trimmed/split, and clips
+    /// after it shift left so all tracks stay in sync.
     public func deleteRange(from startTime: TimeInterval, to endTime: TimeInterval) async -> EditorResult {
         guard startTime < endTime else {
             return .failure(.invalidRange(start: startTime, end: endTime))
         }
-        guard let trackIndex = primaryTrackIndex else {
-            return .failure(.trackNotFound("primary"))
-        }
-        if projectRef.timeline.tracks[trackIndex].isLocked {
-            return .failure(.trackLocked("primary"))
-        }
 
+        var totalAffected = 0
+        for trackIndex in projectRef.timeline.tracks.indices
+        where !projectRef.timeline.tracks[trackIndex].isLocked {
+            totalAffected += deleteRangeInTrack(trackIndex: trackIndex, startTime: startTime, endTime: endTime)
+        }
+        recalculateTimelineDuration()
+
+        return .successWithInfo(projectRef, .rangeDeleted(count: totalAffected))
+    }
+
+    /// Apply the range deletion to a single track; returns the number of clips
+    /// removed or replaced. Pure clip math, so it works for any clip content type.
+    private func deleteRangeInTrack(trackIndex: Int, startTime: TimeInterval, endTime: TimeInterval) -> Int {
         var clipsToDelete: [String] = []
         var clipsToReplace: [(id: String, replacements: [Project.TimelineClip])] = []
         let rangeWidth = endTime - startTime
@@ -214,7 +223,7 @@ extension EditorModel {
 
                 clipsToReplace.append((id: clip.id, replacements: [
                     Project.TimelineClip(timelineIn: clip.timelineIn, content: preContent, speed: clip.speed, volume: clip.volume, opacity: clip.opacity, position: clip.position),
-                    Project.TimelineClip(timelineIn: startTime, content: postContent, speed: clip.speed, volume: clip.volume, opacity: clip.opacity, position: clip.position)
+                    Project.TimelineClip(timelineIn: endTime, content: postContent, speed: clip.speed, volume: clip.volume, opacity: clip.opacity, position: clip.position)
                 ]))
             } else if clip.timelineIn < startTime && clipEnd > startTime && clipEnd <= endTime {
                 let preOffset = startTime - clip.timelineIn
@@ -226,7 +235,7 @@ extension EditorModel {
                 let postOffset = endTime - clip.timelineIn
                 let (_, postContent) = splitContent(clip.content, at: postOffset, speed: clip.speed)
                 clipsToReplace.append((id: clip.id, replacements: [
-                    Project.TimelineClip(timelineIn: startTime, content: postContent, speed: clip.speed, volume: clip.volume, opacity: clip.opacity, position: clip.position)
+                    Project.TimelineClip(timelineIn: endTime, content: postContent, speed: clip.speed, volume: clip.volume, opacity: clip.opacity, position: clip.position)
                 ]))
             }
         }
@@ -234,9 +243,7 @@ extension EditorModel {
         applyClipReplacements(clipsToReplace, trackIndex: trackIndex)
         deleteClipsByIds(clipsToDelete, trackIndex: trackIndex)
         shiftClipsAfter(startTime, by: -rangeWidth, trackIndex: trackIndex)
-        recalculateTimelineDuration()
-
-        return .successWithInfo(projectRef, .rangeDeleted(count: clipsToDelete.count + clipsToReplace.count))
+        return clipsToDelete.count + clipsToReplace.count
     }
 
     // MARK: - Overlay Operations

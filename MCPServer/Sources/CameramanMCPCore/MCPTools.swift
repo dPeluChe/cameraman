@@ -19,7 +19,7 @@ struct MCPToolError: Error {
 
 final class MCPTools {
 
-    private let overlayEngine = OverlayEngine()
+    let overlayEngine = OverlayEngine()
 
     /// In-flight recording started via `start_recording`, finalized by
     /// `stop_recording`. Only one recording at a time (the engine enforces this).
@@ -34,19 +34,49 @@ final class MCPTools {
         case "start_recording":      return try await startRecording(arguments)
         case "stop_recording":       return try await stopRecording(arguments)
         case "get_project":          return try await getProject(arguments)
+        case "delete_project":       return try await deleteProject(arguments)
+        // Clips
+        case "add_clip":             return try await addClip(arguments)
         case "split_clip":           return try await splitClip(arguments)
         case "delete_clip":          return try await deleteClip(arguments)
-        case "set_track_muted":      return try await setTrackMuted(arguments)
-        case "set_track_volume":     return try await setTrackVolume(arguments)
+        case "edit_clip":            return try await editClip(arguments)
+        case "delete_range":         return try await deleteRange(arguments)
         case "set_clip_audio_muted": return try await setClipAudioMuted(arguments)
-        case "add_image_clip":       return try await addImageClip(arguments)
-        case "add_video_clip":       return try await addVideoClip(arguments)
-        case "add_audio_clip":       return try await addAudioClip(arguments)
-        case "add_color_clip":       return try await addColorClip(arguments)
-        case "add_text_overlay":     return try await addTextOverlay(arguments)
         case "add_adjustment":       return try await addAdjustment(arguments)
+        case "update_adjustment":    return try await updateAdjustment(arguments)
         case "remove_adjustment":    return try await removeAdjustment(arguments)
+        case "clear_adjustments":    return try await clearAdjustments(arguments)
         case "list_adjustments":     return try await listAdjustments(arguments)
+        // Tracks
+        case "add_track":            return try await addTrack(arguments)
+        case "remove_track":         return try await removeTrack(arguments)
+        case "move_video_track":     return try await moveVideoTrack(arguments)
+        case "set_track":            return try await setTrack(arguments)
+        // Delivery
+        case "export_project":       return try await exportProject(arguments)
+        case "get_job_status":       return try await getJobStatus(arguments)
+        case "list_jobs":            return try await listJobs(arguments)
+        case "cancel_job":           return try await cancelJob(arguments)
+        case "transcribe_project":   return try await transcribeProject(arguments)
+        case "get_captions":         return try await getCaptions(arguments)
+        // Canvas
+        case "set_canvas_layout":    return try await setCanvasLayout(arguments)
+        case "set_background":       return try await setBackground(arguments)
+        // Overlays
+        case "add_overlay":          return try await addOverlay(arguments)
+        case "list_overlays":        return try await listOverlays(arguments)
+        case "update_overlay":       return try await updateOverlay(arguments)
+        case "delete_overlay":       return try await deleteOverlay(arguments)
+        // Library / metadata
+        case "duplicate_project":    return try await duplicateProject(arguments)
+        case "rename_project":       return try await renameProject(arguments)
+        case "set_tags":             return try await setTags(arguments)
+        case "search_projects":      return try await searchProjects(arguments)
+        case "merge_projects":       return try await mergeProjects(arguments)
+        case "export_bundle":        return try await exportBundle(arguments)
+        case "import_bundle":        return try await importBundle(arguments)
+        case "suggest_silence_edits": return try await suggestSilenceEdits(arguments)
+        case "suggest_chapters":     return try await suggestChapters(arguments)
         default:
             throw MCPToolError("Unknown tool: \(name)")
         }
@@ -143,26 +173,6 @@ final class MCPTools {
         return try summary("Removed clip \(clipId)", project)
     }
 
-    // MARK: - Mute / volume
-
-    private func setTrackMuted(_ args: [String: Any]) async throws -> String {
-        let trackId = try args.uuid("trackId")
-        let muted = try args.bool("muted")
-        let project = try await mutate(args) { editor in
-            await editor.setTrackMuted(trackId: trackId, muted: muted)
-        }
-        return try summary("Track \(trackId) muted=\(muted)", project)
-    }
-
-    private func setTrackVolume(_ args: [String: Any]) async throws -> String {
-        let trackId = try args.uuid("trackId")
-        let volume = try args.num("volume")
-        let project = try await mutate(args) { editor in
-            await editor.setTrackVolume(trackId: trackId, volume: volume)
-        }
-        return try summary("Track \(trackId) volume=\(volume)", project)
-    }
-
     private func setClipAudioMuted(_ args: [String: Any]) async throws -> String {
         let trackId = try args.uuid("trackId")
         let clipId = try args.str("clipId")
@@ -173,63 +183,21 @@ final class MCPTools {
         return try summary("Clip \(clipId) audioMuted=\(muted)", project)
     }
 
-    // MARK: - Add items
-
-    private func addImageClip(_ args: [String: Any]) async throws -> String {
-        let path = try args.str("path")
-        let at = try args.num("at")
-        let duration = args.optNum("duration") ?? 5.0
-        let project = try await mutate(args) { editor in
-            await editor.addImageClip(path: path, duration: duration, at: at)
+    /// Load the project and locate a (track, clip) pair, with clear errors if
+    /// either is missing. Shared by tools that must read the clip's current
+    /// state before editing (trim, update_adjustment, list_adjustments).
+    func resolveClip(_ args: [String: Any]) async throws
+        -> (project: Project, track: Project.TimelineTrack, clip: Project.TimelineClip) {
+        let trackId = try args.uuid("trackId")
+        let clipId = try args.str("clipId")
+        let project = try await loadProject(args)
+        guard let track = project.timeline.tracks.first(where: { $0.id == trackId }) else {
+            throw MCPToolError("Track \(trackId) not found")
         }
-        return try summary("Added image clip at \(at)s", project)
-    }
-
-    private func addVideoClip(_ args: [String: Any]) async throws -> String {
-        let path = try args.str("path")
-        let at = try args.num("at")
-        let duration = try args.num("duration")
-        let project = try await mutate(args) { editor in
-            await editor.importVideoClip(path: path, duration: duration, at: at)
+        guard let clip = track.clips.first(where: { $0.id == clipId }) else {
+            throw MCPToolError("Clip \(clipId) not found on track \(trackId)")
         }
-        return try summary("Added video clip at \(at)s", project)
-    }
-
-    private func addAudioClip(_ args: [String: Any]) async throws -> String {
-        let path = try args.str("path")
-        let at = try args.num("at")
-        let duration = try args.num("duration")
-        let sourceIn = args.optNum("sourceIn") ?? 0
-        let project = try await mutate(args) { editor in
-            await editor.addAudioClip(path: path, duration: duration, at: at, sourceIn: sourceIn)
-        }
-        return try summary("Added audio clip at \(at)s", project)
-    }
-
-    private func addColorClip(_ args: [String: Any]) async throws -> String {
-        let at = try args.num("at")
-        let duration = args.optNum("duration") ?? 3.0
-        let hexColor = args.optStr("hexColor") ?? "#000000"
-        let project = try await mutate(args) { editor in
-            await editor.addColorClip(hexColor: hexColor, duration: duration, at: at)
-        }
-        return try summary("Added color clip at \(at)s", project)
-    }
-
-    private func addTextOverlay(_ args: [String: Any]) async throws -> String {
-        let projectId = try args.uuid("projectId")
-        let text = try args.str("text")
-        let start = try args.num("start")
-        let end = try args.num("end")
-        let x = args.optNum("x") ?? 0.5
-        let y = args.optNum("y") ?? 0.5
-        let size = args.optNum("fontSize") ?? 36.0
-        let color = args.optStr("color") ?? "#FFFFFF"
-        _ = try await overlayEngine.addTextOverlay(
-            projectId: projectId, start: start, end: end, x: x, y: y,
-            text: text, size: size, color: color
-        )
-        return "Added text overlay \"\(text)\" from \(start)s to \(end)s"
+        return (project, track, clip)
     }
 
     // MARK: - Effects / adjustments
@@ -237,7 +205,11 @@ final class MCPTools {
     private func addAdjustment(_ args: [String: Any]) async throws -> String {
         let trackId = try args.uuid("trackId")
         let clipId = try args.str("clipId")
-        let kind = Project.AdjustmentKind(rawValue: try args.str("kind"))
+        let kindRaw = try args.str("kind")
+        guard Self.knownAdjustmentKinds.contains(kindRaw) else {
+            throw MCPToolError("Unknown adjustment kind '\(kindRaw)'. Valid kinds: \(Self.knownAdjustmentKinds.sorted().joined(separator: ", "))")
+        }
+        let kind = Project.AdjustmentKind(rawValue: kindRaw)
         let target = Project.AdjustmentTarget(rawValue: args.optStr("target") ?? "frame") ?? .frame
         let parameters = args.doubleDict("parameters")
         let adjustment = Project.Adjustment(
@@ -274,7 +246,7 @@ final class MCPTools {
     // MARK: - Shared helpers
 
     /// Load → edit → persist, returning the updated project.
-    private func mutate(_ args: [String: Any], _ op: (EditorModel) async -> EditorResult) async throws -> Project {
+    func mutate(_ args: [String: Any], _ op: (EditorModel) async -> EditorResult) async throws -> Project {
         let project = try await loadProject(args)
         let editor = EditorModel(project: project)
         let result = await op(editor)
@@ -285,7 +257,26 @@ final class MCPTools {
         return updated
     }
 
-    private func loadProject(_ args: [String: Any]) async throws -> Project {
+    /// Recognized visual/audio adjustment kinds — derived from EngineKit so app,
+    /// renderer and MCP stay in sync (see `Project.AdjustmentKind.allBuiltIn`).
+    static let knownAdjustmentKinds: Set<String> = Set(Project.AdjustmentKind.allBuiltIn.map(\.rawValue))
+
+    private func deleteProject(_ args: [String: Any]) async throws -> String {
+        let projectId = try args.uuid("projectId")
+        try await ProjectLibrary.shared.deleteProject(projectId: projectId)
+        return "Deleted project \(projectId)"
+    }
+
+    /// Validate an external media file exists, copy it into the project's
+    /// assets/ folder, and return the project-relative path the compositor
+    /// resolves at render time. Prevents phantom clips and makes the media
+    /// actually render (mirrors the app's import).
+    func stageAsset(_ sourcePath: String, projectId: UUID) async throws -> String {
+        let dir = try await ProjectLibrary.shared.getProjectDirectory(projectId: projectId)
+        return try ProjectLibrary.stageAsset(from: URL(fileURLWithPath: sourcePath), intoProjectDirectory: dir)
+    }
+
+    func loadProject(_ args: [String: Any]) async throws -> Project {
         let projectId = try args.uuid("projectId")
         return try await ProjectLibrary.shared.getProject(projectId: projectId)
     }
@@ -299,7 +290,7 @@ final class MCPTools {
 
     /// A short confirmation plus a compact timeline snapshot so callers can chain
     /// follow-up edits without a separate get_project round-trip.
-    private func summary(_ message: String, _ project: Project) throws -> String {
+    func summary(_ message: String, _ project: Project) throws -> String {
         let tracks: [[String: Any]] = project.timeline.tracks.map { track in
             [
                 "id": track.id.uuidString,
@@ -326,7 +317,7 @@ final class MCPTools {
         return String(data: data, encoding: .utf8) ?? message
     }
 
-    private func jsonText<T: Encodable>(_ value: T) throws -> String {
+    func jsonText<T: Encodable>(_ value: T) throws -> String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
@@ -337,7 +328,7 @@ final class MCPTools {
 
 // MARK: - Argument parsing
 
-private extension Dictionary where Key == String, Value == Any {
+extension Dictionary where Key == String, Value == Any {
     func str(_ key: String) throws -> String {
         guard let value = self[key] as? String else { throw MCPToolError("Missing string argument '\(key)'") }
         return value
@@ -369,6 +360,17 @@ private extension Dictionary where Key == String, Value == Any {
         let raw = try str(key)
         guard let id = UUID(uuidString: raw) else { throw MCPToolError("Invalid UUID for '\(key)': \(raw)") }
         return id
+    }
+
+    func optUUID(_ key: String) -> UUID? {
+        guard let raw = self[key] as? String else { return nil }
+        return UUID(uuidString: raw)
+    }
+
+    func optBool(_ key: String) -> Bool? {
+        if let b = self[key] as? Bool { return b }
+        if let i = self[key] as? Int { return i != 0 }
+        return nil
     }
 
     /// Coerce a nested object into `[String: Double]` (effect parameters).

@@ -156,11 +156,15 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
             public let end: TimeInterval
             /// Normalized canvas rect (0-1, y from top). nil = fullscreen aspect-fit.
             public let position: CGRect?
+            /// Per-clip visual effects (absolute-timeline windows) applied to the
+            /// overlay image while this clip is active.
+            public let adjustments: [AdjustmentConfig]
 
-            public init(start: TimeInterval, end: TimeInterval, position: CGRect?) {
+            public init(start: TimeInterval, end: TimeInterval, position: CGRect?, adjustments: [AdjustmentConfig] = []) {
                 self.start = start
                 self.end = end
                 self.position = position
+                self.adjustments = adjustments
             }
         }
 
@@ -174,9 +178,18 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
             self.clipWindows = clipWindows
         }
 
+        private func window(at time: TimeInterval) -> ClipWindow? {
+            clipWindows.first { time >= $0.start && time <= $0.end }
+        }
+
         /// Placement for the clip active at `time` (nil = fullscreen aspect-fit).
         func position(at time: TimeInterval) -> CGRect? {
-            clipWindows.first { time >= $0.start && time <= $0.end }?.position
+            window(at: time)?.position
+        }
+
+        /// Effects for the clip active at `time`.
+        func adjustments(at time: TimeInterval) -> [AdjustmentConfig] {
+            window(at: time)?.adjustments ?? []
         }
     }
 
@@ -586,6 +599,12 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
             overlayImage = overlayImage
                 .transformed(by: CGAffineTransform(a: scale, b: 0, c: 0, d: scale, tx: tx, ty: ty))
                 .cropped(to: canvasRect)
+
+            // Per-clip effects (sepia, B&W, brightness, blur…) on the overlay itself.
+            let clipAdjustments = source.adjustments(at: time)
+            if !clipAdjustments.isEmpty {
+                overlayImage = AdjustmentRenderer.applyClip(clipAdjustments, to: overlayImage, at: time, extent: canvasRect)
+            }
 
             if source.opacity < 0.999 {
                 overlayImage = overlayImage.applyingFilter("CIColorMatrix", parameters: [

@@ -174,6 +174,13 @@ public struct CompositionBuilder {
             resolver: resolver
         )
 
+        // Static (image/color) clips on overlay video tracks aren't inserted as
+        // media anywhere (buildVideoOverlayTracks only handles `.video` content),
+        // so collect them and make sure the primary track spans the timeline —
+        // otherwise an import-only project is a 0-length composition.
+        let overlayStaticClips = collectOverlayStaticClips(project)
+        padPrimaryVideoTrack(videoTrack, toCover: overlayStaticClips, project: project)
+
         return Result(
             composition: composition,
             videoTrack: videoTrack,
@@ -182,10 +189,53 @@ public struct CompositionBuilder {
             micAudioTrack: micAudioTrack,
             additionalAudioTracks: additionalAudioTracks,
             audioClipTracks: audioClipTracks,
-            staticClips: staticClips,
+            staticClips: staticClips + overlayStaticClips,
             videoOverlayTracks: videoOverlayTracks,
             videoClipAudioTracks: videoClipAudioTracks
         )
+    }
+
+    /// Static (image/color) clips living on overlay `.video` tracks, with absolute
+    /// timeline ranges — the compositor renders them since they have no media track.
+    private func collectOverlayStaticClips(_ project: Project) -> [StaticClipInfo] {
+        var result: [StaticClipInfo] = []
+        for track in project.timeline.videoTracks where !track.isMuted {
+            for clip in track.clips {
+                switch clip.content {
+                case .image, .color:
+                    let range = CMTimeRangeMake(
+                        start: CMTime(seconds: clip.timelineIn, preferredTimescale: 600),
+                        duration: CMTime(seconds: clip.duration, preferredTimescale: 600)
+                    )
+                    result.append(StaticClipInfo(clip: clip, timeRange: range))
+                default:
+                    break
+                }
+            }
+        }
+        return result
+    }
+
+    /// Extend the primary video track with an empty range so it covers every
+    /// overlay static clip. Without this, a project whose only content is static
+    /// clips on overlay tracks has an empty primary track and AVAssetExportSession
+    /// rejects the composition. No-op when there are no overlay static clips.
+    private func padPrimaryVideoTrack(_ videoTrack: AVMutableCompositionTrack,
+                                      toCover staticClips: [StaticClipInfo],
+                                      project: Project) {
+        guard !staticClips.isEmpty else { return }
+        let currentEnd = (videoTrack.timeRange.isValid && !videoTrack.timeRange.isEmpty)
+            ? CMTimeRangeGetEnd(videoTrack.timeRange) : .zero
+        var target = CMTime(seconds: project.timeline.duration, preferredTimescale: 600)
+        for info in staticClips {
+            let end = CMTimeRangeGetEnd(info.timeRange)
+            if CMTimeCompare(end, target) > 0 { target = end }
+        }
+        if CMTimeCompare(target, currentEnd) > 0 {
+            videoTrack.insertEmptyTimeRange(
+                CMTimeRangeMake(start: currentEnd, duration: CMTimeSubtract(target, currentEnd))
+            )
+        }
     }
 
     /// Legacy overload accepting SourcesForSegment callback

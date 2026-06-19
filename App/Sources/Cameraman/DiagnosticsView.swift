@@ -167,8 +167,7 @@ struct DiagnosticsView: View {
     }
 
     private func copyReport() {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(report, forType: .string)
+        Clipboard.copy(report)
         statusMessage = "Diagnostics copied to clipboard."
     }
 

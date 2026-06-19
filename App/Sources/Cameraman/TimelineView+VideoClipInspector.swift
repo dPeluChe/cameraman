@@ -46,6 +46,21 @@ extension TimelineView {
                 .controlSize(.small)
                 .help("Cover the whole canvas")
 
+                // Effects live in a popover so the row stays one line tall — adding
+                // effects never pushes the timeline down.
+                Button {
+                    showVideoClipEffects.toggle()
+                } label: {
+                    Label("Effects", systemImage: "wand.and.stars")
+                }
+                .controlSize(.small)
+                .help("Color filters, blur and audio pitch")
+                .popover(isPresented: $showVideoClipEffects, arrowEdge: .bottom) {
+                    VideoClipEffectsView(editor: editor, clipId: clip.id, trackId: selected.trackId)
+                        .padding(12)
+                        .frame(width: 320)
+                }
+
                 Spacer()
 
                 Button(role: .destructive) {

@@ -30,9 +30,19 @@ struct AppNavigation: View {
             .task {
                 await Task.yield()
                 await viewModel.loadProjects()
+                viewModel.startWatchingProjectsDirectory()
+            }
+            .onDisappear {
+                viewModel.stopWatchingProjectsDirectory()
             }
             .toolbar {
                 toolbarContent
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                // Pick up projects created by external processes (the MCP server,
+                // another window) while the app was in the background. listProjects
+                // is mod-date cached, so an unchanged library is cheap.
+                Task { await viewModel.loadProjects() }
             }
             .onReceive(NotificationCenter.default.publisher(for: .openRecordingWindow)) { notification in
                 if let projectId = notification.userInfo?["projectId"] as? ProjectId,

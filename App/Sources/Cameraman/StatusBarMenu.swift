@@ -211,7 +211,9 @@ class StatusBarMenu {
     }
 
     @objc private func checkForUpdates() {
-        AppUpdater.shared.checkForUpdates(userInitiated: true)
+        Task { @MainActor in
+            AppUpdater.shared.checkForUpdates(userInitiated: true)
+        }
     }
 
     @objc private func quit() {
