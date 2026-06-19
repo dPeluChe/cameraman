@@ -71,7 +71,8 @@ extension ExportEngine {
                 preset: preset,
                 options: options,
                 compositionResult: compositionResult,
-                primarySources: primarySources
+                primarySources: primarySources,
+                projectDirectory: projectDirectory
             )
 
             // Stage 5: Configure export session

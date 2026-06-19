@@ -18,7 +18,8 @@ extension ExportEngine {
         preset: ExportPreset,
         options: ExportOptions,
         compositionResult: CompositionBuilder.Result,
-        primarySources: Project.Sources
+        primarySources: Project.Sources,
+        projectDirectory: URL
     ) async throws -> AVMutableVideoComposition {
         logger.debug("Setting up video composition with preset: \(preset.name)")
 
@@ -38,6 +39,23 @@ extension ExportEngine {
         let screenMuted = options.videoMuteState?.screenMuted ?? false
         let cameraMuted = options.videoMuteState?.cameraMuted ?? false
         let videoOverlays = compositionResult.videoOverlaySources
+
+        // Static clips (image/color cards) need the custom compositor to draw them
+        // — there's no media track to layer. Mirrors the preview's static path and
+        // makes import-only projects (no recording) exportable.
+        if !compositionResult.staticClips.isEmpty {
+            videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
+            videoComposition.instructions = buildStaticExportInstructions(
+                project: project,
+                composition: composition,
+                staticClips: compositionResult.staticClips,
+                renderSize: videoComposition.renderSize,
+                projectDirectory: projectDirectory,
+                options: options,
+                videoOverlays: videoOverlays
+            )
+            return videoComposition
+        }
 
         if screenMuted, let cameraTrack = cameraTrack, !cameraMuted {
             applyFullscreenCameraInstructions(
@@ -366,5 +384,115 @@ extension ExportEngine {
         }
 
         return maskedInstructions
+    }
+
+    // MARK: - Static clip path (image/color cards, import-only projects)
+
+    /// Build compositor instructions that interleave static content (image/color)
+    /// with background/overlay-only ranges — the export counterpart of the
+    /// preview's `buildStaticClipInstructions`.
+    private func buildStaticExportInstructions(
+        project: Project,
+        composition: AVComposition,
+        staticClips: [CompositionBuilder.StaticClipInfo],
+        renderSize: CGSize,
+        projectDirectory: URL,
+        options: ExportOptions,
+        videoOverlays: [MaskedVideoCompositionInstruction.VideoOverlaySource]
+    ) -> [AVVideoCompositionInstructionProtocol] {
+        let screenTrackID = composition.tracks(withMediaType: .video).first?.trackID ?? kCMPersistentTrackID_Invalid
+        let overlayConfigs = project.overlayConfigs
+        let zoomPlan = options.applyZoom ? options.zoomPlan : nil
+        let total = composition.duration
+        var instructions: [AVVideoCompositionInstructionProtocol] = []
+        var coveredEnd = CMTime.zero
+
+        let ordered = staticClips.sorted { CMTimeCompare($0.timeRange.start, $1.timeRange.start) < 0 }
+        for info in ordered {
+            let start = info.timeRange.start
+            let end = CMTimeRangeGetEnd(info.timeRange)
+
+            // Background/overlay-only gap before this static clip.
+            if CMTimeCompare(coveredEnd, start) < 0 {
+                instructions.append(makeStaticGapInstruction(
+                    timeRange: CMTimeRangeMake(start: coveredEnd, duration: CMTimeSubtract(start, coveredEnd)),
+                    screenTrackID: screenTrackID, renderSize: renderSize, project: project,
+                    overlays: overlayConfigs, zoomPlan: zoomPlan, videoOverlays: videoOverlays))
+            }
+
+            let staticContent: MaskedVideoCompositionInstruction.StaticClipContent
+            switch info.clip.content {
+            case .image(let ref):
+                staticContent = .image(path: projectDirectory.appendingPathComponent(ref.path).path)
+            case .color(let ref):
+                staticContent = .color(hexColor: ref.hexColor)
+            default:
+                coveredEnd = end
+                continue
+            }
+
+            instructions.append(MaskedVideoCompositionInstruction(
+                timeRange: info.timeRange,
+                screenTrackID: screenTrackID,
+                cameraTrackID: nil,
+                renderSize: renderSize,
+                screenTransform: .identity,
+                cameraTransform: nil,
+                cameraRect: nil,
+                maskShape: .none,
+                cornerRadius: 0,
+                layoutType: "static",
+                backgroundType: project.canvas.background.type,
+                backgroundValue: project.canvas.background.value,
+                overlays: overlayConfigs,
+                adjustments: project.adjustmentConfigs,
+                staticContent: staticContent,
+                videoOverlays: videoOverlays
+            ))
+            coveredEnd = end
+        }
+
+        if CMTimeCompare(coveredEnd, total) < 0 {
+            instructions.append(makeStaticGapInstruction(
+                timeRange: CMTimeRangeMake(start: coveredEnd, duration: CMTimeSubtract(total, coveredEnd)),
+                screenTrackID: screenTrackID, renderSize: renderSize, project: project,
+                overlays: overlayConfigs, zoomPlan: zoomPlan, videoOverlays: videoOverlays))
+        }
+
+        return instructions
+    }
+
+    /// A compositor instruction for a range with no static card — draws the
+    /// background (and any video overlays) over the empty screen track.
+    private func makeStaticGapInstruction(
+        timeRange: CMTimeRange,
+        screenTrackID: CMPersistentTrackID,
+        renderSize: CGSize,
+        project: Project,
+        overlays: [OverlayConfig],
+        zoomPlan: ZoomPlanGenerator.ZoomPlan?,
+        videoOverlays: [MaskedVideoCompositionInstruction.VideoOverlaySource]
+    ) -> MaskedVideoCompositionInstruction {
+        MaskedVideoCompositionInstruction(
+            timeRange: timeRange,
+            screenTrackID: screenTrackID,
+            cameraTrackID: nil,
+            renderSize: renderSize,
+            screenTransform: .identity,
+            cameraTransform: nil,
+            cameraRect: nil,
+            maskShape: .none,
+            cornerRadius: 0,
+            layoutType: project.canvas.layout.type,
+            videoCornerRadius: CGFloat(project.canvas.videoCornerRadius),
+            videoShadowIntensity: CGFloat(project.canvas.videoShadowIntensity),
+            padding: CGFloat(project.canvas.padding),
+            backgroundType: project.canvas.background.type,
+            backgroundValue: project.canvas.background.value,
+            overlays: overlays,
+            adjustments: project.adjustmentConfigs,
+            zoomPlan: zoomPlan,
+            videoOverlays: videoOverlays
+        )
     }
 }

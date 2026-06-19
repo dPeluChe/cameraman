@@ -11,7 +11,7 @@ import AppKit
 // MARK: - Export Errors
 
 /// Export engine errors
-public enum ExportError: Error, Equatable, Sendable {
+public enum ExportError: Error, LocalizedError, Equatable, Sendable {
     case noSegments
     case missingSourceFile(String)
     case sourceFileNotFound(String)
@@ -53,6 +53,10 @@ public enum ExportError: Error, Equatable, Sendable {
             return "Audio sync drift detected: \(drift * 1000)ms"
         }
     }
+
+    // LocalizedError: without this, `error.localizedDescription` (used when an
+    // export job fails) falls back to the opaque "ExportError error N" NSError text.
+    public var errorDescription: String? { localizedDescription }
 }
 
 // MARK: - Export Result
