@@ -36,6 +36,24 @@ enum AdjustmentRenderer {
         return result
     }
 
+    /// Apply every adjustment active at `time`, ignoring `target` — used for an
+    /// imported-video overlay clip, where the effect applies to the clip's own
+    /// image rather than a screen/camera/background layer.
+    static func applyClip(
+        _ configs: [AdjustmentConfig],
+        to image: CIImage,
+        at time: TimeInterval,
+        extent: CGRect
+    ) -> CIImage {
+        let active = configs.filter { $0.isActive(at: time) }
+        guard !active.isEmpty else { return image }
+        var result = image
+        for config in active {
+            result = applyOne(config, to: result, extent: extent)
+        }
+        return result
+    }
+
     /// Whether any adjustment targets the given layer at the given time. Lets the
     /// compositor skip work (e.g. avoid building a background it won't touch).
     static func hasActive(

@@ -118,6 +118,27 @@ final class ProjectEditor: ObservableObject {
         }
     }
 
+    /// Add a per-clip effect (color filter, blur, audio pitch) — one undo step.
+    func addAdjustment(_ adjustment: Project.Adjustment, toClipId clipId: String, inTrackId trackId: UUID) async -> EditorResult {
+        await performEdit {
+            await self.editorModel.addAdjustment(adjustment, toClipId: clipId, inTrackId: trackId)
+        }
+    }
+
+    /// Update a clip effect's value (e.g. slider drag) by its id.
+    func updateAdjustment(_ adjustment: Project.Adjustment, inClipId clipId: String, trackId: UUID) async -> EditorResult {
+        await performEdit {
+            await self.editorModel.updateAdjustment(adjustment, inClipId: clipId, trackId: trackId)
+        }
+    }
+
+    /// Remove a clip effect by its id.
+    func removeAdjustment(_ id: UUID, fromClipId clipId: String, inTrackId trackId: UUID) async -> EditorResult {
+        await performEdit {
+            await self.editorModel.removeAdjustment(id, fromClipId: clipId, inTrackId: trackId)
+        }
+    }
+
     /// Reorder a video track among its siblings (also changes compositing z-order).
     func moveVideoTrack(trackId: UUID, up: Bool) async -> EditorResult {
         await performEdit {

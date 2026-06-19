@@ -22,6 +22,7 @@ extension TimelineView {
     @ViewBuilder
     var videoClipInspector: some View {
         if let selected = selectedVideoClip, let clip = liveSelectedVideoClip {
+            VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 14) {
                 Label(videoClipName(clip), systemImage: "film")
                     .font(.caption)
@@ -65,6 +66,10 @@ extension TimelineView {
                 }
                 .controlSize(.small)
                 .buttonStyle(.plain)
+            }
+
+            Divider()
+            VideoClipEffectsView(editor: editor, clipId: clip.id, trackId: selected.trackId)
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
