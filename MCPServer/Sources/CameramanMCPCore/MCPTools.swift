@@ -48,6 +48,14 @@ final class MCPTools {
         case "remove_adjustment":    return try await removeAdjustment(arguments)
         case "list_adjustments":     return try await listAdjustments(arguments)
         case "delete_project":       return try await deleteProject(arguments)
+        case "export_project":       return try await exportProject(arguments)
+        case "get_job_status":       return try await getJobStatus(arguments)
+        case "list_jobs":            return try await listJobs(arguments)
+        case "cancel_job":           return try await cancelJob(arguments)
+        case "transcribe_project":   return try await transcribeProject(arguments)
+        case "get_captions":         return try await getCaptions(arguments)
+        case "set_canvas_layout":    return try await setCanvasLayout(arguments)
+        case "set_background":       return try await setBackground(arguments)
         default:
             throw MCPToolError("Unknown tool: \(name)")
         }
@@ -313,7 +321,7 @@ final class MCPTools {
         return try ProjectLibrary.stageAsset(from: URL(fileURLWithPath: sourcePath), intoProjectDirectory: dir)
     }
 
-    private func loadProject(_ args: [String: Any]) async throws -> Project {
+    func loadProject(_ args: [String: Any]) async throws -> Project {
         let projectId = try args.uuid("projectId")
         return try await ProjectLibrary.shared.getProject(projectId: projectId)
     }
@@ -327,7 +335,7 @@ final class MCPTools {
 
     /// A short confirmation plus a compact timeline snapshot so callers can chain
     /// follow-up edits without a separate get_project round-trip.
-    private func summary(_ message: String, _ project: Project) throws -> String {
+    func summary(_ message: String, _ project: Project) throws -> String {
         let tracks: [[String: Any]] = project.timeline.tracks.map { track in
             [
                 "id": track.id.uuidString,
@@ -354,7 +362,7 @@ final class MCPTools {
         return String(data: data, encoding: .utf8) ?? message
     }
 
-    private func jsonText<T: Encodable>(_ value: T) throws -> String {
+    func jsonText<T: Encodable>(_ value: T) throws -> String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
@@ -365,7 +373,7 @@ final class MCPTools {
 
 // MARK: - Argument parsing
 
-private extension Dictionary where Key == String, Value == Any {
+extension Dictionary where Key == String, Value == Any {
     func str(_ key: String) throws -> String {
         guard let value = self[key] as? String else { throw MCPToolError("Missing string argument '\(key)'") }
         return value

@@ -185,7 +185,78 @@ extension MCPTools {
                     "trackId": str("Track UUID"),
                     "clipId": str("Clip id")
                  ],
-                 required: ["projectId", "trackId", "clipId"])
+                 required: ["projectId", "trackId", "clipId"]),
+
+            // MARK: Delivery — export & jobs
+
+            tool("export_project",
+                 "Render a project to a video (or GIF) file. Async: returns a jobId immediately; poll get_job_status until status is success, then the file is in the project's renders/ folder.",
+                 properties: [
+                    "projectId": str("Project UUID"),
+                    "preset": strEnum("Output preset (default web_1080_h264)",
+                                      ["web_1080_h264", "high_1080_hevc", "portrait_1080_h264", "ultra_4k_hevc", "animated_gif"]),
+                    "burnCaptions": bool("Burn captions into the video (default false; ignored for GIF)"),
+                    "filename": str("Optional output filename")
+                 ],
+                 required: ["projectId"]),
+
+            tool("get_job_status",
+                 "Get the status of an export/transcription job: status (queued/running/success/failed/canceled), progress (0–1), and any error.",
+                 properties: ["jobId": str("Job UUID returned by export_project / transcribe_project")],
+                 required: ["jobId"]),
+
+            tool("list_jobs",
+                 "List all jobs (export, transcription, …) for a project in this server session.",
+                 properties: ["projectId": str("Project UUID")],
+                 required: ["projectId"]),
+
+            tool("cancel_job",
+                 "Cancel a running or queued job.",
+                 properties: ["jobId": str("Job UUID")],
+                 required: ["jobId"]),
+
+            // MARK: Transcription
+
+            tool("transcribe_project",
+                 "Transcribe the project's audio on-device (Apple Silicon only). Async: returns a jobId; on success captions are written and readable via get_captions.",
+                 properties: [
+                    "projectId": str("Project UUID"),
+                    "model": strEnum("Whisper model (bigger = slower/more accurate; default base)", ["base", "small", "medium", "large"]),
+                    "language": str("Optional ISO language code (e.g. en, es); omit to auto-detect")
+                 ],
+                 required: ["projectId"]),
+
+            tool("get_captions",
+                 "Read the generated captions for a project (run transcribe_project first).",
+                 properties: [
+                    "projectId": str("Project UUID"),
+                    "format": strEnum("Caption format (default srt)", ["srt", "vtt", "json"])
+                 ],
+                 required: ["projectId"]),
+
+            // MARK: Canvas composition
+
+            tool("set_canvas_layout",
+                 "Set how screen and camera are composed. type=fullscreen (screen only), pip (camera as a floating inset), or side_by_side. For pip/side_by_side pass an optional camera placement. Also tunes padding, corner radius and shadow.",
+                 properties: [
+                    "projectId": str("Project UUID"),
+                    "type": strEnum("Layout type", ["fullscreen", "pip", "side_by_side"]),
+                    "camera": object("Camera placement (normalized 0–1): {x,y,w,h,cornerRadius,maskShape(none|circle|roundedRect|capsule),borderWidth,borderColor}"),
+                    "padding": num("Canvas padding as a fraction of size (0–0.3)"),
+                    "videoCornerRadius": num("Video corner radius in px (>=0)"),
+                    "videoShadowIntensity": num("Video shadow intensity (0–1)")
+                 ],
+                 required: ["projectId"]),
+
+            tool("set_background",
+                 "Set the canvas background. type=color (value=hex like #101014), image (value=absolute path to an image, copied into the project), or blur (value=hex tint).",
+                 properties: [
+                    "projectId": str("Project UUID"),
+                    "type": strEnum("Background type", ["color", "image", "blur"]),
+                    "value": str("Hex color (#RRGGBB) or, for image, an absolute file path"),
+                    "fitMode": strEnum("Image fit mode", ["fit", "fill"])
+                 ],
+                 required: ["projectId", "type", "value"])
         ]
     }
 
