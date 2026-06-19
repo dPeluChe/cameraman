@@ -19,7 +19,7 @@ struct MCPToolError: Error {
 
 final class MCPTools {
 
-    private let overlayEngine = OverlayEngine()
+    let overlayEngine = OverlayEngine()
 
     /// In-flight recording started via `start_recording`, finalized by
     /// `stop_recording`. Only one recording at a time (the engine enforces this).
@@ -56,6 +56,33 @@ final class MCPTools {
         case "get_captions":         return try await getCaptions(arguments)
         case "set_canvas_layout":    return try await setCanvasLayout(arguments)
         case "set_background":       return try await setBackground(arguments)
+        // Clips
+        case "move_clip":            return try await moveClip(arguments)
+        case "update_clip":          return try await updateClip(arguments)
+        case "trim_clip":            return try await trimClip(arguments)
+        case "delete_range":         return try await deleteRange(arguments)
+        case "update_adjustment":    return try await updateAdjustment(arguments)
+        case "clear_adjustments":    return try await clearAdjustments(arguments)
+        // Tracks
+        case "add_track":            return try await addTrack(arguments)
+        case "remove_track":         return try await removeTrack(arguments)
+        case "move_video_track":     return try await moveVideoTrack(arguments)
+        case "set_track_locked":     return try await setTrackLocked(arguments)
+        // Overlays
+        case "add_overlay":          return try await addOverlay(arguments)
+        case "list_overlays":        return try await listOverlays(arguments)
+        case "update_overlay":       return try await updateOverlay(arguments)
+        case "delete_overlay":       return try await deleteOverlay(arguments)
+        // Library / metadata
+        case "duplicate_project":    return try await duplicateProject(arguments)
+        case "rename_project":       return try await renameProject(arguments)
+        case "set_tags":             return try await setTags(arguments)
+        case "search_projects":      return try await searchProjects(arguments)
+        case "merge_projects":       return try await mergeProjects(arguments)
+        case "export_bundle":        return try await exportBundle(arguments)
+        case "import_bundle":        return try await importBundle(arguments)
+        case "suggest_silence_edits": return try await suggestSilenceEdits(arguments)
+        case "suggest_chapters":     return try await suggestChapters(arguments)
         default:
             throw MCPToolError("Unknown tool: \(name)")
         }
@@ -291,7 +318,7 @@ final class MCPTools {
     // MARK: - Shared helpers
 
     /// Load → edit → persist, returning the updated project.
-    private func mutate(_ args: [String: Any], _ op: (EditorModel) async -> EditorResult) async throws -> Project {
+    func mutate(_ args: [String: Any], _ op: (EditorModel) async -> EditorResult) async throws -> Project {
         let project = try await loadProject(args)
         let editor = EditorModel(project: project)
         let result = await op(editor)
@@ -405,6 +432,17 @@ extension Dictionary where Key == String, Value == Any {
         let raw = try str(key)
         guard let id = UUID(uuidString: raw) else { throw MCPToolError("Invalid UUID for '\(key)': \(raw)") }
         return id
+    }
+
+    func optUUID(_ key: String) -> UUID? {
+        guard let raw = self[key] as? String else { return nil }
+        return UUID(uuidString: raw)
+    }
+
+    func optBool(_ key: String) -> Bool? {
+        if let b = self[key] as? Bool { return b }
+        if let i = self[key] as? Int { return i != 0 }
+        return nil
     }
 
     /// Coerce a nested object into `[String: Double]` (effect parameters).

@@ -256,7 +256,220 @@ extension MCPTools {
                     "value": str("Hex color (#RRGGBB) or, for image, an absolute file path"),
                     "fitMode": strEnum("Image fit mode", ["fit", "fill"])
                  ],
-                 required: ["projectId", "type", "value"])
+                 required: ["projectId", "type", "value"]),
+
+            // MARK: Clips — move / retime / trim / ripple
+
+            tool("move_clip",
+                 "Reposition a clip on the timeline, optionally onto another track. Pass toTimelineIn to set its new start; pass toTrackId to move it to a different track.",
+                 properties: [
+                    "projectId": str("Project UUID"),
+                    "trackId": str("Current track UUID"),
+                    "clipId": str("Clip id"),
+                    "toTimelineIn": num("New timeline start in seconds"),
+                    "toTrackId": str("Destination track UUID (omit to stay on the same track)")
+                 ],
+                 required: ["projectId", "trackId", "clipId"]),
+
+            tool("update_clip",
+                 "Change a clip's playback properties. Pass any of speed, volume, opacity.",
+                 properties: [
+                    "projectId": str("Project UUID"),
+                    "trackId": str("Track UUID"),
+                    "clipId": str("Clip id"),
+                    "speed": num("Playback speed multiplier (e.g. 0.5, 2.0)"),
+                    "volume": num("Clip volume 0.0–1.0"),
+                    "opacity": num("Clip opacity 0.0–1.0 (video)")
+                 ],
+                 required: ["projectId", "trackId", "clipId"]),
+
+            tool("trim_clip",
+                 "Trim a clip's source window. For video/recording, sourceIn/sourceOut are source-relative seconds; for audio, sourceOut sets duration; for image/color, sourceOut sets the on-screen duration.",
+                 properties: [
+                    "projectId": str("Project UUID"),
+                    "trackId": str("Track UUID"),
+                    "clipId": str("Clip id"),
+                    "sourceIn": num("New source in-point (seconds)"),
+                    "sourceOut": num("New source out-point (seconds)")
+                 ],
+                 required: ["projectId", "trackId", "clipId"]),
+
+            tool("delete_range",
+                 "Ripple-delete a time range from the timeline: remove everything between two times and close the gap.",
+                 properties: [
+                    "projectId": str("Project UUID"),
+                    "from": num("Range start in seconds"),
+                    "to": num("Range end in seconds")
+                 ],
+                 required: ["projectId", "from", "to"]),
+
+            tool("update_adjustment",
+                 "Update an existing effect on a clip. Pass only the fields to change (parameters, enabled, kind, target, start, end).",
+                 properties: [
+                    "projectId": str("Project UUID"),
+                    "trackId": str("Track UUID"),
+                    "clipId": str("Clip id"),
+                    "adjustmentId": str("Adjustment UUID"),
+                    "parameters": object("New effect parameters"),
+                    "enabled": bool("Enable/disable the effect"),
+                    "kind": str("New effect kind"),
+                    "target": strEnum("Layer", ["frame", "screen", "camera", "background", "audio"]),
+                    "start": num("Clip-relative start (seconds)"),
+                    "end": num("Clip-relative end (seconds)")
+                 ],
+                 required: ["projectId", "trackId", "clipId", "adjustmentId"]),
+
+            tool("clear_adjustments",
+                 "Remove all effects from a clip.",
+                 properties: [
+                    "projectId": str("Project UUID"),
+                    "trackId": str("Track UUID"),
+                    "clipId": str("Clip id")
+                 ],
+                 required: ["projectId", "trackId", "clipId"]),
+
+            // MARK: Tracks
+
+            tool("add_track",
+                 "Add a new empty track.",
+                 properties: [
+                    "projectId": str("Project UUID"),
+                    "type": strEnum("Track type", ["primary", "video", "audio"]),
+                    "name": str("Optional track name")
+                 ],
+                 required: ["projectId", "type"]),
+
+            tool("remove_track",
+                 "Remove a track and its clips.",
+                 properties: ["projectId": str("Project UUID"), "trackId": str("Track UUID")],
+                 required: ["projectId", "trackId"]),
+
+            tool("move_video_track",
+                 "Reorder a video track in the compositing stack (z-order).",
+                 properties: [
+                    "projectId": str("Project UUID"),
+                    "trackId": str("Track UUID"),
+                    "up": bool("true to move up (front), false to move down")
+                 ],
+                 required: ["projectId", "trackId", "up"]),
+
+            tool("set_track_locked",
+                 "Lock or unlock a track (locked tracks reject edits).",
+                 properties: [
+                    "projectId": str("Project UUID"),
+                    "trackId": str("Track UUID"),
+                    "locked": bool("true to lock")
+                 ],
+                 required: ["projectId", "trackId", "locked"]),
+
+            // MARK: Overlays (symmetric)
+
+            tool("add_overlay",
+                 "Add an overlay: arrow, rect, line or text. Shapes use stroke/strokeWidth; text needs text (and optional fontSize/color). Optional drawOn (shapes) or fadeIn (text) animation. Returns the new overlayId.",
+                 properties: [
+                    "projectId": str("Project UUID"),
+                    "type": strEnum("Overlay type", ["arrow", "rect", "line", "text"]),
+                    "start": num("Start time in seconds"),
+                    "end": num("End time in seconds"),
+                    "x": num("Normalized x 0–1 (default 0.5)"),
+                    "y": num("Normalized y 0–1 (default 0.5)"),
+                    "scale": num("Scale (default 1.0)"),
+                    "rotation": num("Rotation in degrees (default 0)"),
+                    "stroke": str("Shape stroke hex color (default #FFFFFF)"),
+                    "strokeWidth": num("Shape stroke width"),
+                    "text": str("Text content (text overlays)"),
+                    "fontSize": num("Font size (text, default 36)"),
+                    "color": str("Text hex color (default #FFFFFF)"),
+                    "drawOn": bool("Animate arrow/line drawing on (default false)"),
+                    "fadeIn": bool("Fade text in (default false)")
+                 ],
+                 required: ["projectId", "type", "start", "end"]),
+
+            tool("list_overlays",
+                 "List all overlays on a project with their ids, types, times, transform and style.",
+                 properties: ["projectId": str("Project UUID")],
+                 required: ["projectId"]),
+
+            tool("update_overlay",
+                 "Update an overlay. Pass only the fields to change (position x/y, scale, rotation, start/end, stroke, strokeWidth, color, fontSize, text).",
+                 properties: [
+                    "projectId": str("Project UUID"),
+                    "overlayId": str("Overlay UUID (from list_overlays / add_overlay)"),
+                    "x": num("Normalized x 0–1"),
+                    "y": num("Normalized y 0–1"),
+                    "scale": num("Scale"),
+                    "rotation": num("Rotation in degrees"),
+                    "start": num("Start time in seconds"),
+                    "end": num("End time in seconds"),
+                    "stroke": str("Shape stroke hex color"),
+                    "strokeWidth": num("Shape stroke width"),
+                    "color": str("Text hex color"),
+                    "fontSize": num("Text font size"),
+                    "text": str("Text content")
+                 ],
+                 required: ["projectId", "overlayId"]),
+
+            tool("delete_overlay",
+                 "Delete an overlay by id.",
+                 properties: ["projectId": str("Project UUID"), "overlayId": str("Overlay UUID")],
+                 required: ["projectId", "overlayId"]),
+
+            // MARK: Project management / metadata
+
+            tool("duplicate_project",
+                 "Clone a project (timeline, media and all) into a new project. Returns the new project id — handy for safe experiments on a copy.",
+                 properties: ["projectId": str("Project UUID to clone")],
+                 required: ["projectId"]),
+
+            tool("rename_project",
+                 "Rename a project.",
+                 properties: ["projectId": str("Project UUID"), "name": str("New name")],
+                 required: ["projectId", "name"]),
+
+            tool("set_tags",
+                 "Replace a project's tags.",
+                 properties: ["projectId": str("Project UUID"), "tags": array("Tag strings")],
+                 required: ["projectId", "tags"]),
+
+            tool("search_projects",
+                 "Search projects by name and tags.",
+                 properties: [
+                    "query": str("Search text"),
+                    "matchAllTerms": bool("Require all terms to match (default false)")
+                 ],
+                 required: ["query"]),
+
+            tool("merge_projects",
+                 "Merge two projects into a new one (second appended after first). Returns the new project id.",
+                 properties: [
+                    "firstId": str("First project UUID"),
+                    "secondId": str("Second project UUID"),
+                    "name": str("Optional name for the merged project")
+                 ],
+                 required: ["firstId", "secondId"]),
+
+            tool("export_bundle",
+                 "Export a project as a portable .cameramanproject bundle into a folder. Returns the bundle path.",
+                 properties: [
+                    "projectId": str("Project UUID"),
+                    "destinationFolder": str("Absolute path to an existing destination folder")
+                 ],
+                 required: ["projectId", "destinationFolder"]),
+
+            tool("import_bundle",
+                 "Import a .cameramanproject bundle as a new project. Returns the new project id.",
+                 properties: ["bundlePath": str("Absolute path to a .cameramanproject bundle")],
+                 required: ["bundlePath"]),
+
+            tool("suggest_silence_edits",
+                 "Analyze the project audio on-device and suggest silent ranges to cut. Async: returns a jobId; poll get_job_status.",
+                 properties: ["projectId": str("Project UUID")],
+                 required: ["projectId"]),
+
+            tool("suggest_chapters",
+                 "Suggest chapter markers from the project's transcript on-device (run transcribe_project first). Async: returns a jobId; poll get_job_status.",
+                 properties: ["projectId": str("Project UUID")],
+                 required: ["projectId"])
         ]
     }
 
