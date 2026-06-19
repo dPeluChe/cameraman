@@ -22,7 +22,6 @@ extension TimelineView {
     @ViewBuilder
     var videoClipInspector: some View {
         if let selected = selectedVideoClip, let clip = liveSelectedVideoClip {
-            VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 14) {
                 Label(videoClipName(clip), systemImage: "film")
                     .font(.caption)
@@ -47,6 +46,21 @@ extension TimelineView {
                 .controlSize(.small)
                 .help("Cover the whole canvas")
 
+                // Effects live in a popover so the row stays one line tall — adding
+                // effects never pushes the timeline down.
+                Button {
+                    showVideoClipEffects.toggle()
+                } label: {
+                    Label("Effects", systemImage: "wand.and.stars")
+                }
+                .controlSize(.small)
+                .help("Color filters, blur and audio pitch")
+                .popover(isPresented: $showVideoClipEffects, arrowEdge: .bottom) {
+                    VideoClipEffectsView(editor: editor, clipId: clip.id, trackId: selected.trackId)
+                        .padding(12)
+                        .frame(width: 320)
+                }
+
                 Spacer()
 
                 Button(role: .destructive) {
@@ -66,10 +80,6 @@ extension TimelineView {
                 }
                 .controlSize(.small)
                 .buttonStyle(.plain)
-            }
-
-            Divider()
-            VideoClipEffectsView(editor: editor, clipId: clip.id, trackId: selected.trackId)
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 6)

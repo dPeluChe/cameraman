@@ -43,6 +43,7 @@ struct TimelineView: View {
     @State var isTrimming = false
     @State var showImportPanel = false
     @State var selectedVideoClip: SelectedVideoClip?
+    @State var showVideoClipEffects = false
     @State var importNotice: String?
     @State var zoomSuggestions: [ZoomSuggestion] = []
     @State var dismissedSuggestionIds: Set<UUID> = []

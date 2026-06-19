@@ -9,10 +9,31 @@
 
 import SwiftUI
 import UniformTypeIdentifiers
+import EngineKit
 
 struct IntegrationsPreferencesView: View {
     @AppStorage("mcp.binaryPath") private var binaryPath = ""
     @State private var showBinaryPicker = false
+    @State private var selectedClient: MCPClient = .claudeDesktop
+
+    /// External MCP clients we generate registration snippets for.
+    private enum MCPClient: String, CaseIterable, Identifiable {
+        case claudeDesktop = "Claude Desktop"
+        case claudeCode = "Claude Code"
+        case codex = "Codex CLI"
+        var id: String { rawValue }
+
+        var detail: String {
+            switch self {
+            case .claudeDesktop: "Add to ~/Library/Application Support/Claude/claude_desktop_config.json"
+            case .claudeCode: "Run in your terminal"
+            case .codex: "Add to ~/.codex/config.toml"
+            }
+        }
+    }
+
+    /// A binary is available (user-selected or bundled) — gates the Copy buttons.
+    private var hasBinary: Bool { !binaryPath.isEmpty || bundledPath != nil }
 
     /// The MCP binary shipped inside the app bundle (Contents/Helpers), if present.
     private var bundledPath: String? {
@@ -35,10 +56,7 @@ struct IntegrationsPreferencesView: View {
 
     /// This (sandboxed) app's Projects directory — the MCP server must be pointed
     /// here via CAMERAMAN_PROJECTS_DIR or it reads a different, empty folder.
-    private var projectsDir: String {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        return appSupport.appendingPathComponent("ProjectStudio/Projects", isDirectory: true).path
-    }
+    private var projectsDir: String { ProjectStore().baseDirectory.path }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -83,26 +101,18 @@ struct IntegrationsPreferencesView: View {
                 }
             }
 
-            // Client snippets
-            VStack(alignment: .leading, spacing: 6) {
+            // Client snippets — one tab per client, only the selected one shown
+            VStack(alignment: .leading, spacing: 8) {
                 Text("Register with a client")
                     .font(.subheadline.weight(.semibold))
 
-                clientRow(
-                    "Claude Desktop",
-                    detail: "Add to ~/Library/Application Support/Claude/claude_desktop_config.json",
-                    snippet: claudeJSONSnippet
-                )
-                clientRow(
-                    "Claude Code",
-                    detail: "Run in your terminal",
-                    snippet: "claude mcp add cameraman -e CAMERAMAN_PROJECTS_DIR=\"\(projectsDir)\" -- \(resolvedPath)"
-                )
-                clientRow(
-                    "Codex CLI",
-                    detail: "Add to ~/.codex/config.toml",
-                    snippet: codexTOMLSnippet
-                )
+                Picker("", selection: $selectedClient) {
+                    ForEach(MCPClient.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+
+                clientRow(detail: selectedClient.detail, snippet: snippet(for: selectedClient))
 
                 Text("Snippets point the server at this app's projects via CAMERAMAN_PROJECTS_DIR, so it sees the same projects you edit here.")
                     .font(.caption)
@@ -142,11 +152,21 @@ struct IntegrationsPreferencesView: View {
         """
     }
 
+    private func snippet(for client: MCPClient) -> String {
+        switch client {
+        case .claudeDesktop: claudeJSONSnippet
+        case .claudeCode: "claude mcp add cameraman -e CAMERAMAN_PROJECTS_DIR=\"\(projectsDir)\" -- \(resolvedPath)"
+        case .codex: codexTOMLSnippet
+        }
+    }
+
     @ViewBuilder
-    private func clientRow(_ name: String, detail: String, snippet: String) -> some View {
+    private func clientRow(detail: String, snippet: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text(name).font(.callout.weight(.medium))
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Spacer()
                 Button {
                     Clipboard.copy(snippet)
@@ -154,11 +174,8 @@ struct IntegrationsPreferencesView: View {
                     Label("Copy", systemImage: "doc.on.doc")
                 }
                 .controlSize(.small)
-                .disabled(binaryPath.isEmpty)
+                .disabled(!hasBinary)
             }
-            Text(detail)
-                .font(.caption)
-                .foregroundStyle(.secondary)
             snippetBox(snippet)
         }
         .padding(.vertical, 4)

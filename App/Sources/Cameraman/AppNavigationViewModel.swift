@@ -44,9 +44,23 @@ final class AppNavigationViewModel: ObservableObject {
 
     private let library: ProjectLibrary
     private var lastLoadTime: Date?
+    private let directoryWatcher = ProjectsDirectoryWatcher()
 
     nonisolated init(library: ProjectLibrary = ProjectLibrary.shared) {
         self.library = library
+    }
+
+    /// Live-refresh the library when the Projects directory changes on disk
+    /// (e.g. the MCP server creates/deletes a project while this window is open).
+    func startWatchingProjectsDirectory() {
+        let directory = ProjectStore().baseDirectory
+        directoryWatcher.start(directory: directory) { [weak self] in
+            Task { await self?.loadProjects(force: true) }
+        }
+    }
+
+    func stopWatchingProjectsDirectory() {
+        directoryWatcher.stop()
     }
 
     var filteredProjects: [ProjectSummary] {
@@ -110,10 +124,11 @@ final class AppNavigationViewModel: ObservableObject {
         return Array(tags).sorted()
     }
 
-    func loadProjects() async {
-        // Debounce: skip if called within 500ms of last load
+    func loadProjects(force: Bool = false) async {
+        // Debounce: skip if called within 500ms of last load (force bypasses it,
+        // e.g. the filesystem watcher reacting to an external change).
         let now = Date()
-        if let last = lastLoadTime, now.timeIntervalSince(last) < 0.5 {
+        if !force, let last = lastLoadTime, now.timeIntervalSince(last) < 0.5 {
             return
         }
         lastLoadTime = now

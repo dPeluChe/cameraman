@@ -30,6 +30,10 @@ struct AppNavigation: View {
             .task {
                 await Task.yield()
                 await viewModel.loadProjects()
+                viewModel.startWatchingProjectsDirectory()
+            }
+            .onDisappear {
+                viewModel.stopWatchingProjectsDirectory()
             }
             .toolbar {
                 toolbarContent

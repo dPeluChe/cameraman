@@ -33,8 +33,10 @@ public actor ProjectStore {
     func fileSize(of url: URL) -> UInt64 {
         (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? UInt64) ?? 0
     }
-    /// Base directory for all projects
-    let baseDirectory: URL
+    /// Base directory for all projects (resolved from CAMERAMAN_PROJECTS_DIR or
+    /// the app-support default). Immutable, so `nonisolated` lets the app read it
+    /// synchronously (e.g. to watch the directory for live refresh).
+    public nonisolated let baseDirectory: URL
     /// File manager for disk operations
     let fileManager: FileManager
     /// Structured logging
