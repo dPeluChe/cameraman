@@ -128,6 +128,7 @@ struct TeleprompterOverlayView: View {
                     .padding(.vertical, 8)
                     .background(viewModel.tab == tab ? Color.accentColor.opacity(0.2) : Color.clear)
                     .foregroundStyle(viewModel.tab == tab ? .primary : .secondary)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }

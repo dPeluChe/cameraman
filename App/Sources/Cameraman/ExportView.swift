@@ -112,7 +112,8 @@ struct ExportView: View {
                     .font(.headline)
 
                 presetPicker
-                    .pickerStyle(.menu)
+                    .pickerStyle(.radioGroup)
+                    .labelsHidden()
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
@@ -295,6 +296,7 @@ struct ExportView: View {
             }
         }
         .buttonStyle(.borderedProminent)
+        .keyboardShortcut(.defaultAction) // ⌘↵ triggers Export in the dialog
         .disabled(!viewModel.canExport)
     }
 

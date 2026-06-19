@@ -70,12 +70,6 @@ struct CameramanApp: App {
                 Button("Donate via PayPal") {
                     NSWorkspace.shared.open(AppLinks.paypal)
                 }
-
-                Divider()
-
-                Button("Check for Updates...") {
-                    AppUpdater.shared.checkForUpdates(userInitiated: true)
-                }
             }
         }
 

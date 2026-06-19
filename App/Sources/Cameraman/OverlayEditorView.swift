@@ -53,6 +53,7 @@ struct OverlayEditorView: View {
                             RoundedRectangle(cornerRadius: 4)
                                 .fill(selectedOverlayId == overlay.id ? Color.accentColor.opacity(0.15) : Color.clear)
                         )
+                        .contentShape(Rectangle())
                         .onTapGesture {
                             selectedOverlayId = overlay.id
                         }

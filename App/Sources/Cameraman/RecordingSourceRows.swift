@@ -29,6 +29,7 @@ struct FloatingSourceTypeButton: View {
             .background(isSelected ? Color.accentColor : Color.clear)
             .foregroundStyle(isSelected ? .white : .secondary)
             .cornerRadius(8)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }

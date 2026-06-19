@@ -32,13 +32,9 @@ May 2026 (pre-publication push): ultrawide writer fix, mic overload, telemetry s
 
 > Small, low-risk improvements. None change product direction.
 
-- [ ] **Latent race in `startNewTake()`** — `ProjectEditorLeftPanel.swift:103-107` assigns `recViewModel.targetProjectId` before posting `.openRecordingWindow`. Works today because the observer is synchronous; if it ever becomes async, the window may read `nil`. Pass `projectId` via `Notification.userInfo` to make the contract explicit.
-- [ ] **Count badge on collapsed `ProjectAssetsBar`** — at 38pt height there's no signal of how many takes/segments exist. Add `(\(count))` next to the title when collapsed.
-- [ ] **`AssetChip` fixed width truncates long names** — replace `frame(width: 118)` with `minWidth: 100, maxWidth: 180` + `fixedSize(horizontal: false)`.
-- [ ] **Export preset picker context** — `.menu` style hides the options; consider `Picker` with per-option icon labels (HEVC, GIF, H.264) to preserve affordance.
-- [ ] **Keyboard shortcuts** — `⌘E` open export panel, `⌘⇧E` rerun the last export, `⌘R` open recording window.
-- [ ] **Skeletons on `ProjectAssetsBar`** — distinguish "loading" from "empty" while takes are still being read.
-- [ ] **Inline filename extension in `ExportView`** — show `.mp4` / `.gif` as a grey inline suffix on the field instead of a separate caption.
+- [ ] **Rerun last export (`⌘⇧E`)** — needs feature work, not just a shortcut: persist the last export's preset/destination/options and re-trigger without opening the dialog. (`⌘E` opens export, `⌘↵` runs it in the dialog, `⌘N` opens recording — all exist.)
+
+> Closed in `fix/ux-polish` (June 2026): clickable hit-area on custom selectors (Settings tabs, recording-source rows, teleprompter tabs, overlay list rows) via `.contentShape`; duplicate "Check for Updates" Help item removed; export preset picker `.menu` → `.radioGroup` (all options visible); `⌘↵` runs Export in the dialog. Already done earlier (TODO was stale): `startNewTake` projectId via userInfo, `AssetChip` min/max width, inline export filename extension, count badge on the collapsed asset bar. N/A: asset-bar skeletons (takes are part of the already-loaded project — the editor shows a `ProgressView` until load, so there's no async take-loading state to skeletonize).
 
 ---
 

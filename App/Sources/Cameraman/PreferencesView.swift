@@ -49,17 +49,23 @@ struct PreferencesView: View {
                             Text(tab.rawValue)
                                 .font(.system(size: 11))
                         }
+                        .foregroundStyle(selectedTab == tab ? Color.accentColor : Color.secondary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
-                        .background(selectedTab == tab ? Color.accentColor.opacity(0.1) : Color.clear)
-                        .overlay(
-                            Rectangle()
-                                .fill(Color.accentColor)
-                                .frame(height: 2),
-                            alignment: .bottom
-                        )
+                        .background(selectedTab == tab ? Color.accentColor.opacity(0.12) : Color.clear)
+                        .overlay(alignment: .bottom) {
+                            if selectedTab == tab {
+                                Rectangle()
+                                    .fill(Color.accentColor)
+                                    .frame(height: 2)
+                            }
+                        }
+                        // Make the whole cell clickable, not just the icon/text
+                        // glyphs (Color.clear backgrounds aren't hit-testable).
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .help(tab.rawValue)
                 }
             }
             .padding(.horizontal)

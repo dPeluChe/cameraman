@@ -77,6 +77,12 @@ automatizar Cameraman desde asistentes de IA (Claude Desktop/Code, Codex).
 - Botones *Copy* del panel de Integrations no funcionaban con el binario incluido
   (estaban gateados a una ruta seleccionada por el usuario); `checkForUpdates` del
   status bar lanzaba en contexto no-`@MainActor`.
+- **Clickabilidad de selectores** — toda la celda responde al clic (no solo el
+  ícono/texto) en los tabs de Settings, filas de fuente de grabación, tabs del
+  teleprompter y filas de overlays (`.contentShape`); el subrayado del tab activo
+  ya no se dibuja bajo todos. Quitado el "Check for Updates…" duplicado del menú Help.
+- **Picker de preset de export** más visible (`.menu` → `.radioGroup`) y `⌘↵`
+  ejecuta el export desde el diálogo.
 
 ## [0.6.4] - 2026-06-10
 
