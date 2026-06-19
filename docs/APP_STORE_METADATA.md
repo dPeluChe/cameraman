@@ -27,10 +27,10 @@ designers, and creators who want full control over their recordings
 — without subscriptions, cloud uploads, or black boxes.
 
 Record your screen, webcam, and audio simultaneously as independent
-tracks. Edit non-destructively: trim, reorder, and adjust without
-ever touching the original files. Add annotations, arrows, text, and
-images directly on the video. Export to MP4, HEVC, or GIF when
-you're done.
+tracks. Edit non-destructively on a multi-track timeline: trim,
+split, reorder, apply effects, and import your own footage — without
+ever touching the original files. Annotate with arrows, text, and
+images. Transcribe on-device, and export to MP4, HEVC, or GIF.
 
 Everything stays on your Mac. No account required.
 
@@ -46,10 +46,20 @@ CAPTURE
 EDIT
 ──────────────────────────
 • Non-destructive timeline — original files are never modified
-• Trim, cut, and reorder segments with drag and drop
+• Trim, split, cut, and reorder clips with magnetic snapping
+• Import your own videos, images, and music onto their own tracks
 • Picture-in-picture and side-by-side camera layouts
 • Per-track volume control and mute
 • Zoom effects with auto-detection of cursor dwell and clicks
+• Merge projects and share them as portable bundles
+
+──────────────────────────
+EFFECTS
+──────────────────────────
+• Per-clip color filters: sepia, black & white, brightness,
+  contrast, saturation, vibrance, hue, invert, vignette, blur
+• Audio pitch shift for voice
+• Target a single layer (screen / camera / background) over a range
 
 ──────────────────────────
 ANNOTATE
@@ -68,6 +78,18 @@ EXPORT
 • GIF export with custom frame rate and palette
 
 ──────────────────────────
+TRANSCRIBE
+──────────────────────────
+• On-device speech-to-text (Apple Silicon) — nothing is uploaded
+• Generate SRT / VTT captions from your recording's audio
+
+──────────────────────────
+AUTOMATE (FOR DEVELOPERS)
+──────────────────────────
+• Built-in MCP server lets AI assistants (Claude, Codex) create,
+  edit, and export your projects — all locally on your Mac
+
+──────────────────────────
 OPEN SOURCE
 ──────────────────────────
 Cameraman is open source under the MIT license.
@@ -77,7 +99,7 @@ github.com/dPeluChe/cameraman
 Built with Swift and SwiftUI. Runs entirely on your Mac.
 ```
 
-**Char count:** ~1,450 — well within the 4,000 limit. Room to expand with more features as they ship.
+**Char count:** ~2,100 — well within the 4,000 limit.
 
 ---
 
@@ -92,14 +114,28 @@ Native macOS screen recorder. Record, annotate, and export — no subscriptions,
 ## Keywords (100 chars max, comma-separated)
 
 ```
-screen recorder,screencast,video editor,capture,webcam,annotation,overlay,tutorial,demo,recording
+screen recorder,screencast,video editor,webcam,transcription,captions,annotation,effects,tutorial
 ```
 
 **Char count:** 97 ✓
 
 ---
 
-## What's New — v0.6.1
+## What's New — v0.7.0
+
+```
+• Per-clip effects: color filters (sepia, B&W, brightness, contrast,
+  saturation, blur…) and audio pitch, applied per layer
+• On-device transcription with SRT/VTT captions (Apple Silicon)
+• Import videos, images, and music onto their own timeline tracks;
+  merge projects and share them as portable bundles
+• Built-in MCP server: drive Cameraman from AI assistants (Claude,
+  Codex) to create, edit, and export projects — all locally
+• Faster, cleaner UI: live project refresh, more discoverable export
+  presets, and more reliable clicks throughout Settings
+```
+
+### What's New — v0.6.1 (previous)
 
 ```
 • Security hardening: stricter URL validation when checking for
@@ -136,10 +172,12 @@ screen recorder,screencast,video editor,capture,webcam,annotation,overlay,tutori
 
 Host this at a public URL (GitHub Pages, Notion, or the landing site):
 
+> The full, hostable version lives at [`docs/PRIVACY_POLICY.md`](PRIVACY_POLICY.md).
+
 ```
 Privacy Policy — Cameraman
 
-Last updated: May 2026
+Last updated: June 2026
 
 Cameraman does not collect, transmit, or share any personal data.
 
@@ -149,6 +187,9 @@ No account is required to use the app.
 The app accesses your camera, microphone, and screen solely to
 perform screen recording as requested by you. This data is never
 uploaded or shared.
+
+Speech-to-text transcription runs entirely on-device; audio is
+never sent to any server.
 
 Cameraman checks for software updates by querying the public
 GitHub releases API (github.com/dPeluChe/cameraman/releases).
