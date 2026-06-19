@@ -19,6 +19,14 @@ logic the app uses.
 | **Mute audio/video** | `set_track_muted`, `set_track_volume`, `set_clip_audio_muted` |
 | **Add items** | `add_image_clip`, `add_video_clip`, `add_audio_clip`, `add_color_clip`, `add_text_overlay` |
 | **Effects** | `add_adjustment`, `remove_adjustment` |
+| **Canvas** | `set_canvas_layout`, `set_background` |
+| **Export** | `export_project`, `get_job_status`, `list_jobs`, `cancel_job` |
+| **Transcribe** | `transcribe_project`, `get_captions` |
+
+> **Export & transcription are async.** `export_project` / `transcribe_project`
+> return a `jobId` immediately; poll `get_job_status` until `status` is `success`.
+> Exports land in the project's `renders/` folder. Jobs are in-memory per server
+> session. Transcription is on-device (Apple Silicon only).
 
 > **Recording** captures the main display via `ScreenCaptureKit`. `start_recording`
 > returns immediately and `stop_recording` finalizes the take into a new project.
