@@ -32,12 +32,9 @@ May 2026 (pre-publication push): ultrawide writer fix, mic overload, telemetry s
 
 > Small, low-risk improvements. None change product direction.
 
-- [ ] **Count badge on collapsed `ProjectAssetsBar`** — at 38pt height there's no signal of how many takes/segments exist. Add `(\(count))` next to the title when collapsed.
-- [ ] **Export preset picker context** — `.menu` style hides the options; consider `Picker` with per-option icon labels (HEVC, GIF, H.264) to preserve affordance.
-- [ ] **Keyboard shortcuts** — `⌘⇧E` rerun the last export, `⌘R` open recording window (`⌘E` open export and `⌘N` new recording already exist).
-- [ ] **Skeletons on `ProjectAssetsBar`** — distinguish "loading" from "empty" while takes are still being read.
+- [ ] **Rerun last export (`⌘⇧E`)** — needs feature work, not just a shortcut: persist the last export's preset/destination/options and re-trigger without opening the dialog. (`⌘E` opens export, `⌘↵` runs it in the dialog, `⌘N` opens recording — all exist.)
 
-> Closed in `fix/ux-polish` (June 2026): clickable hit-area on custom selectors (Settings tabs, recording-source rows, teleprompter tabs, overlay list rows) via `.contentShape`; duplicate "Check for Updates" Help item removed. Already done earlier: `startNewTake` projectId via userInfo, `AssetChip` min/max width, inline export filename extension.
+> Closed in `fix/ux-polish` (June 2026): clickable hit-area on custom selectors (Settings tabs, recording-source rows, teleprompter tabs, overlay list rows) via `.contentShape`; duplicate "Check for Updates" Help item removed; export preset picker `.menu` → `.radioGroup` (all options visible); `⌘↵` runs Export in the dialog. Already done earlier (TODO was stale): `startNewTake` projectId via userInfo, `AssetChip` min/max width, inline export filename extension, count badge on the collapsed asset bar. N/A: asset-bar skeletons (takes are part of the already-loaded project — the editor shows a `ProgressView` until load, so there's no async take-loading state to skeletonize).
 
 ---
 
