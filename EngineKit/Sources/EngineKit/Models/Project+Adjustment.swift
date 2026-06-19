@@ -256,6 +256,20 @@ extension Project {
         return result
     }
 
+    /// Whether the timeline has any real video frames (a recording or an imported
+    /// video clip on any track). Static-only projects (image/color cards) have no
+    /// frames for AVAssetExportSession to render.
+    public var hasRenderableVideo: Bool {
+        timeline.tracks.contains { track in
+            track.clips.contains { clip in
+                switch clip.content {
+                case .recording, .video: return true
+                case .image, .color, .audio: return false
+                }
+            }
+        }
+    }
+
     /// Whether any clip carries an enabled visual adjustment. Used to force the
     /// custom compositor on render paths that would otherwise use plain layer
     /// instructions.

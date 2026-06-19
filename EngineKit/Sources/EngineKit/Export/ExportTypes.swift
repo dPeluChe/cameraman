@@ -13,6 +13,7 @@ import AppKit
 /// Export engine errors
 public enum ExportError: Error, LocalizedError, Equatable, Sendable {
     case noSegments
+    case noVideoFrames
     case missingSourceFile(String)
     case sourceFileNotFound(String)
     case mediaFileNotFound(String)
@@ -29,6 +30,8 @@ public enum ExportError: Error, LocalizedError, Equatable, Sendable {
         switch self {
         case .noSegments:
             return "Project has no timeline segments to export"
+        case .noVideoFrames:
+            return "This project has no video frames to render. Add a recording or an imported video clip — pure image/color slideshows aren't supported yet."
         case .missingSourceFile(let message):
             return "Missing source file: \(message)"
         case .sourceFileNotFound(let path):

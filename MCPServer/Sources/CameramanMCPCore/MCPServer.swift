@@ -99,7 +99,9 @@ public final class MCPServer {
                 "isError": false
             ], id: id)
         } catch {
-            let message = (error as? MCPToolError)?.message ?? "\(error)"
+            // Prefer a human message: MCPToolError, then any LocalizedError
+            // (e.g. EngineKit's ExportError), falling back to the raw value.
+            let message = (error as? MCPToolError)?.message ?? error.localizedDescription
             log("tool '\(name)' failed: \(message)")
             guard !isNotification else { return }
             send(result: [
