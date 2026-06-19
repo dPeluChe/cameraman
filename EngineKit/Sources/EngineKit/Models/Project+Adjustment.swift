@@ -121,6 +121,13 @@ extension Project {
         /// Linear gain. Params: `gain` (multiplier, 0…4).
         public static let audioGain = AdjustmentKind(rawValue: "audioGain")
 
+        /// Every built-in kind — single source of truth for UI catalogs and MCP
+        /// validation. Add new kinds here so all callers stay in sync.
+        public static let allBuiltIn: [AdjustmentKind] = [
+            .sepia, .monochrome, .brightness, .contrast, .saturation, .colorControls,
+            .vibrance, .hue, .invert, .vignette, .gaussianBlur, .audioPitch, .audioGain
+        ]
+
         /// Whether this kind is an audio effect (routed to the audio pipeline).
         public var isAudio: Bool {
             rawValue.hasPrefix("audio")
@@ -202,24 +209,11 @@ extension Project {
         var result: [AdjustmentConfig] = []
         for track in timeline.tracks {
             for clip in track.clips {
-                guard let adjustments = clip.adjustments, !adjustments.isEmpty else { continue }
                 switch clip.content {
                 case .recording, .image, .color:
-                    break
+                    result.append(contentsOf: clip.visualAdjustmentConfigs())
                 case .video, .audio:
                     continue
-                }
-                let clipDuration = clip.duration
-                for adj in adjustments where adj.enabled && !adj.kind.isAudio {
-                    let localStart = adj.start ?? 0
-                    let localEnd = adj.end ?? clipDuration
-                    result.append(AdjustmentConfig(
-                        kind: adj.kind.rawValue,
-                        target: adj.target,
-                        parameters: adj.parameters,
-                        start: clip.timelineIn + max(0, localStart),
-                        end: clip.timelineIn + min(clipDuration, localEnd)
-                    ))
                 }
             }
         }
@@ -277,5 +271,26 @@ extension Project {
                 }
             }
         }
+    }
+}
+
+extension Project.TimelineClip {
+
+    /// This clip's enabled *visual* adjustments, flattened to absolute-timeline
+    /// windows. Shared by `Project.adjustmentConfigs` (recording/image/color
+    /// clips) and the imported-video overlay sources so both flatten identically.
+    func visualAdjustmentConfigs() -> [AdjustmentConfig] {
+        let clipDuration = duration
+        return (adjustments ?? [])
+            .filter { $0.enabled && !$0.kind.isAudio }
+            .map { adj in
+                AdjustmentConfig(
+                    kind: adj.kind.rawValue,
+                    target: adj.target,
+                    parameters: adj.parameters,
+                    start: timelineIn + max(0, adj.start ?? 0),
+                    end: timelineIn + min(clipDuration, adj.end ?? clipDuration)
+                )
+            }
     }
 }

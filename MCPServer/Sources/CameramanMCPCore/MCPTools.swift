@@ -294,12 +294,9 @@ final class MCPTools {
         return updated
     }
 
-    /// Recognized visual/audio adjustment kinds (see AdjustmentRenderer).
-    static let knownAdjustmentKinds: Set<String> = [
-        "sepia", "monochrome", "brightness", "contrast", "saturation",
-        "colorControls", "vibrance", "hue", "invert", "vignette",
-        "gaussianBlur", "audioPitch"
-    ]
+    /// Recognized visual/audio adjustment kinds — derived from EngineKit so app,
+    /// renderer and MCP stay in sync (see `Project.AdjustmentKind.allBuiltIn`).
+    static let knownAdjustmentKinds: Set<String> = Set(Project.AdjustmentKind.allBuiltIn.map(\.rawValue))
 
     private func deleteProject(_ args: [String: Any]) async throws -> String {
         let projectId = try args.uuid("projectId")
@@ -312,20 +309,8 @@ final class MCPTools {
     /// resolves at render time. Prevents phantom clips and makes the media
     /// actually render (mirrors the app's import).
     private func stageAsset(_ sourcePath: String, projectId: UUID) async throws -> String {
-        let fm = FileManager.default
-        guard fm.fileExists(atPath: sourcePath) else {
-            throw MCPToolError("File not found: \(sourcePath). Pass an absolute path to an existing file.")
-        }
         let dir = try await ProjectLibrary.shared.getProjectDirectory(projectId: projectId)
-        let assets = dir.appendingPathComponent("assets", isDirectory: true)
-        try fm.createDirectory(at: assets, withIntermediateDirectories: true)
-        let name = (sourcePath as NSString).lastPathComponent
-        let dest = assets.appendingPathComponent(name)
-        if dest.path != sourcePath {
-            if fm.fileExists(atPath: dest.path) { try fm.removeItem(at: dest) }
-            try fm.copyItem(at: URL(fileURLWithPath: sourcePath), to: dest)
-        }
-        return "assets/\(name)"
+        return try ProjectLibrary.stageAsset(from: URL(fileURLWithPath: sourcePath), intoProjectDirectory: dir)
     }
 
     private func loadProject(_ args: [String: Any]) async throws -> Project {

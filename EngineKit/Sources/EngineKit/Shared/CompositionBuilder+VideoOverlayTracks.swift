@@ -21,19 +21,7 @@ extension CompositionBuilder.Result {
                     CGRect(x: $0.x, y: $0.y, width: $0.w, height: $0.h)
                 }
                 // Visual effects on this imported clip, flattened to absolute time.
-                let clipDuration = clip.duration
-                let adjustments = (clip.adjustments ?? [])
-                    .filter { $0.enabled && !$0.kind.isAudio }
-                    .map { adj in
-                        AdjustmentConfig(
-                            kind: adj.kind.rawValue,
-                            target: adj.target,
-                            parameters: adj.parameters,
-                            start: clip.timelineIn + max(0, adj.start ?? 0),
-                            end: clip.timelineIn + min(clipDuration, adj.end ?? clipDuration)
-                        )
-                    }
-                return .init(start: clip.timelineIn, end: clip.timelineOut, position: rect, adjustments: adjustments)
+                return .init(start: clip.timelineIn, end: clip.timelineOut, position: rect, adjustments: clip.visualAdjustmentConfigs())
             }
             return MaskedVideoCompositionInstruction.VideoOverlaySource(
                 trackID: info.track.trackID,
