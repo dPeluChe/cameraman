@@ -27,6 +27,7 @@ Cameraman captures your screen, camera, and audio as **separate tracks**, gives 
 - Per-segment camera PiP positioning with borders (circle, rounded rect, capsule)
 - Per-segment audio volume (0–300%) and mute
 - Overlays: arrows, rectangles, lines, text with timing controls
+- Per-clip effects: extensible, non-destructive adjustments (sepia, B&W, brightness/contrast/saturation, vibrance, hue, invert, vignette, blur; audio pitch) targetable to a layer (screen / camera / background) over a time range — applied in preview and export
 - Canvas effects: background gradients, blur, padding, corner radius
 - Auto-zoom suggestions from cursor telemetry (click + dwell detection)
 - Import external videos (with their audio) onto their own timeline rows — magnetic snap, trim, split, PiP positioning, row reorder
@@ -44,6 +45,12 @@ Cameraman captures your screen, camera, and audio as **separate tracks**, gives 
 - Quality control (smaller file / standard / higher quality) with a live size estimate
 - Per-segment camera positions, visual effects and audio are all preserved in export
 - Share whole projects between machines as portable `.cameramanproject` bundles
+
+### Transcription
+- On-device speech-to-text (WhisperKit, Apple Silicon) with a model picker, generating SRT/VTT captions
+
+### Automate (MCP server)
+- A built-in **MCP server** (`cameraman-mcp`, bundled and signed inside the app) exposes Cameraman to AI assistants (Claude Desktop/Code, Codex) over stdio JSON-RPC — **42 tools** to create/edit/record projects, add and edit clips/tracks/overlays/effects, set the canvas, transcribe, and **export** (with job polling). Register it from Settings → Integrations. See [`MCPServer/README.md`](MCPServer/README.md).
 
 ---
 

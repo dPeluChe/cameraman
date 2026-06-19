@@ -1,6 +1,6 @@
 # Task Backlog
 
-> Updated: 2026-06-10
+> Updated: 2026-06-19
 > Only unfinished work. Completed work lives in `TASK_COMPLETED/`.
 > Ordered by impact and proximity to release, not chronology.
 
@@ -8,6 +8,7 @@
 
 ## Recently Closed
 
+June 2026 (0.7.0 push): MCP automation server (42 tools), transcription + MCP integration settings (bundled/signed server), per-clip effects UI, live project refresh, import-only export + readable export errors, multi-track `delete_range`. Full write-up in `TASK_COMPLETED/2606.md` (§ 0.7.0).
 June 2026 (0.6.4 push): merge projects, video import with full clip editing (snap/trim/split/PiP/reorder), empty projects, timeline ruler + fit zoom + pinned labels, rename fix, mixed-resolution rendering, preview-toggle audit. Full write-ups in `TASK_COMPLETED/2606.md`.
 May 2026 (pre-publication push): ultrawide writer fix, mic overload, telemetry streaming, security audit, repo publication. Write-ups in `TASK_COMPLETED/2605.md`.
 
@@ -17,6 +18,7 @@ May 2026 (pre-publication push): ultrawide writer fix, mic overload, telemetry s
 
 > Real defects to clear before / during pre-release. None block App Store submission today, but each adds friction.
 
+- [ ] **Pure-static projects don't export** — a project with only image/color cards (no recording and no imported video) can't render: `AVAssetExportSession` (and the GIF frame extractor) need real video samples, so an all-synthetic composition yields "Operation Stopped". Today it's rejected up front with a clear message (`ExportError.noVideoFrames`). To support pure slideshows, synthesize a base video track (render the canvas background/cards to real frames via `AVAssetWriter`, or scale a 1-frame solid clip to the duration) instead of padding the primary with an empty range. ~100 LOC, gate to the no-real-video case. Low impact: any real video clip already makes the project exportable.
 - [ ] **PiP camera overlay drag-to-reposition during playback** — historically only worked when paused. Likely resolved by the earlier `fix/pip-drag-playback-and-logs-cleanup` work (`draftCamera` @State pattern) and the throttle change in PR #15. Verify on a fresh build before closing.
 - [ ] **Warning: "Publishing changes from within view updates is not allowed" on project load** — fires once when opening a project in the editor; benign at runtime, no crash. Three prior fix attempts (`80cfa4e`, `1102beb`, `a08fadf`) were insufficient or regressed. Candidates not yet ruled out: `ProjectEditorViewModel.loadProject`, the toast `Binding(get:set:)` in `ProjectEditorView` line 164, or some mutation in the `.task` chain of `AppNavigation`. Needs runtime instrumentation (breakpoints or `os_log` around the first `objectWillChange.send()`) to locate the real emitter.
 - [ ] **`NSHostingView is being laid out reentrantly` / `AttributeGraph: cycle detected` (~150 entries)** — observed once when bumping the PiP throttle to 60Hz; that commit was reverted. Watch for recurrence; if it returns, investigate cyclic dependency between `PreviewPlayerView` (observing `viewModel.avPlayer`), `PiPCanvasEditor` (pushing to `engine.updateProject`), and SwiftUI's view-update graph. Symptom in the affected run: export took 14s vs. the usual 5.4s (~3× slowdown).

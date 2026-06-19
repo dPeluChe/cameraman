@@ -11,7 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Foco: efectos extensibles en el timeline y un servidor MCP para automatización.
+## [0.7.0] - 2026-06-19
+
+Foco: efectos extensibles en el timeline y un **servidor MCP completo** para
+automatizar Cameraman desde asistentes de IA (Claude Desktop/Code, Codex).
 
 ### Added
 - **Efectos / ajustes en el timeline** — sistema extensible y no destructivo de
@@ -22,11 +25,58 @@ Foco: efectos extensibles en el timeline y un servidor MCP para automatización.
   saturación, vibrance, hue, invertir, viñeta, desenfoque; cualquier `CIFilter`
   por nombre como fallback) y audio (`audioPitch` para voz grave/aguda vía
   `MTAudioProcessingTap` + `AUNewTimePitch`). Aplicado en preview **y** export.
+- **Efectos por clip en el UI** — panel *Effects* (popover) en el inspector del
+  clip de video importado seleccionado: agregar/quitar filtros de color, blur y
+  pitch de audio con slider; renderizado por el compositor de overlays. El popover
+  evita que el inspector empuje el timeline.
 - **Servidor MCP** (`MCPServer/`, binario `cameraman-mcp`) — expone los proyectos
-  a clientes MCP (Claude Desktop/Code) por stdio JSON-RPC, reutilizando EngineKit:
-  listar/ver proyectos, **grabar** (crear proyecto vacío, start/stop recording),
-  **cortar/split**, **mute** de audio/video (pista y clip), **agregar** items
-  (imagen/video/audio/color/texto) en un tiempo dado, y aplicar **efectos**.
+  a clientes MCP por stdio JSON-RPC reutilizando EngineKit. **42 herramientas**:
+  - *Proyectos/gestión*: listar, ver, crear vacío, **duplicar** (clonar), borrar,
+    renombrar, etiquetas, **buscar**, **fusionar**, exportar/importar bundle.
+  - *Grabación*: start/stop recording.
+  - *Clips*: `add_clip` (imagen/video/audio/color), `split_clip`, `delete_clip`,
+    `edit_clip` (mover / cambiar de pista / velocidad·volumen·opacidad / recortar
+    in-out), `delete_range` (ripple), mute de audio por clip.
+  - *Ajustes*: add/update/remove/clear/list.
+  - *Pistas*: add/remove/reordenar video/`set_track` (mute·volumen·lock).
+  - *Overlays*: `add_overlay` (flecha/rect/línea/texto con draw-on/fade-in),
+    list/update/delete (simetría completa).
+  - *Canvas*: `set_canvas_layout` (fullscreen/pip/side-by-side + cámara) y
+    `set_background` (color/imagen/blur).
+  - *Entrega*: `export_project` (+ presets/GIF) y jobs (`get_job_status`,
+    `list_jobs`, `cancel_job`); `transcribe_project` + `get_captions`;
+    `suggest_silence_edits` / `suggest_chapters` (IA local).
+- **Ajustes de la app** (Preferences):
+  - *Transcription* — selector de modelo Whisper (base/small/medium/large) con
+    gate de Apple Silicon.
+  - *Integrations* — el servidor MCP viene **incluido y firmado** dentro del
+    `.app` (`Contents/Helpers/cameraman-mcp`, autodetectado); snippets de registro
+    por cliente en **tabs** (Claude Desktop / Claude Code / Codex) con botón Copy.
+    Apunta el servidor a los proyectos reales de la app vía `CAMERAMAN_PROJECTS_DIR`.
+- **Refresco en vivo de la lista de proyectos** — la biblioteca se actualiza cuando
+  cambian los proyectos en disco (p. ej. creados por el servidor MCP) sin reactivar
+  la ventana.
+
+### Changed
+- **MCP consolidado** (50 → 42 herramientas) para mantenerlo simple: `add_clip`,
+  `edit_clip` y `set_track` unifican las variantes por tipo previas; helpers
+  reutilizables (`resolveClip`, `startedJob`) y catálogo agrupado por área.
+- Helpers de EngineKit compartidos: `TimelineClip.visualAdjustmentConfigs()` y
+  `ProjectLibrary.stageAsset(...)` (usado por drag-drop y el MCP).
+
+### Fixed
+- **Export de proyectos import-only** — proyectos sin grabación (tarjetas de
+  imagen/color en pistas overlay) ahora componen y renderizan: se añadió el camino
+  de *static clips* al export (espejando el preview) y se padea la pista primaria.
+- **Mensajes de error de export legibles** — `ExportError` conforma `LocalizedError`;
+  el MCP los surfacea (antes mostraba "ExportError error 5" o el nombre del case).
+- **Proyectos 100% estáticos** (sin frames de video) se rechazan al inicio con un
+  mensaje accionable en vez de fallar a mitad del render.
+- **`delete_range` multi-track** — ahora hace ripple en todas las pistas (era solo
+  primary) y corrige un bug de posición al cortar un rango dentro de un clip.
+- Botones *Copy* del panel de Integrations no funcionaban con el binario incluido
+  (estaban gateados a una ruta seleccionada por el usuario); `checkForUpdates` del
+  status bar lanzaba en contexto no-`@MainActor`.
 
 ## [0.6.4] - 2026-06-10
 

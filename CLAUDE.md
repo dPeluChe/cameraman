@@ -188,5 +188,5 @@ Inside `docs/`:
 - `docs/TECH_SPEC.md` - API contracts, data schemas, sync strategy
 - `docs/TASK_TODO.md` - Pending features and improvements
 - `docs/TASK_COMPLETED/` - Completed work by session (YYMM.md format)
-- `docs/CHANGELOG.md` - Version changelog (current: **v0.6.4**)
+- `docs/CHANGELOG.md` - Version changelog (current: **v0.7.0**)
 - `docs/ARCHIVED/` - Historical docs (recovery summaries, validation reports)
