@@ -18,8 +18,13 @@ logic the app uses.
 | **Cut / split** | `split_clip`, `delete_clip` |
 | **Mute audio/video** | `set_track_muted`, `set_track_volume`, `set_clip_audio_muted` |
 | **Add items** | `add_image_clip`, `add_video_clip`, `add_audio_clip`, `add_color_clip`, `add_text_overlay` |
-| **Effects** | `add_adjustment`, `remove_adjustment` |
+| **Edit clips** | `move_clip`, `update_clip`, `trim_clip`, `delete_range` |
+| **Tracks** | `add_track`, `remove_track`, `move_video_track`, `set_track_locked` |
+| **Effects** | `add_adjustment`, `update_adjustment`, `remove_adjustment`, `clear_adjustments` |
+| **Overlays** | `add_overlay`, `list_overlays`, `update_overlay`, `delete_overlay` |
 | **Canvas** | `set_canvas_layout`, `set_background` |
+| **Manage** | `duplicate_project`, `rename_project`, `set_tags`, `search_projects`, `merge_projects`, `export_bundle`, `import_bundle` |
+| **AI (local)** | `suggest_silence_edits`, `suggest_chapters` |
 | **Export** | `export_project`, `get_job_status`, `list_jobs`, `cancel_job` |
 | **Transcribe** | `transcribe_project`, `get_captions` |
 
