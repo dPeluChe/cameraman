@@ -77,21 +77,14 @@ extension MCPTools {
         let projectId = try args.uuid("projectId")
         let ai = try await ProjectLibrary.shared.getAIService()
         let jobId = try await ai.suggestSilenceEdits(projectId: projectId)
-        return try json([
-            "jobId": jobId.uuidString,
-            "status": "started",
-            "message": "Analyzing audio for silence on-device. Poll get_job_status until success."
-        ])
+        return try startedJob(jobId, "Analyzing audio for silence on-device. Poll get_job_status until success.")
     }
 
     func suggestChapters(_ args: [String: Any]) async throws -> String {
         let projectId = try args.uuid("projectId")
         let ai = try await ProjectLibrary.shared.getAIService()
         let jobId = try await ai.suggestChapters(projectId: projectId)
-        return try json([
-            "jobId": jobId.uuidString,
-            "status": "started",
-            "message": "Suggesting chapters from the transcript on-device. Poll get_job_status until success. (Run transcribe_project first.)"
-        ])
+        return try startedJob(jobId,
+            "Suggesting chapters from the transcript on-device. Poll get_job_status until success. (Run transcribe_project first.)")
     }
 }

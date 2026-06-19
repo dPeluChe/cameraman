@@ -34,40 +34,34 @@ final class MCPTools {
         case "start_recording":      return try await startRecording(arguments)
         case "stop_recording":       return try await stopRecording(arguments)
         case "get_project":          return try await getProject(arguments)
+        case "delete_project":       return try await deleteProject(arguments)
+        // Clips
+        case "add_clip":             return try await addClip(arguments)
         case "split_clip":           return try await splitClip(arguments)
         case "delete_clip":          return try await deleteClip(arguments)
-        case "set_track_muted":      return try await setTrackMuted(arguments)
-        case "set_track_volume":     return try await setTrackVolume(arguments)
+        case "edit_clip":            return try await editClip(arguments)
+        case "delete_range":         return try await deleteRange(arguments)
         case "set_clip_audio_muted": return try await setClipAudioMuted(arguments)
-        case "add_image_clip":       return try await addImageClip(arguments)
-        case "add_video_clip":       return try await addVideoClip(arguments)
-        case "add_audio_clip":       return try await addAudioClip(arguments)
-        case "add_color_clip":       return try await addColorClip(arguments)
-        case "add_text_overlay":     return try await addTextOverlay(arguments)
         case "add_adjustment":       return try await addAdjustment(arguments)
+        case "update_adjustment":    return try await updateAdjustment(arguments)
         case "remove_adjustment":    return try await removeAdjustment(arguments)
+        case "clear_adjustments":    return try await clearAdjustments(arguments)
         case "list_adjustments":     return try await listAdjustments(arguments)
-        case "delete_project":       return try await deleteProject(arguments)
+        // Tracks
+        case "add_track":            return try await addTrack(arguments)
+        case "remove_track":         return try await removeTrack(arguments)
+        case "move_video_track":     return try await moveVideoTrack(arguments)
+        case "set_track":            return try await setTrack(arguments)
+        // Delivery
         case "export_project":       return try await exportProject(arguments)
         case "get_job_status":       return try await getJobStatus(arguments)
         case "list_jobs":            return try await listJobs(arguments)
         case "cancel_job":           return try await cancelJob(arguments)
         case "transcribe_project":   return try await transcribeProject(arguments)
         case "get_captions":         return try await getCaptions(arguments)
+        // Canvas
         case "set_canvas_layout":    return try await setCanvasLayout(arguments)
         case "set_background":       return try await setBackground(arguments)
-        // Clips
-        case "move_clip":            return try await moveClip(arguments)
-        case "update_clip":          return try await updateClip(arguments)
-        case "trim_clip":            return try await trimClip(arguments)
-        case "delete_range":         return try await deleteRange(arguments)
-        case "update_adjustment":    return try await updateAdjustment(arguments)
-        case "clear_adjustments":    return try await clearAdjustments(arguments)
-        // Tracks
-        case "add_track":            return try await addTrack(arguments)
-        case "remove_track":         return try await removeTrack(arguments)
-        case "move_video_track":     return try await moveVideoTrack(arguments)
-        case "set_track_locked":     return try await setTrackLocked(arguments)
         // Overlays
         case "add_overlay":          return try await addOverlay(arguments)
         case "list_overlays":        return try await listOverlays(arguments)
@@ -179,27 +173,6 @@ final class MCPTools {
         return try summary("Removed clip \(clipId)", project)
     }
 
-    // MARK: - Mute / volume
-
-    private func setTrackMuted(_ args: [String: Any]) async throws -> String {
-        let trackId = try args.uuid("trackId")
-        let muted = try args.bool("muted")
-        let project = try await mutate(args) { editor in
-            await editor.setTrackMuted(trackId: trackId, muted: muted)
-        }
-        return try summary("Track \(trackId) muted=\(muted)", project)
-    }
-
-    private func setTrackVolume(_ args: [String: Any]) async throws -> String {
-        let trackId = try args.uuid("trackId")
-        let volume = try args.num("volume")
-        let project = try await mutate(args) { editor in
-            await editor.setTrackVolume(trackId: trackId, volume: volume)
-        }
-        let stored = project.timeline.tracks.first(where: { $0.id == trackId })?.volume ?? volume
-        return try summary("Track \(trackId) volume=\(stored)", project)
-    }
-
     private func setClipAudioMuted(_ args: [String: Any]) async throws -> String {
         let trackId = try args.uuid("trackId")
         let clipId = try args.str("clipId")
@@ -210,66 +183,21 @@ final class MCPTools {
         return try summary("Clip \(clipId) audioMuted=\(muted)", project)
     }
 
-    // MARK: - Add items
-
-    private func addImageClip(_ args: [String: Any]) async throws -> String {
-        let projectId = try args.uuid("projectId")
-        let relPath = try await stageAsset(try args.str("path"), projectId: projectId)
-        let at = try args.num("at")
-        let duration = args.optNum("duration") ?? 5.0
-        let project = try await mutate(args) { editor in
-            await editor.addImageClip(path: relPath, duration: duration, at: at)
+    /// Load the project and locate a (track, clip) pair, with clear errors if
+    /// either is missing. Shared by tools that must read the clip's current
+    /// state before editing (trim, update_adjustment, list_adjustments).
+    func resolveClip(_ args: [String: Any]) async throws
+        -> (project: Project, track: Project.TimelineTrack, clip: Project.TimelineClip) {
+        let trackId = try args.uuid("trackId")
+        let clipId = try args.str("clipId")
+        let project = try await loadProject(args)
+        guard let track = project.timeline.tracks.first(where: { $0.id == trackId }) else {
+            throw MCPToolError("Track \(trackId) not found")
         }
-        return try summary("Added image clip (\(relPath)) at \(at)s", project)
-    }
-
-    private func addVideoClip(_ args: [String: Any]) async throws -> String {
-        let projectId = try args.uuid("projectId")
-        let relPath = try await stageAsset(try args.str("path"), projectId: projectId)
-        let at = try args.num("at")
-        let duration = try args.num("duration")
-        let project = try await mutate(args) { editor in
-            await editor.importVideoClip(path: relPath, duration: duration, at: at)
+        guard let clip = track.clips.first(where: { $0.id == clipId }) else {
+            throw MCPToolError("Clip \(clipId) not found on track \(trackId)")
         }
-        return try summary("Added video clip (\(relPath)) at \(at)s", project)
-    }
-
-    private func addAudioClip(_ args: [String: Any]) async throws -> String {
-        let projectId = try args.uuid("projectId")
-        let path = try await stageAsset(try args.str("path"), projectId: projectId)
-        let at = try args.num("at")
-        let duration = try args.num("duration")
-        let sourceIn = args.optNum("sourceIn") ?? 0
-        let project = try await mutate(args) { editor in
-            await editor.addAudioClip(path: path, duration: duration, at: at, sourceIn: sourceIn)
-        }
-        return try summary("Added audio clip at \(at)s", project)
-    }
-
-    private func addColorClip(_ args: [String: Any]) async throws -> String {
-        let at = try args.num("at")
-        let duration = args.optNum("duration") ?? 3.0
-        let hexColor = args.optStr("hexColor") ?? "#000000"
-        let project = try await mutate(args) { editor in
-            await editor.addColorClip(hexColor: hexColor, duration: duration, at: at)
-        }
-        return try summary("Added color clip at \(at)s", project)
-    }
-
-    private func addTextOverlay(_ args: [String: Any]) async throws -> String {
-        let projectId = try args.uuid("projectId")
-        let text = try args.str("text")
-        let start = try args.num("start")
-        let end = try args.num("end")
-        let x = args.optNum("x") ?? 0.5
-        let y = args.optNum("y") ?? 0.5
-        let size = args.optNum("fontSize") ?? 36.0
-        let color = args.optStr("color") ?? "#FFFFFF"
-        _ = try await overlayEngine.addTextOverlay(
-            projectId: projectId, start: start, end: end, x: x, y: y,
-            text: text, size: size, color: color
-        )
-        return "Added text overlay \"\(text)\" from \(start)s to \(end)s"
+        return (project, track, clip)
     }
 
     // MARK: - Effects / adjustments
@@ -343,7 +271,7 @@ final class MCPTools {
     /// assets/ folder, and return the project-relative path the compositor
     /// resolves at render time. Prevents phantom clips and makes the media
     /// actually render (mirrors the app's import).
-    private func stageAsset(_ sourcePath: String, projectId: UUID) async throws -> String {
+    func stageAsset(_ sourcePath: String, projectId: UUID) async throws -> String {
         let dir = try await ProjectLibrary.shared.getProjectDirectory(projectId: projectId)
         return try ProjectLibrary.stageAsset(from: URL(fileURLWithPath: sourcePath), intoProjectDirectory: dir)
     }

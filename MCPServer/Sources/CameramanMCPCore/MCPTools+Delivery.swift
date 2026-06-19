@@ -47,12 +47,17 @@ extension MCPTools {
                 options: ExportOptions(burnCaptions: burnCaptions, outputFilename: filename)
             )
         }
-        return try json([
-            "jobId": jobId.uuidString,
-            "status": "started",
-            "preset": preset.id,
-            "message": "Export started. Poll get_job_status with this jobId; on success the file is in the project's renders/ folder."
-        ])
+        return try startedJob(jobId,
+            "Export started. Poll get_job_status with this jobId; on success the file is in the project's renders/ folder.",
+            extra: ["preset": preset.id])
+    }
+
+    /// Standard response for the async-job tools (export / transcribe / suggest):
+    /// the jobId to poll, a started status, and a human message.
+    func startedJob(_ jobId: JobId, _ message: String, extra: [String: Any] = [:]) throws -> String {
+        var payload: [String: Any] = ["jobId": jobId.uuidString, "status": "started", "message": message]
+        for (key, value) in extra { payload[key] = value }
+        return try json(payload)
     }
 
     // MARK: - Jobs
@@ -124,11 +129,8 @@ extension MCPTools {
             projectId: projectId,
             options: TranscriptionEngine.Options(model: model, language: language)
         )
-        return try json([
-            "jobId": jobId.uuidString,
-            "status": "started",
-            "message": "Transcription started. Poll get_job_status; on success read the captions with get_captions."
-        ])
+        return try startedJob(jobId,
+            "Transcription started. Poll get_job_status; on success read the captions with get_captions.")
     }
 
     func getCaptions(_ args: [String: Any]) async throws -> String {

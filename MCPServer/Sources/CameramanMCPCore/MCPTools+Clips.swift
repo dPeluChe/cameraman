@@ -2,10 +2,10 @@
 //  MCPTools+Clips.swift
 //  cameraman-mcp
 //
-//  Symmetric clip editing: reposition (move_clip), retime (update_clip:
-//  speed/volume/opacity), trim source in/out (trim_clip), ripple-delete a range
-//  (delete_range), and adjustment update/clear. All go through EditorModel so
-//  they behave exactly like the GUI's edits.
+//  Clip lifecycle on a track: add_clip (image/video/audio/color in one tool),
+//  edit_clip (reposition / cross-track move / retime / trim in one tool),
+//  delete_range (ripple), and adjustment update/clear. All go through EditorModel
+//  so they behave exactly like the GUI's edits.
 //
 
 import Foundation
@@ -13,64 +13,75 @@ import EngineKit
 
 extension MCPTools {
 
-    // MARK: - Move / reposition
+    // MARK: - Add (one tool, typed)
 
-    func moveClip(_ args: [String: Any]) async throws -> String {
-        let trackId = try args.uuid("trackId")
-        let clipId = try args.str("clipId")
-        let toTimelineIn = args.optNum("toTimelineIn")
-        let toTrackId = args.optUUID("toTrackId")
+    func addClip(_ args: [String: Any]) async throws -> String {
+        let projectId = try args.uuid("projectId")
+        let type = try args.str("type")
+        let at = try args.num("at")
 
-        let project = try await mutate(args) { editor in
-            if let dest = toTrackId, dest != trackId {
-                return await editor.moveClip(clipId: clipId, fromTrackId: trackId,
-                                             toTrackId: dest, newTimelineIn: toTimelineIn)
-            }
-            return await editor.updateClip(clipId: clipId, inTrackId: trackId, timelineIn: toTimelineIn)
+        switch type {
+        case "image":
+            let path = try await stageAsset(try args.str("path"), projectId: projectId)
+            let duration = args.optNum("duration") ?? 5.0
+            let project = try await mutate(args) { await $0.addImageClip(path: path, duration: duration, at: at) }
+            return try summary("Added image clip (\(path)) at \(at)s", project)
+        case "video":
+            let path = try await stageAsset(try args.str("path"), projectId: projectId)
+            let duration = try args.num("duration")
+            let project = try await mutate(args) { await $0.importVideoClip(path: path, duration: duration, at: at) }
+            return try summary("Added video clip (\(path)) at \(at)s", project)
+        case "audio":
+            let path = try await stageAsset(try args.str("path"), projectId: projectId)
+            let duration = try args.num("duration")
+            let sourceIn = args.optNum("sourceIn") ?? 0
+            let project = try await mutate(args) { await $0.addAudioClip(path: path, duration: duration, at: at, sourceIn: sourceIn) }
+            return try summary("Added audio clip at \(at)s", project)
+        case "color":
+            let duration = args.optNum("duration") ?? 3.0
+            let hexColor = args.optStr("hexColor") ?? "#000000"
+            let project = try await mutate(args) { await $0.addColorClip(hexColor: hexColor, duration: duration, at: at) }
+            return try summary("Added color clip at \(at)s", project)
+        default:
+            throw MCPToolError("Unknown clip type '\(type)'. Use: image, video, audio, color.")
         }
-        return try summary("Moved clip \(clipId)", project)
     }
 
-    // MARK: - Retime / volume / opacity
+    // MARK: - Edit (move / retime / trim in one tool)
 
-    func updateClip(_ args: [String: Any]) async throws -> String {
+    func editClip(_ args: [String: Any]) async throws -> String {
         let trackId = try args.uuid("trackId")
         let clipId = try args.str("clipId")
+        let toTrackId = args.optUUID("toTrackId")
+        let timelineIn = args.optNum("timelineIn")
         let speed = args.optNum("speed")
         let volume = args.optNum("volume")
         let opacity = args.optNum("opacity")
-        guard speed != nil || volume != nil || opacity != nil else {
-            throw MCPToolError("Pass at least one of: speed, volume, opacity.")
-        }
-        let project = try await mutate(args) { editor in
-            await editor.updateClip(clipId: clipId, inTrackId: trackId,
-                                    speed: speed, volume: volume, opacity: opacity)
-        }
-        return try summary("Updated clip \(clipId)", project)
-    }
-
-    // MARK: - Trim source window
-
-    func trimClip(_ args: [String: Any]) async throws -> String {
-        let trackId = try args.uuid("trackId")
-        let clipId = try args.str("clipId")
         let sourceIn = args.optNum("sourceIn")
         let sourceOut = args.optNum("sourceOut")
-        guard sourceIn != nil || sourceOut != nil else {
-            throw MCPToolError("Pass sourceIn and/or sourceOut (seconds).")
+        let crossTrack = toTrackId != nil && toTrackId != trackId
+        guard crossTrack || timelineIn != nil || speed != nil || volume != nil
+                || opacity != nil || sourceIn != nil || sourceOut != nil else {
+            throw MCPToolError("Pass at least one change: timelineIn, toTrackId, speed, volume, opacity, sourceIn, sourceOut.")
         }
-        // Read current content, recompute the source window, then apply via updateClip.
-        let current = try await loadProject(args)
-        guard let track = current.timeline.tracks.first(where: { $0.id == trackId }),
-              let clip = track.clips.first(where: { $0.id == clipId }) else {
-            throw MCPToolError("Clip \(clipId) not found on track \(trackId)")
+
+        // Trim recomputes the clip's content from its current source window.
+        var newContent: Project.ClipContent?
+        if sourceIn != nil || sourceOut != nil {
+            let clip = try await resolveClip(args).clip
+            newContent = Self.trimmedContent(clip.content, sourceIn: sourceIn, sourceOut: sourceOut)
         }
-        let newContent = Self.trimmedContent(clip.content, sourceIn: sourceIn, sourceOut: sourceOut)
 
         let project = try await mutate(args) { editor in
-            await editor.updateClip(clipId: clipId, inTrackId: trackId, content: newContent)
+            if crossTrack, let dest = toTrackId {
+                _ = await editor.moveClip(clipId: clipId, fromTrackId: trackId, toTrackId: dest, newTimelineIn: timelineIn)
+                return await editor.updateClip(clipId: clipId, inTrackId: dest,
+                                               speed: speed, volume: volume, opacity: opacity, content: newContent)
+            }
+            return await editor.updateClip(clipId: clipId, inTrackId: trackId, timelineIn: timelineIn,
+                                           speed: speed, volume: volume, opacity: opacity, content: newContent)
         }
-        return try summary("Trimmed clip \(clipId)", project)
+        return try summary("Edited clip \(clipId)", project)
     }
 
     /// Apply a new source in/out to a clip's content. For video/recording these
@@ -105,9 +116,7 @@ extension MCPTools {
     func deleteRange(_ args: [String: Any]) async throws -> String {
         let from = try args.num("from")
         let to = try args.num("to")
-        let project = try await mutate(args) { editor in
-            await editor.deleteRange(from: from, to: to)
-        }
+        let project = try await mutate(args) { await $0.deleteRange(from: from, to: to) }
         return try summary("Deleted range \(from)–\(to)s (ripple)", project)
     }
 
@@ -118,10 +127,8 @@ extension MCPTools {
         let clipId = try args.str("clipId")
         let adjustmentId = try args.uuid("adjustmentId")
 
-        let current = try await loadProject(args)
-        guard let track = current.timeline.tracks.first(where: { $0.id == trackId }),
-              let clip = track.clips.first(where: { $0.id == clipId }),
-              let existing = (clip.adjustments ?? []).first(where: { $0.id == adjustmentId }) else {
+        let clip = try await resolveClip(args).clip
+        guard let existing = (clip.adjustments ?? []).first(where: { $0.id == adjustmentId }) else {
             throw MCPToolError("Adjustment \(adjustmentId) not found on clip \(clipId)")
         }
 
@@ -134,18 +141,14 @@ extension MCPTools {
 
         let updated = Project.Adjustment(id: adjustmentId, kind: kind, target: target,
                                          parameters: parameters, enabled: enabled, start: start, end: end)
-        let project = try await mutate(args) { editor in
-            await editor.updateAdjustment(updated, inClipId: clipId, trackId: trackId)
-        }
+        let project = try await mutate(args) { await $0.updateAdjustment(updated, inClipId: clipId, trackId: trackId) }
         return try summary("Updated adjustment \(adjustmentId)", project)
     }
 
     func clearAdjustments(_ args: [String: Any]) async throws -> String {
         let trackId = try args.uuid("trackId")
         let clipId = try args.str("clipId")
-        let project = try await mutate(args) { editor in
-            await editor.clearAdjustments(clipId: clipId, inTrackId: trackId)
-        }
+        let project = try await mutate(args) { await $0.clearAdjustments(clipId: clipId, inTrackId: trackId) }
         return try summary("Cleared adjustments on clip \(clipId)", project)
     }
 }
