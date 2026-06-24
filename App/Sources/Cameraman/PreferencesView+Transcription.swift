@@ -22,7 +22,7 @@ struct TranscriptionPreferencesView: View {
     ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: Spacing.xl) {
             if !isAvailable {
                 Label(
                     "On-device transcription requires a Mac with Apple Silicon — not available on this machine.",
@@ -33,10 +33,7 @@ struct TranscriptionPreferencesView: View {
                 .fixedSize(horizontal: false, vertical: true)
             }
 
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Model")
-                    .font(.headline)
-
+            SettingsSection("Model") {
                 Picker("Whisper model", selection: $model) {
                     ForEach(modelInfo, id: \.value) { info in
                         Text("\(info.label) — \(info.size)").tag(info.value)
@@ -51,12 +48,7 @@ struct TranscriptionPreferencesView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Divider()
-
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Provider")
-                    .font(.headline)
-
+            SettingsSection("Provider") {
                 LabeledContent("Engine", value: "WhisperKit (on-device, CoreML/ANE)")
 
                 Text("Transcription runs fully on-device. Cloud providers may be added later for Intel Macs and larger models.")

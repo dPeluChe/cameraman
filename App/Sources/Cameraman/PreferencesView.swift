@@ -15,23 +15,19 @@ struct PreferencesView: View {
 
     private enum PreferencesTab: String, CaseIterable {
         case general = "General"
-        case hotkeys = "Hotkeys"
         case recording = "Recording"
         case export = "Export"
         case transcription = "Transcription"
-        case integrations = "Integrations"
-        case diagnostics = "Diagnostics"
+        case developer = "Developer"
         case about = "About"
 
         var icon: String {
             switch self {
             case .general: return "gear"
-            case .hotkeys: return "command"
             case .recording: return "record.circle"
             case .export: return "square.and.arrow.up"
             case .transcription: return "captions.bubble"
-            case .integrations: return "puzzlepiece.extension"
-            case .diagnostics: return "stethoscope"
+            case .developer: return "terminal"
             case .about: return "info.circle"
             }
         }
@@ -80,18 +76,15 @@ struct PreferencesView: View {
                     switch selectedTab {
                     case .general:
                         GeneralPreferencesView()
-                    case .hotkeys:
-                        HotkeysPreferencesView()
                     case .recording:
                         RecordingPreferencesView()
+                        HotkeysPreferencesView()
                     case .export:
                         ExportPreferencesView()
                     case .transcription:
                         TranscriptionPreferencesView()
-                    case .integrations:
+                    case .developer:
                         IntegrationsPreferencesView()
-                    case .diagnostics:
-                        DiagnosticsView()
                     case .about:
                         AboutPreferencesView()
                     }

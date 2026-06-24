@@ -59,8 +59,8 @@ struct IntegrationsPreferencesView: View {
     private var projectsDir: String { ProjectStore().baseDirectory.path }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Spacing.xl) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text("Cameraman MCP Server")
                     .font(.headline)
                 Text("Expose Cameraman's tools (list/create projects, record, split, add clips, effects) to AI assistants over MCP. Copy the snippet for your client and paste it in.")
@@ -70,14 +70,12 @@ struct IntegrationsPreferencesView: View {
             }
 
             // Binary status — bundled with the app, or build-it-yourself fallback
-            VStack(alignment: .leading, spacing: 6) {
+            SettingsSection("Server binary", spacing: Spacing.sm) {
                 if usingBundled {
                     Label("Server bundled with the app — ready to use.", systemImage: "checkmark.circle.fill")
                         .font(.callout)
                         .foregroundStyle(.green)
                 } else {
-                    Text("Server binary")
-                        .font(.subheadline.weight(.semibold))
                     Text("Build it with: cd MCPServer && swift build -c release, then choose the binary at MCPServer/.build/release/cameraman-mcp.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -102,10 +100,7 @@ struct IntegrationsPreferencesView: View {
             }
 
             // Client snippets — one tab per client, only the selected one shown
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Register with a client")
-                    .font(.subheadline.weight(.semibold))
-
+            SettingsSection("Register with a client", spacing: Spacing.sm) {
                 Picker("", selection: $selectedClient) {
                     ForEach(MCPClient.allCases) { Text($0.rawValue).tag($0) }
                 }
