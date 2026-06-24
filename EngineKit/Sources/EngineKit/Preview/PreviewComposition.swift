@@ -80,7 +80,11 @@ extension PreviewEngine {
             let cornerRadius = project.canvas.layout.camera?.cornerRadius ?? 0
             let overlayConfigs = project.overlayConfigs
 
-            if maskShape != .none {
+            // Use the custom compositor when a mask is set OR when there are
+            // overlays/subtitles to draw — otherwise standard layer instructions
+            // skip the overlay pass and captions never render (camera-fullscreen,
+            // no-mask case).
+            if maskShape != .none || needsCompositor {
                 let maskedInstruction = MaskedVideoCompositionInstruction(
                     timeRange: CMTimeRangeMake(start: .zero, duration: composition.duration),
                     screenTrackID: screenTrackID,

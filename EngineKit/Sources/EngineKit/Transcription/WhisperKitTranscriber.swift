@@ -70,14 +70,16 @@ enum WhisperKitTranscriber {
         let pipe = try await WhisperKit(WhisperKitConfig(model: modelName))
         await onModelReady?()
         // detectLanguage when no language is given — otherwise WhisperKit defaults
-        // to English (why Spanish came back as English). skipSpecialTokens +
-        // withoutTimestamps keep the text clean (no <|…|> / <|x.xx|> tokens).
+        // to English (why Spanish came back as English). skipSpecialTokens (+ the
+        // cleanText fallback) drop <|…|> tokens from the text. Keep
+        // withoutTimestamps = false so Whisper still splits each 30s window into
+        // fine sentence-level segments (the per-pause division) instead of one
+        // coarse segment per window.
         let options = DecodingOptions(
             task: translate ? .translate : .transcribe,
             language: language,
             detectLanguage: language == nil,
-            skipSpecialTokens: true,
-            withoutTimestamps: true
+            skipSpecialTokens: true
         )
         let results = try await pipe.transcribe(audioPath: audioPath.path, decodeOptions: options)
 
