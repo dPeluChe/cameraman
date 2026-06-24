@@ -51,7 +51,8 @@ final class TranscriptionViewModel: ObservableObject {
     func checkTranscriptionStatus(project: Project) {
         // A transcript may already exist on disk from a previous run — load it so
         // the user can review/edit (and re-add to the timeline) without re-running.
-        guard project.captions != nil else { return }
+        // We probe the file directly rather than trusting project.captions, which
+        // may be stale in the in-memory editor right after a generate.
         Task { await loadExistingTranscript(projectId: project.projectId) }
     }
 
