@@ -20,7 +20,7 @@ struct DiagnosticsView: View {
     @State private var statusMessage: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: Spacing.md) {
             header
             if crashDetected { crashBanner }
             permissionsSection
@@ -34,7 +34,7 @@ struct DiagnosticsView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(20)
+        .padding(Spacing.xl)
         .frame(minWidth: 520, minHeight: 560)
         .task { await load() }
     }
@@ -42,30 +42,22 @@ struct DiagnosticsView: View {
     // MARK: - Sections
 
     private var header: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "stethoscope")
-                .font(.title2)
-                .foregroundStyle(.blue)
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Report a Bug").font(.headline)
-                Text("Cameraman \(DiagnosticsService.appVersion) · \(DiagnosticsService.osVersion)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-        }
+        IconHeader(icon: "stethoscope",
+                   title: "Report a Bug",
+                   subtitle: "Cameraman \(DiagnosticsService.appVersion) · \(DiagnosticsService.osVersion)",
+                   tint: .blue)
     }
 
     private var crashBanner: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.sm) {
             Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
             Text("Cameraman closed unexpectedly last time. Sending this report helps us fix it.")
                 .font(.caption)
             Spacer()
         }
-        .padding(10)
+        .padding(Spacing.sm)
         .background(Color.orange.opacity(0.12))
-        .cornerRadius(8)
+        .cornerRadius(Radius.medium)
     }
 
     private var permissionsSection: some View {
@@ -102,7 +94,7 @@ struct DiagnosticsView: View {
             }
             .frame(height: 240)
             .background(Color(nsColor: .textBackgroundColor))
-            .cornerRadius(8)
+            .cornerRadius(Radius.medium)
         }
     }
 

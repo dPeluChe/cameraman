@@ -14,10 +14,13 @@ struct ContactSupportView: View {
     @State private var copied = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            header
+        VStack(alignment: .leading, spacing: Spacing.lg) {
+            IconHeader(icon: "lifepreserver",
+                       title: "Contact Support",
+                       subtitle: "We're happy to help with Cameraman.",
+                       tint: .blue)
 
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
                 emailRow
                 Divider()
                 linkRow(icon: "ladybug", title: "Report a Bug",
@@ -31,31 +34,14 @@ struct ContactSupportView: View {
                     NSWorkspace.shared.open(AppLinks.repo)
                 }
             }
-            .padding(14)
-            .background(Color(nsColor: .controlBackgroundColor))
-            .cornerRadius(10)
+            .sectionCard()
 
             Text("“Compose Email” opens your default mail app with the address filled in.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
-        .padding(20)
+        .padding(Spacing.xl)
         .frame(width: 440)
-    }
-
-    private var header: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "lifepreserver")
-                .font(.title2)
-                .foregroundStyle(.blue)
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Contact Support").font(.headline)
-                Text("We're happy to help with Cameraman.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-        }
     }
 
     private var emailRow: some View {

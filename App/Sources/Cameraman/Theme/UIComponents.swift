@@ -66,6 +66,38 @@ struct SheetHeader<Trailing: View>: View {
     }
 }
 
+/// Header with a leading SF Symbol, title, and optional subtitle. For titled AppKit
+/// windows (Diagnostics, Contact Support) that already have a native title bar, so
+/// they don't need `SheetHeader`'s full-width bar.
+struct IconHeader: View {
+    let icon: String
+    let title: String
+    var subtitle: String?
+    var tint: Color
+
+    init(icon: String, title: String, subtitle: String? = nil, tint: Color = .accentColor) {
+        self.icon = icon
+        self.title = title
+        self.subtitle = subtitle
+        self.tint = tint
+    }
+
+    var body: some View {
+        HStack(spacing: Spacing.sm) {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundStyle(tint)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title).font(.headline)
+                if let subtitle {
+                    Text(subtitle).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+        }
+    }
+}
+
 /// Consistent empty-state placeholder: icon + title + optional message + optional action.
 struct EmptyStateView<Action: View>: View {
     let icon: String

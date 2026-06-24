@@ -99,8 +99,10 @@ instead of ad-hoc literals so every window/sheet/section looks the same.
 
 - **`SettingsSection(_:subtitle:)`** — titled card (header + optional subtitle over
   content, wrapped in `.sectionCard()`). Use for every Preferences/inspector section.
-- **`SheetHeader(_:subtitle:)`** — standard left-aligned header bar for sheets/windows
-  (`.title3` semibold + caption over `controlBackground`).
+- **`SheetHeader(_:subtitle:trailing:)`** — standard header bar for sheets (title +
+  optional subtitle + optional trailing action buttons, over `controlBackground`).
+- **`IconHeader(icon:title:subtitle:tint:)`** — leading-icon header for titled AppKit
+  windows (Diagnostics, Contact Support) that already have a native title bar.
 - **`EmptyStateView(icon:title:message:action:)`** — icon + title + message + optional
   CTA. The single canonical empty state.
 - **`.sectionCard(padding:)`** — `padding + controlBackground + Radius.medium`.
