@@ -108,10 +108,11 @@ extension PreviewEngine {
     }
 
     /// Apply video track mutes by rebuilding the video composition
-    public func applyVideoMutes(screenMuted: Bool, cameraMuted: Bool) async {
+    public func applyVideoMutes(screenMuted: Bool, cameraMuted: Bool, subtitlesHidden: Bool = false) async {
         var newMuted: Set<VideoTrackID> = []
         if screenMuted { newMuted.insert(.screen) }
         if cameraMuted { newMuted.insert(.camera) }
+        if subtitlesHidden { newMuted.insert(.subtitle) }
 
         guard newMuted != mutedVideoTracks else { return }
         mutedVideoTracks = newMuted

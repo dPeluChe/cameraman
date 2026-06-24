@@ -22,7 +22,15 @@ extension PreviewEngine {
         // Imported-video overlay tracks render via the custom compositor, so any
         // path below that would otherwise use standard layer instructions must
         // switch to MaskedVideoCompositor when videoOverlays exist.
-        let needsCompositor = !project.overlays.isEmpty || !project.subtitles.isEmpty
+        // Subtitle visibility toggle (the Subtitles track "eye"): when hidden,
+        // exclude subtitles from what the compositor draws.
+        let subtitlesHidden = mutedVideoTracks.contains(.subtitle)
+        let activeOverlayConfigs: [OverlayConfig] = subtitlesHidden
+            ? project.overlays.map { OverlayConfig(overlay: $0) }
+            : project.overlayConfigs
+
+        let needsCompositor = !project.overlays.isEmpty
+            || (!subtitlesHidden && !project.subtitles.isEmpty)
             || !videoOverlays.isEmpty
             || project.hasMixedScreenResolutions || project.hasVisualAdjustments
 
@@ -78,7 +86,7 @@ extension PreviewEngine {
 
             let maskShape = project.canvas.layout.camera?.maskShape ?? .none
             let cornerRadius = project.canvas.layout.camera?.cornerRadius ?? 0
-            let overlayConfigs = project.overlayConfigs
+            let overlayConfigs = activeOverlayConfigs
 
             // Use the custom compositor when a mask is set OR when there are
             // overlays/subtitles to draw — otherwise standard layer instructions
@@ -153,7 +161,7 @@ extension PreviewEngine {
 
             // If there are overlays, use the custom compositor
             if needsCompositor {
-                let overlayConfigs = project.overlayConfigs
+                let overlayConfigs = activeOverlayConfigs
                 let maskedInstruction = MaskedVideoCompositionInstruction(
                     timeRange: instruction.timeRange,
                     screenTrackID: screenTrackID,
@@ -214,7 +222,7 @@ extension PreviewEngine {
                     // Use custom compositor with per-clip instructions
                     var maskedInstructions: [MaskedVideoCompositionInstruction] = []
                     let totalDuration = composition.duration
-                    let overlayConfigs = project.overlayConfigs
+                    let overlayConfigs = activeOverlayConfigs
 
                     for (i, clip) in primaryClips.enumerated() {
                         // For non-recording clips, use default camera
@@ -287,7 +295,7 @@ extension PreviewEngine {
 
                 // If there are overlays, use the custom compositor so they render during playback
                 if needsCompositor {
-                    let overlayConfigs = project.overlayConfigs
+                    let overlayConfigs = activeOverlayConfigs
                     let maskedInstruction = MaskedVideoCompositionInstruction(
                         timeRange: instruction.timeRange,
                         screenTrackID: screenTrackID,
@@ -321,7 +329,7 @@ extension PreviewEngine {
 
                 // If there are overlays but no camera, use custom compositor
                 if needsCompositor {
-                    let overlayConfigs = project.overlayConfigs
+                    let overlayConfigs = activeOverlayConfigs
                     let maskedInstruction = MaskedVideoCompositionInstruction(
                         timeRange: instruction.timeRange,
                         screenTrackID: screenTrackID,

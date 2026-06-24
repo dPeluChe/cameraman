@@ -424,12 +424,13 @@ final class PreviewPlayerViewModel: ObservableObject {
 
         let screenMuted = mutedTracks.contains(.screen)
         let cameraMuted = mutedTracks.contains(.camera)
+        let subtitlesHidden = mutedTracks.contains(.subtitle)
 
         Task {
             if audioChanged {
                 await engine.applyAudioMix(audioMuteState)
             }
-            await engine.applyVideoMutes(screenMuted: screenMuted, cameraMuted: cameraMuted)
+            await engine.applyVideoMutes(screenMuted: screenMuted, cameraMuted: cameraMuted, subtitlesHidden: subtitlesHidden)
         }
     }
 
