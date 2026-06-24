@@ -47,9 +47,7 @@ struct RecordingPermissionsGateView: View {
                     Task { await viewModel.requestScreenPermission() }
                 }
             }
-            .padding(12)
-            .background(Color(NSColor.controlBackgroundColor))
-            .cornerRadius(10)
+            .sectionCard(padding: Spacing.md)
 
             if !viewModel.allRequiredPermissionsGranted {
                 Button {

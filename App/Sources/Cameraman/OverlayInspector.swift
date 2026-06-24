@@ -16,10 +16,7 @@ extension OverlayEditorView {
 
     @ViewBuilder
     func styleInspector(for overlay: Project.Overlay) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Style Inspector")
-                .font(.headline)
-
+        SettingsSection("Style Inspector", spacing: Spacing.md) {
             LazyVGrid(columns: inspectorColumns, alignment: .leading, spacing: 12) {
                 // Color picker
                 VStack(alignment: .leading, spacing: 4) {
@@ -69,9 +66,6 @@ extension OverlayEditorView {
             // Timing controls
             timingControls(for: overlay)
         }
-        .padding(12)
-        .background(Color(NSColor.controlBackgroundColor))
-        .cornerRadius(8)
     }
 
     func textSpecificControls(for overlay: Project.Overlay) -> some View {
