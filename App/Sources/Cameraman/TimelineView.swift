@@ -484,7 +484,11 @@ struct TimelineView: View {
                             }
                         }
                     )
-                    .frame(width: layout.contentWidth, alignment: .leading)
+                    // Clamp height like the overlay rows: the row contains a
+                    // vertically-flexible Color.clear that would otherwise absorb
+                    // slack space and push the right-side tracks out of alignment
+                    // with the fixed label column.
+                    .frame(width: layout.contentWidth, height: trackHeight, alignment: .leading)
                 } else {
                     timelineTrackContent(for: track, layout: layout)
                         .frame(width: layout.contentWidth, alignment: .leading)
