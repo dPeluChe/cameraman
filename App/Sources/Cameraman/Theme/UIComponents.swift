@@ -34,24 +34,32 @@ struct SettingsSection<Content: View>: View {
     }
 }
 
-/// Standard left-aligned header bar for sheets/windows.
-struct SheetHeader: View {
+/// Standard header bar for sheets/windows: title (+ optional subtitle) on the left,
+/// optional trailing accessory (action buttons) on the right.
+struct SheetHeader<Trailing: View>: View {
     let title: String
     var subtitle: String?
+    @ViewBuilder var trailing: () -> Trailing
 
-    init(_ title: String, subtitle: String? = nil) {
+    init(_ title: String,
+         subtitle: String? = nil,
+         @ViewBuilder trailing: @escaping () -> Trailing = { EmptyView() }) {
         self.title = title
         self.subtitle = subtitle
+        self.trailing = trailing
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title).font(.title3.weight(.semibold))
-            if let subtitle {
-                Text(subtitle).font(.subheadline).foregroundStyle(.secondary)
+        HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.headline)
+                if let subtitle {
+                    Text(subtitle).font(.caption).foregroundStyle(.secondary)
+                }
             }
+            Spacer(minLength: Spacing.md)
+            trailing()
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Spacing.xl)
         .padding(.vertical, Spacing.lg)
         .background(AppColor.controlBackground)

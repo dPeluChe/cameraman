@@ -24,13 +24,7 @@ struct ChapterManagementView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack {
-                Text("Chapter Management")
-                    .font(.headline)
-
-                Spacer()
-
+            SheetHeader("Chapter Management") {
                 if hasChapterSuggestions {
                     Button("Apply All") {
                         showApplyConfirmation = true
@@ -43,8 +37,6 @@ struct ChapterManagementView: View {
                 }
                 .buttonStyle(.bordered)
             }
-            .padding()
-            .background(Color(nsColor: .controlBackgroundColor))
 
             Divider()
 
@@ -55,7 +47,7 @@ struct ChapterManagementView: View {
                 chapterList
             }
         }
-        .frame(width: 700, height: 600)
+        .modalFrame(.xlarge)
         .alert("Apply Chapters", isPresented: $showApplyConfirmation) {
             Button("Cancel", role: .cancel) { }
             Button("Apply") {
@@ -69,28 +61,18 @@ struct ChapterManagementView: View {
     }
 
     private var emptyView: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "bookmark")
-                .font(.system(size: 48))
-                .foregroundStyle(.secondary)
-
-            Text("No Chapters")
-                .font(.headline)
-
-            Text("Generate chapter suggestions from your transcript to organize your video")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 400)
-
+        EmptyStateView(
+            icon: "bookmark",
+            title: "No Chapters",
+            message: "Generate chapter suggestions from your transcript to organize your video"
+        ) {
             if !hasTranscript {
                 Text("Note: Transcription must be completed before generating chapters")
                     .font(.caption)
                     .foregroundStyle(.orange)
-                    .padding()
+                    .padding(.top, Spacing.sm)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var chapterList: some View {
