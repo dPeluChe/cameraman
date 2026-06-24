@@ -6,8 +6,15 @@
 [![Platform: macOS 13+](https://img.shields.io/badge/platform-macOS%2013%2B-blue.svg)](https://www.apple.com/macos/)
 [![Swift 5.9+](https://img.shields.io/badge/swift-5.9%2B-orange.svg)](https://swift.org)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![Landing](https://img.shields.io/badge/landing-cameraman.dev-blue.svg)](https://cameraman.dev)
 
-**Version**: 0.6.1 (beta) · **Platform**: macOS 13+ (Ventura)
+**Version**: 0.7.0 (beta) · **Platform**: macOS 13+ (Ventura)
+
+> **Landing page:** the marketing site lives in a separate repo —
+> [`dPeluChe/cameraman-landing`](https://github.com/dPeluChe/cameraman-landing)
+> (React + Tailwind + framer-motion, deployed to [cameraman.dev](https://cameraman.dev) via Vercel).
+> The static `docs/index.html` previously used for GitHub Pages is superseded
+> but kept for backwards compatibility.
 
 ---
 
@@ -116,20 +123,26 @@ To remove the Gatekeeper warning entirely the app would need an Apple Developer 
 ## Architecture (at a glance)
 
 ```
-cameraman/
-├── App/                       # SwiftUI app (CameramanApp scheme)
-├── CameramanApp/              # Xcode project, entitlements, assets
-├── EngineKit/                 # Pure Swift package — engine code (UI-free)
-│   ├── Capture/               # Recording, permissions, telemetry
-│   ├── Editor/                # Non-destructive editing model + overlays
-│   ├── Preview/               # Playback with edits applied
-│   ├── Export/                # Async rendering pipeline + presets
-│   ├── Zoom/                  # Auto-zoom from cursor telemetry
-│   ├── Transcription/         # Offline STT (Whisper.cpp)
-│   └── Shared/Models/Store/   # Cross-cutting code + persistence
-├── docs/                      # CHANGELOG, PRD, TECH_SPEC, DEV_ONBOARDING, TASK_*
+cameraman/                         # this repo — the macOS app + engine
+├── App/                           # SwiftUI app (CameramanApp scheme)
+├── CameramanApp/                  # Xcode project, entitlements, assets
+├── EngineKit/                     # Pure Swift package — engine code (UI-free)
+│   ├── Capture/                   # Recording, permissions, telemetry
+│   ├── Editor/                    # Non-destructive editing model + overlays
+│   ├── Preview/                   # Playback with edits applied
+│   ├── Export/                    # Async rendering pipeline + presets
+│   ├── Zoom/                      # Auto-zoom from cursor telemetry
+│   ├── Transcription/             # Offline STT (WhisperKit)
+│   └── Shared/Models/Store/       # Cross-cutting code + persistence
+├── MCPServer/                     # MCP server (cameraman-mcp, 42 tools)
+├── docs/                          # CHANGELOG, PRD, TECH_SPEC, DEV_ONBOARDING, TASK_*
+│   ├── index.html                 # Legacy static landing (superseded by cameraman-landing)
+│   └── branding/                  # App icon, wordmark, DMG background
 ├── scripts/build-dmg.sh
 └── Makefile
+
+cameraman-landing/                 # separate repo — cameraman.dev
+└── (React 19 + Tailwind 4 + framer-motion, deployed via Vercel)
 ```
 
 Key design choices:

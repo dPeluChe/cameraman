@@ -11,12 +11,18 @@
 | [../LICENSE](../LICENSE) | MIT |
 | [../CLAUDE.md](../CLAUDE.md) | Guía para asistentes AI trabajando en el repo |
 
+## Landing page
+
+La landing vive en un repo separado: [`dPeluChe/cameraman-landing`](https://github.com/dPeluChe/cameraman-landing)
+(React + Tailwind + framer-motion, deployada a [cameraman.dev](https://cameraman.dev) via Vercel).
+El `index.html` en esta carpeta es el landing legacy de GitHub Pages (superseded, kept for backwards compat).
+
 ## Archivos activos en `docs/`
 
 | Archivo | Contenido |
 |---------|-----------|
 | [DEV_ONBOARDING.md](DEV_ONBOARDING.md) | **Empieza aquí** — arquitectura, setup, patrones clave |
-| [CHANGELOG.md](CHANGELOG.md) | Historial de versiones (current: v0.5.2) |
+| [CHANGELOG.md](CHANGELOG.md) | Historial de versiones (current: v0.7.0) |
 | [TASK_TODO.md](TASK_TODO.md) | Backlog de tareas pendientes |
 | [PRD.md](PRD.md) | Product requirements (referencia de diseño inicial) |
 | [TECH_SPEC.md](TECH_SPEC.md) | Tech spec inicial (referencia arquitectural) |
