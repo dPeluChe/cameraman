@@ -85,11 +85,13 @@ public actor TranscriptionEngine {
                 sampleRate: options.sampleRate
             )
 
-            // Step 2: Run Whisper.cpp transcription
+            // Step 2: Run transcription. 0.3 = loading model (first run downloads
+            // it — the long, opaque phase); bumped to 0.55 once it's ready.
             await jobQueue.updateJobProgress(jobId: jobId, progress: 0.3)
             let transcriptPath = transcriptDirectory.appendingPathComponent("transcript.json")
 
             try await runWhisperTranscription(
+                jobId: jobId,
                 audioPath: wavPath,
                 outputPath: transcriptPath,
                 options: options
@@ -221,6 +223,7 @@ public actor TranscriptionEngine {
     /// Run on-device transcription via WhisperKit (CoreML / Apple Neural Engine)
     /// and write the result as transcript.json. Only runs on Apple Silicon.
     private func runWhisperTranscription(
+        jobId: JobId,
         audioPath: URL,
         outputPath: URL,
         options: Options
@@ -232,7 +235,10 @@ public actor TranscriptionEngine {
         let result = try await WhisperKitTranscriber.transcribe(
             audioPath: audioPath,
             modelName: options.model.whisperKitName,
-            language: options.language
+            language: options.language,
+            onModelReady: { [jobQueue] in
+                await jobQueue.updateJobProgress(jobId: jobId, progress: 0.55)
+            }
         )
 
         let segments = result.segments.enumerated().map { index, segment in

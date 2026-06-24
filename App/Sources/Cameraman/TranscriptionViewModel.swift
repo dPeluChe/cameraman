@@ -134,6 +134,7 @@ final class TranscriptionViewModel: ObservableObject {
     private func progressLabel(for progress: Double) -> String {
         switch progress {
         case ..<0.3: return "Extracting audio…"
+        case ..<0.55: return "Loading speech model…"
         case ..<0.8: return "Transcribing audio…"
         case ..<0.9: return "Generating captions…"
         default: return "Finalizing…"
