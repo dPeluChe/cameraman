@@ -123,11 +123,12 @@ extension MCPTools {
             throw MCPToolError("Unknown model '\(modelRaw)'. Valid models: base, small, medium, large.")
         }
         let language = args.optStr("language")
+        let translate = (try? args.bool("translate")) ?? false
 
         let engine = try await ProjectLibrary.shared.getTranscriptionEngine()
         let jobId = try await engine.transcribe(
             projectId: projectId,
-            options: TranscriptionEngine.Options(model: model, language: language)
+            options: TranscriptionEngine.Options(model: model, language: language, translate: translate)
         )
         return try startedJob(jobId,
             "Transcription started. Poll get_job_status; on success read the captions with get_captions.")
@@ -149,6 +150,25 @@ extension MCPTools {
             throw MCPToolError("No captions at \(relativePath). Run transcribe_project and wait for the job to finish first.")
         }
         return text
+    }
+
+    /// Generate editable subtitle cues on the timeline from the project's
+    /// transcript (the app's "Add to Timeline"). They render over the video and
+    /// burn into exports when `burnCaptions` is set.
+    func addSubtitles(_ args: [String: Any]) async throws -> String {
+        let projectId = try args.uuid("projectId")
+        let dir = try await ProjectLibrary.shared.getProjectDirectory(projectId: projectId)
+        let url = dir.appendingPathComponent("transcript/transcript.json")
+        guard let data = try? Data(contentsOf: url),
+              let transcript = try? JSONDecoder().decode(TranscriptionEngine.Transcript.self, from: data) else {
+            throw MCPToolError("No transcript found. Run transcribe_project and wait for the job to finish first.")
+        }
+        var project = try await loadProject(args)
+        let count = project.setSubtitles(
+            fromSegments: transcript.segments.map { (text: $0.text, start: $0.start, end: $0.end) }
+        )
+        try await ProjectLibrary.shared.updateProject(project)
+        return try summary("Added \(count) subtitle cues to the timeline from the transcript.", project)
     }
 
     // MARK: - JSON helper

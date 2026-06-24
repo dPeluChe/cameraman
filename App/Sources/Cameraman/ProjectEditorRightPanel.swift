@@ -147,13 +147,13 @@ struct RightPanel: View {
                             } label: {
                                 HStack {
                                     Image(systemName: "sparkles")
-                                    Text("AI Suggestions...")
+                                    Text("AI Assistant (MCP)...")
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 8)
                             }
                             .buttonStyle(.bordered)
-                            .help("Detect silences to cut, and suggest chapters")
+                            .help("Connect an AI assistant via MCP to edit this project")
                         }
                         .padding(.top, 8)
                     }

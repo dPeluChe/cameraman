@@ -2,257 +2,117 @@
 //  AISuggestionsView.swift
 //  App
 //
-//  Created by Ralphy on 2026-01-20.
-//  Épica UI-K, P2 Task 1: AI Suggestions Panel
+//  "AI Assistant (MCP)" hub: instead of weak local heuristics, point the user
+//  at Cameraman's MCP server so their AI assistant (Claude/Codex) can edit the
+//  project for them — cut silences, add chapters, caption, apply effects, export.
 //
 
-import Combine
 import SwiftUI
+import AppKit
 import EngineKit
 
-/// AI Suggestions panel for displaying and applying AI-generated editing suggestions
 struct AISuggestionsView: View {
     @ObservedObject var editor: ProjectEditor
-    @Binding var playheadTime: TimeInterval
-
-    @StateObject private var viewModel = AISuggestionsViewModel()
-    @State private var showChapterManagement = false
     @Environment(\.dismiss) private var dismiss
+    @State private var copied: String?
+
+    private var projectName: String { editor.project.name }
+
+    /// The MCP binary ships inside the app bundle; a user-picked path also counts.
+    private var mcpReady: Bool {
+        let bundled = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/cameraman-mcp")
+        if FileManager.default.isExecutableFile(atPath: bundled.path) { return true }
+        let custom = UserDefaults.standard.string(forKey: "mcp.binaryPath") ?? ""
+        return !custom.isEmpty && FileManager.default.isExecutableFile(atPath: custom)
+    }
+
+    private var prompts: [String] {
+        [
+            "In my Cameraman project “\(projectName)”, remove the silent pauses.",
+            "Transcribe “\(projectName)” in Spanish and add the captions to the timeline.",
+            "Suggest chapters for “\(projectName)” from its transcript and apply them.",
+            "Apply black & white to the screen for the first 5 seconds of “\(projectName)”.",
+            "Export “\(projectName)” as web 1080p H.264 when you're done.",
+        ]
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            SheetHeader("AI Suggestions") {
-                if hasChapterSuggestions {
-                    Button("Manage Chapters") {
-                        showChapterManagement = true
-                    }
+            SheetHeader("AI Assistant (MCP)") {
+                Button("Close") { dismiss() }
                     .buttonStyle(.bordered)
-                }
-
-                Button("Close") {
-                    dismiss()
-                }
-                .buttonStyle(.bordered)
             }
 
             Divider()
 
-            // Content
-            if viewModel.isLoading {
-                loadingView
-            } else if let error = viewModel.errorMessage {
-                errorView(error)
-            } else if viewModel.suggestions.isEmpty {
-                emptyView
-            } else {
-                suggestionList
+            ScrollView {
+                VStack(alignment: .leading, spacing: Spacing.xl) {
+                    intro
+                    connectionSection
+                    promptsSection
+                }
+                .padding(Spacing.xl)
             }
         }
         .modalFrame(.large)
-        .onAppear {
-            Task {
-                await viewModel.loadSuggestions(for: editor.project.projectId)
-            }
-        }
-        .sheet(isPresented: $showChapterManagement) {
-            ChapterManagementView(
-                editor: editor,
-                playheadTime: $playheadTime,
-                suggestions: $viewModel.suggestions
-            )
-        }
     }
 
-    private var loadingView: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-                .scaleEffect(1.5)
-
-            Text(viewModel.loadingMessage)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private func errorView(_ error: String) -> some View {
-        VStack(spacing: 16) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 48))
-                .foregroundStyle(.orange)
-
-            Text("Unable to load suggestions")
+    private var intro: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            Label("Edit this project with your AI assistant", systemImage: "sparkles")
                 .font(.headline)
-
-            Text(error)
-                .font(.subheadline)
+            Text("Cameraman runs a local MCP server, so assistants like Claude (Desktop/Code) and Codex can edit this project for you — cut silences, add chapters, generate captions, apply effects, and export. Just ask, in plain language.")
+                .font(.callout)
                 .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-
-            Button("Retry") {
-                Task {
-                    await viewModel.loadSuggestions(for: editor.project.projectId)
-                }
-            }
-            .buttonStyle(.borderedProminent)
-        }
-        .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var emptyView: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 48))
-                .foregroundStyle(.secondary)
-
-            Text("No AI Suggestions")
-                .font(.headline)
-
-            Text("Generate suggestions to improve your video")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-            VStack(alignment: .leading, spacing: 12) {
-                suggestionButton(
-                    title: "Detect Silence",
-                    icon: "waveform.path",
-                    description: "Find silent sections to remove",
-                    action: {
-                        Task {
-                            await viewModel.generateSilenceSuggestions(for: editor.project.projectId)
-                        }
-                    }
-                )
-
-                suggestionButton(
-                    title: "Suggest Chapters",
-                    icon: "bookmark",
-                    description: "Create chapters from transcript",
-                    action: {
-                        Task {
-                            await viewModel.generateChapterSuggestions(for: editor.project.projectId)
-                        }
-                    }
-                )
-                .disabled(!hasTranscript)
-            }
-            .padding()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var suggestionList: some View {
-        ScrollView {
-            LazyVStack(spacing: 12) {
-                ForEach(viewModel.suggestions) { suggestion in
-                    SuggestionRow(
-                        suggestion: suggestion,
-                        onApply: {
-                            Task {
-                                await applySuggestion(suggestion)
-                            }
-                        },
-                        onSeek: {
-                            playheadTime = suggestion.timelineIn
-                        },
-                        onDelete: {
-                            Task {
-                                await viewModel.deleteSuggestion(suggestion.id)
-                            }
-                        }
-                    )
-                }
-            }
-            .padding()
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
-    private func suggestionButton(
-        title: String,
-        icon: String,
-        description: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            HStack(spacing: 16) {
-                Image(systemName: icon)
-                    .font(.title2)
-                    .foregroundStyle(Color.accentColor)
-                    .frame(width: 32)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-
-                    Text(description)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.caption)
+    private var connectionSection: some View {
+        SettingsSection("Connection") {
+            if mcpReady {
+                Label("MCP server bundled and ready.", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+            } else {
+                Label("Register the MCP server with your assistant to get started.", systemImage: "info.circle")
                     .foregroundStyle(.secondary)
             }
-            .sectionCard()
+
+            Button("Open Settings → Developer") { openSettings() }
+                .controlSize(.small)
+
+            Text("Your assistant sees the same project library, so it can open “\(projectName)” by name.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .buttonStyle(.plain)
     }
 
-    private var hasTranscript: Bool {
-        // Check if transcript exists
-        // This is a placeholder - actual implementation would check file system
-        true
-    }
+    private var promptsSection: some View {
+        SettingsSection("Try asking your assistant") {
+            ForEach(Array(prompts.enumerated()), id: \.element) { index, prompt in
+                HStack(alignment: .top, spacing: Spacing.sm) {
+                    Text(prompt)
+                        .font(.callout)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(copied == prompt ? "Copied" : "Copy") {
+                        Clipboard.copy(prompt)
+                        copied = prompt
+                    }
+                    .controlSize(.small)
+                }
+                .padding(.vertical, Spacing.xs)
 
-    private func applySuggestion(_ suggestion: Suggestion) async {
-        switch suggestion.type {
-        case .removeSilence:
-            await applySilenceRemoval(suggestion)
-        case .createChapter:
-            await applyChapterCreation(suggestion)
-        default:
-            break
+                if index < prompts.count - 1 { Divider() }
+            }
         }
-
-        // Remove suggestion after applying
-        await viewModel.deleteSuggestion(suggestion.id)
     }
 
-    private func applySilenceRemoval(_ suggestion: Suggestion) async {
-        // Delete the silent region from timeline
-        let _ = await editor.deleteRange(
-            from: suggestion.timelineIn,
-            to: suggestion.timelineOut
-        )
-    }
-
-    private func applyChapterCreation(_ suggestion: Suggestion) async {
-        // Extract metadata from suggestion
-        let title = suggestion.metadata("title", as: String.self) ?? "Untitled Chapter"
-        let summary = suggestion.metadata("summary", as: String.self)
-        let keywords = suggestion.metadata("keywords", as: [String].self) ?? []
-
-        // Create chapter
-        let chapter = Project.Chapter(
-            title: title,
-            startTime: suggestion.timelineIn,
-            endTime: suggestion.timelineOut,
-            summary: summary,
-            keywords: keywords
-        )
-
-        // Add to project via ProjectEditor
-        _ = await editor.addChapter(chapter)
-    }
-
-    // MARK: - Computed Properties
-
-    private var hasChapterSuggestions: Bool {
-        !viewModel.suggestions.filter { $0.type == .createChapter }.isEmpty
+    /// Open the Settings window (selector name differs across macOS versions).
+    private func openSettings() {
+        if !NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) {
+            NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
+        }
     }
 }
-
