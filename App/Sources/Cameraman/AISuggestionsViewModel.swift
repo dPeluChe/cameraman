@@ -174,9 +174,7 @@ struct SuggestionRow: View {
                 .help("Delete suggestion")
             }
         }
-        .padding()
-        .background(Color(nsColor: .controlBackgroundColor))
-        .cornerRadius(8)
+        .sectionCard()
     }
 
     private var icon: some View {

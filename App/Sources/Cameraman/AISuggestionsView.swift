@@ -197,9 +197,7 @@ struct AISuggestionsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            .padding()
-            .background(Color(nsColor: .controlBackgroundColor))
-            .cornerRadius(8)
+            .sectionCard()
         }
         .buttonStyle(.plain)
     }
