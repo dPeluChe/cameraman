@@ -27,12 +27,8 @@ struct GeneralPreferencesView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            // Autosave section
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Autosave")
-                    .font(.headline)
-
+        VStack(alignment: .leading, spacing: Spacing.xl) {
+            SettingsSection("Autosave") {
                 Toggle("Enable autosave", isOn: $autosaveEnabled)
                     .help("Automatically save projects while editing")
 
@@ -50,19 +46,12 @@ struct GeneralPreferencesView: View {
                             .foregroundStyle(.secondary)
                             .frame(width: 40, alignment: .trailing)
                     }
-                    .padding(.leading, 20)
+                    .padding(.leading, Spacing.xl)
                     .transition(.opacity)
                 }
             }
-            .padding()
-            .background(Color(nsColor: .controlBackgroundColor))
-            .cornerRadius(8)
 
-            // Interface section
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Interface")
-                    .font(.headline)
-
+            SettingsSection("Interface") {
                 HStack {
                     Text("Appearance:")
                     Picker("Appearance", selection: appearanceBinding) {
@@ -80,32 +69,6 @@ struct GeneralPreferencesView: View {
                 Toggle("Check for updates automatically", isOn: $checkForUpdates)
                     .help("Check for new versions on launch")
             }
-            .padding()
-            .background(Color(nsColor: .controlBackgroundColor))
-            .cornerRadius(8)
-
-            // About section
-            VStack(alignment: .leading, spacing: 8) {
-                Text("About")
-                    .font(.headline)
-
-                HStack {
-                    Text("Version:")
-                        .foregroundStyle(.secondary)
-                    Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown")
-                        .foregroundStyle(.primary)
-                }
-
-                HStack {
-                    Text("Build:")
-                        .foregroundStyle(.secondary)
-                    Text(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown")
-                        .foregroundStyle(.primary)
-                }
-            }
-            .padding()
-            .background(Color(nsColor: .controlBackgroundColor))
-            .cornerRadius(8)
         }
     }
 }
@@ -117,7 +80,7 @@ struct HotkeysPreferencesView: View {
     @State private var showInfo = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: Spacing.xl) {
             // Header with info
             HStack {
                 Text("Keyboard Shortcuts")
@@ -131,7 +94,7 @@ struct HotkeysPreferencesView: View {
                 }
                 .buttonStyle(.plain)
                 .popover(isPresented: $showInfo) {
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: Spacing.sm) {
                         Text("About Hotkeys")
                             .font(.headline)
                         Text("Global keyboard shortcuts allow you to control recording without leaving the application you're working in.")
@@ -166,51 +129,33 @@ struct HotkeysPreferencesView: View {
                 }
                 .buttonStyle(.bordered)
             }
-            .padding()
-            .background(Color(nsColor: .controlBackgroundColor))
-            .cornerRadius(8)
+            .sectionCard()
 
-            // Registered hotkeys list
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Registered Shortcuts")
-                    .font(.headline)
-
+            SettingsSection("Registered Shortcuts") {
                 if viewModel.registeredHotkeys.isEmpty {
                     Text("No hotkeys registered")
                         .foregroundStyle(.secondary)
                         .padding()
                         .frame(maxWidth: .infinity)
                 } else {
-                    VStack(spacing: 8) {
+                    VStack(spacing: Spacing.sm) {
                         ForEach(viewModel.registeredHotkeys, id: \.action) { hotkey in
                             HotkeyRow(hotkey: hotkey)
                         }
                     }
                     .padding()
                     .background(Color(nsColor: .textBackgroundColor))
-                    .cornerRadius(8)
+                    .cornerRadius(Radius.medium)
                 }
             }
-            .padding()
-            .background(Color(nsColor: .controlBackgroundColor))
-            .cornerRadius(8)
 
-            // Default hotkeys info
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Default Shortcuts")
-                    .font(.headline)
-
-                VStack(alignment: .leading, spacing: 6) {
-                    DefaultHotkeyRow(keyEquivalent: "R", modifiers: "⌘⇧", action: "Start Recording")
-                    DefaultHotkeyRow(keyEquivalent: "Esc", modifiers: "", action: "Stop Recording")
-                    DefaultHotkeyRow(keyEquivalent: "Space", modifiers: "⌘⇧", action: "Pause/Resume")
-                    DefaultHotkeyRow(keyEquivalent: "C", modifiers: "⌘⇧", action: "Toggle Camera")
-                    DefaultHotkeyRow(keyEquivalent: "M", modifiers: "⌘⇧", action: "Toggle Microphone")
-                }
+            SettingsSection("Default Shortcuts", spacing: Spacing.sm) {
+                DefaultHotkeyRow(keyEquivalent: "R", modifiers: "⌘⇧", action: "Start Recording")
+                DefaultHotkeyRow(keyEquivalent: "Esc", modifiers: "", action: "Stop Recording")
+                DefaultHotkeyRow(keyEquivalent: "Space", modifiers: "⌘⇧", action: "Pause/Resume")
+                DefaultHotkeyRow(keyEquivalent: "C", modifiers: "⌘⇧", action: "Toggle Camera")
+                DefaultHotkeyRow(keyEquivalent: "M", modifiers: "⌘⇧", action: "Toggle Microphone")
             }
-            .padding()
-            .background(Color(nsColor: .controlBackgroundColor))
-            .cornerRadius(8)
         }
         .task {
             await viewModel.loadHotkeys()
@@ -321,23 +266,14 @@ struct RecordingPreferencesView: View {
     private let resolutions = ["720p", "1080p", "4K"]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Default Recording Sources")
-                    .font(.headline)
-
+        VStack(alignment: .leading, spacing: Spacing.xl) {
+            SettingsSection("Default Recording Sources") {
                 Toggle("Include camera by default", isOn: $defaultIncludeCamera)
                 Toggle("Include microphone by default", isOn: $defaultIncludeMicrophone)
                 Toggle("Include system audio by default", isOn: $defaultIncludeSystemAudio)
             }
-            .padding()
-            .background(Color(nsColor: .controlBackgroundColor))
-            .cornerRadius(8)
 
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Recording Quality")
-                    .font(.headline)
-
+            SettingsSection("Recording Quality") {
                 HStack {
                     Text("Frame rate:")
                         .foregroundStyle(.secondary)
@@ -364,9 +300,6 @@ struct RecordingPreferencesView: View {
                     .frame(width: 200)
                 }
             }
-            .padding()
-            .background(Color(nsColor: .controlBackgroundColor))
-            .cornerRadius(8)
         }
     }
 }
@@ -382,11 +315,8 @@ struct ExportPreferencesView: View {
     private let destinations = ["Movies", "Documents", "Desktop"]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Default Export Settings")
-                    .font(.headline)
-
+        VStack(alignment: .leading, spacing: Spacing.xl) {
+            SettingsSection("Default Export Settings") {
                 HStack {
                     Text("Preset:")
                         .foregroundStyle(.secondary)
@@ -413,14 +343,8 @@ struct ExportPreferencesView: View {
 
                 Toggle("Reveal in Finder after export", isOn: $revealInFinder)
             }
-            .padding()
-            .background(Color(nsColor: .controlBackgroundColor))
-            .cornerRadius(8)
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Export Information")
-                    .font(.headline)
-
+            SettingsSection("Export Information", spacing: Spacing.sm) {
                 Text("Export settings can be customized per-project in the Export dialog.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -429,9 +353,6 @@ struct ExportPreferencesView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            .padding()
-            .background(Color(nsColor: .controlBackgroundColor))
-            .cornerRadius(8)
         }
     }
 }

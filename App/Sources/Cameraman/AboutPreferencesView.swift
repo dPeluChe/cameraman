@@ -49,6 +49,15 @@ struct AboutPreferencesView: View {
                         url: AppLinks.contact)
             }
 
+            // Diagnostics — collects env + permissions + logs for a bug report
+            Button {
+                DiagnosticsWindowController.shared.show()
+            } label: {
+                Label("Run Diagnostics…", systemImage: "stethoscope")
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+
             Divider()
 
             // Donations
