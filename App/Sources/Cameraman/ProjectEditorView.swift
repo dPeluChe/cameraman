@@ -96,6 +96,7 @@ struct ProjectEditorView: View {
     @StateObject private var viewModel: ProjectEditorViewModel
     @State private var showExportModal = false
     @State private var showTranscriptionModal = false
+    @State private var showAISuggestionsModal = false
     
     // UI State for DisclosureGroups
     @State private var isLayoutExpanded = true
@@ -149,7 +150,9 @@ struct ProjectEditorView: View {
                         isZoomExpanded: $isZoomExpanded,
                         isOverlaysExpanded: $isOverlaysExpanded,
                         isExportExpanded: $isExportExpanded,
-                        showExportModal: $showExportModal
+                        showExportModal: $showExportModal,
+                        showTranscriptionModal: $showTranscriptionModal,
+                        showAISuggestionsModal: $showAISuggestionsModal
                     )
                     .frame(width: 300)
                     .clipped()
@@ -174,6 +177,12 @@ struct ProjectEditorView: View {
             if viewModel.editor != nil, viewModel.projectDirectory != nil {
                 showExportModal = true
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openTranscriptionModal)) { _ in
+            if viewModel.editor != nil { showTranscriptionModal = true }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openAISuggestions)) { _ in
+            if viewModel.editor != nil { showAISuggestionsModal = true }
         }
         .sheet(isPresented: $showExportModal) {
             if let editor = viewModel.editor,
@@ -204,6 +213,17 @@ struct ProjectEditorView: View {
             } else {
                 ProgressView()
                     .frame(width: 560, height: 400)
+            }
+        }
+        .sheet(isPresented: $showAISuggestionsModal) {
+            if let editor = viewModel.editor {
+                AISuggestionsView(editor: editor, playheadTime: Binding(
+                    get: { viewModel.playerViewModel.currentTime },
+                    set: { viewModel.playerViewModel.seek(to: $0) }
+                ))
+            } else {
+                ProgressView()
+                    .frame(width: 600, height: 500)
             }
         }
     }

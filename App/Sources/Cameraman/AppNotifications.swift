@@ -14,4 +14,8 @@ extension Notification.Name {
     static let openRecordingWindow = Notification.Name("openRecordingWindow")
     /// Notification posted to open the export modal in the current editor
     static let openExportModal = Notification.Name("openExportModal")
+    /// Notification posted to open the transcription / captions modal in the current editor
+    static let openTranscriptionModal = Notification.Name("openTranscriptionModal")
+    /// Notification posted to open the AI suggestions modal in the current editor
+    static let openAISuggestions = Notification.Name("openAISuggestions")
 }
