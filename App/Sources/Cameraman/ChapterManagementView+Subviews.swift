@@ -56,7 +56,7 @@ struct ChapterRow: View {
                 }
                 .padding()
                 .background(Color(nsColor: .textBackgroundColor))
-                .cornerRadius(8)
+                .cornerRadius(Radius.medium)
             } else {
                 // Display mode
                 HStack(alignment: .top, spacing: 12) {
@@ -121,9 +121,7 @@ struct ChapterRow: View {
                         .help("Delete chapter")
                     }
                 }
-                .padding()
-                .background(Color(nsColor: .controlBackgroundColor))
-                .cornerRadius(8)
+                .sectionCard()
             }
         }
         .padding(.horizontal, 16)
@@ -211,9 +209,9 @@ struct SuggestedChapterRow: View {
         }
         .padding()
         .background(Color.orange.opacity(0.05))
-        .cornerRadius(8)
+        .cornerRadius(Radius.medium)
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: Radius.medium)
                 .stroke(Color.orange.opacity(0.3), lineWidth: 1)
         )
         .padding(.horizontal, 16)

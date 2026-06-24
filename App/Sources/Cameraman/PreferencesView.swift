@@ -16,6 +16,7 @@ struct PreferencesView: View {
     private enum PreferencesTab: String, CaseIterable {
         case general = "General"
         case recording = "Recording"
+        case shortcuts = "Shortcuts"
         case export = "Export"
         case transcription = "Transcription"
         case developer = "Developer"
@@ -25,6 +26,7 @@ struct PreferencesView: View {
             switch self {
             case .general: return "gear"
             case .recording: return "record.circle"
+            case .shortcuts: return "command"
             case .export: return "square.and.arrow.up"
             case .transcription: return "captions.bubble"
             case .developer: return "terminal"
@@ -78,6 +80,7 @@ struct PreferencesView: View {
                         GeneralPreferencesView()
                     case .recording:
                         RecordingPreferencesView()
+                    case .shortcuts:
                         HotkeysPreferencesView()
                     case .export:
                         ExportPreferencesView()

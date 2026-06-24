@@ -57,11 +57,11 @@ struct TelemetryControlsView: View {
             }
         }
         .background(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: Radius.medium)
                 .fill(Color(.controlBackgroundColor))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: Radius.medium)
                 .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
         )
     }

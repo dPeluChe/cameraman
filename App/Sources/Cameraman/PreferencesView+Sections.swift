@@ -77,44 +77,16 @@ struct GeneralPreferencesView: View {
 
 struct HotkeysPreferencesView: View {
     @StateObject private var viewModel = HotkeysPreferencesViewModel()
-    @State private var showInfo = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xl) {
-            // Header with info
-            HStack {
-                Text("Keyboard Shortcuts")
-                    .font(.headline)
-
-                Spacer()
-
-                Button(action: { showInfo.toggle() }) {
-                    Image(systemName: "info.circle")
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
-                .popover(isPresented: $showInfo) {
-                    VStack(alignment: .leading, spacing: Spacing.sm) {
-                        Text("About Hotkeys")
-                            .font(.headline)
-                        Text("Global keyboard shortcuts allow you to control recording without leaving the application you're working in.")
-                            .font(.body)
-                        Text("Hotkeys work even when the app is in the background.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding()
-                    .frame(width: 250)
-                }
-            }
-
-            // Hotkeys status
+            // Status + master toggle
             HStack {
                 Circle()
                     .fill(viewModel.hotkeysEnabled ? Color.green : Color.gray)
                     .frame(width: 8, height: 8)
 
-                Text(viewModel.hotkeysEnabled ? "Hotkeys enabled" : "Hotkeys disabled")
+                Text(viewModel.hotkeysEnabled ? "Shortcuts enabled" : "Shortcuts disabled")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
@@ -131,30 +103,23 @@ struct HotkeysPreferencesView: View {
             }
             .sectionCard()
 
-            SettingsSection("Registered Shortcuts") {
+            SettingsSection("Shortcuts",
+                            subtitle: "Global — they work even when Cameraman is in the background.") {
                 if viewModel.registeredHotkeys.isEmpty {
-                    Text("No hotkeys registered")
+                    Text("No shortcuts registered")
                         .foregroundStyle(.secondary)
-                        .padding()
                         .frame(maxWidth: .infinity)
+                        .padding(.vertical, Spacing.sm)
                 } else {
-                    VStack(spacing: Spacing.sm) {
-                        ForEach(viewModel.registeredHotkeys, id: \.action) { hotkey in
+                    VStack(spacing: 0) {
+                        ForEach(Array(viewModel.registeredHotkeys.enumerated()), id: \.element.action) { index, hotkey in
                             HotkeyRow(hotkey: hotkey)
+                            if index < viewModel.registeredHotkeys.count - 1 {
+                                Divider()
+                            }
                         }
                     }
-                    .padding()
-                    .background(Color(nsColor: .textBackgroundColor))
-                    .cornerRadius(Radius.medium)
                 }
-            }
-
-            SettingsSection("Default Shortcuts", spacing: Spacing.sm) {
-                DefaultHotkeyRow(keyEquivalent: "R", modifiers: "⌘⇧", action: "Start Recording")
-                DefaultHotkeyRow(keyEquivalent: "Esc", modifiers: "", action: "Stop Recording")
-                DefaultHotkeyRow(keyEquivalent: "Space", modifiers: "⌘⇧", action: "Pause/Resume")
-                DefaultHotkeyRow(keyEquivalent: "C", modifiers: "⌘⇧", action: "Toggle Camera")
-                DefaultHotkeyRow(keyEquivalent: "M", modifiers: "⌘⇧", action: "Toggle Microphone")
             }
         }
         .task {
@@ -169,32 +134,25 @@ struct HotkeyRow: View {
     let hotkey: HotkeyManager.Hotkey
 
     var body: some View {
-        HStack {
+        HStack(spacing: Spacing.md) {
             Image(systemName: iconForAction(hotkey.action))
-                .foregroundColor(.accentColor)
-                .frame(width: 24)
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 22)
 
             Text(hotkey.action.description)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            Spacer()
-
-            Text(keyEquivalent)
-                .font(.system(.body, design: .monospaced))
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Color.accentColor.opacity(0.1))
-                .cornerRadius(4)
+            KeyBadge(modifiers: modifierGlyphs, key: keyName)
         }
+        .padding(.vertical, Spacing.xs)
     }
 
-    private var keyEquivalent: String {
+    private var modifierGlyphs: String {
         var result = ""
         if hotkey.modifiers & HotkeyManager.Hotkey.cmdKey != 0 { result += "⌘" }
         if hotkey.modifiers & HotkeyManager.Hotkey.optionKey != 0 { result += "⌥" }
         if hotkey.modifiers & HotkeyManager.Hotkey.controlKey != 0 { result += "⌃" }
         if hotkey.modifiers & HotkeyManager.Hotkey.shiftKey != 0 { result += "⇧" }
-        result += keyName
         return result
     }
 
@@ -223,33 +181,25 @@ struct HotkeyRow: View {
     }
 }
 
-struct DefaultHotkeyRow: View {
-    let keyEquivalent: String
+/// A keyboard-shortcut badge: modifier glyphs + a key pill.
+struct KeyBadge: View {
     let modifiers: String
-    let action: String
+    let key: String
 
     var body: some View {
-        HStack {
-            Text(action)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            Spacer()
-
-            HStack(spacing: 4) {
-                if !modifiers.isEmpty {
-                    Text(modifiers)
-                        .font(.system(.caption, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                }
-                Text(keyEquivalent)
-                    .font(.system(.body, design: .monospaced))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.secondary.opacity(0.1))
-                    .cornerRadius(3)
+        HStack(spacing: Spacing.xs) {
+            if !modifiers.isEmpty {
+                Text(modifiers)
+                    .font(.system(.callout, design: .monospaced))
+                    .foregroundStyle(.secondary)
             }
+            Text(key)
+                .font(.system(.callout, design: .monospaced))
+                .padding(.horizontal, Spacing.sm)
+                .padding(.vertical, 3)
+                .background(AppColor.inset)
+                .cornerRadius(Radius.small)
         }
-        .font(.subheadline)
     }
 }
 
