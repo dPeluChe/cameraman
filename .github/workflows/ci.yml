@@ -18,15 +18,19 @@ env:
 jobs:
   enginekit:
     name: EngineKit build + test
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 20
 
     steps:
       - name: Checkout
         uses: actions/checkout@v5
 
+      # Swift 6 toolchain required: WhisperKit's transitive deps (swift-transformers
+      # → swift-jinja ≥ 2.0) ship a 6.0 tools-version, which older Xcode can't resolve.
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_15.4.app
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
 
       - name: Swift version
         run: swift --version
@@ -57,7 +61,7 @@ jobs:
   # NOT wired here yet because `*.xcodeproj` is currently gitignored. Enable it
   # once the Xcode project file is tracked or replaced with XcodeGen/Tuist.
   #
-  # When ready, the job runs on macos-14, selects Xcode 15.4, and does:
+  # When ready, the job runs on macos-15 with latest-stable Xcode and does:
   #   xcodebuild -project CameramanApp/CameramanApp.xcodeproj \
   #              -scheme CameramanApp -configuration Release \
   #              -destination 'generic/platform=macOS' \
