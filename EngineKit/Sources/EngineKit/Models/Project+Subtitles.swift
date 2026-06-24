@@ -162,3 +162,21 @@ extension Project.SubtitleStyle {
         return cues
     }
 }
+
+public extension Project {
+    /// Build editable subtitle overlays on the timeline from transcript segments,
+    /// using the project's `subtitleStyle` (long segments are split to fit).
+    /// Replaces any existing subtitles. Shared by the app's "Add to Timeline"
+    /// and the MCP `add_subtitles` tool. Returns the number of cues created.
+    @discardableResult
+    mutating func setSubtitles(fromSegments segments: [(text: String, start: TimeInterval, end: TimeInterval)]) -> Int {
+        var overlays: [Overlay] = []
+        for seg in segments {
+            for piece in SubtitleStyle.cues(forSegmentText: seg.text, start: seg.start, end: seg.end) {
+                overlays.append(Overlay.subtitle(text: piece.text, start: piece.start, end: piece.end, style: subtitleStyle))
+            }
+        }
+        subtitles = overlays
+        return overlays.count
+    }
+}

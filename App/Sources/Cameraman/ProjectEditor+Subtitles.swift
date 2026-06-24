@@ -25,36 +25,18 @@ extension ProjectEditor {
     /// - Returns: number of subtitle cues created.
     @discardableResult
     func generateSubtitles(from cues: [TranscriptCue]) async -> Int {
-        let style = project.subtitleStyle
-        var overlays: [Project.Overlay] = []
-        for cue in cues {
-            let pieces = Project.SubtitleStyle.cues(
-                forSegmentText: cue.text,
-                start: cue.start,
-                end: cue.end
-            )
-            for piece in pieces {
-                overlays.append(
-                    Project.Overlay.subtitle(
-                        text: piece.text,
-                        start: piece.start,
-                        end: piece.end,
-                        style: style
-                    )
-                )
-            }
-        }
-
         let previousProject = project
         var updatedProject = project
-        updatedProject.subtitles = overlays
+        let count = updatedProject.setSubtitles(
+            fromSegments: cues.map { (text: $0.text, start: $0.start, end: $0.end) }
+        )
         updatedProject.updatedAt = Date()
 
         await setEditorProject(updatedProject)
         recordUndo(previousProject)
         project = updatedProject
         scheduleAutosave()
-        return overlays.count
+        return count
     }
 
     /// Add a single empty subtitle cue at the given time window.

@@ -59,6 +59,7 @@ final class MCPTools {
         case "cancel_job":           return try await cancelJob(arguments)
         case "transcribe_project":   return try await transcribeProject(arguments)
         case "get_captions":         return try await getCaptions(arguments)
+        case "add_subtitles":        return try await addSubtitles(arguments)
         // Canvas
         case "set_canvas_layout":    return try await setCanvasLayout(arguments)
         case "set_background":       return try await setBackground(arguments)

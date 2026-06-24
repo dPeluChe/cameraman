@@ -309,7 +309,8 @@ extension MCPTools {
                  properties: [
                     "projectId": str("Project UUID"),
                     "model": strEnum("Whisper model (bigger = slower/more accurate; default base)", ["base", "small", "medium", "large"]),
-                    "language": str("Optional ISO language code (e.g. en, es); omit to auto-detect")
+                    "language": str("Optional ISO language code (e.g. en, es); omit to auto-detect"),
+                    "translate": bool("Translate to English instead of keeping the spoken language (default false)")
                  ],
                  required: ["projectId"]),
 
@@ -319,6 +320,11 @@ extension MCPTools {
                     "projectId": str("Project UUID"),
                     "format": strEnum("Caption format (default srt)", ["srt", "vtt", "json"])
                  ],
+                 required: ["projectId"]),
+
+            tool("add_subtitles",
+                 "Generate editable subtitle cues on the timeline from the project's transcript (run transcribe_project first). Replaces existing subtitles; they render over the video and burn into exports when burnCaptions is set.",
+                 properties: ["projectId": str("Project UUID")],
                  required: ["projectId"]),
 
             tool("suggest_silence_edits",
