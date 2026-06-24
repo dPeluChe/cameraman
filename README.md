@@ -55,11 +55,17 @@ Cameraman captures your screen, camera, and audio as **separate tracks**, gives 
 - Per-segment camera positions, visual effects and audio are all preserved in export
 - Share whole projects between machines as portable `.cameramanproject` bundles
 
-### Transcription
-- On-device speech-to-text (WhisperKit, Apple Silicon) with a model picker, generating SRT/VTT captions
+### Captions & transcription
+- On-device speech-to-text (WhisperKit, Apple Silicon) with a model picker — keeps the spoken language or translates to English
+- Generate from *Generate Captions…* (⇧⌘T) or the inspector's **Captions & AI** section; review/edit segments, copy, regenerate, export SRT/VTT
+- Add as **editable subtitles on the timeline** that render over the video (and burn into exports), with a Subtitles visibility toggle
+- **AI Assistant (MCP)** (⇧⌘J): a hub that connects your AI assistant (Claude/Codex) via the bundled MCP server so it can edit the project for you — cut silences, add chapters, caption, apply effects, export
+
+### Interface
+- Native macOS look with a unified design system; **Light / Dark / System** appearance (Settings → General → Interface)
 
 ### Automate (MCP server)
-- A built-in **MCP server** (`cameraman-mcp`, bundled and signed inside the app) exposes Cameraman to AI assistants (Claude Desktop/Code, Codex) over stdio JSON-RPC — **42 tools** to create/edit/record projects, add and edit clips/tracks/overlays/effects, set the canvas, transcribe, and **export** (with job polling). Register it from Settings → Integrations. See [`MCPServer/README.md`](MCPServer/README.md).
+- A built-in **MCP server** (`cameraman-mcp`, bundled and signed inside the app) exposes Cameraman to AI assistants (Claude Desktop/Code, Codex) over stdio JSON-RPC — **43 tools** to create/edit/record projects, add and edit clips/tracks/overlays/effects, set the canvas, transcribe, and **export** (with job polling). Register it from Settings → Developer. See [`MCPServer/README.md`](MCPServer/README.md).
 
 ---
 
@@ -136,7 +142,7 @@ cameraman/                         # this repo — the macOS app + engine
 │   ├── Zoom/                      # Auto-zoom from cursor telemetry
 │   ├── Transcription/             # Offline STT (WhisperKit)
 │   └── Shared/Models/Store/       # Cross-cutting code + persistence
-├── MCPServer/                     # MCP server (cameraman-mcp, 42 tools)
+├── MCPServer/                     # MCP server (cameraman-mcp, 43 tools)
 ├── docs/                          # CHANGELOG, PRD, TECH_SPEC, DEV_ONBOARDING, TASK_*
 │   ├── index.html                 # Legacy static landing (superseded by cameraman-landing)
 │   └── branding/                  # App icon, wordmark, DMG background

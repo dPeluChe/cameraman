@@ -79,7 +79,7 @@ swift build -c release
 
 > **App users:** the binary ships inside the app at
 > `CameramanApp.app/Contents/Helpers/cameraman-mcp` (built and signed by the
-> Xcode build phase). Settings → Integrations auto-detects it and fills the
+> Xcode build phase). Settings → Developer auto-detects it and fills the
 > snippets — no manual build needed. The instructions below are for running the
 > package standalone (contributors / non-app use).
 
@@ -89,7 +89,7 @@ The server speaks MCP over **stdio**. Point your client at the built binary.
 > inside its container, but this server is a plain CLI binary that defaults to
 > `~/Library/Application Support/ProjectStudio/Projects/`. Set
 > **`CAMERAMAN_PROJECTS_DIR`** to the app's container Projects folder so both see
-> the same projects. The app's Settings → Integrations panel shows the exact path
+> the same projects. The app's Settings → Developer panel shows the exact path
 > and generates these snippets with it filled in. The container path is:
 > `~/Library/Containers/dev.dpeluche.CameramanApp/Data/Library/Application Support/ProjectStudio/Projects`
 > (append `.debug` to the bundle id for debug builds). Omit the env var to use the
