@@ -42,7 +42,7 @@ struct CameramanApp: App {
                 }
                 .keyboardShortcut("t", modifiers: [.command, .shift])
 
-                Button("AI Suggestions...") {
+                Button("AI Assistant (MCP)...") {
                     NotificationCenter.default.post(name: .openAISuggestions, object: nil)
                 }
                 .keyboardShortcut("j", modifiers: [.command, .shift])

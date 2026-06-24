@@ -217,10 +217,7 @@ struct ProjectEditorView: View {
         }
         .sheet(isPresented: $showAISuggestionsModal) {
             if let editor = viewModel.editor {
-                AISuggestionsView(editor: editor, playheadTime: Binding(
-                    get: { viewModel.playerViewModel.currentTime },
-                    set: { viewModel.playerViewModel.seek(to: $0) }
-                ))
+                AISuggestionsView(editor: editor)
             } else {
                 ProgressView()
                     .frame(width: 600, height: 500)
