@@ -115,8 +115,8 @@ struct RecordingControlView: View {
             .buttonStyle(.bordered)
             .controlSize(.small)
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
+        .padding(.horizontal, Spacing.xl)
+        .padding(.vertical, Spacing.md)
         .background(Color(NSColor.controlBackgroundColor))
     }
 
@@ -162,9 +162,7 @@ struct RecordingControlView: View {
                     captureAreaRow
                 }
             }
-            .padding(12)
-            .background(Color(NSColor.controlBackgroundColor))
-            .cornerRadius(10)
+            .sectionCard(padding: Spacing.md)
 
             // Record button (starts countdown then records)
             Button {
@@ -182,7 +180,7 @@ struct RecordingControlView: View {
                     LinearGradient(colors: [.red, .red.opacity(0.8)], startPoint: .top, endPoint: .bottom)
                 )
                 .foregroundStyle(.white)
-                .cornerRadius(10)
+                .cornerRadius(Radius.medium)
             }
             .buttonStyle(.plain)
             .disabled(countdownValue != nil)
@@ -199,7 +197,7 @@ struct RecordingControlView: View {
                 .font(.system(size: 18))
                 .frame(width: 36, height: 36)
                 .background(sourceColor(source).opacity(0.15))
-                .cornerRadius(8)
+                .cornerRadius(Radius.medium)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(sourceName(source))
@@ -220,9 +218,7 @@ struct RecordingControlView: View {
             .buttonStyle(.bordered)
             .controlSize(.small)
         }
-        .padding(12)
-        .background(Color(NSColor.controlBackgroundColor))
-        .cornerRadius(10)
+        .sectionCard(padding: Spacing.md)
     }
 
     // MARK: - Quality & Area Rows (extracted to RecordingControlView+Configure.swift)
@@ -272,9 +268,7 @@ struct RecordingControlView: View {
                     }
                 }
             }
-            .padding(16)
-            .background(Color(NSColor.controlBackgroundColor))
-            .cornerRadius(10)
+            .sectionCard()
 
             HStack(spacing: 16) {
                 Button {
@@ -289,7 +283,7 @@ struct RecordingControlView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(Color(NSColor.controlBackgroundColor))
-                    .cornerRadius(10)
+                    .cornerRadius(Radius.medium)
                 }
                 .buttonStyle(.plain)
 
@@ -306,7 +300,7 @@ struct RecordingControlView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(Color(NSColor.controlBackgroundColor))
-                    .cornerRadius(10)
+                    .cornerRadius(Radius.medium)
                 }
                 .buttonStyle(.plain)
             }

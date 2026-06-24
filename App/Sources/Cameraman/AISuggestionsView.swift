@@ -21,13 +21,7 @@ struct AISuggestionsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack {
-                Text("AI Suggestions")
-                    .font(.headline)
-
-                Spacer()
-
+            SheetHeader("AI Suggestions") {
                 if hasChapterSuggestions {
                     Button("Manage Chapters") {
                         showChapterManagement = true
@@ -40,8 +34,6 @@ struct AISuggestionsView: View {
                 }
                 .buttonStyle(.bordered)
             }
-            .padding()
-            .background(Color(nsColor: .controlBackgroundColor))
 
             Divider()
 
@@ -56,7 +48,7 @@ struct AISuggestionsView: View {
                 suggestionList
             }
         }
-        .frame(width: 600, height: 500)
+        .modalFrame(.large)
         .onAppear {
             Task {
                 await viewModel.loadSuggestions(for: editor.project.projectId)
