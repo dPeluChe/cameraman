@@ -79,7 +79,10 @@ extension Project.Overlay {
             end: end,
             transform: Project.Overlay.Transform(
                 x: style.horizontalPosition,
-                y: style.verticalPosition,
+                // verticalPosition is "fraction up from the bottom" (0.12 ≈ near
+                // bottom), but overlay.y uses a top-down convention in the
+                // renderer, so flip it — otherwise captions render near the top.
+                y: 1.0 - style.verticalPosition,
                 scale: scale,
                 rotation: 0
             ),
