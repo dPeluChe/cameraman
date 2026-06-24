@@ -177,19 +177,3 @@ struct TagFilterButton: View {
     }
 }
 
-// MARK: - Empty State View
-
-struct EmptyStateView: View {
-    let message: String
-
-    var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "rectangle.split.3x1")
-                .font(.system(size: 40))
-                .foregroundStyle(.secondary)
-            Text(message)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}

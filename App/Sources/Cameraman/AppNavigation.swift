@@ -365,15 +365,17 @@ struct AppNavigation: View {
     private var detail: some View {
         switch viewModel.selectedItem {
         case .recording:
-            EmptyStateView(message: "Start a new recording from the toolbar or sidebar.")
-                .overlay {
-                    Button("Open Recording Controls") {
-                        openWindow(id: WindowID.recordingControls)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .padding(.top, 100) // Push below the icon/text
+            EmptyStateView(
+                icon: "rectangle.split.3x1",
+                title: "No recording selected",
+                message: "Start a new recording from the toolbar or sidebar."
+            ) {
+                Button("Open Recording Controls") {
+                    openWindow(id: WindowID.recordingControls)
                 }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+            }
         case .project(let projectId):
             Group {
                 if let project = viewModel.project(for: projectId) {
