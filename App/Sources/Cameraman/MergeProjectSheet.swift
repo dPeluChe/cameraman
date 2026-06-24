@@ -19,54 +19,53 @@ struct MergeProjectSheet: View {
     @State private var aspectNote: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Merge “\(source.name)” with…")
-                    .font(.headline)
-                Text("Creates a new project: “\(source.name)” first, then the selected project. Originals are kept.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+        VStack(spacing: 0) {
+            SheetHeader("Merge “\(source.name)” with…",
+                        subtitle: "Creates a new project: “\(source.name)” first, then the selected project. Originals are kept.")
 
-            List(candidates, selection: $selectedId) { project in
-                HStack {
-                    Image(systemName: "film")
-                        .foregroundStyle(.secondary)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(project.name)
-                            .font(.system(size: 13, weight: .medium))
-                        Text(ProjectSummaryFormatting.duration(project.duration))
-                            .font(.caption)
+            Divider()
+
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                List(candidates, selection: $selectedId) { project in
+                    HStack {
+                        Image(systemName: "film")
                             .foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(project.name)
+                                .font(.system(size: 13, weight: .medium))
+                            Text(ProjectSummaryFormatting.duration(project.duration))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
+                    .tag(project.projectId)
                 }
-                .tag(project.projectId)
-            }
-            .frame(minHeight: 180)
+                .frame(minHeight: 180)
 
-            if let aspectNote {
-                Label(aspectNote, systemImage: "aspectratio")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-            }
+                if let aspectNote {
+                    Label(aspectNote, systemImage: "aspectratio")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
 
-            HStack {
-                Spacer()
-                Button("Cancel") { dismiss() }
-                    .keyboardShortcut(.cancelAction)
-                Button("Merge") {
-                    if let selected = candidates.first(where: { $0.projectId == selectedId }) {
-                        onMerge(selected)
-                        dismiss()
+                HStack {
+                    Spacer()
+                    Button("Cancel") { dismiss() }
+                        .keyboardShortcut(.cancelAction)
+                    Button("Merge") {
+                        if let selected = candidates.first(where: { $0.projectId == selectedId }) {
+                            onMerge(selected)
+                            dismiss()
+                        }
                     }
+                    .keyboardShortcut(.defaultAction)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(selectedId == nil)
                 }
-                .keyboardShortcut(.defaultAction)
-                .buttonStyle(.borderedProminent)
-                .disabled(selectedId == nil)
             }
+            .padding(Spacing.xl)
         }
-        .padding(20)
-        .frame(width: 380, height: 360)
+        .modalFrame(.small)
         .onChangeCompat(of: selectedId) { _ in
             updateAspectNote()
         }

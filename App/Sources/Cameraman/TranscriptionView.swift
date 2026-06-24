@@ -24,37 +24,33 @@ struct TranscriptionView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            // Header with transcription status
+        VStack(spacing: 0) {
             header
 
             Divider()
 
             // Transcription controls or transcript display
-            if viewModel.transcriptionState == .notStarted {
-                transcriptionPrompt
-            } else if viewModel.transcriptionState == .inProgress {
-                progressView
-            } else if viewModel.transcriptionState == .completed {
-                transcriptView
-            } else if viewModel.transcriptionState == .failed {
-                errorView
+            Group {
+                if viewModel.transcriptionState == .notStarted {
+                    transcriptionPrompt
+                } else if viewModel.transcriptionState == .inProgress {
+                    progressView
+                } else if viewModel.transcriptionState == .completed {
+                    transcriptView
+                } else if viewModel.transcriptionState == .failed {
+                    errorView
+                }
             }
+            .padding(Spacing.xl)
         }
-        .padding(20)
-        .frame(width: 560, height: 400)
+        .modalFrame(.medium)
         .onAppear {
             viewModel.checkTranscriptionStatus(project: editor.project)
         }
     }
 
     private var header: some View {
-        HStack {
-            Text("Transcription")
-                .font(.headline)
-
-            Spacer()
-
+        SheetHeader("Transcription") {
             if viewModel.transcriptionState == .completed {
                 Button("Close") {
                     dismiss()
@@ -247,20 +243,11 @@ struct TranscriptionView: View {
                     }
                 }
             } else {
-                VStack(spacing: 12) {
-                    Image(systemName: "doc.text")
-                        .font(.system(size: 48))
-                        .foregroundStyle(.secondary)
-
-                    Text("No transcript available")
-                        .font(.headline)
-                        .foregroundStyle(.secondary)
-
-                    Text("The transcript file could not be loaded.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                EmptyStateView(
+                    icon: "doc.text",
+                    title: "No transcript available",
+                    message: "The transcript file could not be loaded."
+                )
             }
         }
         .confirmationDialog("Export Captions", isPresented: $viewModel.showingExportOptions, titleVisibility: .visible) {

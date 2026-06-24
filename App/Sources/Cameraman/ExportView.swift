@@ -63,44 +63,34 @@ struct ExportView: View {
     }
 
     private var header: some View {
-        HStack {
-            Text("Export Video")
-                .font(.headline)
-
-            Spacer()
-
+        SheetHeader("Export Video") {
             if viewModel.exportState == .notStarted {
                 Button("Cancel") {
                     dismiss()
                     onCancel()
                 }
                 .buttonStyle(.bordered)
-            } else {
-                if viewModel.exportState == .completed || viewModel.exportState == .failed {
-                    Button("Done") {
-                        dismiss()
-                        if viewModel.exportState == .completed {
-                            onExportComplete(viewModel.exportResult)
-                        } else {
-                            onCancel()
-                        }
+            } else if viewModel.exportState == .completed || viewModel.exportState == .failed {
+                Button("Done") {
+                    dismiss()
+                    if viewModel.exportState == .completed {
+                        onExportComplete(viewModel.exportResult)
+                    } else {
+                        onCancel()
                     }
-                    .buttonStyle(.bordered)
-                } else {
-                    Button("Cancel Export") {
-                        Task {
-                            await viewModel.cancelExport()
-                            dismiss()
-                            onCancel()
-                        }
-                    }
-                    .buttonStyle(.bordered)
                 }
+                .buttonStyle(.bordered)
+            } else {
+                Button("Cancel Export") {
+                    Task {
+                        await viewModel.cancelExport()
+                        dismiss()
+                        onCancel()
+                    }
+                }
+                .buttonStyle(.bordered)
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 16)
-        .background(Color(nsColor: .controlBackgroundColor))
     }
 
     // MARK: - Configuration Content
