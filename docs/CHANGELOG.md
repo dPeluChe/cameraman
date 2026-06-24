@@ -11,7 +11,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Light / Dark mode** — the app follows the system appearance and adds a
+  **System / Light / Dark** picker in *Settings → General → Interface*
+  (`NSApp.appearance`, covers SwiftUI + AppKit windows).
+- **Captions & transcription, usable end-to-end from the UI** — reachable via
+  *Generate Captions…* (⇧⌘T) / *AI Suggestions…* (⇧⌘J) in the menu and the
+  inspector's **Captions & AI** section (they were previously unwired). The
+  transcription modal is cancellable, shows an elapsed timer and download
+  note, lets you **copy** and **regenerate**, and **adds editable subtitles to
+  the timeline that render over the video** (and burn into exports). The
+  **Subtitles** track gets a visibility (eye) toggle.
+- **Design system** — `Theme/DesignSystem.swift` (Spacing/Radius/ModalSize
+  scales, `.sectionCard()`, `.modalFrame()`) and `Theme/UIComponents.swift`
+  (`SettingsSection`, `SheetHeader`, `IconHeader`, `EmptyStateView`,
+  `KeyBadge`). Documented in [`docs/UI_THEMING.md`](UI_THEMING.md).
+
 ### Changed
+- **UI homologated across every window, sheet, and Settings tab** — consistent
+  sizes, headers, section cards, spacing, and typography via the shared
+  components above.
+- **Settings reorganized** — 7 tabs: General, Recording, Shortcuts, Export,
+  Transcription, Developer, About. *Integrations* was renamed **Developer**;
+  Diagnostics moved under *About* (a "Run Diagnostics…" button).
 - **Landing page split** — the marketing site moved to a dedicated repo:
   [`dPeluChe/cameraman-landing`](https://github.com/dPeluChe/cameraman-landing)
   (React 19 + Tailwind 4 + framer-motion, deployed to
@@ -19,6 +41,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `docs/index.html` (GitHub Pages) is superseded but kept for backwards
   compatibility. README, CLAUDE.md, and docs/README.md updated to reference
   the new landing repo.
+
+### Fixed
+- **Transcription language & text** — kept the spoken language (auto-detect was
+  defaulting to English) and stripped raw Whisper special tokens (`<|…|>`) from
+  captions; restored fine per-pause/sentence segments.
+- **Captions now render over the video** — the preview only ran the overlay
+  pass when a camera mask was set; it now composites overlays/subtitles
+  whenever present. Fixed caption text rendering (off-canvas text matrix),
+  bottom placement, and a background that hugs the text.
+- **Timeline alignment** — the subtitle track no longer pushes the pinned
+  label column out of alignment.
+- **CI** — moved to a Swift 6 toolchain (macOS 15 + latest-stable Xcode) so
+  WhisperKit's transitive dependencies resolve.
 
 ## [0.7.0] - 2026-06-19
 

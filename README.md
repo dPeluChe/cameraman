@@ -55,11 +55,17 @@ Cameraman captures your screen, camera, and audio as **separate tracks**, gives 
 - Per-segment camera positions, visual effects and audio are all preserved in export
 - Share whole projects between machines as portable `.cameramanproject` bundles
 
-### Transcription
-- On-device speech-to-text (WhisperKit, Apple Silicon) with a model picker, generating SRT/VTT captions
+### Captions & transcription
+- On-device speech-to-text (WhisperKit, Apple Silicon) with a model picker — keeps the spoken language or translates to English
+- Generate from *Generate Captions…* (⇧⌘T) or the inspector's **Captions & AI** section; review/edit segments, copy, regenerate, export SRT/VTT
+- Add as **editable subtitles on the timeline** that render over the video (and burn into exports), with a Subtitles visibility toggle
+- **AI suggestions** (⇧⌘J): detect silences to cut and suggest chapters from the transcript
+
+### Interface
+- Native macOS look with a unified design system; **Light / Dark / System** appearance (Settings → General → Interface)
 
 ### Automate (MCP server)
-- A built-in **MCP server** (`cameraman-mcp`, bundled and signed inside the app) exposes Cameraman to AI assistants (Claude Desktop/Code, Codex) over stdio JSON-RPC — **42 tools** to create/edit/record projects, add and edit clips/tracks/overlays/effects, set the canvas, transcribe, and **export** (with job polling). Register it from Settings → Integrations. See [`MCPServer/README.md`](MCPServer/README.md).
+- A built-in **MCP server** (`cameraman-mcp`, bundled and signed inside the app) exposes Cameraman to AI assistants (Claude Desktop/Code, Codex) over stdio JSON-RPC — **42 tools** to create/edit/record projects, add and edit clips/tracks/overlays/effects, set the canvas, transcribe, and **export** (with job polling). Register it from Settings → Developer. See [`MCPServer/README.md`](MCPServer/README.md).
 
 ---
 
