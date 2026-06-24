@@ -16,6 +16,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var hotkeyManager: HotkeyManager?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Apply the user's appearance preference (System/Light/Dark)
+        AppAppearance.applyStored()
+
         // Setup hotkeys
         setupHotkeys()
 

@@ -64,7 +64,7 @@ struct SourcePickerView: View {
         VStack(spacing: 6) {
             ZStack {
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.black.opacity(0.15))
+                    .fill(AppColor.inset)
 
                 if let image = sourceViewModel.previewImage {
                     Image(nsImage: image)

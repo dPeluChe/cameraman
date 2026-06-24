@@ -163,6 +163,9 @@ Telemetría (cursor.jsonl)
 ### 6. Audio por pista
 `AudioMixBuilder` construye `AVMutableAudioMix` con volumen/mute independiente por pista (recording + imported audio clips). Se usa en preview y en export.
 
+### 7. Color / theming (Light + Dark)
+La app sigue la apariencia del sistema por defecto; el usuario puede forzar Light/Dark en **Preferences → General → Interface** (`AppAppearance`, vía `NSApp.appearance`). Usa la paleta semántica `AppColor` (`Theme/AppColor.swift`) para el *chrome* de UI; deja fijos los colores sobre contenido (video, píldoras de color, teleprompter) y el color del usuario (`Color(hex:)`). Reglas completas en [`UI_THEMING.md`](UI_THEMING.md).
+
 ---
 
 ## Features implementadas (v0.5.1)
