@@ -367,7 +367,7 @@ struct TimelineTrimHandle: View {
 
     var body: some View {
         Rectangle()
-            .fill(Color.white.opacity(0.9))
+            .fill(Color.primary.opacity(0.9))
             .frame(width: 6, height: height - 14)
             .shadow(color: Color.black.opacity(0.2), radius: 2, x: 0, y: 0)
             .padding(edge == .leading ? .leading : .trailing, 2)

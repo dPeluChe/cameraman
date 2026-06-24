@@ -17,6 +17,14 @@ struct GeneralPreferencesView: View {
     @AppStorage("autosaveInterval") private var autosaveInterval = 30.0
     @AppStorage("showTooltips") private var showTooltips = true
     @AppStorage("checkForUpdates") private var checkForUpdates = true
+    @AppStorage(AppAppearance.storageKey) private var appearanceRaw = AppAppearance.system.rawValue
+
+    private var appearanceBinding: Binding<AppAppearance> {
+        Binding(
+            get: { AppAppearance(rawValue: appearanceRaw) ?? .system },
+            set: { appearanceRaw = $0.rawValue; AppAppearance.apply($0) }
+        )
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -54,6 +62,17 @@ struct GeneralPreferencesView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Interface")
                     .font(.headline)
+
+                HStack {
+                    Text("Appearance:")
+                    Picker("Appearance", selection: appearanceBinding) {
+                        ForEach(AppAppearance.allCases) { Text($0.label).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(width: 240)
+                }
+                .help("Match the system, or force Light or Dark")
 
                 Toggle("Show tooltips", isOn: $showTooltips)
                     .help("Display helpful tooltips for UI elements")

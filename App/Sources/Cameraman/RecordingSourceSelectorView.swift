@@ -34,7 +34,7 @@ struct RecordingSourceSelectorView: View {
             HStack {
                 Text("Select Recording Source")
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                 Spacer()
                 Button {
                     openMainWindow()
@@ -93,14 +93,13 @@ struct RecordingSourceSelectorView: View {
             }
 
             Divider()
-                .background(Color.white.opacity(0.2))
 
             // Preview section
             if viewModel.previewImage != nil {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Preview")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(.secondary)
 
                     if let image = viewModel.previewImage {
                         Image(nsImage: image)
@@ -108,7 +107,7 @@ struct RecordingSourceSelectorView: View {
                             .aspectRatio(contentMode: .fit)
                             .frame(maxHeight: 150)
                             .cornerRadius(8)
-                            .background(Color.black.opacity(0.3))
+                            .background(AppColor.inset)
                     }
                 }
             }
@@ -122,11 +121,11 @@ struct RecordingSourceSelectorView: View {
                     
                     Text("Permission Required")
                         .font(.headline)
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                     
                     Text("Cameraman needs screen recording permission to capture your screen and windows.")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.8))
+                        .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
                     
@@ -147,7 +146,7 @@ struct RecordingSourceSelectorView: View {
                     .padding(.top, 4)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.black.opacity(0.5))
+                .background(AppColor.inset)
                 .cornerRadius(8)
             } else if let error = viewModel.errorMessage {
                 HStack {
@@ -161,7 +160,7 @@ struct RecordingSourceSelectorView: View {
         }
         .padding()
         .frame(width: 500, height: 450)
-        .background(Color.black.opacity(0.85))
+        .background(AppColor.panelTranslucent)
         .cornerRadius(12)
         .onAppear {
             Task {

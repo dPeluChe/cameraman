@@ -30,24 +30,24 @@ struct DisplaySourceRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(source.name)
                         .font(.system(size: 13))
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                         .fontWeight(isSelected ? .semibold : .regular)
 
                     HStack(spacing: 8) {
                         Text("\(source.width)×\(source.height)")
                             .font(.caption)
-                            .foregroundColor(.white.opacity(0.6))
+                            .foregroundColor(.secondary)
 
                         Text("•")
-                            .foregroundColor(.white.opacity(0.4))
+                            .foregroundColor(.secondary)
 
                         Text("\(Int(source.refreshRate))Hz")
                             .font(.caption)
-                            .foregroundColor(.white.opacity(0.6))
+                            .foregroundColor(.secondary)
 
                         if source.isMain {
                             Text("•")
-                                .foregroundColor(.white.opacity(0.4))
+                                .foregroundColor(.secondary)
                             Text("Main")
                                 .font(.caption)
                                 .foregroundColor(.green)
@@ -60,15 +60,15 @@ struct DisplaySourceRow: View {
                 Button(action: onPreview) {
                     Image(systemName: "eye")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(.secondary)
                         .padding(6)
-                        .background(Color.white.opacity(0.1))
+                        .background(AppColor.inset)
                         .cornerRadius(4)
                 }
                 .buttonStyle(.plain)
             }
             .padding(10)
-            .background(isSelected ? Color.blue.opacity(0.3) : Color.white.opacity(0.05))
+            .background(isSelected ? Color.blue.opacity(0.3) : AppColor.inset)
             .cornerRadius(8)
         }
         .buttonStyle(.plain)
@@ -96,12 +96,12 @@ struct WindowSourceRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(source.title)
                         .font(.system(size: 13))
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                         .fontWeight(isSelected ? .semibold : .regular)
 
                     Text(source.applicationName)
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(.secondary)
                 }
 
                 Spacer()
@@ -109,15 +109,15 @@ struct WindowSourceRow: View {
                 Button(action: onPreview) {
                     Image(systemName: "eye")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(.secondary)
                         .padding(6)
-                        .background(Color.white.opacity(0.1))
+                        .background(AppColor.inset)
                         .cornerRadius(4)
                 }
                 .buttonStyle(.plain)
             }
             .padding(10)
-            .background(isSelected ? Color.purple.opacity(0.3) : Color.white.opacity(0.05))
+            .background(isSelected ? Color.purple.opacity(0.3) : AppColor.inset)
             .cornerRadius(8)
         }
         .buttonStyle(.plain)
@@ -145,18 +145,18 @@ struct ApplicationSourceRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(source.name)
                         .font(.system(size: 13))
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                         .fontWeight(isSelected ? .semibold : .regular)
 
                     Text(source.bundleIdentifier)
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(.secondary)
                 }
 
                 Spacer()
             }
             .padding(10)
-            .background(isSelected ? Color.green.opacity(0.3) : Color.white.opacity(0.05))
+            .background(isSelected ? Color.green.opacity(0.3) : AppColor.inset)
             .cornerRadius(8)
         }
         .buttonStyle(.plain)

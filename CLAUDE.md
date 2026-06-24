@@ -152,6 +152,8 @@ PreviewPlayerViewModel   - AVPlayer management, playback rate, per-track volume 
 TimelineView.swift       - Timeline: tracks, clips with snap/trim/split, playhead, ruler
                            (TimelineRulerView), pinned label column, fit-based zoom
 FeatureFlags.swift       - Hidden defaults-backed switches (e.g. feature.autoZoom, default off)
+Theme/AppColor.swift     - Semantic color palette + Color(light:dark:) (see docs/UI_THEMING.md)
+Theme/AppAppearance.swift- System/Light/Dark preference (Preferences → General); applied via NSApp.appearance
 MergeProjectSheet.swift  - Picker for "Merge Into New Project…"
 RecordingControlView     - Recording window: source selector, options, start/stop
 ScreenAreaSelector.swift - Full-screen overlay for area selection (KeyablePanel + AreaHighlightController)
@@ -185,6 +187,7 @@ Root-level (open-source basics):
 Inside `docs/`:
 
 - `docs/DEV_ONBOARDING.md` - **Start here** — architecture, setup, key patterns
+- `docs/UI_THEMING.md` - Color/theming rules: `AppColor` semantic palette, adapt-vs-fixed decision rule (app follows system appearance, no lock)
 - `docs/PRD.md` - Product requirements, user flows, MVP scope
 - `docs/TECH_SPEC.md` - API contracts, data schemas, sync strategy
 - `docs/TASK_TODO.md` - Pending features and improvements
