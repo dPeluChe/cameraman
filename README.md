@@ -12,7 +12,9 @@
 
 > **Landing page:** the marketing site lives in a separate repo —
 > [`dPeluChe/cameraman-landing`](https://github.com/dPeluChe/cameraman-landing)
-> (React + Tailwind + framer-motion, deployed to [cameraman.dev](https://cameraman.dev) via Vercel).
+> (React 19 + Tailwind 4 + framer-motion, deployed to [cameraman.dev](https://cameraman.dev) via Vercel).
+> Features an animated editor mockup, bento feature grid with honest status badges
+> (shipped / being tuned / improving), MCP agent chat mock, and comparison table.
 > The static `docs/index.html` previously used for GitHub Pages is superseded
 > but kept for backwards compatibility.
 
