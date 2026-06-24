@@ -182,6 +182,15 @@ final class TranscriptionViewModel: ObservableObject {
         return String(format: "%d:%02d", total / 60, total % 60)
     }
 
+    /// Copy the full transcript (honoring inline edits) to the clipboard.
+    func copyTranscript() {
+        guard let transcript else { return }
+        let text = transcript.segments
+            .map { editedText(for: $0) }
+            .joined(separator: "\n")
+        Clipboard.copy(text)
+    }
+
     func updateSegmentText(segmentId: Int, text: String) {
         editedTexts[segmentId] = text
     }

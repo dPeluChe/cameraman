@@ -212,6 +212,28 @@ struct TranscriptionView: View {
                 .disabled(viewModel.transcript == nil)
                 .help("Create editable subtitles on the timeline from this transcript")
 
+                Button {
+                    viewModel.copyTranscript()
+                } label: {
+                    Image(systemName: "doc.on.doc")
+                }
+                .buttonStyle(.bordered)
+                .disabled(viewModel.transcript == nil)
+                .help("Copy transcript text")
+
+                Button {
+                    Task {
+                        await viewModel.startTranscription(
+                            project: editor.project,
+                            language: viewModel.selectedLanguage
+                        )
+                    }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .buttonStyle(.bordered)
+                .help("Regenerate transcript (replaces the current one)")
+
                 Spacer()
 
                 Toggle("Burn-in Captions", isOn: $viewModel.burnInCaptions)
