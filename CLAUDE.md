@@ -154,6 +154,8 @@ TimelineView.swift       - Timeline: tracks, clips with snap/trim/split, playhea
 FeatureFlags.swift       - Hidden defaults-backed switches (e.g. feature.autoZoom, default off)
 Theme/AppColor.swift     - Semantic color palette + Color(light:dark:) (see docs/UI_THEMING.md)
 Theme/AppAppearance.swift- System/Light/Dark preference (Preferences → General); applied via NSApp.appearance
+Theme/DesignSystem.swift - Spacing/Radius/ModalSize scales + .sectionCard()/.modalFrame() (see docs/UI_THEMING.md)
+Theme/UIComponents.swift - Shared components: SettingsSection, SheetHeader, EmptyStateView
 MergeProjectSheet.swift  - Picker for "Merge Into New Project…"
 RecordingControlView     - Recording window: source selector, options, start/stop
 ScreenAreaSelector.swift - Full-screen overlay for area selection (KeyablePanel + AreaHighlightController)

@@ -1,4 +1,9 @@
-# UI Theming & Color Guidelines
+# UI Theming, Layout & Components
+
+How color, layout, and shared components work in the Cameraman app, and the rules
+to follow when adding or changing UI.
+
+## Color
 
 How color works in the Cameraman app, and the rules to follow when adding or
 changing UI. The app defaults to **following the system appearance**, but the user
@@ -69,8 +74,46 @@ Colors chosen by the user and persisted as data — leave them. These flow throu
 - ❌ Overriding an adaptive control with a fixed color (e.g. `Divider().background(Color.white.opacity(0.2))`) → let it adapt, or use `AppColor.separator`.
 - ❌ Converting a 🟡/🟢 color to semantic → this **breaks** the design (white-on-colored becomes invisible).
 
-## Verifying changes
+## Verifying color changes
 
 Toggle **Preferences → General → Interface → Appearance** (or System Settings →
 Appearance) between Light and Dark with the app open. Pay attention to: the
 **Recording source selector**, the **recording window**, and custom popovers.
+
+---
+
+## Layout scale & components
+
+Defined in `Theme/DesignSystem.swift` and `Theme/UIComponents.swift`. Use these
+instead of ad-hoc literals so every window/sheet/section looks the same.
+
+### Scales
+
+| Scale | Values | Use |
+|---|---|---|
+| `Spacing` | `xs 4` · `sm 8` · `md 12` · `lg 16` · `xl 20` · `xxl 24` | All padding / `VStack(spacing:)` |
+| `Radius` | `small 6` · `medium 8` · `large 12` | Buttons → cards → large surfaces |
+| `ModalSize` | `small 440×420` · `medium 580×480` · `large 680×560` · `xlarge 760×640` | Sheet/window sizing |
+
+### Components
+
+- **`SettingsSection(_:subtitle:)`** — titled card (header + optional subtitle over
+  content, wrapped in `.sectionCard()`). Use for every Preferences/inspector section.
+- **`SheetHeader(_:subtitle:)`** — standard left-aligned header bar for sheets/windows
+  (`.title3` semibold + caption over `controlBackground`).
+- **`EmptyStateView(icon:title:message:action:)`** — icon + title + message + optional
+  CTA. The single canonical empty state.
+- **`.sectionCard(padding:)`** — `padding + controlBackground + Radius.medium`.
+- **`.modalFrame(_:)`** — fixed frame for a `ModalSize`.
+
+### Conventions
+
+- **Headers:** sheets/windows use `SheetHeader`; sections use `SettingsSection`.
+- **Buttons:** one `.borderedProminent` (primary) per view; `.bordered` for secondary;
+  `.plain` only for genuinely chromeless/navigational controls; `.link` only for URLs.
+- **Pickers:** 2–4 visible options → `.segmented`; 5+ → `.menu`; exclusive list → `.radioGroup`.
+- **Text:** prefer semantic fonts (`.title3`/`.headline`/`.subheadline`/`.caption`) and
+  `.secondary`/`.tertiary` foreground over hardcoded sizes and `.opacity(...)`.
+
+> Migration is incremental: the foundation adds these without rewriting every view at
+> once. New/changed UI must use them; old views are migrated group by group.
