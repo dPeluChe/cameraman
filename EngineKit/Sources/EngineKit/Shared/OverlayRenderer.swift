@@ -115,13 +115,6 @@ extension MaskedVideoCompositor {
     }
 
     private func renderTextShape(in ctx: CGContext, size: CGSize, text: String, fontSize: Double, fontColor: String, bgColor: String?) {
-        let rect = CGRect(x: -size.width / 2, y: -size.height / 2, width: size.width, height: size.height)
-
-        if let bg = bgColor {
-            ctx.setFillColor(cgColor(from: bg))
-            ctx.fill(rect)
-        }
-
         // Draw directly into ctx (bottom-left origin, like the arrow/rect shapes
         // that render correctly). The previous offscreen + scaleY:-1 text matrix
         // assumed a flipped context, so the text landed off-canvas — the box
@@ -135,6 +128,19 @@ extension MaskedVideoCompositor {
         let attrString = NSAttributedString(string: text, attributes: attributes)
         let line = CTLineCreateWithAttributedString(attrString)
         let bounds = CTLineGetBoundsWithOptions(line, .useOpticalBounds)
+
+        // Background hugs the text (with padding) rather than the full overlay
+        // box, so the caption pill matches the line width.
+        if let bg = bgColor {
+            let padX = fontSize * 0.45
+            let padY = fontSize * 0.28
+            let boxW = bounds.width + padX * 2
+            let boxH = bounds.height + padY * 2
+            let boxRect = CGRect(x: -boxW / 2, y: -boxH / 2, width: boxW, height: boxH)
+            ctx.setFillColor(cgColor(from: bg))
+            ctx.addPath(CGPath(roundedRect: boxRect, cornerWidth: padY, cornerHeight: padY, transform: nil))
+            ctx.fillPath()
+        }
 
         ctx.saveGState()
         ctx.textMatrix = .identity
