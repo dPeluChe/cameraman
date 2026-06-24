@@ -28,7 +28,11 @@ final class TranscriptionViewModel: ObservableObject {
     @Published var showingExportOptions: Bool = false
 
     @Published var selectedLanguage: String?
+    /// Seconds since the current transcription started — surfaced so the user
+    /// sees activity during the opaque first-run model download.
+    @Published var elapsed: TimeInterval = 0
     private var transcriptionJobId: JobId?
+    private var elapsedTimer: Task<Void, Never>?
 
     enum TranscriptionState {
         case notStarted
@@ -67,12 +71,13 @@ final class TranscriptionViewModel: ObservableObject {
     /// the produced transcript back for review/editing.
     func startTranscription(project: Project, language: String?) async {
         isStarting = true
-        defer { isStarting = false }
+        defer { isStarting = false; stopElapsedTimer() }
 
         transcriptionState = .inProgress
         transcriptionProgress = 0
         errorMessage = nil
         progressMessage = "Preparing…"
+        startElapsedTimer()
 
         do {
             // Persist latest edits so the engine loads the project with its sources.
@@ -149,6 +154,30 @@ final class TranscriptionViewModel: ObservableObject {
         transcriptionJobId = nil
         transcriptionState = .notStarted
         transcriptionProgress = 0
+        stopElapsedTimer()
+    }
+
+    private func startElapsedTimer() {
+        elapsed = 0
+        elapsedTimer?.cancel()
+        let start = Date()
+        elapsedTimer = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                self?.elapsed = Date().timeIntervalSince(start)
+            }
+        }
+    }
+
+    private func stopElapsedTimer() {
+        elapsedTimer?.cancel()
+        elapsedTimer = nil
+    }
+
+    /// "M:SS" elapsed string for display.
+    var elapsedString: String {
+        let total = Int(elapsed)
+        return String(format: "%d:%02d", total / 60, total % 60)
     }
 
     func updateSegmentText(segmentId: Int, text: String) {
