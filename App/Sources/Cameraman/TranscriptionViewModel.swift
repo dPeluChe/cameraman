@@ -28,7 +28,12 @@ final class TranscriptionViewModel: ObservableObject {
     @Published var showingExportOptions: Bool = false
 
     @Published var selectedLanguage: String?
+    @Published var translateToEnglish: Bool = false
+    /// Seconds since the current transcription started — surfaced so the user
+    /// sees activity during the opaque first-run model download.
+    @Published var elapsed: TimeInterval = 0
     private var transcriptionJobId: JobId?
+    private var elapsedTimer: Task<Void, Never>?
 
     enum TranscriptionState {
         case notStarted
@@ -46,7 +51,8 @@ final class TranscriptionViewModel: ObservableObject {
     func checkTranscriptionStatus(project: Project) {
         // A transcript may already exist on disk from a previous run — load it so
         // the user can review/edit (and re-add to the timeline) without re-running.
-        guard project.captions != nil else { return }
+        // We probe the file directly rather than trusting project.captions, which
+        // may be stale in the in-memory editor right after a generate.
         Task { await loadExistingTranscript(projectId: project.projectId) }
     }
 
@@ -67,12 +73,13 @@ final class TranscriptionViewModel: ObservableObject {
     /// the produced transcript back for review/editing.
     func startTranscription(project: Project, language: String?) async {
         isStarting = true
-        defer { isStarting = false }
+        defer { isStarting = false; stopElapsedTimer() }
 
         transcriptionState = .inProgress
         transcriptionProgress = 0
         errorMessage = nil
         progressMessage = "Preparing…"
+        startElapsedTimer()
 
         do {
             // Persist latest edits so the engine loads the project with its sources.
@@ -81,7 +88,7 @@ final class TranscriptionViewModel: ObservableObject {
             let engine = try await ProjectLibrary.shared.getTranscriptionEngine()
             let jobQueue = try await ProjectLibrary.shared.getJobQueue()
 
-            let options = TranscriptionEngine.Options(model: TranscriptionModelPreference.current, language: language)
+            let options = TranscriptionEngine.Options(model: TranscriptionModelPreference.current, language: language, translate: translateToEnglish)
             let jobId = try await engine.transcribe(projectId: project.projectId, options: options)
             transcriptionJobId = jobId
 
@@ -134,6 +141,7 @@ final class TranscriptionViewModel: ObservableObject {
     private func progressLabel(for progress: Double) -> String {
         switch progress {
         case ..<0.3: return "Extracting audio…"
+        case ..<0.55: return "Loading speech model…"
         case ..<0.8: return "Transcribing audio…"
         case ..<0.9: return "Generating captions…"
         default: return "Finalizing…"
@@ -148,6 +156,39 @@ final class TranscriptionViewModel: ObservableObject {
         transcriptionJobId = nil
         transcriptionState = .notStarted
         transcriptionProgress = 0
+        stopElapsedTimer()
+    }
+
+    private func startElapsedTimer() {
+        elapsed = 0
+        elapsedTimer?.cancel()
+        let start = Date()
+        elapsedTimer = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                self?.elapsed = Date().timeIntervalSince(start)
+            }
+        }
+    }
+
+    private func stopElapsedTimer() {
+        elapsedTimer?.cancel()
+        elapsedTimer = nil
+    }
+
+    /// "M:SS" elapsed string for display.
+    var elapsedString: String {
+        let total = Int(elapsed)
+        return String(format: "%d:%02d", total / 60, total % 60)
+    }
+
+    /// Copy the full transcript (honoring inline edits) to the clipboard.
+    func copyTranscript() {
+        guard let transcript else { return }
+        let text = transcript.segments
+            .map { editedText(for: $0) }
+            .joined(separator: "\n")
+        Clipboard.copy(text)
     }
 
     func updateSegmentText(segmentId: Int, text: String) {

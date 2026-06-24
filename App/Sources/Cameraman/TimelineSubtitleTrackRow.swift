@@ -29,7 +29,7 @@ struct TimelineSubtitleTrackRow: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            Color.clear.frame(width: layout.labelWidth)
+            Color.clear.frame(width: layout.labelWidth, height: height)
 
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: 6, style: .continuous)

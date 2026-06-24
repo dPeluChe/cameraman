@@ -24,10 +24,13 @@ struct RightPanel: View {
     @Binding var isOverlaysExpanded: Bool
     @Binding var isExportExpanded: Bool
     @Binding var showExportModal: Bool
+    @Binding var showTranscriptionModal: Bool
+    @Binding var showAISuggestionsModal: Bool
 
     // Subtitles section manages its own expansion locally so the parent layout
     // doesn't need a new binding wired through every call site.
     @State private var isSubtitlesExpanded: Bool = false
+    @State private var isCaptionsExpanded: Bool = true
 
     var body: some View {
         ScrollView {
@@ -120,6 +123,39 @@ struct RightPanel: View {
                             editor: editor,
                             onSeek: { time in playerViewModel?.seek(to: time) }
                         )
+                    }
+
+                    Divider()
+
+                    // Captions & AI tools
+                    ConfigGroup(title: "Captions & AI", isExpanded: $isCaptionsExpanded) {
+                        VStack(spacing: 8) {
+                            Button {
+                                showTranscriptionModal = true
+                            } label: {
+                                HStack {
+                                    Image(systemName: "captions.bubble")
+                                    Text("Generate Captions...")
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                            }
+                            .buttonStyle(.bordered)
+
+                            Button {
+                                showAISuggestionsModal = true
+                            } label: {
+                                HStack {
+                                    Image(systemName: "sparkles")
+                                    Text("AI Suggestions...")
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                            }
+                            .buttonStyle(.bordered)
+                            .help("Detect silences to cut, and suggest chapters")
+                        }
+                        .padding(.top, 8)
                     }
 
                     Divider()

@@ -36,6 +36,16 @@ struct CameramanApp: App {
                     NotificationCenter.default.post(name: .openExportModal, object: nil)
                 }
                 .keyboardShortcut("e", modifiers: .command)
+
+                Button("Generate Captions...") {
+                    NotificationCenter.default.post(name: .openTranscriptionModal, object: nil)
+                }
+                .keyboardShortcut("t", modifiers: [.command, .shift])
+
+                Button("AI Suggestions...") {
+                    NotificationCenter.default.post(name: .openAISuggestions, object: nil)
+                }
+                .keyboardShortcut("j", modifiers: [.command, .shift])
             }
 
             // Help menu

@@ -115,19 +115,10 @@ extension MaskedVideoCompositor {
     }
 
     private func renderTextShape(in ctx: CGContext, size: CGSize, text: String, fontSize: Double, fontColor: String, bgColor: String?) {
-        let rect = CGRect(x: -size.width / 2, y: -size.height / 2, width: size.width, height: size.height)
-
-        if let bg = bgColor {
-            ctx.setFillColor(cgColor(from: bg))
-            ctx.fill(rect)
-        }
-
-        let textSize = CGSize(width: size.width, height: size.height)
-        guard let textCtx = createBGRAContext(size: textSize) else { return }
-
-        textCtx.setFillColor(CGColor(red: 0, green: 0, blue: 0, alpha: 0))
-        textCtx.fill(CGRect(origin: .zero, size: textSize))
-
+        // Draw directly into ctx (bottom-left origin, like the arrow/rect shapes
+        // that render correctly). The previous offscreen + scaleY:-1 text matrix
+        // assumed a flipped context, so the text landed off-canvas — the box
+        // showed but the caption text never did.
         let font = CTFontCreateWithName("Helvetica" as CFString, fontSize, nil)
         let color = cgColor(from: fontColor)
         let attributes: [NSAttributedString.Key: Any] = [
@@ -138,14 +129,27 @@ extension MaskedVideoCompositor {
         let line = CTLineCreateWithAttributedString(attrString)
         let bounds = CTLineGetBoundsWithOptions(line, .useOpticalBounds)
 
-        textCtx.textMatrix = CGAffineTransform(scaleX: 1, y: -1)
-        textCtx.textPosition = CGPoint(x: (textSize.width - bounds.width) / 2, y: -((textSize.height - bounds.height) / 2 + bounds.height * 0.25))
-        CTLineDraw(line, textCtx)
-
-        guard let textImage = textCtx.makeImage() else { return }
+        // Background hugs the text (with padding) rather than the full overlay
+        // box, so the caption pill matches the line width.
+        if let bg = bgColor {
+            let padX = fontSize * 0.45
+            let padY = fontSize * 0.28
+            let boxW = bounds.width + padX * 2
+            let boxH = bounds.height + padY * 2
+            let boxRect = CGRect(x: -boxW / 2, y: -boxH / 2, width: boxW, height: boxH)
+            ctx.setFillColor(cgColor(from: bg))
+            ctx.addPath(CGPath(roundedRect: boxRect, cornerWidth: padY, cornerHeight: padY, transform: nil))
+            ctx.fillPath()
+        }
 
         ctx.saveGState()
-        ctx.draw(textImage, in: CGRect(origin: CGPoint(x: -size.width / 2, y: -size.height / 2), size: textSize))
+        ctx.textMatrix = .identity
+        // Center the line on the overlay's origin (ctx is already translated there).
+        ctx.textPosition = CGPoint(
+            x: -bounds.width / 2 - bounds.minX,
+            y: -bounds.height / 2 - bounds.minY
+        )
+        CTLineDraw(line, ctx)
         ctx.restoreGState()
     }
 }

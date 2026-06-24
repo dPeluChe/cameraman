@@ -370,13 +370,25 @@ struct TimelineView: View {
                         }
                     }
                 } else if track.kind == .subtitle {
-                    Text("Subtitles")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .padding(.leading, 6)
+                    let hidden = mutedTracks.contains(.subtitle)
+                    Button {
+                        if hidden { mutedTracks.remove(.subtitle) } else { mutedTracks.insert(.subtitle) }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: hidden ? "eye.slash" : "eye")
+                                .foregroundStyle(.secondary)
+                            Text("Subtitles")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .frame(height: trackHeight)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help(hidden ? "Show subtitles in the preview" : "Hide subtitles in the preview")
+                    .padding(.leading, 6)
+                    .frame(height: trackHeight)
                 } else {
                     TimelineTrackLabelView(
                         track: track,
@@ -484,7 +496,11 @@ struct TimelineView: View {
                             }
                         }
                     )
-                    .frame(width: layout.contentWidth, alignment: .leading)
+                    // Clamp height like the overlay rows: the row contains a
+                    // vertically-flexible Color.clear that would otherwise absorb
+                    // slack space and push the right-side tracks out of alignment
+                    // with the fixed label column.
+                    .frame(width: layout.contentWidth, height: trackHeight, alignment: .leading)
                 } else {
                     timelineTrackContent(for: track, layout: layout)
                         .frame(width: layout.contentWidth, alignment: .leading)

@@ -35,7 +35,7 @@ public actor PreviewEngine {
     /// Stored composition result for audio mix building
     var compositionResult: CompositionBuilder.Result?
 
-    enum VideoTrackID: String, Hashable { case screen, camera }
+    enum VideoTrackID: String, Hashable { case screen, camera, subtitle }
     /// Which video tracks are currently muted (hidden) in preview
     var mutedVideoTracks: Set<VideoTrackID> = []
 

@@ -51,7 +51,12 @@ struct TranscriptionView: View {
 
     private var header: some View {
         SheetHeader("Transcription") {
-            if viewModel.transcriptionState == .completed {
+            if viewModel.transcriptionState == .inProgress {
+                Button("Cancel") {
+                    Task { await viewModel.cancelTranscription() }
+                }
+                .buttonStyle(.bordered)
+            } else {
                 Button("Close") {
                     dismiss()
                 }
@@ -68,6 +73,14 @@ struct TranscriptionView: View {
 
             Text("Transcribe the audio track of your video to create captions and searchable text.")
                 .foregroundStyle(.secondary)
+
+            if TranscriptionEngine.isAvailable {
+                Label("The first run downloads the speech model (cached afterward) — it can take a few minutes. Pick the model in Settings → Transcription.",
+                      systemImage: "arrow.down.circle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             if !TranscriptionEngine.isAvailable {
                 Label(
@@ -100,6 +113,9 @@ struct TranscriptionView: View {
                 }
                 .pickerStyle(.menu)
                 .frame(maxWidth: 300)
+
+                Toggle("Translate to English", isOn: $viewModel.translateToEnglish)
+                    .help("Off: keep the spoken language. On: translate the transcript to English.")
             }
 
             HStack(spacing: 12) {
@@ -126,14 +142,22 @@ struct TranscriptionView: View {
     }
 
     private var progressView: some View {
-        VStack(spacing: 20) {
-            VStack(spacing: 12) {
+        VStack(spacing: Spacing.xl) {
+            // Indeterminate spinner: the model-load/download phase is opaque, so a
+            // moving spinner reassures the user it isn't hung while the bar holds.
+            ProgressView()
+                .scaleEffect(1.2)
+
+            VStack(spacing: Spacing.md) {
                 ProgressView(value: viewModel.transcriptionProgress)
 
                 HStack {
                     Text(viewModel.progressMessage)
                         .foregroundStyle(.secondary)
                     Spacer()
+                    Label(viewModel.elapsedString, systemImage: "clock")
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
                     Text("\(Int(viewModel.transcriptionProgress * 100))%")
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
@@ -141,21 +165,11 @@ struct TranscriptionView: View {
                 .font(.subheadline)
             }
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Transcription in progress...")
-                    .foregroundStyle(.secondary)
-
-                Text("This may take a few moments depending on the video length.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-
-            Button("Cancel") {
-                Task {
-                    await viewModel.cancelTranscription()
-                }
-            }
-            .buttonStyle(.bordered)
+            Text("The first run downloads the speech model, which can take a few minutes. It's much faster afterward. You can cancel from the top-right.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
@@ -197,6 +211,28 @@ struct TranscriptionView: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(viewModel.transcript == nil)
                 .help("Create editable subtitles on the timeline from this transcript")
+
+                Button {
+                    viewModel.copyTranscript()
+                } label: {
+                    Image(systemName: "doc.on.doc")
+                }
+                .buttonStyle(.bordered)
+                .disabled(viewModel.transcript == nil)
+                .help("Copy transcript text")
+
+                Button {
+                    Task {
+                        await viewModel.startTranscription(
+                            project: editor.project,
+                            language: viewModel.selectedLanguage
+                        )
+                    }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .buttonStyle(.bordered)
+                .help("Regenerate transcript (replaces the current one)")
 
                 Spacer()
 
