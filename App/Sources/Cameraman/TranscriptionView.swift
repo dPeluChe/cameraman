@@ -113,6 +113,9 @@ struct TranscriptionView: View {
                 }
                 .pickerStyle(.menu)
                 .frame(maxWidth: 300)
+
+                Toggle("Translate to English", isOn: $viewModel.translateToEnglish)
+                    .help("Off: keep the spoken language. On: translate the transcript to English.")
             }
 
             HStack(spacing: 12) {

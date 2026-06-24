@@ -236,6 +236,7 @@ public actor TranscriptionEngine {
             audioPath: audioPath,
             modelName: options.model.whisperKitName,
             language: options.language,
+            translate: options.translate,
             onModelReady: { [jobQueue] in
                 await jobQueue.updateJobProgress(jobId: jobId, progress: 0.55)
             }
@@ -324,6 +325,8 @@ public extension TranscriptionEngine {
         public let model: Model
         /// Language code (nil = auto-detect)
         public let language: String?
+        /// Translate to English instead of transcribing in the source language.
+        public let translate: Bool
         /// Sample rate for audio extraction
         public let sampleRate: Int
 
@@ -344,9 +347,10 @@ public extension TranscriptionEngine {
             }
         }
 
-        public init(model: Model = .base, language: String? = nil, sampleRate: Int = 16000) {
+        public init(model: Model = .base, language: String? = nil, translate: Bool = false, sampleRate: Int = 16000) {
             self.model = model
             self.language = language
+            self.translate = translate
             self.sampleRate = sampleRate
         }
 

@@ -28,6 +28,7 @@ final class TranscriptionViewModel: ObservableObject {
     @Published var showingExportOptions: Bool = false
 
     @Published var selectedLanguage: String?
+    @Published var translateToEnglish: Bool = false
     /// Seconds since the current transcription started — surfaced so the user
     /// sees activity during the opaque first-run model download.
     @Published var elapsed: TimeInterval = 0
@@ -86,7 +87,7 @@ final class TranscriptionViewModel: ObservableObject {
             let engine = try await ProjectLibrary.shared.getTranscriptionEngine()
             let jobQueue = try await ProjectLibrary.shared.getJobQueue()
 
-            let options = TranscriptionEngine.Options(model: TranscriptionModelPreference.current, language: language)
+            let options = TranscriptionEngine.Options(model: TranscriptionModelPreference.current, language: language, translate: translateToEnglish)
             let jobId = try await engine.transcribe(projectId: project.projectId, options: options)
             transcriptionJobId = jobId
 
