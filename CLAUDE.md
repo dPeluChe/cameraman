@@ -15,6 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Xcode app project:** `CameramanApp/CameramanApp.xcodeproj` (scheme: `CameramanApp`)
 - **EngineKit package:** `EngineKit/` (Swift Package)
 - **MCP server package:** `MCPServer/` (Swift Package, binary `cameraman-mcp`) — stdio JSON-RPC MCP server reusing EngineKit; see `MCPServer/README.md`
+- **Landing page (separate repo):** [`dPeluChe/cameraman-landing`](https://github.com/dPeluChe/cameraman-landing) — React 19 + Tailwind 4 + framer-motion, deployed to [cameraman.dev](https://cameraman.dev) via Vercel. The static `docs/index.html` in this repo is the legacy GitHub Pages landing (superseded but kept for backwards compatibility).
 
 ## Build & Test Commands
 

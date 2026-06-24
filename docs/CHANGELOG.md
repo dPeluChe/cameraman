@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Landing page split** — the marketing site moved to a dedicated repo:
+  [`dPeluChe/cameraman-landing`](https://github.com/dPeluChe/cameraman-landing)
+  (React 19 + Tailwind 4 + framer-motion, deployed to
+  [cameraman.dev](https://cameraman.dev) via Vercel). The static
+  `docs/index.html` (GitHub Pages) is superseded but kept for backwards
+  compatibility. README, CLAUDE.md, and docs/README.md updated to reference
+  the new landing repo.
+
 ## [0.7.0] - 2026-06-19
 
 Foco: efectos extensibles en el timeline y un **servidor MCP completo** para
