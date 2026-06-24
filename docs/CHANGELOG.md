@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **System / Light / Dark** picker in *Settings → General → Interface*
   (`NSApp.appearance`, covers SwiftUI + AppKit windows).
 - **Captions & transcription, usable end-to-end from the UI** — reachable via
-  *Generate Captions…* (⇧⌘T) / *AI Suggestions…* (⇧⌘J) in the menu and the
+  *Generate Captions…* (⇧⌘T) / *AI Assistant (MCP)…* (⇧⌘J) in the menu and the
   inspector's **Captions & AI** section (they were previously unwired). The
   transcription modal is cancellable, shows an elapsed timer and download
   note, lets you **copy** and **regenerate**, and **adds editable subtitles to
@@ -26,6 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scales, `.sectionCard()`, `.modalFrame()`) and `Theme/UIComponents.swift`
   (`SettingsSection`, `SheetHeader`, `IconHeader`, `EmptyStateView`,
   `KeyBadge`). Documented in [`docs/UI_THEMING.md`](UI_THEMING.md).
+- **AI Assistant (MCP) hub** — the old "AI Suggestions" panel (weak local
+  silence/chapter heuristics) is now an MCP hub showing connection status and
+  copyable prompts so your AI assistant (Claude/Codex) can edit the project for
+  you. New MCP **`add_subtitles`** tool (transcript → editable timeline
+  subtitles, shared with the app's "Add to Timeline") and a **`translate`**
+  option on `transcribe_project` complete the captions flow over MCP
+  (**42 → 43 tools**).
 
 ### Changed
 - **UI homologated across every window, sheet, and Settings tab** — consistent
