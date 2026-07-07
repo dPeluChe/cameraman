@@ -43,6 +43,8 @@ public struct Project: Codable, Equatable {
     public var chapters: [Chapter]
     /// Imported media assets (audio, images) placed on the timeline
     public var mediaItems: [MediaItem]
+    /// Synthetic cursor rendering settings (nil = disabled, legacy default).
+    public var syntheticCursor: SyntheticCursorConfig?
 
     /// Helper to access sources from V1 (legacy) or V2 (first take)
     public var primarySources: Sources? {
@@ -58,6 +60,7 @@ public struct Project: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case schemaVersion, projectId, name, tags, createdAt, updatedAt
         case sources, takes, timeline, canvas, overlays, subtitles, subtitleStyle, captions, chapters, mediaItems
+        case syntheticCursor
     }
 
     public init(from decoder: Decoder) throws {
@@ -78,6 +81,7 @@ public struct Project: Codable, Equatable {
         captions = try container.decodeIfPresent(Captions.self, forKey: .captions)
         chapters = try container.decodeIfPresent([Chapter].self, forKey: .chapters) ?? []
         mediaItems = try container.decodeIfPresent([MediaItem].self, forKey: .mediaItems) ?? []
+        syntheticCursor = try container.decodeIfPresent(SyntheticCursorConfig.self, forKey: .syntheticCursor)
     }
 
     public init(
@@ -96,7 +100,8 @@ public struct Project: Codable, Equatable {
         schemaVersion: Int = 2,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
-        mediaItems: [MediaItem] = []
+        mediaItems: [MediaItem] = [],
+        syntheticCursor: SyntheticCursorConfig? = nil
     ) {
         self.projectId = projectId
         self.name = name
@@ -114,6 +119,7 @@ public struct Project: Codable, Equatable {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.mediaItems = mediaItems
+        self.syntheticCursor = syntheticCursor
     }
 
     /// Copy of this project under a different id — used by duplicate and
@@ -139,7 +145,8 @@ public struct Project: Codable, Equatable {
             schemaVersion: schemaVersion,
             createdAt: resetCreatedAt ? Date() : createdAt,
             updatedAt: Date(),
-            mediaItems: mediaItems
+            mediaItems: mediaItems,
+            syntheticCursor: syntheticCursor
         )
     }
 }

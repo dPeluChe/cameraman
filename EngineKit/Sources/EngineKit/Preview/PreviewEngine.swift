@@ -87,6 +87,22 @@ public actor PreviewEngine {
     /// Whether zoom rendering is enabled
     var zoomEnabled: Bool = true
 
+    /// Synthetic cursor path for rendering, derived from telemetry (like `zoomPlan`).
+    var cursorPlan: CursorPlan?
+
+    /// Set the synthetic cursor plan from external callers (e.g. project load).
+    /// Rebuilds the composition to apply the change immediately.
+    public func setCursorPlan(_ plan: CursorPlan?) async {
+        self.cursorPlan = plan
+        try? await rebuildVideoComposition()
+    }
+
+    /// Store the cursor plan without rebuilding — pairs with `stageZoomPlan`
+    /// for callers about to trigger their own rebuild.
+    public func stageCursorPlan(_ plan: CursorPlan?) {
+        self.cursorPlan = plan
+    }
+
     /// Time observer token for periodic observation
     var timeObserverToken: Any?
 
@@ -347,6 +363,7 @@ public actor PreviewEngine {
 
         // Clear zoom plan
         self.zoomPlan = nil
+        self.cursorPlan = nil
     }
 
 }
