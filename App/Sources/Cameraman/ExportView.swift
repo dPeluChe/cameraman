@@ -27,6 +27,7 @@ struct ExportView: View {
         projectDirectory: URL,
         mutedTracks: Set<TimelineTrackKind> = [],
         zoomPlan: ZoomPlanGenerator.ZoomPlan? = nil,
+        cursorPlan: CursorPlan? = nil,
         onExportComplete: @escaping (URL?) -> Void,
         onCancel: @escaping () -> Void
     ) {
@@ -38,7 +39,8 @@ struct ExportView: View {
             project: project,
             projectDirectory: projectDirectory,
             mutedTracks: mutedTracks,
-            zoomPlan: zoomPlan
+            zoomPlan: zoomPlan,
+            cursorPlan: cursorPlan
         ))
     }
 

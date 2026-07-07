@@ -62,6 +62,21 @@ final class ProjectEditor: ObservableObject {
         project = await editorModel.getProject()
     }
 
+    /// Toggle the synthetic cursor flag while preserving undo history.
+    @discardableResult
+    func setSyntheticCursorEnabled(_ enabled: Bool) async -> Bool {
+        let previousProject = project
+        var updatedProject = project
+        var config = updatedProject.syntheticCursor ?? .default
+        config.enabled = enabled
+        updatedProject.syntheticCursor = config
+        await editorModel.setProject(updatedProject)
+        project = updatedProject
+        recordUndoSnapshot(previousProject)
+        scheduleAutosave()
+        return true
+    }
+
     func trimIn(segmentId: String, newSourceIn: TimeInterval) async -> EditorResult {
         await performEdit { await self.editorModel.trimIn(segmentId: segmentId, newSourceIn: newSourceIn) }
     }

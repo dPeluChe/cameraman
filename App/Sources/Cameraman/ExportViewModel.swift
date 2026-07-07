@@ -45,6 +45,9 @@ final class ExportViewModel: ObservableObject {
     /// export sheet was opened. Already gated by `showZoom`. We re-filter it
     /// against the project segments at export time as a defensive step.
     private let stagedZoomPlan: ZoomPlanGenerator.ZoomPlan?
+    /// Cursor plan staged when the export sheet was opened. Gated by the
+    /// project's `syntheticCursor.enabled` flag by the caller.
+    private let stagedCursorPlan: CursorPlan?
     private var exportEngine: ExportEngine?
     private var exportJobId: JobId?
     private var exportStartTime: Date?
@@ -167,12 +170,14 @@ final class ExportViewModel: ObservableObject {
         project: Project,
         projectDirectory: URL,
         mutedTracks: Set<TimelineTrackKind> = [],
-        zoomPlan: ZoomPlanGenerator.ZoomPlan? = nil
+        zoomPlan: ZoomPlanGenerator.ZoomPlan? = nil,
+        cursorPlan: CursorPlan? = nil
     ) {
         self.project = project
         self.projectDirectory = projectDirectory
         self.mutedTracks = mutedTracks
         self.stagedZoomPlan = zoomPlan
+        self.stagedCursorPlan = cursorPlan
         let defaultFilename = project.name.isEmpty ? "Untitled" : project.name
         self.outputFilename = defaultFilename
         let moviesDirectory = FileManager.default.urls(for: .moviesDirectory, in: .userDomainMask).first ?? FileManager.default.homeDirectoryForCurrentUser
@@ -235,6 +240,7 @@ final class ExportViewModel: ObservableObject {
                     gifOptions: gifOpts,
                     applyZoom: exportZoomPlan != nil,
                     zoomPlan: exportZoomPlan,
+                    cursorPlan: stagedCursorPlan,
                     audioMuteState: AudioMixBuilder.TrackMuteState(
                         systemAudioMuted: mutedTracks.contains(.systemAudio),
                         micAudioMuted: mutedTracks.contains(.micAudio)
