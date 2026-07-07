@@ -10,6 +10,7 @@ import AVFoundation
 import ScreenCaptureKit
 import os.log
 import AppKit
+import ApplicationServices
 
 /// PermissionManager handles checking and requesting permissions for screen recording, microphone, and camera access.
 /// Provides health check functionality to verify all required permissions are granted.
@@ -19,6 +20,7 @@ public actor PermissionManager {
         case screenRecordingDenied
         case microphoneDenied
         case cameraDenied
+        case accessibilityDenied
         case microphoneUnavailable
         case cameraUnavailable
 
@@ -30,6 +32,8 @@ public actor PermissionManager {
                 return "Microphone permission is denied. Please grant permission in System Settings > Privacy & Security > Microphone"
             case .cameraDenied:
                 return "Camera permission is denied. Please grant permission in System Settings > Privacy & Security > Camera"
+            case .accessibilityDenied:
+                return "Accessibility permission is required to capture the cursor for synthetic cursor / zoom suggestions. Please grant permission in System Settings > Privacy & Security > Accessibility"
             case .microphoneUnavailable:
                 return "Microphone is not available on this device"
             case .cameraUnavailable:
@@ -50,6 +54,7 @@ public actor PermissionManager {
         public let screenRecording: PermissionStatus
         public let microphone: PermissionStatus
         public let camera: PermissionStatus
+        public let accessibility: PermissionStatus
         public let isHealthy: Bool
 
         /// Check if all required permissions for a specific recording configuration are granted
@@ -57,11 +62,13 @@ public actor PermissionManager {
         ///   - needsScreenRecording: Whether screen recording permission is required
         ///   - needsMicrophone: Whether microphone permission is required
         ///   - needsCamera: Whether camera permission is required
+        ///   - needsAccessibility: Whether accessibility permission is required for cursor telemetry
         /// - Returns: true if all required permissions are granted
         public func canRecord(
             needsScreenRecording: Bool = true,
             needsMicrophone: Bool = false,
-            needsCamera: Bool = false
+            needsCamera: Bool = false,
+            needsAccessibility: Bool = false
         ) -> Bool {
             if needsScreenRecording && screenRecording != .authorized {
                 return false
@@ -72,6 +79,9 @@ public actor PermissionManager {
             if needsCamera && camera != .authorized {
                 return false
             }
+            if needsAccessibility && accessibility != .authorized {
+                return false
+            }
             return true
         }
 
@@ -80,11 +90,13 @@ public actor PermissionManager {
         ///   - needsScreenRecording: Whether screen recording permission is required
         ///   - needsMicrophone: Whether microphone permission is required
         ///   - needsCamera: Whether camera permission is required
+        ///   - needsAccessibility: Whether accessibility permission is required for cursor telemetry
         /// - Returns: Array of missing permission descriptions
         public func missingPermissions(
             needsScreenRecording: Bool = true,
             needsMicrophone: Bool = false,
-            needsCamera: Bool = false
+            needsCamera: Bool = false,
+            needsAccessibility: Bool = false
         ) -> [String] {
             var missing: [String] = []
             if needsScreenRecording && screenRecording != .authorized {
@@ -95,6 +107,9 @@ public actor PermissionManager {
             }
             if needsCamera && camera != .authorized {
                 missing.append("Camera")
+            }
+            if needsAccessibility && accessibility != .authorized {
+                missing.append("Accessibility")
             }
             return missing
         }
@@ -150,13 +165,14 @@ public actor PermissionManager {
 
     /// Privacy permissions that map to a System Settings pane.
     public enum Kind {
-        case screenRecording, camera, microphone
+        case screenRecording, camera, microphone, accessibility
 
         fileprivate var settingsAnchor: String {
             switch self {
             case .screenRecording: return "Privacy_ScreenCapture"
             case .camera: return "Privacy_Camera"
             case .microphone: return "Privacy_Microphone"
+            case .accessibility: return "Privacy_Accessibility"
             }
         }
     }
@@ -253,6 +269,29 @@ public actor PermissionManager {
         }
     }
 
+    // MARK: - Accessibility Permission (cursor telemetry)
+
+    /// Check whether the app is trusted by Accessibility Services.
+    /// Required for NSEvent global event monitors used by TelemetryRecorder.
+    public func checkAccessibilityPermission() async -> PermissionStatus {
+        await MainActor.run {
+            let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: false] as CFDictionary
+            let trusted = AXIsProcessTrustedWithOptions(options)
+            return trusted ? .authorized : .denied
+        }
+    }
+
+    /// Prompt the user to enable Accessibility in System Settings.
+    /// Returns the current status after the prompt; the user must manually approve.
+    public func requestAccessibilityPermission() async -> PermissionStatus {
+        await MainActor.run {
+            let promptOptions = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+            _ = AXIsProcessTrustedWithOptions(promptOptions)
+            let checkOptions = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: false] as CFDictionary
+            return AXIsProcessTrustedWithOptions(checkOptions) ? .authorized : .denied
+        }
+    }
+
     // MARK: - Health Check
 
     /// Perform a comprehensive health check on all permissions
@@ -261,8 +300,9 @@ public actor PermissionManager {
         async let screenRecordingStatus = checkScreenRecordingPermission()
         async let microphoneStatus = checkMicrophonePermission()
         async let cameraStatus = checkCameraPermission()
+        async let accessibilityStatus = checkAccessibilityPermission()
 
-        let (screenRecording, microphone, camera) = await (screenRecordingStatus, microphoneStatus, cameraStatus)
+        let (screenRecording, microphone, camera, accessibility) = await (screenRecordingStatus, microphoneStatus, cameraStatus, accessibilityStatus)
 
         let isHealthy = screenRecording == .authorized
 
@@ -270,6 +310,7 @@ public actor PermissionManager {
             screenRecording: screenRecording,
             microphone: microphone,
             camera: camera,
+            accessibility: accessibility,
             isHealthy: isHealthy
         )
     }
@@ -279,11 +320,13 @@ public actor PermissionManager {
         ///   - needsScreenRecording: Whether to request screen recording permission
         ///   - needsMicrophone: Whether to request microphone permission
         ///   - needsCamera: Whether to request camera permission
+        ///   - needsAccessibility: Whether to request accessibility permission for cursor telemetry
     /// - Returns: HealthCheckResult after requesting permissions
     public func requestPermissions(
         needsScreenRecording: Bool = true,
         needsMicrophone: Bool = false,
-        needsCamera: Bool = false
+        needsCamera: Bool = false,
+        needsAccessibility: Bool = false
     ) async -> HealthCheckResult {
         if needsScreenRecording {
             _ = await requestScreenRecordingPermission()
@@ -297,6 +340,10 @@ public actor PermissionManager {
             _ = await requestCameraPermission()
         }
 
+        if needsAccessibility {
+            _ = await requestAccessibilityPermission()
+        }
+
         return await performHealthCheck()
     }
 
@@ -307,17 +354,20 @@ public actor PermissionManager {
         ///   - needsScreenRecording: Whether screen recording is required
         ///   - needsMicrophone: Whether microphone is required
         ///   - needsCamera: Whether camera is required
+        ///   - needsAccessibility: Whether accessibility is required for cursor telemetry
     /// - Returns: true if all required permissions are granted
     public func hasRequiredPermissions(
         needsScreenRecording: Bool = true,
         needsMicrophone: Bool = false,
-        needsCamera: Bool = false
+        needsCamera: Bool = false,
+        needsAccessibility: Bool = false
     ) async -> Bool {
         let healthCheck = await performHealthCheck()
         return healthCheck.canRecord(
             needsScreenRecording: needsScreenRecording,
             needsMicrophone: needsMicrophone,
-            needsCamera: needsCamera
+            needsCamera: needsCamera,
+            needsAccessibility: needsAccessibility
         )
     }
 
@@ -326,11 +376,13 @@ public actor PermissionManager {
         ///   - needsScreenRecording: Whether screen recording is required
         ///   - needsMicrophone: Whether microphone is required
         ///   - needsCamera: Whether camera is required
+        ///   - needsAccessibility: Whether accessibility is required for cursor telemetry
     /// - Returns: PermissionError if any required permission is missing, nil otherwise
     public func getFirstMissingPermissionError(
         needsScreenRecording: Bool = true,
         needsMicrophone: Bool = false,
-        needsCamera: Bool = false
+        needsCamera: Bool = false,
+        needsAccessibility: Bool = false
     ) async -> PermissionError? {
         let healthCheck = await performHealthCheck()
 
@@ -356,6 +408,10 @@ public actor PermissionManager {
             if !cameraAvailable {
                 return .cameraUnavailable
             }
+        }
+
+        if needsAccessibility && healthCheck.accessibility != .authorized {
+            return .accessibilityDenied
         }
 
         return nil
