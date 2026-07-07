@@ -21,6 +21,7 @@ struct RightPanel: View {
     @Binding var isVideoEffectsExpanded: Bool
     @Binding var isBackgroundExpanded: Bool
     @Binding var isZoomExpanded: Bool
+    @Binding var isCursorExpanded: Bool
     @Binding var isOverlaysExpanded: Bool
     @Binding var isExportExpanded: Bool
     @Binding var showExportModal: Bool
@@ -89,9 +90,16 @@ struct RightPanel: View {
                     ConfigGroup(title: "Auto-Zoom", isExpanded: $isZoomExpanded) {
                          ZoomControlsView(editor: editor)
                     }
-                    
+
                     Divider()
-                    
+
+                    // Synthetic Cursor Group
+                    ConfigGroup(title: "Cursor", isExpanded: $isCursorExpanded) {
+                        SyntheticCursorControlsView(editor: editor)
+                    }
+
+                    Divider()
+
                     // Media Items (Image Overlays)
                     if !editor.project.mediaItems.isEmpty {
                         ConfigGroup(title: "Media Items", isExpanded: .constant(true)) {

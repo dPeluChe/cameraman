@@ -54,17 +54,28 @@ final class PreviewPlayerViewModel: ObservableObject {
     private var timeObserver: Any?
     private var endObserver: NSObjectProtocol?
     private var cancellables = Set<AnyCancellable>()
+    private var projectDirectory: URL?
 
     /// Unfiltered plan as produced by the suggestion engine. The effective plan
     /// pushed to the compositor is this filtered by the current project's
     /// per-segment `zoom.enabled` state and gated by `showZoom`.
     private var originalZoomPlan: ZoomPlanGenerator.ZoomPlan?
 
+    /// Unfiltered cursor plan from telemetry. The effective plan pushed to the
+    /// compositor is gated by `project.syntheticCursor?.enabled`.
+    private var originalCursorPlan: CursorPlan?
+
     /// Store the unfiltered plan, then push the effective plan to the engine.
     /// Defers if the engine is still loading.
     func setZoomPlan(_ plan: ZoomPlanGenerator.ZoomPlan?) {
         originalZoomPlan = plan
         applyEffectiveZoomPlan()
+    }
+
+    /// Store the unfiltered cursor plan, then push the effective plan to the engine.
+    func setCursorPlan(_ plan: CursorPlan?) {
+        originalCursorPlan = plan
+        applyEffectiveCursorPlan()
     }
 
     /// Recompute the effective plan from the original plan, the current project's
@@ -76,6 +87,14 @@ final class PreviewPlayerViewModel: ObservableObject {
         Task { await engine.setZoomPlan(effective) }
     }
 
+    /// Recompute the effective cursor plan: nil when the feature is disabled or
+    /// no original plan exists; push it to the engine.
+    func applyEffectiveCursorPlan() {
+        let effective = computeEffectiveCursorPlan()
+        guard let engine = previewEngine else { return }
+        Task { await engine.setCursorPlan(effective) }
+    }
+
     /// Build the plan that should currently apply: nil when zoom is hidden, when
     /// no original plan exists, or when filtering wipes every event.
     func computeEffectiveZoomPlan() -> ZoomPlanGenerator.ZoomPlan? {
@@ -83,6 +102,13 @@ final class PreviewPlayerViewModel: ObservableObject {
         let segments = project?.timeline.segments ?? []
         let filtered = plan.filtered(byEnabledSegments: segments)
         return filtered.hasNoZoom ? nil : filtered
+    }
+
+    /// Build the cursor plan that should currently apply: nil when the project
+    /// has the feature disabled or no original plan exists.
+    func computeEffectiveCursorPlan() -> CursorPlan? {
+        guard project?.syntheticCursor?.enabled == true, let plan = originalCursorPlan else { return nil }
+        return plan
     }
 
     enum PlaybackRate: Double, CaseIterable, Identifiable {
@@ -121,6 +147,7 @@ final class PreviewPlayerViewModel: ObservableObject {
         }
 
         self.project = project
+        self.projectDirectory = projectDirectory
         aspectRatio = Self.aspectRatio(for: project)
         updateDuration(project.timeline.duration)
 
@@ -162,6 +189,14 @@ final class PreviewPlayerViewModel: ObservableObject {
                 self.currentTime = 0
                 self.setupPlayerObservers()
                 self.applyEffectiveZoomPlan()
+            }
+
+            // Load cursor plan asynchronously; setting it will be gated by
+            // the project's syntheticCursor.enabled flag.
+            if let cursorPlan = await CursorPlanLoader.loadCursorPlan(for: project, projectDirectory: projectDirectory) {
+                await MainActor.run { self.setCursorPlan(cursorPlan) }
+            } else {
+                await MainActor.run { self.setCursorPlan(nil) }
             }
         } catch {
             await MainActor.run {
@@ -214,14 +249,19 @@ final class PreviewPlayerViewModel: ObservableObject {
         aspectRatio = Self.aspectRatio(for: project)
         updateDuration(project.timeline.duration)
 
-        // Set the engine's zoom plan BEFORE updateProject so the rebuild
-        // bakes in the effective plan in a single pass (instead of rebuilding,
-        // then rebuilding again to apply the new plan).
-        let effectivePlan = computeEffectiveZoomPlan()
-
         Task {
             do {
-                await engine.stageZoomPlan(effectivePlan)
+                // Reload cursor plan in case the project's syntheticCursor setting
+                // changed or the project directory/telemetry is new.
+                let cursorPlan = await CursorPlanLoader.loadCursorPlan(for: project, projectDirectory: projectDirectory)
+                await MainActor.run { self.originalCursorPlan = cursorPlan }
+
+                // Set the engine's zoom and cursor plans BEFORE updateProject so the
+                // rebuild bakes them in a single pass.
+                let effectiveZoomPlan = computeEffectiveZoomPlan()
+                let effectiveCursorPlan = computeEffectiveCursorPlan()
+                await engine.stageZoomPlan(effectiveZoomPlan)
+                await engine.stageCursorPlan(effectiveCursorPlan)
                 try await engine.updateProject(project)
                 let player = await engine.player
 
@@ -266,9 +306,11 @@ final class PreviewPlayerViewModel: ObservableObject {
         systemAudioVolume = 1.0
         micAudioVolume = 2.5
         project = nil
-        // Clear the zoom plan first so the showZoom didSet (below) can't push
-        // a stale plan to the compositor on its way back to true.
+        projectDirectory = nil
+        // Clear the plans first so the showZoom didSet (below) can't push
+        // stale plans to the compositor on its way back to true.
         originalZoomPlan = nil
+        originalCursorPlan = nil
         showZoom = true
         showCursor = false
         showClicks = false

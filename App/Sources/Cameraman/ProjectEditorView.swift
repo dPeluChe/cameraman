@@ -105,6 +105,7 @@ struct ProjectEditorView: View {
     @State private var isVideoEffectsExpanded = false
     @State private var isBackgroundExpanded = false
     @State private var isZoomExpanded = false
+    @State private var isCursorExpanded = false
     @State private var isOverlaysExpanded = false
     @State private var isExportExpanded = true
     @State private var isAssetsExpanded = true
@@ -148,6 +149,7 @@ struct ProjectEditorView: View {
                         isVideoEffectsExpanded: $isVideoEffectsExpanded,
                         isBackgroundExpanded: $isBackgroundExpanded,
                         isZoomExpanded: $isZoomExpanded,
+                        isCursorExpanded: $isCursorExpanded,
                         isOverlaysExpanded: $isOverlaysExpanded,
                         isExportExpanded: $isExportExpanded,
                         showExportModal: $showExportModal,
@@ -192,6 +194,7 @@ struct ProjectEditorView: View {
                     projectDirectory: projectDirectory,
                     mutedTracks: viewModel.mutedTracks,
                     zoomPlan: viewModel.playerViewModel.computeEffectiveZoomPlan(),
+                    cursorPlan: viewModel.playerViewModel.computeEffectiveCursorPlan(),
                     onExportComplete: { _ in
                         showExportModal = false
                     },
