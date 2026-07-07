@@ -119,8 +119,10 @@ extension ExportEngine {
 
         let maskShape = project.canvas.layout.camera?.maskShape ?? .none
         let cornerRadius = project.canvas.layout.camera?.cornerRadius ?? 0
+        let cursorPlan = options.cursorPlan
+        let cursorEnabled = project.syntheticCursor?.enabled == true && cursorPlan != nil
 
-        if maskShape != .none || !videoOverlays.isEmpty || project.hasVisualAdjustments {
+        if maskShape != .none || !videoOverlays.isEmpty || project.hasVisualAdjustments || cursorEnabled {
             let maskedInstruction = MaskedVideoCompositionInstruction(
                 timeRange: CMTimeRangeMake(start: .zero, duration: composition.duration),
                 screenTrackID: videoTrack.trackID,
@@ -135,7 +137,9 @@ extension ExportEngine {
                 screenMuted: true,
                 adjustments: project.adjustmentConfigs,
                 zoomPlan: options.applyZoom ? options.zoomPlan : nil,
-                videoOverlays: videoOverlays
+                videoOverlays: videoOverlays,
+                cursorPlan: cursorPlan,
+                cursorConfig: project.syntheticCursor
             )
             videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
             videoComposition.instructions = [maskedInstruction]
@@ -164,8 +168,10 @@ extension ExportEngine {
         options: ExportOptions,
         videoOverlays: [MaskedVideoCompositionInstruction.VideoOverlaySource] = []
     ) async throws {
+        let cursorPlan = options.cursorPlan
+        let cursorEnabled = project.syntheticCursor?.enabled == true && cursorPlan != nil
         let forceCompositor = !videoOverlays.isEmpty || project.hasMixedScreenResolutions
-            || project.hasVisualAdjustments
+            || project.hasVisualAdjustments || cursorEnabled
         // Empty primary track (no recording): never reference it as a source.
         let screenTrackID = videoTrack.segments.isEmpty ? kCMPersistentTrackID_Invalid : videoTrack.trackID
         let instruction = AVMutableVideoCompositionInstruction()
@@ -294,6 +300,7 @@ extension ExportEngine {
         options: ExportOptions,
         videoOverlays: [MaskedVideoCompositionInstruction.VideoOverlaySource]
     ) {
+        let cursorPlan = options.cursorPlan
         let maskedInstruction = MaskedVideoCompositionInstruction(
             timeRange: CMTimeRangeMake(start: .zero, duration: composition.duration),
             screenTrackID: screenTrackID,
@@ -313,7 +320,9 @@ extension ExportEngine {
             backgroundValue: project.canvas.background.value,
             adjustments: project.adjustmentConfigs,
             zoomPlan: options.applyZoom ? options.zoomPlan : nil,
-            videoOverlays: videoOverlays
+            videoOverlays: videoOverlays,
+            cursorPlan: cursorPlan,
+            cursorConfig: project.syntheticCursor
         )
         videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
         videoComposition.instructions = [maskedInstruction]
@@ -336,6 +345,7 @@ extension ExportEngine {
         var maskedInstructions: [MaskedVideoCompositionInstruction] = []
         let totalDuration = composition.duration
         let zoomPlan = options.applyZoom ? options.zoomPlan : nil
+        let cursorPlan = options.cursorPlan
 
         for (i, segment) in project.timeline.segments.enumerated() {
             let segCamera = segment.cameraPosition ?? defaultCamera
@@ -379,7 +389,9 @@ extension ExportEngine {
                 cameraBorderColor: segCamera.borderColor,
                 adjustments: project.adjustmentConfigs,
                 zoomPlan: zoomPlan,
-                videoOverlays: videoOverlays
+                videoOverlays: videoOverlays,
+                cursorPlan: cursorPlan,
+                cursorConfig: project.syntheticCursor
             ))
         }
 
@@ -403,6 +415,7 @@ extension ExportEngine {
         let screenTrackID = composition.tracks(withMediaType: .video).first?.trackID ?? kCMPersistentTrackID_Invalid
         let overlayConfigs = project.overlayConfigs
         let zoomPlan = options.applyZoom ? options.zoomPlan : nil
+        let cursorPlan = options.cursorPlan
         let total = composition.duration
         var instructions: [AVVideoCompositionInstructionProtocol] = []
         var coveredEnd = CMTime.zero
@@ -417,7 +430,7 @@ extension ExportEngine {
                 instructions.append(makeStaticGapInstruction(
                     timeRange: CMTimeRangeMake(start: coveredEnd, duration: CMTimeSubtract(start, coveredEnd)),
                     screenTrackID: screenTrackID, renderSize: renderSize, project: project,
-                    overlays: overlayConfigs, zoomPlan: zoomPlan, videoOverlays: videoOverlays))
+                    overlays: overlayConfigs, zoomPlan: zoomPlan, cursorPlan: cursorPlan, videoOverlays: videoOverlays))
             }
 
             let staticContent: MaskedVideoCompositionInstruction.StaticClipContent
@@ -447,7 +460,9 @@ extension ExportEngine {
                 overlays: overlayConfigs,
                 adjustments: project.adjustmentConfigs,
                 staticContent: staticContent,
-                videoOverlays: videoOverlays
+                videoOverlays: videoOverlays,
+                cursorPlan: nil,
+                cursorConfig: nil
             ))
             coveredEnd = end
         }
@@ -456,7 +471,7 @@ extension ExportEngine {
             instructions.append(makeStaticGapInstruction(
                 timeRange: CMTimeRangeMake(start: coveredEnd, duration: CMTimeSubtract(total, coveredEnd)),
                 screenTrackID: screenTrackID, renderSize: renderSize, project: project,
-                overlays: overlayConfigs, zoomPlan: zoomPlan, videoOverlays: videoOverlays))
+                overlays: overlayConfigs, zoomPlan: zoomPlan, cursorPlan: cursorPlan, videoOverlays: videoOverlays))
         }
 
         return instructions
@@ -471,6 +486,7 @@ extension ExportEngine {
         project: Project,
         overlays: [OverlayConfig],
         zoomPlan: ZoomPlanGenerator.ZoomPlan?,
+        cursorPlan: CursorPlan?,
         videoOverlays: [MaskedVideoCompositionInstruction.VideoOverlaySource]
     ) -> MaskedVideoCompositionInstruction {
         MaskedVideoCompositionInstruction(
@@ -492,7 +508,9 @@ extension ExportEngine {
             overlays: overlays,
             adjustments: project.adjustmentConfigs,
             zoomPlan: zoomPlan,
-            videoOverlays: videoOverlays
+            videoOverlays: videoOverlays,
+            cursorPlan: cursorPlan,
+            cursorConfig: project.syntheticCursor
         )
     }
 }

@@ -143,6 +143,9 @@ public struct ExportOptions: Equatable, Sendable {
     public let applyZoom: Bool
     /// Zoom plan to use for export (optional, will be loaded from project if not provided)
     public let zoomPlan: ZoomPlanGenerator.ZoomPlan?
+    /// Cursor plan to use for synthetic cursor rendering during export.
+    /// `nil` means no synthetic cursor regardless of project settings.
+    public let cursorPlan: CursorPlan?
     /// Audio mute state for per-track mute/volume during export
     public let audioMuteState: AudioMixBuilder.TrackMuteState?
     /// Video mute state for hiding screen/camera during export
@@ -157,6 +160,7 @@ public struct ExportOptions: Equatable, Sendable {
         gifOptions: GIFExportOptions? = nil,
         applyZoom: Bool = true,
         zoomPlan: ZoomPlanGenerator.ZoomPlan? = nil,
+        cursorPlan: CursorPlan? = nil,
         audioMuteState: AudioMixBuilder.TrackMuteState? = nil,
         videoMuteState: VideoMuteState? = nil,
         qualityMultiplier: Double = 1.0
@@ -167,6 +171,7 @@ public struct ExportOptions: Equatable, Sendable {
         self.gifOptions = gifOptions
         self.applyZoom = applyZoom
         self.zoomPlan = zoomPlan
+        self.cursorPlan = cursorPlan
         self.audioMuteState = audioMuteState
         self.videoMuteState = videoMuteState
         self.qualityMultiplier = qualityMultiplier

@@ -23,6 +23,7 @@ struct TelemetryOverlayView: View {
     @State private var clickEvents: [TelemetrySync.SyncedEvent] = []
     @State private var keystrokeEvents: [KeystrokeRecorder.Event] = []
     @State private var overlayData: TelemetrySync.DebugOverlay?
+    @State private var captureGeometry: CaptureGeometry?
 
     var body: some View {
         ZStack {
@@ -186,22 +187,31 @@ struct TelemetryOverlayView: View {
     }
 
     private func normalizePosition(x: Int, y: Int, in size: CoreGraphics.CGSize) -> CoreGraphics.CGPoint {
-        // Use project screen size if available, otherwise default to 1920x1080
-        let sourceWidth: CoreGraphics.CGFloat
-        let sourceHeight: CoreGraphics.CGFloat
+        // Telemetry is global Cocoa points, bottom-left origin. Normalize into
+        // 0-1 via capture geometry when available (handles Retina scale, area
+        // offsets, and secondary displays); legacy fallback divides by the
+        // recorded pixel size as before.
+        let nx: Double
+        let ny: Double
 
-        if let screenSize = project?.primarySources?.screen.size {
-            sourceWidth = CoreGraphics.CGFloat(screenSize.w)
-            sourceHeight = CoreGraphics.CGFloat(screenSize.h)
+        if let geometry = captureGeometry {
+            (nx, ny) = geometry.normalized(x: Double(x), y: Double(y))
         } else {
-            sourceWidth = 1920
-            sourceHeight = 1080
+            let sourceWidth: Double
+            let sourceHeight: Double
+            if let screenSize = project?.primarySources?.screen.size {
+                sourceWidth = Double(screenSize.w)
+                sourceHeight = Double(screenSize.h)
+            } else {
+                sourceWidth = 1920
+                sourceHeight = 1080
+            }
+            nx = Double(x) / sourceWidth
+            ny = Double(y) / sourceHeight
         }
 
-        let normalizedX = (CoreGraphics.CGFloat(x) / sourceWidth) * size.width
-        let normalizedY = (CoreGraphics.CGFloat(y) / sourceHeight) * size.height
-
-        return CoreGraphics.CGPoint(x: normalizedX, y: normalizedY)
+        // SwiftUI positions from the TOP-left — flip Y or markers render mirrored.
+        return CoreGraphics.CGPoint(x: nx * size.width, y: (1 - ny) * size.height)
     }
 
     private func displayKey(for event: KeystrokeRecorder.Event) -> String {
@@ -231,6 +241,18 @@ struct TelemetryOverlayView: View {
         guard let project,
               let projectDirectory else {
             return
+        }
+
+        // Resolve once per project: persisted geometry, or inferred from the
+        // attached displays for legacy full-display recordings.
+        if let geometry = project.primarySources?.screen.capture {
+            captureGeometry = geometry
+        } else if let size = project.primarySources?.screen.size {
+            captureGeometry = await MainActor.run {
+                CaptureGeometry.inferred(pixelWidth: size.w, pixelHeight: size.h)
+            }
+        } else {
+            captureGeometry = nil
         }
 
         // Load cursor telemetry

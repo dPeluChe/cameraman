@@ -113,6 +113,13 @@ public actor TelemetryParser {
         )
     }
 
+    /// Load raw telemetry events from a cursor.jsonl file (streaming, memory-bounded).
+    /// Public so callers that pre-process events (e.g. capture-space rebasing)
+    /// share the same loader instead of re-reading the file into a String.
+    public func loadEvents(from url: URL) async throws -> [TelemetryRecorder.Event] {
+        try await loadTelemetryEvents(from: url)
+    }
+
     // MARK: - Private Methods
 
     /// Load telemetry events from JSONL file.

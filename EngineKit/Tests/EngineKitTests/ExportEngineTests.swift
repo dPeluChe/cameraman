@@ -1839,6 +1839,16 @@ final class ExportEngineTests: XCTestCase {
         XCTAssertTrue(options.applyZoom)
     }
 
+    func testExportOptionsWithCursorPlan() {
+        let cursorPlan = CursorPlan(
+            samples: [CursorSample(time: 0, x: 0.5, y: 0.5)],
+            clicks: [CursorClickMark(time: 0.1, x: 0.5, y: 0.5)]
+        )
+        let options = ExportOptions(cursorPlan: cursorPlan)
+        XCTAssertNotNil(options.cursorPlan)
+        XCTAssertEqual(options.cursorPlan?.samples.count, 1)
+    }
+
     func testZoomTransformCalculation() {
         // Create a simple base transform (identity)
         let baseTransform = CGAffineTransform.identity

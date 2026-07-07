@@ -33,6 +33,7 @@ extension PreviewEngine {
             || (!subtitlesHidden && !project.subtitles.isEmpty)
             || !videoOverlays.isEmpty
             || project.hasMixedScreenResolutions || project.hasVisualAdjustments
+            || (project.syntheticCursor?.enabled == true && cursorPlan != nil)
 
         let renderSize = CoreFoundation.CGSize(
             width: CGFloat(project.canvas.format.w),
@@ -108,7 +109,9 @@ extension PreviewEngine {
                     overlays: overlayConfigs,
                     adjustments: project.adjustmentConfigs,
                     zoomPlan: self.zoomPlan,
-                    videoOverlays: videoOverlays
+                    videoOverlays: videoOverlays,
+                    cursorPlan: self.cursorPlan,
+                    cursorConfig: project.syntheticCursor
                 )
                 videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
                 videoComposition.instructions = [maskedInstruction]
@@ -184,7 +187,9 @@ extension PreviewEngine {
                     overlays: overlayConfigs,
                     adjustments: project.adjustmentConfigs,
                     zoomPlan: self.zoomPlan,
-                    videoOverlays: videoOverlays
+                    videoOverlays: videoOverlays,
+                    cursorPlan: self.cursorPlan,
+                    cursorConfig: project.syntheticCursor
                 )
                 videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
                 videoComposition.instructions = [maskedInstruction]
@@ -273,7 +278,9 @@ extension PreviewEngine {
                             overlays: overlayConfigs,
                             adjustments: project.adjustmentConfigs,
                             zoomPlan: self.zoomPlan,
-                            videoOverlays: videoOverlays
+                            videoOverlays: videoOverlays,
+                            cursorPlan: self.cursorPlan,
+                            cursorConfig: project.syntheticCursor
                         ))
                     }
 
@@ -318,7 +325,9 @@ extension PreviewEngine {
                         overlays: overlayConfigs,
                         adjustments: project.adjustmentConfigs,
                         zoomPlan: self.zoomPlan,
-                        videoOverlays: videoOverlays
+                        videoOverlays: videoOverlays,
+                        cursorPlan: self.cursorPlan,
+                        cursorConfig: project.syntheticCursor
                     )
                     videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
                     videoComposition.instructions = [maskedInstruction]
@@ -352,7 +361,9 @@ extension PreviewEngine {
                         overlays: overlayConfigs,
                         adjustments: project.adjustmentConfigs,
                         zoomPlan: self.zoomPlan,
-                        videoOverlays: videoOverlays
+                        videoOverlays: videoOverlays,
+                        cursorPlan: self.cursorPlan,
+                        cursorConfig: project.syntheticCursor
                     )
                     videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
                     videoComposition.instructions = [maskedInstruction]

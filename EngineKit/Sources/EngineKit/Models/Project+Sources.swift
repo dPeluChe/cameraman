@@ -77,6 +77,10 @@ extension Project {
             public let sha256: String
             /// File size in bytes
             public let sizeBytes: UInt64
+            /// Screen-capture geometry (region + display scale) in the cursor
+            /// telemetry coordinate space. nil for camera tracks, window/app
+            /// captures, and recordings that predate geometry persistence.
+            public let capture: CaptureGeometry?
 
             public init(
                 path: String,
@@ -84,7 +88,8 @@ extension Project {
                 size: Size,
                 syncOffsetMs: Int = 0,
                 sha256: String = "",
-                sizeBytes: UInt64 = 0
+                sizeBytes: UInt64 = 0,
+                capture: CaptureGeometry? = nil
             ) {
                 self.path = path
                 self.fps = fps
@@ -92,6 +97,7 @@ extension Project {
                 self.syncOffsetMs = syncOffsetMs
                 self.sha256 = sha256
                 self.sizeBytes = sizeBytes
+                self.capture = capture
             }
         }
 

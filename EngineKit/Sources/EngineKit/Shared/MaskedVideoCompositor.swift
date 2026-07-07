@@ -140,6 +140,10 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
     /// `nil` means no zoom. Already filtered by per-segment enabled state and
     /// gated by the player's `showZoom` toggle.
     let zoomPlan: ZoomPlanGenerator.ZoomPlan?
+    /// Synthetic cursor path + click marks to draw on top of the frame.
+    /// `nil` means no synthetic cursor (gated by `Project.SyntheticCursorConfig.enabled`).
+    let cursorPlan: CursorPlan?
+    let cursorConfig: Project.SyntheticCursorConfig?
 
     public enum StaticClipContent {
         case image(path: String)
@@ -218,7 +222,9 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         adjustments: [AdjustmentConfig] = [],
         staticContent: StaticClipContent? = nil,
         zoomPlan: ZoomPlanGenerator.ZoomPlan? = nil,
-        videoOverlays: [VideoOverlaySource] = []
+        videoOverlays: [VideoOverlaySource] = [],
+        cursorPlan: CursorPlan? = nil,
+        cursorConfig: Project.SyntheticCursorConfig? = nil
     ) {
         self.timeRange = timeRange
         self.screenTrackID = screenTrackID
@@ -243,6 +249,8 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         self.staticContent = staticContent
         self.zoomPlan = zoomPlan
         self.videoOverlays = videoOverlays
+        self.cursorPlan = cursorPlan
+        self.cursorConfig = cursorConfig
         super.init()
 
         // An invalid screenTrackID means "no recording on the primary track"
@@ -334,6 +342,7 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
         // + overlays), before annotation overlays so text/arrows stay crisp.
         finalImage = applyAdjustments(.frame, to: finalImage, request: request, instruction: instruction, extent: canvasRect)
         finalImage = compositeOverlays(over: finalImage, request: request, instruction: instruction, renderSize: renderSize)
+        finalImage = compositeCursor(over: finalImage, request: request, instruction: instruction, renderSize: renderSize)
 
         ciContext.render(finalImage, to: outputBuffer, bounds: canvasRect, colorSpace: Self.sharedRenderColorSpace)
         request.finish(withComposedVideoFrame: outputBuffer)

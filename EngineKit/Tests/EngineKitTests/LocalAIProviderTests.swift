@@ -168,9 +168,9 @@ final class LocalAIProviderTests: XCTestCase {
         XCTAssertNotNil(assetRef.thumbnail, "Thumbnail should be generated")
         XCTAssertFalse(assetRef.thumbnail!.isEmpty, "Thumbnail data should not be empty")
 
-        // Verify thumbnail is JPEG
-        let headers = assetRef.thumbnail!.prefix(4).map { String(format: "%02x", $0) }.joined()
-        XCTAssertTrue(headers == "ffd8" || headers == "ffd8ff", "Thumbnail should be JPEG format")
+        // Verify thumbnail is JPEG (SOI marker: FF D8)
+        let headers = assetRef.thumbnail!.prefix(2).map { String(format: "%02x", $0) }.joined()
+        XCTAssertEqual(headers, "ffd8", "Thumbnail should be JPEG format")
     }
 
     // MARK: - Style Transfer Tests

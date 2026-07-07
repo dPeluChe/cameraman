@@ -79,7 +79,9 @@ extension PreviewEngine {
                 overlays: overlayConfigs,
                 adjustments: project.adjustmentConfigs,
                 staticContent: staticContent,
-                videoOverlays: videoOverlays
+                videoOverlays: videoOverlays,
+                cursorPlan: nil,
+                cursorConfig: nil
             )
             allInstructions.append(staticInstruction)
             coveredEnd = staticEnd
@@ -129,7 +131,9 @@ extension PreviewEngine {
             overlays: overlays,
             adjustments: project.adjustmentConfigs,
             zoomPlan: self.zoomPlan,
-            videoOverlays: videoOverlays
+            videoOverlays: videoOverlays,
+            cursorPlan: self.cursorPlan,
+            cursorConfig: project.syntheticCursor
         )
     }
 }
