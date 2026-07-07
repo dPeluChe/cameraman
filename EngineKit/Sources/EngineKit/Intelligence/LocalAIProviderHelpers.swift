@@ -72,13 +72,16 @@ extension LocalAIProvider {
 
     /// Apply abstract style (noise + blur)
     func applyAbstractStyle(to image: CIImage, keywords: [String]) throws -> CIImage {
-        // Generate noise
+        // CIRandomGenerator is a generator filter with no inputs — it produces
+        // infinite random noise on its own; crop it to the target extent instead
+        // of feeding it an input image (setting kCIInputImageKey on it throws
+        // NSUnknownKeyException since the filter doesn't declare that input).
         let noiseGenerator = CIFilter(name: "CIRandomGenerator")!
-        noiseGenerator.setValue(image, forKey: kCIInputImageKey)
+        let noise = noiseGenerator.outputImage?.cropped(to: image.extent)
 
         // Apply blur for soft effect
         let blurFilter = CIFilter(name: "CIGaussianBlur")!
-        blurFilter.setValue(noiseGenerator.outputImage, forKey: kCIInputImageKey)
+        blurFilter.setValue(noise, forKey: kCIInputImageKey)
         blurFilter.setValue(20.0, forKey: kCIInputRadiusKey)
 
         // Add color based on keywords
@@ -112,7 +115,10 @@ extension LocalAIProvider {
         gradientFilter.setValue(CIVector(cgPoint: CGPoint(x: 0, y: 0)), forKey: "inputPoint0")
         gradientFilter.setValue(CIVector(cgPoint: CGPoint(x: image.extent.width, y: image.extent.height)), forKey: "inputPoint1")
 
-        return gradientFilter.outputImage ?? image
+        // Gradient generators fill an infinite plane; crop back to the target
+        // extent or createCGImage(_:from:) fails downstream.
+        guard let output = gradientFilter.outputImage else { return image }
+        return output.cropped(to: image.extent)
     }
 
     /// Apply minimal style (simple solid/gradient)
@@ -124,7 +130,9 @@ extension LocalAIProvider {
         gradientFilter.setValue(CIVector(cgPoint: CGPoint(x: 0, y: 0)), forKey: "inputPoint0")
         gradientFilter.setValue(CIVector(cgPoint: CGPoint(x: image.extent.width, y: image.extent.height)), forKey: "inputPoint1")
 
-        return gradientFilter.outputImage ?? image
+        // Same infinite-extent caveat as applyGradientStyle.
+        guard let output = gradientFilter.outputImage else { return image }
+        return output.cropped(to: image.extent)
     }
 
     // MARK: - Style Transfer Helpers
