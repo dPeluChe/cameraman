@@ -45,6 +45,9 @@ public struct Project: Codable, Equatable {
     public var mediaItems: [MediaItem]
     /// Synthetic cursor rendering settings (nil = disabled, legacy default).
     public var syntheticCursor: SyntheticCursorConfig?
+    /// Manual zoom keyframes created by the user. Merged with auto-zoom
+    /// keyframes at render time. Timestamps are in timeline time.
+    public var manualZoomKeyframes: [ZoomPlanGenerator.ZoomKeyframe]?
 
     /// Helper to access sources from V1 (legacy) or V2 (first take)
     public var primarySources: Sources? {
@@ -60,7 +63,7 @@ public struct Project: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case schemaVersion, projectId, name, tags, createdAt, updatedAt
         case sources, takes, timeline, canvas, overlays, subtitles, subtitleStyle, captions, chapters, mediaItems
-        case syntheticCursor
+        case syntheticCursor, manualZoomKeyframes
     }
 
     public init(from decoder: Decoder) throws {
@@ -82,6 +85,7 @@ public struct Project: Codable, Equatable {
         chapters = try container.decodeIfPresent([Chapter].self, forKey: .chapters) ?? []
         mediaItems = try container.decodeIfPresent([MediaItem].self, forKey: .mediaItems) ?? []
         syntheticCursor = try container.decodeIfPresent(SyntheticCursorConfig.self, forKey: .syntheticCursor)
+        manualZoomKeyframes = try container.decodeIfPresent([ZoomPlanGenerator.ZoomKeyframe].self, forKey: .manualZoomKeyframes)
     }
 
     public init(
@@ -101,7 +105,8 @@ public struct Project: Codable, Equatable {
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
         mediaItems: [MediaItem] = [],
-        syntheticCursor: SyntheticCursorConfig? = nil
+        syntheticCursor: SyntheticCursorConfig? = nil,
+        manualZoomKeyframes: [ZoomPlanGenerator.ZoomKeyframe]? = nil
     ) {
         self.projectId = projectId
         self.name = name
@@ -120,6 +125,7 @@ public struct Project: Codable, Equatable {
         self.updatedAt = updatedAt
         self.mediaItems = mediaItems
         self.syntheticCursor = syntheticCursor
+        self.manualZoomKeyframes = manualZoomKeyframes
     }
 
     /// Copy of this project under a different id — used by duplicate and
@@ -146,7 +152,8 @@ public struct Project: Codable, Equatable {
             createdAt: resetCreatedAt ? Date() : createdAt,
             updatedAt: Date(),
             mediaItems: mediaItems,
-            syntheticCursor: syntheticCursor
+            syntheticCursor: syntheticCursor,
+            manualZoomKeyframes: manualZoomKeyframes
         )
     }
 }

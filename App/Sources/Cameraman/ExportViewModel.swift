@@ -226,8 +226,30 @@ final class ExportViewModel: ObservableObject {
 
             // Re-filter the staged plan against this project's per-segment
             // enabled flags as a defensive step (the caller should have
-            // filtered already, but we own the contract here).
-            let filtered = stagedZoomPlan?.filtered(byEnabledSegments: project.timeline.segments)
+            // filtered already, but we own the contract here). Also merge
+            // manual keyframes so they reach the export compositor. If no
+            // auto plan exists but manual keyframes do, build a manual-only plan.
+            let manualKfs = project.manualZoomKeyframes ?? []
+            let basePlan: ZoomPlanGenerator.ZoomPlan?
+            if let staged = stagedZoomPlan {
+                basePlan = staged.merged(with: manualKfs)
+            } else if !manualKfs.isEmpty {
+                basePlan = ZoomPlanGenerator.ZoomPlan(
+                    events: [],
+                    keyframes: manualKfs.sorted { $0.timestamp < $1.timestamp },
+                    configuration: .default(),
+                    stats: ZoomPlanGenerator.ZoomPlanStats(
+                        totalZoomEvents: 0, totalKeyframes: manualKfs.count,
+                        totalZoomedTime: 0, zoomedTimePercentage: 0,
+                        averageZoomLevel: 1, maximumZoomLevel: manualKfs.map(\.zoomLevel).max() ?? 1,
+                        averageTimeBetweenZooms: 0, zoomsPerMinute: 0,
+                        timeRange: 0...0
+                    )
+                )
+            } else {
+                basePlan = nil
+            }
+            let filtered = basePlan?.filtered(byEnabledSegments: project.timeline.segments)
             let exportZoomPlan = (filtered?.hasNoZoom ?? true) ? nil : filtered
 
             let jobId = try await engine.export(

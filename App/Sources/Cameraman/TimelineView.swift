@@ -61,6 +61,10 @@ struct TimelineView: View {
 
     var playheadTime: Double { playerViewModel.currentTime }
 
+    var manualZoomKeyframes: [ZoomPlanGenerator.ZoomKeyframe] {
+        project.manualZoomKeyframes ?? []
+    }
+
     /// Pixels/second that makes the whole timeline fit the visible width.
     private var fitPPS: TimelineScalar {
         guard project.timeline.duration > 0 else { return pixelsPerSecond }
@@ -328,6 +332,15 @@ struct TimelineView: View {
                                 dismissedSuggestionIds.insert(suggestion.id)
                             }
                         }
+                    )
+                }
+
+                // Manual zoom keyframe markers
+                ForEach(manualZoomKeyframes) { kf in
+                    ManualZoomKeyframeMarker(
+                        keyframe: kf,
+                        xPosition: layout.xPosition(for: kf.timestamp),
+                        height: totalHeight
                     )
                 }
 
