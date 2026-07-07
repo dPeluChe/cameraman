@@ -13,7 +13,9 @@ public actor TelemetryRecorder {
     // MARK: - Properties
 
     private var currentSession: RecordingSession?
+    @MainActor
     private var eventMonitor: Any?
+    @MainActor
     private var scrollMonitor: Any?
     private var fileHandle: FileHandle?
     private var lastMoveTime: TimeInterval = 0
@@ -52,8 +54,9 @@ public actor TelemetryRecorder {
         session.markStarted(at: Date())
         currentSession = session
 
-        // Setup event monitoring
-        setupEventMonitoring(config: config)
+        // Setup event monitoring on the main actor; AppKit global event monitors
+        // must be installed from the main thread to receive events reliably.
+        await setupEventMonitoring(config: config)
 
         // Start duration timer
         startDurationTimer()
@@ -67,8 +70,8 @@ public actor TelemetryRecorder {
             throw TelemetryError.notRecording
         }
 
-        // Stop event monitoring
-        stopEventMonitoring()
+        // Stop event monitoring on the main actor to match setup.
+        await stopEventMonitoring()
 
         // Stop duration timer
         stopDurationTimer()
@@ -108,6 +111,7 @@ public actor TelemetryRecorder {
 
     // MARK: - Private Methods
 
+    @MainActor
     private func setupEventMonitoring(config: Configuration) {
         // Calculate throttle interval based on frequency
         _ = 1.0 / config.cursorMoveFrequency
@@ -121,6 +125,9 @@ public actor TelemetryRecorder {
 
                 await self.handleMouseEvent(event, config: config)
             }
+        }
+        if eventMonitor == nil {
+            LogWarning(.capture, "Global mouse event monitor returned nil; cursor telemetry may be unavailable")
         }
 
         // Monitor scroll events if enabled
@@ -137,6 +144,7 @@ public actor TelemetryRecorder {
         }
     }
 
+    @MainActor
     private func stopEventMonitoring() {
         if let monitor = eventMonitor {
             NSEvent.removeMonitor(monitor)

@@ -38,27 +38,31 @@ enum CursorPlanLoader {
             return nil
         }
 
-        guard !rawEvents.isEmpty else { return nil }
+        guard !rawEvents.isEmpty else {
+            LogDebug(.telemetry, "No cursor events loaded for synthetic cursor")
+            return nil
+        }
 
         let geometry = await MainActor.run { resolveGeometry(for: project) }
         let prepared: (events: [TelemetryRecorder.Event], width: Double, height: Double)
         if let geometry {
             prepared = (geometry.rebaseToCaptureSpace(rawEvents), geometry.rect.w, geometry.rect.h)
-            if prepared.events.count != rawEvents.count {
-                LogDebug(.telemetry, "Dropped \(rawEvents.count - prepared.events.count) cursor events outside capture region")
-            }
+            LogDebug(.telemetry, "Synthetic cursor: loaded \(rawEvents.count) raw events, \(prepared.events.count) inside capture region \(geometry.rect)")
         } else {
             let dims = fallbackDimensions(for: project)
             prepared = (rawEvents, dims.width, dims.height)
+            LogDebug(.telemetry, "Synthetic cursor: no capture geometry, using fallback \(dims.width)x\(dims.height)")
         }
 
         guard prepared.width > 0, prepared.height > 0 else { return nil }
 
-        return CursorPlanGenerator.generate(
+        let plan = CursorPlanGenerator.generate(
             from: prepared.events,
             screenWidth: prepared.width,
             screenHeight: prepared.height
         )
+        LogDebug(.telemetry, "Synthetic cursor plan: \(plan.samples.count) samples, \(plan.clicks.count) clicks")
+        return plan
     }
 
     /// Capture geometry from the primary screen source, or inferred from the
