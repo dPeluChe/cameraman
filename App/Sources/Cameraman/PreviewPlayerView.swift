@@ -63,6 +63,17 @@ struct PreviewPlayerView: View {
                             )
                         }
                     }
+
+                    // Manual zoom focus overlay
+                    if let manualKfs = project?.manualZoomKeyframes, !manualKfs.isEmpty {
+                        GeometryReader { geometry in
+                            ManualZoomFocusOverlay(
+                                keyframes: manualKfs,
+                                currentTime: viewModel.currentTime,
+                                size: geometry.size
+                            )
+                        }
+                    }
                 } else if viewModel.previewEngine != nil {
                     ProgressView("Loading preview...")
                         .foregroundStyle(.secondary)

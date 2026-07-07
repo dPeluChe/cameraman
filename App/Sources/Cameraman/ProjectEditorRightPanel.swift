@@ -32,6 +32,7 @@ struct RightPanel: View {
     // doesn't need a new binding wired through every call site.
     @State private var isSubtitlesExpanded: Bool = false
     @State private var isCaptionsExpanded: Bool = true
+    @State private var isManualZoomExpanded: Bool = false
 
     var body: some View {
         ScrollView {
@@ -92,6 +93,15 @@ struct RightPanel: View {
                     }
 
                     Divider()
+
+                    // Manual Zoom Group
+                    if let pvm = playerViewModel {
+                        ConfigGroup(title: "Manual Zoom", isExpanded: $isManualZoomExpanded) {
+                            ManualZoomControlsView(editor: editor, playerViewModel: pvm)
+                        }
+
+                        Divider()
+                    }
 
                     // Synthetic Cursor Group
                     ConfigGroup(title: "Cursor", isExpanded: $isCursorExpanded) {

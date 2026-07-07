@@ -479,3 +479,29 @@ struct TimelineTrackLabelView: View {
         }
     }
 }
+
+// MARK: - Manual Zoom Keyframe Marker
+
+struct ManualZoomKeyframeMarker: View {
+    let keyframe: ZoomPlanGenerator.ZoomKeyframe
+    let xPosition: TimelineScalar
+    let height: TimelineScalar
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Circle()
+                .fill(Color.orange)
+                .frame(width: 8, height: 8)
+                .overlay(
+                    Circle()
+                        .stroke(Color.white.opacity(0.6), lineWidth: 1)
+                )
+                .shadow(color: Color.orange.opacity(0.4), radius: 2)
+            Rectangle()
+                .fill(Color.orange.opacity(0.5))
+                .frame(width: 1.5, height: max(0, height - 8))
+        }
+        .offset(x: xPosition - 4)
+        .help(String(format: "Manual zoom %.1fx at %.2fs", keyframe.zoomLevel, keyframe.timestamp))
+    }
+}
