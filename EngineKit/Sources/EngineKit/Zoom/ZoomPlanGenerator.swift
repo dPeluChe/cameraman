@@ -21,11 +21,16 @@ public actor ZoomPlanGenerator {
     ///   - parseResult: Result from TelemetryParser containing click windows
     ///   - config: Zoom plan generation configuration
     ///   - timelineDuration: Total timeline duration for stats calculation
+    ///   - screenWidth/screenHeight: dimensions of the coordinate space the
+    ///     click windows live in (capture points) — required for correct focus
+    ///     normalization on anything that isn't a 1920×1080 screen
     /// - Returns: ZoomPlan with zoom events and keyframes
     public func generateZoomPlan(
         from parseResult: TelemetryParser.ParseResult,
         config: Configuration = .default(),
-        timelineDuration: TimeInterval? = nil
+        timelineDuration: TimeInterval? = nil,
+        screenWidth: Double = 1920,
+        screenHeight: Double = 1080
     ) async throws -> ZoomPlan {
         // Validate configuration
         try config.validate()
@@ -66,12 +71,14 @@ public actor ZoomPlanGenerator {
 
             // Calculate zoom level based on bounding box size
             let boundingBoxArea = Double(window.boundingBox.width * window.boundingBox.height)
-            let normalizedArea = boundingBoxArea / 2_500_000.0 // Normalize for 1920x1080-ish screens
+            let referenceArea = max(1.0, screenWidth * screenHeight)
+            let normalizedArea = boundingBoxArea / referenceArea
             let targetZoomLevel = calculateZoomLevel(for: normalizedArea, config: config)
 
-            // Calculate focus point (center of click window)
-            let focusX = window.centerPoint.x / 1920.0 // Normalize to 0-1 (assuming 1920 width)
-            let focusY = window.centerPoint.y / 1080.0 // Normalize to 0-1 (assuming 1080 height)
+            // Calculate focus point (center of click window) using the caller-provided
+            // screen dims — a hardcoded 1920×1080 maps wrong on any other screen
+            let focusX = window.centerPoint.x / CGFloat(screenWidth)
+            let focusY = window.centerPoint.y / CGFloat(screenHeight)
 
             // Calculate timing
             let zoomInStart = window.startTime

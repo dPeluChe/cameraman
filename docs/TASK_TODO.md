@@ -1,6 +1,6 @@
 # Task Backlog
 
-> Updated: 2026-06-19
+> Updated: 2026-07-04
 > Only unfinished work. Completed work lives in `TASK_COMPLETED/`.
 > Ordered by impact and proximity to release, not chronology.
 
@@ -114,6 +114,24 @@ May 2026 (pre-publication push): ultrawide writer fix, mic overload, telemetry s
 
 ---
 
+## Feature Exploration — Native Video & AI `added: 2026-07-04`
+
+> From the July 2026 Swift-frameworks exploration. Ordered by agreed priority. The first item is groundwork the cursor/zoom features depend on.
+
+- [x] **Telemetry coordinate-space normalization (prerequisite)** `done: 2026-07-07` — added `CaptureGeometry` (capture rect in global Cocoa points + display scale), persisted per-recording on `Project.Sources.MediaTrack.capture`, with `inferred(...)` fallback for legacy projects. `ZoomPlanGenerator`, `TimelineView+ZoomSuggestions`, and `TelemetryOverlayView` now rebase telemetry into capture-local space before parsing/normalizing instead of dividing by hardcoded 1920×1080. See `CaptureGeometryTests.swift`.
+- [ ] **Synthetic cursor rendering** — hide the real cursor at capture (or mask it) and re-render it in `MaskedVideoCompositor` from telemetry: spline-smoothed movement, configurable scale, click ripple effects, and a keystroke overlay from `keys.jsonl` (Keycastr-style) for tutorials. Depends on telemetry normalization above.
+- [ ] **Camera background removal (Vision person segmentation)** — `VNGeneratePersonSegmentationRequest` per camera frame (runs on ANE) → alpha mask in the compositor so the PiP bubble renders with transparent or blurred background, no green screen.
+- [ ] **Blur regions in video** — user-defined blur areas (rect + time range) rendered via `AdjustmentRenderer`/compositor. Phase 2: auto-suggest regions with `VNRecognizeTextRequest` over the screen track detecting sensitive text (emails, tokens, API keys).
+- [ ] **AI-generated assets from the editor** — request AI-generated images/videos (background art, B-roll, voiceover) directly from the editor and insert them into the timeline as image/video clips. Needs a cloud provider abstraction + job in `JobQueue`. (Absorbs the former "Cloud provider for generated assets" item.)
+- [ ] **Auto reframe to vertical (9:16)** — smart crop for social exports: follow the cursor from telemetry (or `VNGenerateAttentionBasedSaliencyImageRequest`) to keep the action in frame. Builds on the existing portrait preset.
+- [ ] **LUT support** — load standard `.cube` files via `CIColorCube` as a new adjustment kind in `AdjustmentRenderer`.
+- [ ] **Audio mastering pass** — loudness normalization (EBU R128 target via offline `AVAudioEngine`) and noise reduction as additional units in the `AudioAdjustmentTap` chain.
+- [ ] **Speed ramps** — `scaleTimeRange` on the composition; e.g. "speed up silences" as a softer alternative to cutting them (pairs with auto-cuts on silence).
+- [ ] **macOS 15 ScreenCaptureKit upgrades (if target bumps)** — built-in microphone capture and HDR recording via SCK.
+- [ ] **`SpeechAnalyzer` as STT alternative (macOS 26)** — Apple's new speech API: faster than Whisper, no bundled models. Evaluate as fallback/replacement for WhisperKit in `TranscriptionEngine`.
+
+---
+
 ## Engine — Polish & Experimental
 
 > Larger backend items; many are speculative or post-v1.
@@ -128,7 +146,6 @@ May 2026 (pre-publication push): ultrawide writer fix, mic overload, telemetry s
 - [ ] **Regenerate proxies when sync offsets change**.
 - [ ] **Refactor `ZoomSectionController` + `ZoomPlanGenerator`** — their tests are the largest in the suite (49KB / 48KB), which usually signals the code under test is overdue for simplification.
 - [ ] **Evaluate `LoggingSystem`: actor → `nonisolated` with lock** — `os_log` is thread-safe by design; the actor wrapper adds `await` friction in every call site. Only worth doing if the `await` causes real friction.
-- [ ] **Cloud provider for generated assets** (background art, voiceover, etc.).
 - [ ] **Frame-by-frame stylization** (experimental).
 - [ ] **Auto-cuts on silence** (PRD Phase 5).
 - [ ] **Chapters / titles from transcript** (PRD Phase 5).

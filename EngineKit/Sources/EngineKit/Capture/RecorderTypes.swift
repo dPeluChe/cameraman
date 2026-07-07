@@ -52,6 +52,8 @@ extension Recorder {
         private var cameraConfig: CameraEngine.CameraConfiguration?
         internal var micAudioSession: MicAudioRecorder?
         internal var telemetrySession: TelemetryRecorder.RecordingSession?
+        /// Screen-capture geometry resolved at recording start (nil for window/app captures).
+        internal var captureGeometry: CaptureGeometry?
 
         internal init(id: UUID = UUID()) {
             self.id = id
@@ -128,6 +130,34 @@ extension Recorder {
         public let syncMetadata: SyncMetadata
         public let startTime: Date
         public let endTime: Date
+        /// Screen-capture geometry for telemetry mapping (nil for window/app captures).
+        public let captureGeometry: CaptureGeometry?
+
+        public init(
+            session: RecordingSession,
+            screenVideoPath: URL,
+            systemAudioPath: URL?,
+            cameraVideoPath: URL?,
+            micAudioPath: URL?,
+            telemetryPath: URL?,
+            duration: TimeInterval,
+            syncMetadata: SyncMetadata,
+            startTime: Date,
+            endTime: Date,
+            captureGeometry: CaptureGeometry? = nil
+        ) {
+            self.session = session
+            self.screenVideoPath = screenVideoPath
+            self.systemAudioPath = systemAudioPath
+            self.cameraVideoPath = cameraVideoPath
+            self.micAudioPath = micAudioPath
+            self.telemetryPath = telemetryPath
+            self.duration = duration
+            self.syncMetadata = syncMetadata
+            self.startTime = startTime
+            self.endTime = endTime
+            self.captureGeometry = captureGeometry
+        }
 
         public func dumpMetadata(to url: URL) throws {
             let metadata: [String: Any] = [

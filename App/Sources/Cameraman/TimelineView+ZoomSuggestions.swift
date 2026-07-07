@@ -78,15 +78,41 @@ struct ZoomSuggestionGenerator {
     let project: Project
     let projectDirectory: URL?
 
-    /// Dimensions of the recorded video in the same coordinate space as the cursor telemetry.
-    /// Cursor events come from NSEvent in display POINTS; for non-retina full-screen recordings
-    /// these match the recorded pixel dimensions. Area recordings and retina displays still need
-    /// proper captureRect/backingScale storage in the project schema (follow-up).
+    /// Legacy fallback dimensions: recorded video PIXELS. Only used when no capture
+    /// geometry is available (window/app captures, or old recordings on unknown
+    /// displays) — on Retina screens this mismatches the telemetry point space,
+    /// which is exactly what CaptureGeometry persistence fixes.
     private var captureDimensions: (width: Double, height: Double) {
         if let size = project.primarySources?.screen.size {
             return (Double(size.w), Double(size.h))
         }
         return (Double(project.canvas.format.w), Double(project.canvas.format.h))
+    }
+
+    /// Capture geometry: persisted with the recording when available; inferred
+    /// from the attached displays for legacy full-display recordings.
+    @MainActor
+    private func resolveGeometry() -> CaptureGeometry? {
+        if let geometry = project.primarySources?.screen.capture {
+            return geometry
+        }
+        if let size = project.primarySources?.screen.size {
+            return CaptureGeometry.inferred(pixelWidth: size.w, pixelHeight: size.h)
+        }
+        return nil
+    }
+
+    /// Rebase raw telemetry events into capture-local space and return the matching
+    /// screen dimensions (capture points). Falls back to raw events + pixel dims
+    /// when no geometry is available (pre-geometry behavior).
+    private func prepareEvents(
+        _ events: [TelemetryRecorder.Event]
+    ) async -> (events: [TelemetryRecorder.Event], width: Double, height: Double) {
+        if let geometry = await resolveGeometry() {
+            return (geometry.rebaseToCaptureSpace(events), geometry.rect.w, geometry.rect.h)
+        }
+        let dims = captureDimensions
+        return (events, dims.width, dims.height)
     }
 
     var hasCursorTelemetry: Bool {
@@ -103,59 +129,69 @@ struct ZoomSuggestionGenerator {
             LogDebug(.telemetry, "No cursor telemetry or project directory")
             return []
         }
-        
+
         let cursorURL = projDir.appendingPathComponent(cursorTrack.path)
         LogDebug(.telemetry, "Loading telemetry from: \(cursorURL.path)")
-        
+
         let parser = TelemetryParser()
-        var parseResult: TelemetryParser.ParseResult?
-        var events: [TelemetryRecorder.Event]
-        
+        var rawEvents: [TelemetryRecorder.Event] = []
         do {
-            let result = try await parser.parse(telemetryFile: cursorURL)
-            parseResult = result
-            LogDebug(.telemetry, "Parser found \(result.importantClicks.count) clicks, \(result.windows.count) windows")
-            
-            let data = try String(contentsOf: cursorURL, encoding: .utf8)
-            let decoder = JSONDecoder()
-            events = data.split(separator: "\n").compactMap { line in
-                try? decoder.decode(TelemetryRecorder.Event.self, from: Data(line.utf8))
-            }
-            LogDebug(.telemetry, "Decoded \(events.count) raw events")
+            rawEvents = try await parser.loadEvents(from: cursorURL)
+            LogDebug(.telemetry, "Decoded \(rawEvents.count) raw events")
         } catch {
-            LogError(.telemetry, "Parse error: \(error.localizedDescription)")
-            parseResult = nil
-            events = []
+            LogError(.telemetry, "Telemetry load error: \(error.localizedDescription)")
         }
-        
-        guard !events.isEmpty else {
+
+        guard !rawEvents.isEmpty else {
             LogWarning(.telemetry, "No events — aborting zoom suggestion generation")
             return []
         }
-        
+
+        // Rebase events into capture space BEFORE parsing so click windows,
+        // dwell centroids, and focus normalization all share one coordinate space.
+        let prepared = await prepareEvents(rawEvents)
+        if prepared.events.count != rawEvents.count {
+            LogDebug(.telemetry, "Dropped \(rawEvents.count - prepared.events.count) events outside the capture region")
+        }
+
+        var parseResult: TelemetryParser.ParseResult?
+        do {
+            let result = try await parser.parseEvents(prepared.events)
+            parseResult = result
+            LogDebug(.telemetry, "Parser found \(result.importantClicks.count) clicks, \(result.windows.count) windows")
+        } catch {
+            LogError(.telemetry, "Parse error: \(error.localizedDescription)")
+        }
+
         let emptyStats = TelemetryParser.ParseStats(
-            totalEvents: events.count, totalClicks: 0, importantClickCount: 0,
+            totalEvents: prepared.events.count, totalClicks: 0, importantClickCount: 0,
             windowCount: 0, clicksPerSecond: 0, timeRange: 0...project.timeline.duration
         )
         let result = parseResult ?? TelemetryParser.ParseResult(
             importantClicks: [], windows: [], stats: emptyStats
         )
-        
-        let dims = captureDimensions
+
         let suggestions = ZoomSuggestionEngine.generateSuggestions(
-            events: events,
+            events: prepared.events,
             parseResult: result,
-            screenWidth: dims.width,
-            screenHeight: dims.height,
+            screenWidth: prepared.width,
+            screenHeight: prepared.height,
             timelineDuration: project.timeline.duration
         )
 
-        LogInfo(.telemetry, "Generated \(suggestions.count) zoom suggestions (screen \(Int(dims.width))x\(Int(dims.height)))")
+        LogInfo(.telemetry, "Generated \(suggestions.count) zoom suggestions (capture space \(Int(prepared.width))x\(Int(prepared.height)))")
         return suggestions
     }
 
     func applyAsPlan(_ suggestions: [ZoomSuggestion]) async throws -> ZoomPlanGenerator.ZoomPlan {
-        let dims = captureDimensions
+        // Suggestions carry normalized focus; the dims only shape the round-trip
+        // through ClickWindow — they must match the space generate() used.
+        let dims: (width: Double, height: Double)
+        if let geometry = await resolveGeometry() {
+            dims = (geometry.rect.w, geometry.rect.h)
+        } else {
+            dims = captureDimensions
+        }
         return try await ZoomSuggestionEngine.applyAsPlan(
             suggestions: suggestions,
             screenWidth: dims.width,

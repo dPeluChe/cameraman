@@ -93,6 +93,13 @@ public actor Recorder {
         let session = RecordingSession()
         currentSession = session
 
+        // Resolve capture geometry up front (display frame + area rect + scale) so
+        // cursor telemetry can be mapped onto the recorded video later. NSScreen
+        // requires the main actor.
+        session.captureGeometry = await MainActor.run {
+            CaptureGeometry.from(config: config.screenConfig)
+        }
+
         // Start screen capture
         let screenSession = try await captureEngine.startRecording(
             config: config.screenConfig,
@@ -238,7 +245,8 @@ public actor Recorder {
             duration: session.duration,
             syncMetadata: syncMetadata,
             startTime: screenResult.startTime,
-            endTime: screenResult.endTime
+            endTime: screenResult.endTime,
+            captureGeometry: session.captureGeometry
         )
 
         return result

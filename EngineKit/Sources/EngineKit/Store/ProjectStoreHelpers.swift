@@ -106,7 +106,8 @@ extension ProjectStore {
                 size: Project.Sources.Size(w: screenDims?.width ?? 1920, h: screenDims?.height ?? 1080),
                 syncOffsetMs: 0,
                 sha256: sha256(of: screenPath),
-                sizeBytes: fileSize(of: screenPath)
+                sizeBytes: fileSize(of: screenPath),
+                capture: result.captureGeometry
             ),
             camera: camera,
             audio: audio,
