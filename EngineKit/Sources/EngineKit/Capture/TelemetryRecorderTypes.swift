@@ -129,6 +129,9 @@ extension TelemetryRecorder {
         public private(set) var duration: TimeInterval = 0
         public private(set) var eventCount: Int = 0
         public private(set) var error: Error?
+        /// Per-session error counts keyed by error code string (e.g. "-10877").
+        /// Tracks writer pre-failure regressions and correlates with writer.status.
+        public private(set) var errorCounts: [String: Int] = [:]
 
         internal let config: TelemetryRecorder.Configuration
 
@@ -162,6 +165,12 @@ extension TelemetryRecorder {
             self.error = error
             self.isRecording = false
         }
+
+        /// Increment the error count for a specific error code.
+        /// Used to track recurring errors like AVFoundationWriter -10877.
+        internal func incrementErrorCount(_ code: String) {
+            errorCounts[code, default: 0] += 1
+        }
     }
 
     /// Recording result
@@ -174,17 +183,21 @@ extension TelemetryRecorder {
         public let eventCount: Int
         /// Recording duration
         public let duration: TimeInterval
+        /// Per-session error counts keyed by error code string
+        public let errorCounts: [String: Int]
 
         public init(
             sessionID: UUID,
             cursorFilePath: URL,
             eventCount: Int,
-            duration: TimeInterval
+            duration: TimeInterval,
+            errorCounts: [String: Int] = [:]
         ) {
             self.sessionID = sessionID
             self.cursorFilePath = cursorFilePath
             self.eventCount = eventCount
             self.duration = duration
+            self.errorCounts = errorCounts
         }
     }
 

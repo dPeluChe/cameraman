@@ -164,6 +164,24 @@ final class ProjectEditor: ObservableObject {
         return true
     }
 
+    /// Live timestamp update during drag — mutates project without
+    /// autosave or undo snapshot for smooth dragging.
+    func updateManualZoomKeyframeTimestampLive(id: UUID, timestamp: TimeInterval) {
+        var updatedProject = project
+        guard var keyframes = updatedProject.manualZoomKeyframes else { return }
+        guard let idx = keyframes.firstIndex(where: { $0.id == id }) else { return }
+        keyframes[idx].timestamp = timestamp
+        keyframes.sort { $0.timestamp < $1.timestamp }
+        updatedProject.manualZoomKeyframes = keyframes
+        project = updatedProject
+    }
+
+    /// Commit a drag end — saves to model + autosave + undo snapshot.
+    func commitManualZoomKeyframeDrag() async {
+        await editorModel.setProject(project)
+        scheduleAutosave()
+    }
+
     func trimIn(segmentId: String, newSourceIn: TimeInterval) async -> EditorResult {
         await performEdit { await self.editorModel.trimIn(segmentId: segmentId, newSourceIn: newSourceIn) }
     }

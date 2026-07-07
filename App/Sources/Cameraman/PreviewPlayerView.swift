@@ -70,7 +70,26 @@ struct PreviewPlayerView: View {
                             ManualZoomFocusOverlay(
                                 keyframes: manualKfs,
                                 currentTime: viewModel.currentTime,
-                                size: geometry.size
+                                size: geometry.size,
+                                isInteractive: ManualZoomControlsView.clickToFocus.isEnabled,
+                                selectedKeyframeId: ManualZoomControlsView.clickToFocus.selectedKeyframeId,
+                                onTap: { point in
+                                    ManualZoomControlsView.clickToFocus.handleTap(point)
+                                }
+                            )
+                        }
+                    } else if ManualZoomControlsView.clickToFocus.isEnabled {
+                        // Allow click-to-focus even with no keyframes yet (creates first one)
+                        GeometryReader { geometry in
+                            ManualZoomFocusOverlay(
+                                keyframes: [],
+                                currentTime: viewModel.currentTime,
+                                size: geometry.size,
+                                isInteractive: true,
+                                selectedKeyframeId: nil,
+                                onTap: { point in
+                                    ManualZoomControlsView.clickToFocus.handleTap(point)
+                                }
                             )
                         }
                     }

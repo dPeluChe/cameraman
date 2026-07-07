@@ -18,6 +18,12 @@ struct ManualZoomControlsView: View {
     @State private var newFocusY: Double = 0.5
     @State private var newEasing: ZoomPlanGenerator.EasingFunction = .easeInOut
     @State private var showAddSheet: Bool = false
+    @State private var isClickToFocusEnabled: Bool = false
+
+    /// Shared state — set by the panel toggle, read by the preview overlay.
+    /// Uses a static holder so the PreviewPlayerView can access it without
+    /// a binding chain through the view hierarchy.
+    static let clickToFocus = ClickToFocusState()
 
     private var manualKeyframes: [ZoomPlanGenerator.ZoomKeyframe] {
         editor.project.manualZoomKeyframes ?? []
@@ -43,6 +49,23 @@ struct ManualZoomControlsView: View {
             Text("Add zoom in/out keyframes at specific timestamps to highlight areas. Merges with auto-zoom.")
                 .font(.caption)
                 .foregroundColor(.secondary)
+
+            // Click-to-focus toggle
+            Toggle("Click preview to set focus", isOn: $isClickToFocusEnabled)
+                .onChangeCompat(of: isClickToFocusEnabled) { v in
+                    ManualZoomControlsView.clickToFocus.isEnabled = v
+                    ManualZoomControlsView.clickToFocus.selectedKeyframeId = selectedKeyframeId
+                    ManualZoomControlsView.clickToFocus.editor = editor
+                    ManualZoomControlsView.clickToFocus.playerViewModel = playerViewModel
+                }
+                .font(.caption)
+                .tint(.orange)
+
+            if isClickToFocusEnabled {
+                Text("Click anywhere on the preview to set the focus point of the selected keyframe (or create a new one at playhead).")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
 
             // Add keyframe at playhead
             Button {
@@ -104,7 +127,10 @@ struct ManualZoomControlsView: View {
         .background(isSelected ? Color.accentColor.opacity(0.1) : Color.clear)
         .cornerRadius(6)
         .contentShape(Rectangle())
-        .onTapGesture { selectedKeyframeId = isSelected ? nil : kf.id }
+        .onTapGesture { 
+            selectedKeyframeId = isSelected ? nil : kf.id
+            ManualZoomControlsView.clickToFocus.selectedKeyframeId = selectedKeyframeId
+        }
     }
 
     private func keyframeEditor(_ kf: ZoomPlanGenerator.ZoomKeyframe) -> some View {
@@ -209,5 +235,40 @@ struct ManualZoomControlsView: View {
         let mins = Int(seconds) / 60
         let secs = seconds.truncatingRemainder(dividingBy: 60)
         return String(format: "%d:%05.2f", mins, secs)
+    }
+}
+
+/// Shared state for click-to-focus mode. The panel sets it, the preview
+/// overlay reads it. Uses a class so it can be referenced statically
+/// without a binding chain.
+final class ClickToFocusState: ObservableObject {
+    @Published var isEnabled: Bool = false
+    @Published var selectedKeyframeId: UUID?
+    weak var editor: ProjectEditor?
+    weak var playerViewModel: PreviewPlayerViewModel?
+
+    func handleTap(_ point: CGPoint) {
+        guard isEnabled else { return }
+        guard let editor = editor else { return }
+
+        if let selId = selectedKeyframeId {
+            // Update existing keyframe's focus
+            Task {
+                await editor.updateManualZoomKeyframe(id: selId, focusX: point.x, focusY: point.y)
+                await playerViewModel?.applyEffectiveZoomPlan()
+            }
+        } else {
+            // Create new keyframe at playhead with this focus
+            Task { @MainActor in
+                let t = playerViewModel?.currentTime ?? 0
+                await editor.addManualZoomKeyframe(
+                    at: t,
+                    zoomLevel: 2.0,
+                    focusX: point.x,
+                    focusY: point.y
+                )
+                await playerViewModel?.applyEffectiveZoomPlan()
+            }
+        }
     }
 }

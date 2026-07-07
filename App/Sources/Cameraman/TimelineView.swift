@@ -335,12 +335,38 @@ struct TimelineView: View {
                     )
                 }
 
-                // Manual zoom keyframe markers
+                // Manual zoom keyframe markers + zoom curve
+                if !manualZoomKeyframes.isEmpty {
+                    ZoomCurveOverlay(
+                        keyframes: manualZoomKeyframes,
+                        layout: layout,
+                        height: totalHeight,
+                        maxZoomLevel: 4.0
+                    )
+                }
+
                 ForEach(manualZoomKeyframes) { kf in
                     ManualZoomKeyframeMarker(
                         keyframe: kf,
                         xPosition: layout.xPosition(for: kf.timestamp),
-                        height: totalHeight
+                        height: totalHeight,
+                        onDragChanged: { newX in
+                            // Live update: compute new timestamp from x position
+                            let newTime = layout.time(forXPosition: newX)
+                            // Clamp to timeline bounds
+                            let clamped = max(0, min(project.timeline.duration, newTime))
+                            // Update without autosave (drag in progress)
+                            DispatchQueue.main.async {
+                                editor.updateManualZoomKeyframeTimestampLive(id: kf.id, timestamp: clamped)
+                            }
+                        },
+                        onDragEnded: {
+                            // Commit with autosave on drag end
+                            Task {
+                                await editor.commitManualZoomKeyframeDrag()
+                                await playerViewModel.applyEffectiveZoomPlan()
+                            }
+                        }
                     )
                 }
 
