@@ -141,6 +141,17 @@ class RecordingControlViewModel: ObservableObject {
                 }
             }
 
+            // Cursor telemetry requires Accessibility permission for global event monitoring.
+            // Don't block recording if denied, but warn so the user knows the synthetic cursor
+            // and zoom suggestions won't have cursor data.
+            log("Checking accessibility permission for cursor telemetry...")
+            let accessibilityPermission = await permissionManager.requestAccessibilityPermission()
+            log("Accessibility permission result: \(accessibilityPermission)")
+            if accessibilityPermission != .authorized {
+                log("Accessibility permission denied. Cursor telemetry will be limited.")
+                statusText = "Accessibility denied - cursor/zoom telemetry disabled"
+            }
+
             statusText = "Starting recording..."
             log("Permissions OK. Preparing output URL...")
 
@@ -311,8 +322,9 @@ class RecordingControlViewModel: ObservableObject {
     @Published var screenStatus: PermissionManager.PermissionStatus = .notDetermined
     @Published var cameraStatus: PermissionManager.PermissionStatus = .notDetermined
     @Published var micStatus: PermissionManager.PermissionStatus = .notDetermined
+    @Published var accessibilityStatus: PermissionManager.PermissionStatus = .notDetermined
 
-    /// All three permissions must be authorized before the user can pick a source / record.
+    /// Core media permissions must be authorized before the user can pick a source / record.
     var allRequiredPermissionsGranted: Bool {
         screenStatus == .authorized && cameraStatus == .authorized && micStatus == .authorized
     }
@@ -322,6 +334,7 @@ class RecordingControlViewModel: ObservableObject {
         screenStatus = health.screenRecording
         cameraStatus = health.camera
         micStatus = health.microphone
+        accessibilityStatus = health.accessibility
     }
 
     /// Request all three in sequence. For first-run (undetermined) permissions this shows the
@@ -356,6 +369,15 @@ class RecordingControlViewModel: ObservableObject {
             await PermissionManager.shared.openSystemSettings(for: .microphone)
         } else {
             _ = await PermissionManager.shared.requestMicrophonePermission()
+        }
+        await refreshPermissions()
+    }
+
+    func requestAccessibilityPermission() async {
+        if accessibilityStatus == .denied {
+            await PermissionManager.shared.openSystemSettings(for: .accessibility)
+        } else {
+            _ = await PermissionManager.shared.requestAccessibilityPermission()
         }
         await refreshPermissions()
     }
