@@ -53,10 +53,10 @@ final class ProjectEditorViewModel: ObservableObject {
 
     func loadProject() async {
         guard !isLoading else { return }
-        
+
         // Reset player state before loading new project to prevent leaks
         playerViewModel.reset()
-        
+
         // Fetch data outside of view update cycle
         let result: (Project, URL)?
         do {
@@ -65,24 +65,24 @@ final class ProjectEditorViewModel: ObservableObject {
             result = (project, dir)
         } catch {
             result = nil
-            await MainActor.run {
-                self.loadError = error.localizedDescription
-                self.projectDirectory = nil
-                self.isLoading = false
-            }
+            // Yield so these @Published mutations don't land inside a SwiftUI
+            // body update cycle.
+            await Task.yield()
+            self.loadError = error.localizedDescription
+            self.projectDirectory = nil
+            self.isLoading = false
             return
         }
 
-        // Apply all state changes in a single batch via Task to avoid
-        // "Publishing changes from within view updates"
+        // Yield so these @Published mutations don't land inside a SwiftUI
+        // body update cycle.
         if let (project, dir) = result {
-            await MainActor.run {
-                self.editor = ProjectEditor(project: project)
-                self.projectDirectory = dir
-                self.loadError = nil
-                self.playerViewModel.seek(to: 0)
-                self.isLoading = false
-            }
+            await Task.yield()
+            self.editor = ProjectEditor(project: project)
+            self.projectDirectory = dir
+            self.loadError = nil
+            self.playerViewModel.seek(to: 0)
+            self.isLoading = false
         }
     }
 }
