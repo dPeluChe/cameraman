@@ -154,7 +154,7 @@ struct RecordingControlView: View {
                 ToggleRow(icon: "video.fill", title: "Camera", isOn: $viewModel.includeCamera, offIcon: "video.slash.fill")
                 ToggleRow(icon: "mic.fill", title: "Microphone", isOn: $viewModel.includeMicrophone, offIcon: "mic.slash.fill")
                 ToggleRow(icon: "speaker.wave.2.fill", title: "System Audio", isOn: $viewModel.includeSystemAudio, offIcon: "speaker.slash.fill")
-                ToggleRow(icon: "cursor.rays", title: "Hide Cursor", isOn: $viewModel.hideSystemCursor, offIcon: "cursor")
+                ToggleRow(icon: "cursorarrow.slash", title: "Hide Cursor", isOn: $viewModel.hideSystemCursor, offIcon: "cursorarrow")
                 Divider().opacity(0.3)
                 ToggleRow(icon: "text.justify.leading", title: "Teleprompter", isOn: $showTeleprompter, offIcon: "text.justify.leading")
                 Divider().opacity(0.3)
