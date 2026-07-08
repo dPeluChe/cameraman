@@ -348,21 +348,15 @@ struct TimelineView: View {
                         keyframe: kf,
                         xPosition: layout.xPosition(for: kf.timestamp),
                         height: totalHeight,
-                        onDragChanged: { newX in
-                            // Live update: compute new timestamp from x position
-                            let newTime = layout.time(forXPosition: newX)
-                            // Clamp to timeline bounds
+                        pixelsPerSecond: layout.pixelsPerSecond,
+                        onDragChanged: { newTime in
                             let clamped = max(0, min(project.timeline.duration, newTime))
-                            // Update without autosave (drag in progress)
-                            DispatchQueue.main.async {
-                                editor.updateManualZoomKeyframeTimestampLive(id: kf.id, timestamp: clamped)
-                            }
+                            editor.updateManualZoomKeyframeTimestampLive(id: kf.id, timestamp: clamped)
                         },
                         onDragEnded: {
-                            // Commit with autosave on drag end
                             Task {
                                 await editor.commitManualZoomKeyframeDrag()
-                                await playerViewModel.applyEffectiveZoomPlan()
+                                await playerViewModel.applyEffectiveZoomPlan(freshProject: editor.project)
                             }
                         }
                     )

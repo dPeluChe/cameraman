@@ -486,8 +486,12 @@ struct ManualZoomKeyframeMarker: View {
     let keyframe: ZoomPlanGenerator.ZoomKeyframe
     let xPosition: TimelineScalar
     let height: TimelineScalar
-    var onDragChanged: ((TimelineScalar) -> Void)? = nil
+    let pixelsPerSecond: TimelineScalar
+    var onDragChanged: ((TimeInterval) -> Void)? = nil
     var onDragEnded: (() -> Void)? = nil
+
+    @State private var dragStartTimestamp: TimeInterval = 0
+    @State private var isDragging = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -507,9 +511,16 @@ struct ManualZoomKeyframeMarker: View {
         .gesture(
             DragGesture(minimumDistance: 2)
                 .onChanged { value in
-                    onDragChanged?(xPosition + TimelineScalar(value.translation.width))
+                    if !isDragging {
+                        isDragging = true
+                        dragStartTimestamp = keyframe.timestamp
+                    }
+                    let pps = max(pixelsPerSecond, 0.001)
+                    let deltaSeconds = TimeInterval(value.translation.width) / TimeInterval(pps)
+                    onDragChanged?(dragStartTimestamp + deltaSeconds)
                 }
                 .onEnded { _ in
+                    isDragging = false
                     onDragEnded?()
                 }
         )

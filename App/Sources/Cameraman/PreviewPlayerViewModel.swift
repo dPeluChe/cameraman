@@ -81,7 +81,12 @@ final class PreviewPlayerViewModel: ObservableObject {
     /// Recompute the effective plan from the original plan, the current project's
     /// per-segment enabled state, and the global `showZoom` gate; push it to the
     /// engine, which bakes it into a fresh videoComposition.
-    func applyEffectiveZoomPlan() {
+    /// - Parameter freshProject: when non-nil, replaces `self.project` before
+    ///   computing so manual keyframe edits are reflected immediately.
+    func applyEffectiveZoomPlan(freshProject: Project? = nil) {
+        if let fresh = freshProject {
+            self.project = fresh
+        }
         let effective = computeEffectiveZoomPlan()
         guard let engine = previewEngine else { return }
         Task { await engine.setZoomPlan(effective) }
