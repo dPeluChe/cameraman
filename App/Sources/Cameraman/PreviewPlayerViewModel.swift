@@ -100,20 +100,8 @@ final class PreviewPlayerViewModel: ObservableObject {
     /// manual keyframes from the project before filtering.
     func computeEffectiveZoomPlan() -> ZoomPlanGenerator.ZoomPlan? {
         guard showZoom, let plan = originalZoomPlan else {
-            // Even without auto-zoom, manual keyframes alone may produce a plan.
             if showZoom, let manual = project?.manualZoomKeyframes, !manual.isEmpty {
-                let manualPlan = ZoomPlanGenerator.ZoomPlan(
-                    events: [],
-                    keyframes: manual.sorted { $0.timestamp < $1.timestamp },
-                    configuration: .default(),
-                    stats: ZoomPlanGenerator.ZoomPlanStats(
-                        totalZoomEvents: 0, totalKeyframes: manual.count,
-                        totalZoomedTime: 0, zoomedTimePercentage: 0,
-                        averageZoomLevel: 1, maximumZoomLevel: manual.map(\.zoomLevel).max() ?? 1,
-                        averageTimeBetweenZooms: 0, zoomsPerMinute: 0,
-                        timeRange: 0...0
-                    )
-                )
+                let manualPlan = ZoomPlanGenerator.manualOnlyPlan(from: manual)
                 let segments = project?.timeline.segments ?? []
                 let filtered = manualPlan.filtered(byEnabledSegments: segments)
                 return filtered.hasNoZoom ? nil : filtered

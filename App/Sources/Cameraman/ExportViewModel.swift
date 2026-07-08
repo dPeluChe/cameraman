@@ -234,18 +234,7 @@ final class ExportViewModel: ObservableObject {
             if let staged = stagedZoomPlan {
                 basePlan = staged.merged(with: manualKfs)
             } else if !manualKfs.isEmpty {
-                basePlan = ZoomPlanGenerator.ZoomPlan(
-                    events: [],
-                    keyframes: manualKfs.sorted { $0.timestamp < $1.timestamp },
-                    configuration: .default(),
-                    stats: ZoomPlanGenerator.ZoomPlanStats(
-                        totalZoomEvents: 0, totalKeyframes: manualKfs.count,
-                        totalZoomedTime: 0, zoomedTimePercentage: 0,
-                        averageZoomLevel: 1, maximumZoomLevel: manualKfs.map(\.zoomLevel).max() ?? 1,
-                        averageTimeBetweenZooms: 0, zoomsPerMinute: 0,
-                        timeRange: 0...0
-                    )
-                )
+                basePlan = ZoomPlanGenerator.manualOnlyPlan(from: manualKfs)
             } else {
                 basePlan = nil
             }

@@ -91,10 +91,4 @@ extension ZoomPlanGenerator.ZoomPlan {
             stats: stats
         )
     }
-
-    /// Convenience: merge with manual keyframes stored on a project.
-    public func merged(withProject project: Project) -> ZoomPlanGenerator.ZoomPlan {
-        guard let manual = project.manualZoomKeyframes, !manual.isEmpty else { return self }
-        return merged(with: manual)
-    }
 }

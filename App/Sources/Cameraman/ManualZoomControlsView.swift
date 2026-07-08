@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 import EngineKit
 
 struct ManualZoomControlsView: View {
@@ -13,11 +14,6 @@ struct ManualZoomControlsView: View {
     @ObservedObject var playerViewModel: PreviewPlayerViewModel
 
     @State private var selectedKeyframeId: UUID?
-    @State private var newZoomLevel: Double = 2.0
-    @State private var newFocusX: Double = 0.5
-    @State private var newFocusY: Double = 0.5
-    @State private var newEasing: ZoomPlanGenerator.EasingFunction = .easeInOut
-    @State private var showAddSheet: Bool = false
     @State private var isClickToFocusEnabled: Bool = false
 
     /// Shared state — set by the panel toggle, read by the preview overlay.
@@ -223,10 +219,10 @@ struct ManualZoomControlsView: View {
         let t = playerViewModel.currentTime
         await editor.addManualZoomKeyframe(
             at: t,
-            zoomLevel: newZoomLevel,
-            focusX: newFocusX,
-            focusY: newFocusY,
-            easing: newEasing
+            zoomLevel: 2.0,
+            focusX: 0.5,
+            focusY: 0.5,
+            easing: .easeInOut
         )
         await playerViewModel.applyEffectiveZoomPlan()
     }

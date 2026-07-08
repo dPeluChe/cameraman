@@ -180,9 +180,7 @@ struct TimelineView: View {
 
     @ViewBuilder
     private var zoomSuggestionButtons: some View {
-        if !FeatureFlags.autoZoom {
-            EmptyView()
-        } else if !zoomSuggestions.isEmpty {
+        if !zoomSuggestions.isEmpty {
             Button {
                 applyZoomSuggestions()
             } label: {
