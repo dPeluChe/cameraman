@@ -382,4 +382,30 @@ public actor ZoomPlanGenerator {
         )
     }
 
+    // MARK: - Manual-Only Plan
+
+    /// Build a ZoomPlan containing only manual keyframes (no auto events).
+    /// Used when telemetry is absent but the user has placed manual keyframes.
+    public nonisolated static func manualOnlyPlan(
+        from keyframes: [ZoomKeyframe]
+    ) -> ZoomPlan {
+        let sorted = keyframes.sorted { $0.timestamp < $1.timestamp }
+        return ZoomPlan(
+            events: [],
+            keyframes: sorted,
+            configuration: .default(),
+            stats: ZoomPlanStats(
+                totalZoomEvents: 0,
+                totalKeyframes: sorted.count,
+                totalZoomedTime: 0,
+                zoomedTimePercentage: 0,
+                averageZoomLevel: 1,
+                maximumZoomLevel: sorted.map(\.zoomLevel).max() ?? 1,
+                averageTimeBetweenZooms: 0,
+                zoomsPerMinute: 0,
+                timeRange: 0...0
+            )
+        )
+    }
+
 }

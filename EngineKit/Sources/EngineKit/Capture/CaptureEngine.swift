@@ -36,6 +36,9 @@ public actor CaptureEngine {
         /// Capture only this region of the display, in display points with top-left origin.
         /// nil = full display.
         public let captureRect: CGRect?
+        /// Hide the system cursor in the capture stream. Use when synthetic
+        /// cursor rendering is enabled so the real cursor doesn't double up.
+        public let hideSystemCursor: Bool
 
         public enum SourceType {
             case display
@@ -52,7 +55,8 @@ public actor CaptureEngine {
             frameRate: Int = 60,
             pixelFormat: OSType = kCVPixelFormatType_32BGRA,
             quality: RecordingQuality = .native,
-            captureRect: CGRect? = nil
+            captureRect: CGRect? = nil,
+            hideSystemCursor: Bool = false
         ) {
             self.sourceType = sourceType
             self.display = display
@@ -63,6 +67,7 @@ public actor CaptureEngine {
             self.pixelFormat = pixelFormat
             self.quality = quality
             self.captureRect = captureRect
+            self.hideSystemCursor = hideSystemCursor
         }
     }
 
@@ -384,7 +389,10 @@ public actor CaptureEngine {
             await videoWriter.finishWriting()
             logger.debug("Video writer status: \(videoWriter.status.rawValue)")
             if let error = videoWriter.error {
-                logger.error("Video writer error: \(error.localizedDescription)")
+                let code = (error as NSError).code
+                logger.error("Video writer error [code=\(code)]: \(error.localizedDescription)")
+                // Track -10877 and other writer errors for diagnostics
+                LogWarning(.capture, "Video writer error code \(code): \(error.localizedDescription)")
             }
         } else if let videoWriter = session.getVideoWriter() {
             logger.debug("Video writer already finalized with status: \(videoWriter.status.rawValue)")
@@ -395,7 +403,9 @@ public actor CaptureEngine {
             await audioWriter.finishWriting()
             logger.debug("Audio writer status: \(audioWriter.status.rawValue)")
             if let error = audioWriter.error {
-                logger.error("Audio writer error: \(error.localizedDescription)")
+                let code = (error as NSError).code
+                logger.error("Audio writer error [code=\(code)]: \(error.localizedDescription)")
+                LogWarning(.capture, "Audio writer error code \(code): \(error.localizedDescription)")
             }
         } else if let audioWriter = session.getAudioWriter() {
             logger.debug("Audio writer already finalized with status: \(audioWriter.status.rawValue)")

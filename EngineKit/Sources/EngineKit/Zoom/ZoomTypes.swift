@@ -14,15 +14,17 @@ extension ZoomPlanGenerator {
         /// Unique identifier
         public let id: UUID
         /// Timestamp in seconds from recording start
-        public let timestamp: TimeInterval
+        public var timestamp: TimeInterval
         /// Zoom level at this keyframe (1.0 = no zoom, 2.0 = 2x zoom)
-        public let zoomLevel: Double
+        public var zoomLevel: Double
         /// Focus point X (normalized 0.0-1.0, 0.5 = center)
-        public let focusX: Double
+        public var focusX: Double
         /// Focus point Y (normalized 0.0-1.0, 0.5 = center)
-        public let focusY: Double
+        public var focusY: Double
         /// Easing function to use for transition to next keyframe
-        public let easing: EasingFunction
+        public var easing: EasingFunction
+        /// Whether this keyframe was created manually by the user (vs auto-generated)
+        public var isManual: Bool
 
         public init(
             id: UUID = UUID(),
@@ -30,7 +32,8 @@ extension ZoomPlanGenerator {
             zoomLevel: Double,
             focusX: Double,
             focusY: Double,
-            easing: EasingFunction = .easeInOut
+            easing: EasingFunction = .easeInOut,
+            isManual: Bool = false
         ) {
             self.id = id
             self.timestamp = timestamp
@@ -38,6 +41,22 @@ extension ZoomPlanGenerator {
             self.focusX = focusX
             self.focusY = focusY
             self.easing = easing
+            self.isManual = isManual
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case id, timestamp, zoomLevel, focusX, focusY, easing, isManual
+        }
+
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            id = try c.decode(UUID.self, forKey: .id)
+            timestamp = try c.decode(TimeInterval.self, forKey: .timestamp)
+            zoomLevel = try c.decode(Double.self, forKey: .zoomLevel)
+            focusX = try c.decode(Double.self, forKey: .focusX)
+            focusY = try c.decode(Double.self, forKey: .focusY)
+            easing = try c.decode(EasingFunction.self, forKey: .easing)
+            isManual = try c.decodeIfPresent(Bool.self, forKey: .isManual) ?? false
         }
     }
 
@@ -198,8 +217,8 @@ extension ZoomPlanGenerator {
 
             // Handle edge cases
             guard let prev = previousKeyframe else {
-                // Before first keyframe
-                return keyframes.first?.zoomLevel ?? configuration.defaultZoomLevel
+                // Before first keyframe: no zoom applied yet
+                return configuration.defaultZoomLevel
             }
 
             guard let next = nextKeyframe else {
@@ -237,7 +256,8 @@ extension ZoomPlanGenerator {
 
             // Handle edge cases
             guard let prev = previousKeyframe else {
-                return CGPoint(x: keyframes.first?.focusX ?? 0.5, y: keyframes.first?.focusY ?? 0.5)
+                // Before first keyframe: center focus, no zoom
+                return CGPoint(x: 0.5, y: 0.5)
             }
 
             guard let next = nextKeyframe else {

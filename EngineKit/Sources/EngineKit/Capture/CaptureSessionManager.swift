@@ -66,6 +66,10 @@ extension CaptureEngine {
         streamConfig.pixelFormat = config.pixelFormat
         streamConfig.capturesAudio = config.captureSystemAudio
 
+        // Hide the system cursor in the capture when synthetic cursor is enabled.
+        // The synthetic cursor is rendered from telemetry in the compositor.
+        streamConfig.showsCursor = !config.hideSystemCursor
+
         // Apply capture area if set (top-left origin, in display points)
         if let rect = config.captureRect {
             streamConfig.sourceRect = rect

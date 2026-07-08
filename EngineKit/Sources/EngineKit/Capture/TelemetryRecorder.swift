@@ -91,8 +91,15 @@ public actor TelemetryRecorder {
             sessionID: session.id,
             cursorFilePath: cursorFilePath,
             eventCount: session.eventCount,
-            duration: session.duration
+            duration: session.duration,
+            errorCounts: session.errorCounts
         )
+
+        // Log error counts for diagnostics — catches writer pre-failure regressions
+        if !session.errorCounts.isEmpty {
+            let summary = session.errorCounts.map { "\($0.key): \($0.value)" }.joined(separator: ", ")
+            LogWarning(.capture, "Telemetry session error counts: \(summary)")
+        }
 
         currentSession = nil
 

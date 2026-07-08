@@ -48,6 +48,7 @@ struct TimelineView: View {
     @State var zoomSuggestions: [ZoomSuggestion] = []
     @State var dismissedSuggestionIds: Set<UUID> = []
     @State var isGeneratingSuggestions = false
+    @State var selectedManualKeyframeId: UUID?
     @State var thumbnailTask: Task<Void, Never>?
 
     @State var thumbnailCache: ThumbnailCache?
@@ -60,6 +61,10 @@ struct TimelineView: View {
     var project: Project { editor.project }
 
     var playheadTime: Double { playerViewModel.currentTime }
+
+    var manualZoomKeyframes: [ZoomPlanGenerator.ZoomKeyframe] {
+        project.manualZoomKeyframes ?? []
+    }
 
     /// Pixels/second that makes the whole timeline fit the visible width.
     private var fitPPS: TimelineScalar {
@@ -176,9 +181,7 @@ struct TimelineView: View {
 
     @ViewBuilder
     private var zoomSuggestionButtons: some View {
-        if !FeatureFlags.autoZoom {
-            EmptyView()
-        } else if !zoomSuggestions.isEmpty {
+        if !zoomSuggestions.isEmpty {
             Button {
                 applyZoomSuggestions()
             } label: {
@@ -326,6 +329,53 @@ struct TimelineView: View {
                                 dismissedSuggestionIds.remove(suggestion.id)
                             } else {
                                 dismissedSuggestionIds.insert(suggestion.id)
+                            }
+                        }
+                    )
+                }
+
+                // Manual zoom keyframe markers + zoom curve
+                if !manualZoomKeyframes.isEmpty {
+                    ZoomCurveOverlay(
+                        keyframes: manualZoomKeyframes,
+                        layout: layout,
+                        height: totalHeight,
+                        maxZoomLevel: 4.0
+                    )
+                }
+
+                ForEach(manualZoomKeyframes) { kf in
+                    ManualZoomKeyframeMarker(
+                        keyframe: kf,
+                        xPosition: layout.xPosition(for: kf.timestamp),
+                        height: totalHeight,
+                        pixelsPerSecond: layout.pixelsPerSecond,
+                        isSelected: selectedManualKeyframeId == kf.id,
+                        onTap: {
+                            selectedManualKeyframeId = (selectedManualKeyframeId == kf.id) ? nil : kf.id
+                        },
+                        onDragChanged: { newTime in
+                            let clamped = max(0, min(project.timeline.duration, newTime))
+                            editor.updateManualZoomKeyframeTimestampLive(id: kf.id, timestamp: clamped)
+                        },
+                        onDragEnded: {
+                            Task {
+                                await editor.commitManualZoomKeyframeDrag()
+                                await playerViewModel.applyEffectiveZoomPlan(freshProject: editor.project)
+                            }
+                        },
+                        onLiveUpdate: {
+                            Task { @MainActor in
+                                playerViewModel.applyEffectiveZoomPlan(freshProject: editor.project)
+                            }
+                        },
+                        onContextMenuDelete: {
+                            Task {
+                                await editor.removeManualZoomKeyframe(id: kf.id)
+                                await playerViewModel.applyEffectiveZoomPlan(freshProject: editor.project)
+                                if selectedManualKeyframeId == kf.id {
+                                    selectedManualKeyframeId = nil
+                                }
                             }
                         }
                     )

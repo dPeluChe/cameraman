@@ -81,7 +81,12 @@ final class PreviewPlayerViewModel: ObservableObject {
     /// Recompute the effective plan from the original plan, the current project's
     /// per-segment enabled state, and the global `showZoom` gate; push it to the
     /// engine, which bakes it into a fresh videoComposition.
-    func applyEffectiveZoomPlan() {
+    /// - Parameter freshProject: when non-nil, replaces `self.project` before
+    ///   computing so manual keyframe edits are reflected immediately.
+    func applyEffectiveZoomPlan(freshProject: Project? = nil) {
+        if let fresh = freshProject {
+            self.project = fresh
+        }
         let effective = computeEffectiveZoomPlan()
         guard let engine = previewEngine else { return }
         Task { await engine.setZoomPlan(effective) }
@@ -96,11 +101,21 @@ final class PreviewPlayerViewModel: ObservableObject {
     }
 
     /// Build the plan that should currently apply: nil when zoom is hidden, when
-    /// no original plan exists, or when filtering wipes every event.
+    /// no original plan exists, or when filtering wipes every event. Merges
+    /// manual keyframes from the project before filtering.
     func computeEffectiveZoomPlan() -> ZoomPlanGenerator.ZoomPlan? {
-        guard showZoom, let plan = originalZoomPlan else { return nil }
+        guard showZoom, let plan = originalZoomPlan else {
+            if showZoom, let manual = project?.manualZoomKeyframes, !manual.isEmpty {
+                let manualPlan = ZoomPlanGenerator.manualOnlyPlan(from: manual)
+                let segments = project?.timeline.segments ?? []
+                let filtered = manualPlan.filtered(byEnabledSegments: segments)
+                return filtered.hasNoZoom ? nil : filtered
+            }
+            return nil
+        }
+        let merged = plan.merged(with: project?.manualZoomKeyframes ?? [])
         let segments = project?.timeline.segments ?? []
-        let filtered = plan.filtered(byEnabledSegments: segments)
+        let filtered = merged.filtered(byEnabledSegments: segments)
         return filtered.hasNoZoom ? nil : filtered
     }
 

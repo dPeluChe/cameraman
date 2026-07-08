@@ -24,6 +24,7 @@ class RecordingControlViewModel: ObservableObject {
     @Published var includeCamera = true
     @Published var includeMicrophone = true
     @Published var includeSystemAudio = true
+    @Published var hideSystemCursor = false
     @Published var lastRecordingURL: URL?
     @Published var recordingQuality: RecordingQuality = .native
     /// Selected capture area in display points (top-left origin). nil = full display.
@@ -175,7 +176,8 @@ class RecordingControlViewModel: ObservableObject {
                 frameRate: config.frameRate,
                 pixelFormat: config.pixelFormat,
                 quality: recordingQuality,
-                captureRect: selectedArea
+                captureRect: selectedArea,
+                hideSystemCursor: hideSystemCursor
             )
 
             // Create camera configuration if needed
