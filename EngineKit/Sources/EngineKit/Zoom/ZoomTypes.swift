@@ -217,8 +217,8 @@ extension ZoomPlanGenerator {
 
             // Handle edge cases
             guard let prev = previousKeyframe else {
-                // Before first keyframe
-                return keyframes.first?.zoomLevel ?? configuration.defaultZoomLevel
+                // Before first keyframe: no zoom applied yet
+                return configuration.defaultZoomLevel
             }
 
             guard let next = nextKeyframe else {
@@ -256,7 +256,8 @@ extension ZoomPlanGenerator {
 
             // Handle edge cases
             guard let prev = previousKeyframe else {
-                return CGPoint(x: keyframes.first?.focusX ?? 0.5, y: keyframes.first?.focusY ?? 0.5)
+                // Before first keyframe: center focus, no zoom
+                return CGPoint(x: 0.5, y: 0.5)
             }
 
             guard let next = nextKeyframe else {

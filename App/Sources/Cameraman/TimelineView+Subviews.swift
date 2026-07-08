@@ -487,27 +487,39 @@ struct ManualZoomKeyframeMarker: View {
     let xPosition: TimelineScalar
     let height: TimelineScalar
     let pixelsPerSecond: TimelineScalar
+    var isSelected: Bool = false
+    var onTap: (() -> Void)? = nil
     var onDragChanged: ((TimeInterval) -> Void)? = nil
     var onDragEnded: (() -> Void)? = nil
+    var onLiveUpdate: (() -> Void)? = nil
+    var onContextMenuDelete: (() -> Void)? = nil
 
     @State private var dragStartTimestamp: TimeInterval = 0
     @State private var isDragging = false
+    @State private var lastLiveUpdate: Date = .distantPast
 
     var body: some View {
         VStack(spacing: 0) {
             Circle()
-                .fill(Color.orange)
-                .frame(width: 10, height: 10)
+                .fill(isSelected ? Color.yellow : Color.orange)
+                .frame(width: isSelected ? 12 : 10, height: isSelected ? 12 : 10)
                 .overlay(
                     Circle()
                         .stroke(Color.white.opacity(0.6), lineWidth: 1)
                 )
-                .shadow(color: Color.orange.opacity(0.4), radius: 2)
+                .shadow(color: (isSelected ? Color.yellow : Color.orange).opacity(0.4), radius: 2)
             Rectangle()
-                .fill(Color.orange.opacity(0.5))
+                .fill((isSelected ? Color.yellow : Color.orange).opacity(0.5))
                 .frame(width: 1.5, height: max(0, height - 10))
         }
         .offset(x: xPosition - 5)
+        .contentShape(Rectangle())
+        .onTapGesture { onTap?() }
+        .contextMenu {
+            Button("Delete Keyframe", role: .destructive) {
+                onContextMenuDelete?()
+            }
+        }
         .gesture(
             DragGesture(minimumDistance: 2)
                 .onChanged { value in
@@ -518,6 +530,12 @@ struct ManualZoomKeyframeMarker: View {
                     let pps = max(pixelsPerSecond, 0.001)
                     let deltaSeconds = TimeInterval(value.translation.width) / TimeInterval(pps)
                     onDragChanged?(dragStartTimestamp + deltaSeconds)
+                    // Throttle live preview to ~30fps
+                    let now = Date()
+                    if now.timeIntervalSince(lastLiveUpdate) > 0.033 {
+                        lastLiveUpdate = now
+                        onLiveUpdate?()
+                    }
                 }
                 .onEnded { _ in
                     isDragging = false

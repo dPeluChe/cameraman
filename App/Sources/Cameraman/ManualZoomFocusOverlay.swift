@@ -8,6 +8,7 @@
 //
 
 import SwiftUI
+import AppKit
 import EngineKit
 
 struct ManualZoomFocusOverlay: View {
@@ -24,6 +25,12 @@ struct ManualZoomFocusOverlay: View {
 
     var body: some View {
         ZStack {
+            // Tint overlay when click-to-focus is active
+            if isInteractive {
+                Color.orange.opacity(0.08)
+                    .allowsHitTesting(false)
+            }
+
             if let active = activeKeyframe, active.zoomLevel > 1.01 {
                 let focusPx = CGPoint(
                     x: active.focusX * size.width,
@@ -52,7 +59,7 @@ struct ManualZoomFocusOverlay: View {
                     .position(px)
             }
 
-            // Interactive crosshair when in set-focus mode
+            // Interactive layer when in set-focus mode
             if isInteractive {
                 Color.clear
                     .contentShape(Rectangle())
@@ -67,5 +74,12 @@ struct ManualZoomFocusOverlay: View {
             }
         }
         .allowsHitTesting(isInteractive)
+        .onHover { hovering in
+            if isInteractive && hovering {
+                NSCursor.crosshair.push()
+            } else {
+                NSCursor.pop()
+            }
+        }
     }
 }

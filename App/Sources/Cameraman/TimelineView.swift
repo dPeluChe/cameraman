@@ -48,6 +48,7 @@ struct TimelineView: View {
     @State var zoomSuggestions: [ZoomSuggestion] = []
     @State var dismissedSuggestionIds: Set<UUID> = []
     @State var isGeneratingSuggestions = false
+    @State var selectedManualKeyframeId: UUID?
     @State var thumbnailTask: Task<Void, Never>?
 
     @State var thumbnailCache: ThumbnailCache?
@@ -349,6 +350,10 @@ struct TimelineView: View {
                         xPosition: layout.xPosition(for: kf.timestamp),
                         height: totalHeight,
                         pixelsPerSecond: layout.pixelsPerSecond,
+                        isSelected: selectedManualKeyframeId == kf.id,
+                        onTap: {
+                            selectedManualKeyframeId = (selectedManualKeyframeId == kf.id) ? nil : kf.id
+                        },
                         onDragChanged: { newTime in
                             let clamped = max(0, min(project.timeline.duration, newTime))
                             editor.updateManualZoomKeyframeTimestampLive(id: kf.id, timestamp: clamped)
@@ -357,6 +362,20 @@ struct TimelineView: View {
                             Task {
                                 await editor.commitManualZoomKeyframeDrag()
                                 await playerViewModel.applyEffectiveZoomPlan(freshProject: editor.project)
+                            }
+                        },
+                        onLiveUpdate: {
+                            Task { @MainActor in
+                                playerViewModel.applyEffectiveZoomPlan(freshProject: editor.project)
+                            }
+                        },
+                        onContextMenuDelete: {
+                            Task {
+                                await editor.removeManualZoomKeyframe(id: kf.id)
+                                await playerViewModel.applyEffectiveZoomPlan(freshProject: editor.project)
+                                if selectedManualKeyframeId == kf.id {
+                                    selectedManualKeyframeId = nil
+                                }
                             }
                         }
                     )
