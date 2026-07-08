@@ -77,7 +77,22 @@ struct ManualZoomControlsView: View {
             .controlSize(.small)
 
             // Keyframe list
-            if !manualKeyframes.isEmpty {
+            if manualKeyframes.isEmpty {
+                VStack(spacing: 6) {
+                    Image(systemName: "scope")
+                        .font(.title2)
+                        .foregroundColor(.orange.opacity(0.6))
+                    Text("No zoom keyframes yet")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("Use \"Add at Playhead\" or enable click-to-focus to create your first keyframe.")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+            } else {
                 Divider()
                 ScrollView {
                     VStack(spacing: 6) {
@@ -235,13 +250,16 @@ struct ManualZoomControlsView: View {
 
     private func addKeyframeAtPlayhead() async {
         let t = playerViewModel.currentTime
-        await editor.addManualZoomKeyframe(
+        if let newId = await editor.addManualZoomKeyframe(
             at: t,
             zoomLevel: 2.0,
             focusX: 0.5,
             focusY: 0.5,
             easing: .easeInOut
-        )
+        ) {
+            selectedKeyframeId = newId
+            ManualZoomControlsView.clickToFocus.selectedKeyframeId = newId
+        }
         await playerViewModel.applyEffectiveZoomPlan(freshProject: editor.project)
     }
 
@@ -273,12 +291,15 @@ final class ClickToFocusState: ObservableObject {
         } else {
             Task { @MainActor in
                 let t = playerViewModel?.currentTime ?? 0
-                await editor.addManualZoomKeyframe(
+                if let newId = await editor.addManualZoomKeyframe(
                     at: t,
                     zoomLevel: 2.0,
                     focusX: point.x,
                     focusY: point.y
-                )
+                ) {
+                    selectedKeyframeId = newId
+                    ManualZoomControlsView.clickToFocus.selectedKeyframeId = newId
+                }
                 await playerViewModel?.applyEffectiveZoomPlan(freshProject: editor.project)
             }
         }

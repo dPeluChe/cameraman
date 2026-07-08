@@ -20,7 +20,9 @@ struct ManualZoomFocusOverlay: View {
     var onTap: ((CGPoint) -> Void)? = nil
 
     private var activeKeyframe: ZoomPlanGenerator.ZoomKeyframe? {
-        keyframes.last { $0.timestamp <= currentTime }
+        guard let first = keyframes.first else { return nil }
+        if currentTime < first.timestamp { return nil }
+        return keyframes.last { $0.timestamp <= currentTime }
     }
 
     var body: some View {

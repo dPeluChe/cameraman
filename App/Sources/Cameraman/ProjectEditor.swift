@@ -86,7 +86,7 @@ final class ProjectEditor: ObservableObject {
         focusX: Double = 0.5,
         focusY: Double = 0.5,
         easing: ZoomPlanGenerator.EasingFunction = .easeInOut
-    ) async -> Bool {
+    ) async -> UUID? {
         let previousProject = project
         var updatedProject = project
         let kf = ZoomPlanGenerator.ZoomKeyframe(
@@ -105,7 +105,7 @@ final class ProjectEditor: ObservableObject {
         project = updatedProject
         recordUndoSnapshot(previousProject)
         scheduleAutosave()
-        return true
+        return kf.id
     }
 
     @discardableResult
