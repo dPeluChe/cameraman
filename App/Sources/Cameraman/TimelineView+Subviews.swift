@@ -499,7 +499,14 @@ struct ManualZoomKeyframeMarker: View {
     @State private var lastLiveUpdate: Date = .distantPast
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 1) {
+            // Zoom level label above the dot
+            if keyframe.zoomLevel > 1.01 {
+                Text(String(format: "%.1fx", keyframe.zoomLevel))
+                    .font(.system(size: 8, weight: .medium, design: .rounded))
+                    .foregroundColor(isSelected ? Color.yellow : Color.orange)
+                    .allowsHitTesting(false)
+            }
             Circle()
                 .fill(isSelected ? Color.yellow : Color.orange)
                 .frame(width: isSelected ? 12 : 10, height: isSelected ? 12 : 10)
@@ -510,7 +517,7 @@ struct ManualZoomKeyframeMarker: View {
                 .shadow(color: (isSelected ? Color.yellow : Color.orange).opacity(0.4), radius: 2)
             Rectangle()
                 .fill((isSelected ? Color.yellow : Color.orange).opacity(0.5))
-                .frame(width: 1.5, height: max(0, height - 10))
+                .frame(width: 1.5, height: max(0, height - 22))
         }
         .offset(x: xPosition - 5)
         .contentShape(Rectangle())

@@ -12,6 +12,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Manual zoom keyframes** — users can place zoom in/out keyframes at
+  specific timestamps via the right-panel "Manual Zoom" section or by
+  clicking the preview with click-to-focus mode. Keyframes merge with
+  auto-zoom (manual takes precedence) and render in both preview and
+  export. Timeline shows draggable markers with zoom level labels
+  (e.g. "2.0x"), a zoom curve overlay, tap-to-select, right-click
+  delete, and live preview during drag (30fps throttle).
+- **Hide Cursor toggle** — recording UI gains a "Hide Cursor" toggle
+  that hides the system cursor during capture (`SCStreamConfiguration
+  .showsCursor`), useful when using a synthetic cursor overlay.
 - **Light / Dark mode** — the app follows the system appearance and adds a
   **System / Light / Dark** picker in *Settings → General → Interface*
   (`NSApp.appearance`, covers SwiftUI + AppKit windows).
@@ -35,6 +45,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (**42 → 43 tools**).
 
 ### Changed
+- **Auto-zoom enabled by default** — `FeatureFlags.autoZoom` now defaults
+  to `true`; the dead `!FeatureFlags.autoZoom` branch was removed from
+  the timeline suggestion UI.
+- **Telemetry error counting** — `RecordingSession` tracks per-code
+  error counts (e.g. `-10877`) and `CaptureEngine` logs `AVAssetWriter`
+  error codes via `LogWarning` for diagnostics.
 - **UI homologated across every window, sheet, and Settings tab** — consistent
   sizes, headers, section cards, spacing, and typography via the shared
   components above.
