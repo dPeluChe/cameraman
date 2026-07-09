@@ -34,6 +34,12 @@ final class VoiceoverRecordingViewModel: ObservableObject {
             return
         }
 
+        let permission = await PermissionManager.shared.requestMicrophonePermission()
+        guard permission == .authorized else {
+            errorMessage = "Microphone permission required. Enable it in System Settings > Privacy > Microphone."
+            return
+        }
+
         let voiceoverDir = projectDir.appendingPathComponent("assets/voiceovers")
         try? FileManager.default.createDirectory(at: voiceoverDir, withIntermediateDirectories: true)
 
