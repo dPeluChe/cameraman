@@ -56,6 +56,22 @@ public actor EditorModel {
         return await addClip(clip, toTrackId: trackId)
     }
 
+    /// Import an audio file as a clip on a new `.audio` track. Used for
+    /// voiceover recordings and imported audio. Single operation = one undo step.
+    public func importAudioClip(
+        path: String,
+        duration: TimeInterval,
+        at timelineIn: TimeInterval,
+        trackName: String = "Voiceover"
+    ) async -> EditorResult {
+        let trackId = project.timeline.addTrack(type: .audio, name: trackName)
+        let clip = Project.TimelineClip(
+            timelineIn: timelineIn,
+            content: .audio(Project.AudioClipRef(path: path, duration: duration))
+        )
+        return await addClip(clip, toTrackId: trackId)
+    }
+
     /// Swap a .video track with its nearest .video neighbor (up = earlier in the
     /// array). Order matters twice: row order in the timeline UI and compositing
     /// z-order (later tracks render on top).

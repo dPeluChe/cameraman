@@ -18,6 +18,7 @@ enum TimelineTrackKind: String, CaseIterable, Identifiable, Hashable {
     case systemAudio
     case micAudio
     case additionalAudio
+    case voiceover
     case imageOverlay
     case overlay
     case subtitle
@@ -26,7 +27,7 @@ enum TimelineTrackKind: String, CaseIterable, Identifiable, Hashable {
     var id: String { rawValue }
 
     var isAudioTrack: Bool {
-        self == .systemAudio || self == .micAudio
+        self == .systemAudio || self == .micAudio || self == .voiceover
     }
 
     var label: String {
@@ -41,6 +42,8 @@ enum TimelineTrackKind: String, CaseIterable, Identifiable, Hashable {
             return "Mic Audio"
         case .additionalAudio:
             return "Music / Audio"
+        case .voiceover:
+            return "Voiceover"
         case .imageOverlay:
             return "Images"
         case .overlay:
@@ -64,6 +67,8 @@ enum TimelineTrackKind: String, CaseIterable, Identifiable, Hashable {
             return Color.pink.opacity(0.85)
         case .additionalAudio:
             return Color.purple.opacity(0.85)
+        case .voiceover:
+            return Color.mint.opacity(0.85)
         case .imageOverlay:
             return Color.yellow.opacity(0.85)
         case .overlay:
@@ -189,6 +194,22 @@ enum TimelineTrackBuilder {
         let audioItems = project.mediaItems.filter { $0.type == .audio }
         if !audioItems.isEmpty {
             tracks.append(TimelineTrack(kind: .additionalAudio, segments: [], mediaItems: audioItems))
+        }
+
+        // New-model audio tracks (voiceover recordings, imported audio clips)
+        let audioPalette: [Color] = [
+            Color.mint.opacity(0.85), Color.purple.opacity(0.85), Color.teal.opacity(0.85)
+        ]
+        for (index, audioTrack) in project.timeline.audioTracks.enumerated() where !audioTrack.clips.isEmpty {
+            tracks.append(TimelineTrack(
+                kind: .voiceover,
+                segments: [],
+                timelineClips: audioTrack.clips,
+                engineTrackId: audioTrack.id,
+                engineMuted: audioTrack.isMuted,
+                labelOverride: audioTrack.name.isEmpty ? nil : audioTrack.name,
+                colorOverride: audioPalette[index % audioPalette.count]
+            ))
         }
 
         return tracks

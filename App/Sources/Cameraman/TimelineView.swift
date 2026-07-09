@@ -49,6 +49,8 @@ struct TimelineView: View {
     @State var dismissedSuggestionIds: Set<UUID> = []
     @State var isGeneratingSuggestions = false
     @State var selectedManualKeyframeId: UUID?
+    @State var showVoiceoverPanel = false
+    @StateObject private var voiceoverVM = VoiceoverRecordingViewModel()
     @State var thumbnailTask: Task<Void, Never>?
 
     @State var thumbnailCache: ThumbnailCache?
@@ -145,6 +147,22 @@ struct TimelineView: View {
         } message: {
             Text(importNotice ?? "")
         }
+        .overlay(alignment: .topTrailing) {
+            if showVoiceoverPanel {
+                VoiceoverPanelView(
+                    viewModel: voiceoverVM,
+                    playheadTime: playheadTime,
+                    onDismiss: {
+                        Task { await voiceoverVM.cancelRecording() }
+                        showVoiceoverPanel = false
+                    }
+                )
+                .padding(.trailing, 8)
+                .padding(.top, 4)
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: showVoiceoverPanel)
     }
 
     // MARK: - Toolbar
@@ -217,6 +235,18 @@ struct TimelineView: View {
             Label("Import", systemImage: "plus.circle")
         }
         .help("Import video, audio or image asset")
+
+        Button {
+            showVoiceoverPanel.toggle()
+            if showVoiceoverPanel {
+                voiceoverVM.editor = editor
+                voiceoverVM.playerViewModel = playerViewModel
+                voiceoverVM.projectDirectory = projectDirectory
+            }
+        } label: {
+            Label("Voiceover", systemImage: "mic.circle")
+        }
+        .help("Record voiceover narration at playhead")
 
         Menu {
             Toggle("Thumbnails", isOn: $showThumbnails)

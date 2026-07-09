@@ -356,4 +356,26 @@ extension ProjectEditor {
     func updateSegmentCameraPosition(segmentId: String, camera: Project.Canvas.Layout.CameraPosition?) async -> Bool {
         await mutateSegment(segmentId: segmentId) { $0.cameraPosition = camera }
     }
+
+    /// Add a voiceover audio clip to the timeline at the given position.
+    /// Creates a new `.audio` track. Returns the clip ID.
+    @discardableResult
+    func addVoiceoverClip(
+        path: String,
+        duration: TimeInterval,
+        at timelineIn: TimeInterval,
+        trackName: String = "Voiceover"
+    ) async -> String? {
+        let result = await importAudioClip(
+            path: path,
+            duration: duration,
+            at: timelineIn,
+            trackName: trackName
+        )
+        if case .successWithInfo(_, let info) = result,
+           case .clipAdded(let clipId, _) = info {
+            return clipId
+        }
+        return nil
+    }
 }
