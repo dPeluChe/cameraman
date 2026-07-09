@@ -87,12 +87,7 @@ internal class MicAudioRecorder {
     }
 
     private func startWithEngine(_ audioEngine: AVAudioEngine, inputNode: AVAudioInputNode, format: AVAudioFormat) async throws {
-        let settings: [String: Any] = [
-            AVFormatIDKey: kAudioFormatMPEG4AAC,
-            AVNumberOfChannelsKey: format.channelCount,
-            AVSampleRateKey: format.sampleRate,
-            AVEncoderBitRateKey: 128000
-        ]
+        let settings = AudioRecorderUtilities.aacSettings(format: format)
 
         let audioFile = try AVAudioFile(
             forWriting: outputURL,
@@ -108,7 +103,7 @@ internal class MicAudioRecorder {
             // Copy the buffer before leaving the real-time thread — the tap
             // callback's `buffer` is owned by the audio engine and may be
             // reused before our async write completes.
-            guard let bufferCopy = Self.copyBuffer(buffer) else { return }
+            guard let bufferCopy = AudioRecorderUtilities.copyBuffer(buffer) else { return }
             let processed = self.audioProcessor?.process(buffer: bufferCopy) ?? bufferCopy
 
             // Hop disk I/O to a serial background queue. Keeps the audio
@@ -145,39 +140,6 @@ internal class MicAudioRecorder {
         writeQueue.sync { }
 
         return outputURL
-    }
-
-    /// Deep-copy a PCM buffer so it survives past the tap callback's lifetime.
-    /// The audio engine reuses the underlying buffer storage as soon as the
-    /// callback returns; reading or writing from a background thread after
-    /// that point reads garbage.
-    private static func copyBuffer(_ buffer: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
-        guard let copy = AVAudioPCMBuffer(
-            pcmFormat: buffer.format,
-            frameCapacity: buffer.frameCapacity
-        ) else { return nil }
-
-        copy.frameLength = buffer.frameLength
-        let channelCount = Int(buffer.format.channelCount)
-        let frameLength = Int(buffer.frameLength)
-
-        if let src = buffer.floatChannelData, let dst = copy.floatChannelData {
-            for ch in 0..<channelCount {
-                dst[ch].update(from: src[ch], count: frameLength)
-            }
-        } else if let src = buffer.int16ChannelData, let dst = copy.int16ChannelData {
-            for ch in 0..<channelCount {
-                dst[ch].update(from: src[ch], count: frameLength)
-            }
-        } else if let src = buffer.int32ChannelData, let dst = copy.int32ChannelData {
-            for ch in 0..<channelCount {
-                dst[ch].update(from: src[ch], count: frameLength)
-            }
-        } else {
-            return nil
-        }
-
-        return copy
     }
 
     func pauseRecording() async throws {

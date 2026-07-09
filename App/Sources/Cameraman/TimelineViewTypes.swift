@@ -172,7 +172,7 @@ enum TimelineTrackBuilder {
                 engineTrackId: videoTrack.id,
                 engineMuted: videoTrack.isMuted,
                 labelOverride: videoTrack.name.isEmpty ? nil : videoTrack.name,
-                colorOverride: videoRowPalette[index % videoRowPalette.count]
+                colorOverride: Self.cycledColor(from: videoRowPalette, at: index)
             ))
         }
 
@@ -208,11 +208,15 @@ enum TimelineTrackBuilder {
                 engineTrackId: audioTrack.id,
                 engineMuted: audioTrack.isMuted,
                 labelOverride: audioTrack.name.isEmpty ? nil : audioTrack.name,
-                colorOverride: audioPalette[index % audioPalette.count]
+                colorOverride: Self.cycledColor(from: audioPalette, at: index)
             ))
         }
 
         return tracks
+    }
+
+    private static func cycledColor(from palette: [Color], at index: Int) -> Color {
+        palette[index % palette.count]
     }
 }
 

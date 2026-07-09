@@ -52,12 +52,7 @@ public actor VoiceoverRecorder {
             throw VoiceoverError.noMicrophoneAvailable
         }
 
-        let settings: [String: Any] = [
-            AVFormatIDKey: kAudioFormatMPEG4AAC,
-            AVNumberOfChannelsKey: format.channelCount,
-            AVSampleRateKey: format.sampleRate,
-            AVEncoderBitRateKey: 128000
-        ]
+        let settings = AudioRecorderUtilities.aacSettings(format: format)
 
         let file = try AVAudioFile(
             forWriting: outputURL,
@@ -69,7 +64,7 @@ public actor VoiceoverRecorder {
 
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
             guard let self = self, self.isRecording else { return }
-            guard let copy = Self.copyBuffer(buffer) else { return }
+            guard let copy = AudioRecorderUtilities.copyBuffer(buffer) else { return }
             self.writeQueue.async { [weak self] in
                 guard let self = self, let file = self.audioFile else { return }
                 try? file.write(from: copy)
@@ -118,24 +113,6 @@ public actor VoiceoverRecorder {
     public func elapsed() -> TimeInterval {
         guard isRecording, let start = startTime else { return 0 }
         return Date().timeIntervalSince(start)
-    }
-
-    private static func copyBuffer(_ buffer: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
-        guard let copy = AVAudioPCMBuffer(
-            pcmFormat: buffer.format,
-            frameCapacity: buffer.frameCapacity
-        ) else { return nil }
-        copy.frameLength = buffer.frameLength
-        let ch = Int(buffer.format.channelCount)
-        let len = Int(buffer.frameLength)
-        if let src = buffer.floatChannelData, let dst = copy.floatChannelData {
-            for c in 0..<ch { dst[c].update(from: src[c], count: len) }
-        } else if let src = buffer.int16ChannelData, let dst = copy.int16ChannelData {
-            for c in 0..<ch { dst[c].update(from: src[c], count: len) }
-        } else {
-            return nil
-        }
-        return copy
     }
 }
 
