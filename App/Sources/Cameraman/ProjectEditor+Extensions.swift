@@ -14,16 +14,9 @@ import EngineKit
 extension ProjectEditor {
     func addOverlay(projectId: ProjectId, overlay: Project.Overlay) async -> EditorResult {
         let previousProject = project
-
-        // Directly add to project since EditorModel doesn't have addOverlay
-        var updatedProject = project
-        updatedProject.overlays.append(overlay)
-
-        await setEditorProject(updatedProject)
-        recordUndo(previousProject)
-        project = updatedProject
-
-        return .success(project)
+        let result = await performAddOverlay(projectId: projectId, overlay: overlay)
+        updateFromResult(result, previousProject: previousProject)
+        return result
     }
 
     func updateOverlay(

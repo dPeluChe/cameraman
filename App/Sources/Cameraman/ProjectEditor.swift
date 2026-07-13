@@ -487,6 +487,13 @@ final class ProjectEditor: ObservableObject {
     }
 
     /// Perform overlay delete via editor model (used by extensions)
+    func performAddOverlay(
+        projectId: ProjectId,
+        overlay: Project.Overlay
+    ) async -> EditorResult {
+        await editorModel.addOverlay(projectId: projectId, overlay: overlay)
+    }
+
     func performDeleteOverlay(
         projectId: ProjectId,
         overlayId: UUID
