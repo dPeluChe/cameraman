@@ -51,8 +51,9 @@ struct VoiceoverPanelView: View {
 
                 Button {
                     Task {
-                        await viewModel.stopRecording(at: playheadTime)
-                        onDismiss()
+                        if await viewModel.stopRecording(at: playheadTime) {
+                            onDismiss()
+                        }
                     }
                 } label: {
                     Label("Stop & Insert", systemImage: "stop.circle.fill")

@@ -21,6 +21,7 @@ final class VoiceoverRecordingViewModel: ObservableObject {
     private let recorder = VoiceoverRecorder()
     private var timer: Timer?
     private var outputFileURL: URL?
+    private var recordingRequestID: UUID?
 
     var editor: ProjectEditor?
     var playerViewModel: PreviewPlayerViewModel?
@@ -29,45 +30,61 @@ final class VoiceoverRecordingViewModel: ObservableObject {
     /// Start recording. Audio is saved to the project's assets/voiceovers/ directory.
     func startRecording() async {
         guard !isRecording else { return }
+        errorMessage = nil
         guard let projectDir = projectDirectory else {
             errorMessage = "No project directory available"
             return
         }
 
+        let requestID = UUID()
+        recordingRequestID = requestID
         let permission = await PermissionManager.shared.requestMicrophonePermission()
+        guard recordingRequestID == requestID else { return }
         guard permission == .authorized else {
+            recordingRequestID = nil
             errorMessage = "Microphone permission required. Enable it in System Settings > Privacy > Microphone."
             return
         }
 
-        let voiceoverDir = projectDir.appendingPathComponent("assets/voiceovers")
-        try? FileManager.default.createDirectory(at: voiceoverDir, withIntermediateDirectories: true)
-
-        let timestamp = ISO8601DateFormatter().string(from: Date())
-        let url = voiceoverDir.appendingPathComponent("voiceover_\(timestamp).m4a")
-        outputFileURL = url
-
         do {
+            let voiceoverDir = projectDir.appendingPathComponent("assets/voiceovers")
+            try FileManager.default.createDirectory(at: voiceoverDir, withIntermediateDirectories: true)
+            let timestamp = ISO8601DateFormatter().string(from: Date())
+            let url = voiceoverDir.appendingPathComponent("voiceover_\(timestamp).m4a")
+            outputFileURL = url
             try await recorder.startRecording(to: url)
+            guard recordingRequestID == requestID else {
+                await recorder.cancelRecording()
+                removeOutputFile()
+                outputFileURL = nil
+                return
+            }
+            recordingRequestID = nil
             isRecording = true
             elapsedTime = 0
             startTimer()
         } catch {
+            guard recordingRequestID == requestID else { return }
+            recordingRequestID = nil
             errorMessage = error.localizedDescription
+            removeOutputFile()
             outputFileURL = nil
         }
     }
 
     /// Stop recording and insert the clip at the given timeline position.
-    func stopRecording(at timelinePosition: TimeInterval) async {
-        guard isRecording else { return }
+    @discardableResult
+    func stopRecording(at timelinePosition: TimeInterval) async -> Bool {
+        guard isRecording else { return false }
         stopTimer()
 
         do {
             let result = try await recorder.stopRecording()
             isRecording = false
 
-            guard let editor = editor else { return }
+            guard let editor else {
+                throw VoiceoverInsertionError.editorUnavailable
+            }
             let relativePath = "assets/voiceovers/\(result.url.lastPathComponent)"
 
             // Get actual duration from the audio file for accuracy
@@ -75,27 +92,34 @@ final class VoiceoverRecordingViewModel: ObservableObject {
             let duration = try? await asset.load(.duration)
             let actualDuration = duration.map { CMTimeGetSeconds($0) } ?? result.duration
 
-            _ = await editor.addVoiceoverClip(
+            guard await editor.addVoiceoverClip(
                 path: relativePath,
                 duration: actualDuration,
                 at: timelinePosition
-            )
+            ) != nil else {
+                throw VoiceoverInsertionError.clipInsertionFailed
+            }
             await playerViewModel?.refreshPreview(with: editor.project)
+            outputFileURL = nil
+            return true
         } catch {
             errorMessage = error.localizedDescription
             isRecording = false
+            removeOutputFile()
+            outputFileURL = nil
+            return false
         }
-
-        outputFileURL = nil
     }
 
     /// Cancel recording and discard the file.
     func cancelRecording() async {
-        guard isRecording else { return }
+        recordingRequestID = nil
         stopTimer()
         await recorder.cancelRecording()
+        removeOutputFile()
         isRecording = false
         elapsedTime = 0
+        errorMessage = nil
         outputFileURL = nil
     }
 
@@ -117,5 +141,24 @@ final class VoiceoverRecordingViewModel: ObservableObject {
         let mins = Int(total) / 60
         let secs = total.truncatingRemainder(dividingBy: 60)
         return String(format: "%d:%05.2f", mins, secs)
+    }
+
+    private func removeOutputFile() {
+        guard let outputFileURL else { return }
+        try? FileManager.default.removeItem(at: outputFileURL)
+    }
+}
+
+private enum VoiceoverInsertionError: LocalizedError {
+    case editorUnavailable
+    case clipInsertionFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .editorUnavailable:
+            return "The recording could not be added because the editor is unavailable."
+        case .clipInsertionFailed:
+            return "The recording was created but could not be inserted into the timeline."
+        }
     }
 }

@@ -163,6 +163,9 @@ struct TimelineView: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: showVoiceoverPanel)
+        .onDisappear {
+            Task { await voiceoverVM.cancelRecording() }
+        }
     }
 
     // MARK: - Toolbar
@@ -237,11 +240,14 @@ struct TimelineView: View {
         .help("Import video, audio or image asset")
 
         Button {
-            showVoiceoverPanel.toggle()
             if showVoiceoverPanel {
+                Task { await voiceoverVM.cancelRecording() }
+                showVoiceoverPanel = false
+            } else {
                 voiceoverVM.editor = editor
                 voiceoverVM.playerViewModel = playerViewModel
                 voiceoverVM.projectDirectory = projectDirectory
+                showVoiceoverPanel = true
             }
         } label: {
             Label("Voiceover", systemImage: "mic.circle")
