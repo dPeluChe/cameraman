@@ -9,6 +9,10 @@ struct OverlayInteractionLayer: View {
     @State private var interactionStartTransform: Project.Overlay.Transform?
     @State private var draftTransform: Project.Overlay.Transform?
     @State private var lastDraftPush: Date = .distantPast
+    @State private var verticalGuide: CGFloat?
+    @State private var horizontalGuide: CGFloat?
+    @State private var keyboardCommitTask: Task<Void, Never>?
+    @FocusState private var isCanvasFocused: Bool
     private static let draftThrottle: TimeInterval = 1.0 / 30.0
 
     private var activeOverlays: [Project.Overlay] {
@@ -22,14 +26,64 @@ struct OverlayInteractionLayer: View {
                 Rectangle()
                     .fill(Color.clear)
                     .contentShape(Rectangle())
-                    .onTapGesture { selectedOverlayId = nil }
+                    .onTapGesture {
+                        selectedOverlayId = nil
+                        clearGuides()
+                    }
+
+                guideLayer(in: geometry.size)
 
                 ForEach(activeOverlays) { overlay in
                     overlayHandle(overlay, in: geometry.size)
                 }
             }
             .coordinateSpace(name: "overlayCanvas")
+            .focusable()
+            .focused($isCanvasFocused)
+            .onMoveCommand { direction in
+                let coarse = NSEvent.modifierFlags.contains(.shift)
+                switch direction {
+                case .left:
+                    nudgeSelected(dx: -1, dy: 0, coarse: coarse, in: geometry.size)
+                case .right:
+                    nudgeSelected(dx: 1, dy: 0, coarse: coarse, in: geometry.size)
+                case .up:
+                    nudgeSelected(dx: 0, dy: -1, coarse: coarse, in: geometry.size)
+                case .down:
+                    nudgeSelected(dx: 0, dy: 1, coarse: coarse, in: geometry.size)
+                @unknown default:
+                    break
+                }
+            }
         }
+    }
+
+    @ViewBuilder
+    private func guideLayer(in canvasSize: CGSize) -> some View {
+        if selectedOverlayId != nil {
+            let safeArea = OverlayCanvasGeometry.safeAreaRect(in: canvasSize)
+            RoundedRectangle(cornerRadius: 3)
+                .stroke(Color.white.opacity(0.28), style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
+                .frame(width: safeArea.width, height: safeArea.height)
+                .position(x: safeArea.midX, y: safeArea.midY)
+                .allowsHitTesting(false)
+        }
+
+        Path { path in
+            if let verticalGuide {
+                let x = verticalGuide * canvasSize.width
+                path.move(to: CGPoint(x: x, y: 0))
+                path.addLine(to: CGPoint(x: x, y: canvasSize.height))
+            }
+            if let horizontalGuide {
+                let y = horizontalGuide * canvasSize.height
+                path.move(to: CGPoint(x: 0, y: y))
+                path.addLine(to: CGPoint(x: canvasSize.width, y: y))
+            }
+        }
+        .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+        .shadow(color: .black.opacity(0.35), radius: 1)
+        .allowsHitTesting(false)
     }
 
     @ViewBuilder
@@ -75,6 +129,7 @@ struct OverlayInteractionLayer: View {
         .onTapGesture {
             draftTransform = nil
             selectedOverlayId = overlay.id
+            isCanvasFocused = true
         }
         .gesture(moveGesture(for: overlay, in: canvasSize))
     }
@@ -95,10 +150,20 @@ struct OverlayInteractionLayer: View {
                 beginInteraction(with: overlay)
                 let base = interactionStartTransform ?? overlay.transform
                 let translation = OverlayCanvasGeometry.normalizedTranslation(value.translation, in: canvasSize)
+                let snap = snappedCenter(
+                    x: base.x + Double(translation.x),
+                    y: base.y + Double(translation.y),
+                    overlay: overlay,
+                    scale: base.scale,
+                    rotation: base.rotation,
+                    in: canvasSize
+                )
+                verticalGuide = snap.verticalGuide
+                horizontalGuide = snap.horizontalGuide
                 updateDraft(
                     Project.Overlay.Transform(
-                        x: clamped(base.x + Double(translation.x)),
-                        y: clamped(base.y + Double(translation.y)),
+                        x: Double(snap.center.x),
+                        y: Double(snap.center.y),
                         scale: base.scale,
                         rotation: base.rotation
                     ),
@@ -108,6 +173,7 @@ struct OverlayInteractionLayer: View {
             }
             .onEnded { _ in
                 finishInteraction(for: overlay)
+                clearGuides()
                 NSCursor.openHand.set()
             }
     }
@@ -121,11 +187,21 @@ struct OverlayInteractionLayer: View {
                 let initialDistance = distance(from: value.startLocation, to: center)
                 guard initialDistance > 0 else { return }
                 let ratio = distance(from: value.location, to: center) / initialDistance
+                let scale = min(8, max(0.1, base.scale * ratio))
+                let constrained = snappedCenter(
+                    x: base.x,
+                    y: base.y,
+                    overlay: overlay,
+                    scale: scale,
+                    rotation: base.rotation,
+                    in: canvasSize,
+                    thresholdPixels: 0
+                )
                 updateDraft(
                     Project.Overlay.Transform(
-                        x: base.x,
-                        y: base.y,
-                        scale: min(8, max(0.1, base.scale * ratio)),
+                        x: Double(constrained.center.x),
+                        y: Double(constrained.center.y),
+                        scale: scale,
                         rotation: base.rotation
                     ),
                     overlayId: overlay.id
@@ -158,9 +234,12 @@ struct OverlayInteractionLayer: View {
 
     private func beginInteraction(with overlay: Project.Overlay) {
         if interactionStartTransform == nil {
-            interactionStartTransform = overlay.transform
-            draftTransform = overlay.transform
+            keyboardCommitTask?.cancel()
+            let base = draftTransform ?? overlay.transform
+            interactionStartTransform = base
+            draftTransform = base
             selectedOverlayId = overlay.id
+            isCanvasFocused = true
         }
     }
 
@@ -177,25 +256,110 @@ struct OverlayInteractionLayer: View {
             resetInteraction()
             return
         }
-        playerViewModel.previewOverlayDraft(final, overlayId: overlay.id)
+        interactionStartTransform = nil
+        lastDraftPush = .distantPast
         Task {
-            let result = await editor.updateOverlay(
-                projectId: editor.project.projectId,
-                overlayId: overlay.id,
-                transform: final
-            )
-            if case .failure(let error) = result {
-                LogError(.editor, "Direct overlay edit failed: \(error.localizedDescription)")
-                playerViewModel.refreshPreview(with: editor.project)
+            await commit(final, for: overlay)
+            if interactionStartTransform == nil, draftTransform == final {
+                draftTransform = nil
             }
         }
-        resetInteraction()
     }
 
     private func resetInteraction() {
         interactionStartTransform = nil
         draftTransform = nil
         lastDraftPush = .distantPast
+    }
+
+    private func nudgeSelected(
+        dx: CGFloat,
+        dy: CGFloat,
+        coarse: Bool,
+        in canvasSize: CGSize
+    ) {
+        guard let selectedOverlayId,
+              let overlay = activeOverlays.first(where: { $0.id == selectedOverlayId }) else {
+            return
+        }
+
+        let base = draftTransform ?? overlay.transform
+        let pixels: CGFloat = coarse ? 10 : 1
+        let translation = OverlayCanvasGeometry.normalizedTranslation(
+            CGSize(width: dx * pixels, height: dy * pixels),
+            in: canvasSize
+        )
+        let snap = snappedCenter(
+            x: base.x + Double(translation.x),
+            y: base.y + Double(translation.y),
+            overlay: overlay,
+            scale: base.scale,
+            rotation: base.rotation,
+            in: canvasSize
+        )
+        let next = Project.Overlay.Transform(
+            x: Double(snap.center.x),
+            y: Double(snap.center.y),
+            scale: base.scale,
+            rotation: base.rotation
+        )
+        verticalGuide = snap.verticalGuide
+        horizontalGuide = snap.horizontalGuide
+        updateDraft(next, overlayId: overlay.id)
+        scheduleKeyboardCommit(next, for: overlay)
+    }
+
+    private func scheduleKeyboardCommit(
+        _ transform: Project.Overlay.Transform,
+        for overlay: Project.Overlay
+    ) {
+        keyboardCommitTask?.cancel()
+        keyboardCommitTask = Task {
+            try? await Task.sleep(for: .milliseconds(250))
+            guard !Task.isCancelled else { return }
+            await commit(transform, for: overlay)
+            if draftTransform == transform {
+                draftTransform = nil
+                clearGuides()
+            }
+        }
+    }
+
+    private func commit(_ transform: Project.Overlay.Transform, for overlay: Project.Overlay) async {
+        playerViewModel.previewOverlayDraft(transform, overlayId: overlay.id)
+        let result = await editor.updateOverlay(
+            projectId: editor.project.projectId,
+            overlayId: overlay.id,
+            transform: transform
+        )
+        if case .failure(let error) = result {
+            LogError(.editor, "Direct overlay edit failed: \(error.localizedDescription)")
+            playerViewModel.refreshPreview(with: editor.project)
+        }
+    }
+
+    private func snappedCenter(
+        x: Double,
+        y: Double,
+        overlay: Project.Overlay,
+        scale: Double,
+        rotation: Double,
+        in canvasSize: CGSize,
+        thresholdPixels: CGFloat = 8
+    ) -> OverlayCanvasGeometry.SnapResult {
+        OverlayCanvasGeometry.snappedCenter(
+            proposed: CGPoint(x: x, y: y),
+            relativeSize: OverlayBaseSize.relativeSize(for: overlay.type),
+            scale: scale,
+            rotationDegrees: rotation,
+            in: canvasSize,
+            thresholdPixels: thresholdPixels
+        )
+    }
+
+    private func clearGuides() {
+        verticalGuide = nil
+        horizontalGuide = nil
     }
 
     private func viewRect(
@@ -214,10 +378,6 @@ struct OverlayInteractionLayer: View {
 
     private func distance(from point: CGPoint, to center: CGPoint) -> Double {
         Double(hypot(point.x - center.x, point.y - center.y))
-    }
-
-    private func clamped(_ value: Double) -> Double {
-        min(1, max(0, value))
     }
 
     private func normalizedDegrees(_ value: Double) -> Double {
