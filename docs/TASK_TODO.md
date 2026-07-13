@@ -43,12 +43,13 @@ May 2026 (pre-publication push): ultrawide writer fix, mic overload, telemetry s
     - Current baseline: select arrow/rect/line/text/image overlays on the real frame and synchronize selection with the timeline.
     - Current baseline: move, scale, and rotate with on-canvas handles; publish responsive preview drafts and commit one undo entry when interaction ends.
     - Current baseline: shared top-left normalized coordinates across player interaction, compositor preview, frame preview, and export.
-    - [ ] Add snapping, safe-area/alignment guides, keyboard nudging, crop handles where supported, and contextual style access.
+    - Current baseline: snap to canvas center and 5% safe-area edges, show canvas/safe-area guides, keep rotated overlays in bounds, and nudge 1 px (10 px with Shift+arrow).
+    - [ ] Add multi-element alignment/distribution, crop handles where supported, and contextual style access.
 - [ ] **Direct PiP and positioned-media editing in the player** `added: 2026-07-13` — migrate the existing PiP drag behavior to the shared interaction layer, then expose move/resize/crop/mask for imported image/video clips.
 - [ ] **Direct subtitle and blur-region editing in the player** `added: 2026-07-13` — select cues/regions on-canvas, move/resize their visual bounds, edit subtitle text/style, and preserve their time ranges.
 - [ ] **Player interaction test matrix** `added: 2026-07-13`:
-    - Current coverage: coordinate transforms for 16:9, 9:16, and 1:1 canvases.
-    - [ ] Unit-test rotated hit-testing and snapping; integration-test undo/autosave, playback edits, mixed resolutions, and preview/export parity.
+    - Current coverage: coordinate transforms for 16:9, 9:16, and 1:1 canvases; center/safe-area snapping and rotated canvas bounds.
+    - [ ] Unit-test rotated hit-testing; integration-test undo/autosave, playback edits, mixed resolutions, and preview/export parity.
 
 ---
 
