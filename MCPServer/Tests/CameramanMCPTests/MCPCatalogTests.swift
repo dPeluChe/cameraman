@@ -16,11 +16,10 @@ final class MCPCatalogTests: XCTestCase {
         let expected: Set<String> = [
             "list_projects", "get_project",
             "create_empty_project", "start_recording", "stop_recording",
-            "split_clip", "delete_clip",
-            "set_track_muted", "set_track_volume", "set_clip_audio_muted",
-            "add_image_clip", "add_video_clip", "add_audio_clip", "add_color_clip",
-            "add_text_overlay",
-            "add_adjustment", "remove_adjustment", "list_adjustments"
+            "add_clip", "edit_clip", "split_clip", "delete_clip",
+            "add_track", "set_track", "move_video_track", "set_clip_audio_muted",
+            "add_overlay", "update_overlay", "delete_overlay",
+            "add_adjustment", "update_adjustment", "remove_adjustment", "list_adjustments"
         ]
         XCTAssertTrue(expected.isSubset(of: names), "Missing tools: \(expected.subtracting(names))")
     }
