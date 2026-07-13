@@ -241,6 +241,49 @@ final class EditorModelInvariantTests: XCTestCase {
         XCTAssertEqual(unchanged, project)
     }
 
+    func testInvalidLegacySegmentInputsDoNotMutateProject() async {
+        var fixture = makeProject(locked: false)
+        let recording = Project.TimelineClip(
+            id: "recording",
+            timelineIn: 0,
+            content: .recording(Project.RecordingClipRef(sourceIn: 0, sourceOut: 5))
+        )
+        fixture.project.timeline.tracks[0].clips = [recording]
+        fixture.project.timeline.duration = 5
+        let take = Project.Take(
+            name: "Take",
+            sources: Project.Sources(screen: Project.Sources.MediaTrack(
+                path: "screen.mov",
+                fps: 60,
+                size: Project.Sources.Size(w: 1920, h: 1080)
+            ))
+        )
+        fixture.project.takes = [take]
+        let editor = EditorModel(project: fixture.project)
+
+        assertInvalidClip(await editor.trimOut(segmentId: recording.id, newSourceOut: .infinity))
+        assertInvalidClip(await editor.addSegment(
+            takeId: take.id, sourceIn: 0, sourceOut: .infinity, timelineIn: 0
+        ))
+        let unchanged = await editor.getProject()
+        XCTAssertEqual(unchanged, fixture.project)
+    }
+
+    func testDeleteRangePreservesClipAdjustments() async {
+        let fixture = makeProject(locked: false)
+        let editor = EditorModel(project: fixture.project)
+
+        let result = await editor.deleteRange(from: 1, to: 2)
+
+        guard let project = result.getProject(),
+              let clips = project.timeline.tracks
+                .first(where: { $0.id == fixture.lockedTrackId })?.clips else {
+            return XCTFail("Expected range deletion result")
+        }
+        XCTAssertEqual(clips.count, 2)
+        XCTAssertTrue(clips.allSatisfy { $0.adjustments == fixture.clip.adjustments })
+    }
+
     private func assertTrackLocked(
         _ result: EditorResult,
         trackId: UUID,

@@ -57,6 +57,9 @@ extension EditorModel {
         let oldDuration = (ref.sourceOut - ref.sourceIn) / clip.speed
         if let error = mutation(&ref) { return error }
         clip.content = .recording(ref)
+        if let error = EditorValidation.validateClip(clip) {
+            return .failure(error)
+        }
         let newDuration = (ref.sourceOut - ref.sourceIn) / clip.speed
 
         updateClipInProject(trackIndex: trackIndex, clipIndex: clipIndex, clip: clip)
@@ -154,6 +157,9 @@ extension EditorModel {
                 sourceOut: sourceOut
             ))
         )
+        if let error = EditorValidation.validateClip(newClip) {
+            return .failure(error)
+        }
 
         ensurePrimaryTrack()
         let trackIndex = primaryTrackIndex!
@@ -222,20 +228,20 @@ extension EditorModel {
                 let (_, postContent) = splitContent(clip.content, at: postOffset, speed: clip.speed)
 
                 clipsToReplace.append((id: clip.id, replacements: [
-                    Project.TimelineClip(timelineIn: clip.timelineIn, content: preContent, speed: clip.speed, volume: clip.volume, opacity: clip.opacity, position: clip.position),
-                    Project.TimelineClip(timelineIn: endTime, content: postContent, speed: clip.speed, volume: clip.volume, opacity: clip.opacity, position: clip.position)
+                    Project.TimelineClip(timelineIn: clip.timelineIn, content: preContent, speed: clip.speed, volume: clip.volume, opacity: clip.opacity, position: clip.position, adjustments: clip.adjustments),
+                    Project.TimelineClip(timelineIn: endTime, content: postContent, speed: clip.speed, volume: clip.volume, opacity: clip.opacity, position: clip.position, adjustments: clip.adjustments)
                 ]))
             } else if clip.timelineIn < startTime && clipEnd > startTime && clipEnd <= endTime {
                 let preOffset = startTime - clip.timelineIn
                 let (preContent, _) = splitContent(clip.content, at: preOffset, speed: clip.speed)
                 clipsToReplace.append((id: clip.id, replacements: [
-                    Project.TimelineClip(timelineIn: clip.timelineIn, content: preContent, speed: clip.speed, volume: clip.volume, opacity: clip.opacity, position: clip.position)
+                    Project.TimelineClip(timelineIn: clip.timelineIn, content: preContent, speed: clip.speed, volume: clip.volume, opacity: clip.opacity, position: clip.position, adjustments: clip.adjustments)
                 ]))
             } else if clip.timelineIn >= startTime && clip.timelineIn < endTime && clipEnd > endTime {
                 let postOffset = endTime - clip.timelineIn
                 let (_, postContent) = splitContent(clip.content, at: postOffset, speed: clip.speed)
                 clipsToReplace.append((id: clip.id, replacements: [
-                    Project.TimelineClip(timelineIn: endTime, content: postContent, speed: clip.speed, volume: clip.volume, opacity: clip.opacity, position: clip.position)
+                    Project.TimelineClip(timelineIn: endTime, content: postContent, speed: clip.speed, volume: clip.volume, opacity: clip.opacity, position: clip.position, adjustments: clip.adjustments)
                 ]))
             }
         }
