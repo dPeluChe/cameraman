@@ -152,14 +152,16 @@ struct PreviewPlayerView: View {
             let ext = fileURL.pathExtension.lowercased()
             guard supportedExtensions.contains(ext) else { return }
 
-            // Normalize coordinates: drop location in SwiftUI space → renderer
-            // Y-flipped convention used by the rest of the overlay system.
-            let normX = max(0, min(1, Double(dropLocation.x / previewSize.width)))
-            let normYTopLeft = max(0, min(1, Double(dropLocation.y / previewSize.height)))
-            let normY = 1.0 - normYTopLeft
+            guard let normalized = OverlayCanvasGeometry.normalizedPoint(
+                fromViewPoint: dropLocation,
+                in: previewSize
+            ) else { return }
 
             Task { @MainActor in
-                createImageOverlay(at: (normX, normY), imagePath: fileURL.path)
+                createImageOverlay(
+                    at: (Double(normalized.x), Double(normalized.y)),
+                    imagePath: fileURL.path
+                )
             }
         }
         return true
