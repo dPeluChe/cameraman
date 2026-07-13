@@ -24,6 +24,10 @@ extension EditorModel {
         if projectRef.timeline.tracks[trackIndex].isLocked {
             return .failure(.trackLocked(trackId.uuidString))
         }
+        let clip = projectRef.timeline.tracks[trackIndex].clips[clipIndex]
+        if let error = EditorValidation.validateAdjustment(adjustment, clipDuration: clip.duration) {
+            return .failure(error)
+        }
         var adjustments = projectRef.timeline.tracks[trackIndex].clips[clipIndex].adjustments ?? []
         adjustments.append(adjustment)
         projectRef.timeline.tracks[trackIndex].clips[clipIndex].adjustments = adjustments
@@ -65,6 +69,10 @@ extension EditorModel {
         var adjustments = projectRef.timeline.tracks[trackIndex].clips[clipIndex].adjustments ?? []
         guard let idx = adjustments.firstIndex(where: { $0.id == adjustment.id }) else {
             return .failure(.clipNotFound(clipId: clipId, trackId: trackId.uuidString))
+        }
+        let clipDuration = projectRef.timeline.tracks[trackIndex].clips[clipIndex].duration
+        if let error = EditorValidation.validateAdjustment(adjustment, clipDuration: clipDuration) {
+            return .failure(error)
         }
         adjustments[idx] = adjustment
         projectRef.timeline.tracks[trackIndex].clips[clipIndex].adjustments = adjustments
@@ -117,11 +125,14 @@ extension EditorModel {
         at timelineIn: TimeInterval,
         trackName: String = ""
     ) async -> EditorResult {
-        let trackId = projectRef.timeline.addTrack(type: .video, name: trackName)
         let clip = Project.TimelineClip(
             timelineIn: timelineIn,
             content: .image(Project.ImageClipRef(path: path, duration: duration))
         )
+        if let error = EditorValidation.validateClip(clip) {
+            return .failure(error)
+        }
+        let trackId = projectRef.timeline.addTrack(type: .video, name: trackName)
         return await addClip(clip, toTrackId: trackId)
     }
 
@@ -133,11 +144,14 @@ extension EditorModel {
         sourceIn: TimeInterval = 0,
         trackName: String = ""
     ) async -> EditorResult {
-        let trackId = projectRef.timeline.addTrack(type: .audio, name: trackName)
         let clip = Project.TimelineClip(
             timelineIn: timelineIn,
             content: .audio(Project.AudioClipRef(path: path, duration: duration, sourceIn: sourceIn))
         )
+        if let error = EditorValidation.validateClip(clip) {
+            return .failure(error)
+        }
+        let trackId = projectRef.timeline.addTrack(type: .audio, name: trackName)
         return await addClip(clip, toTrackId: trackId)
     }
 
@@ -148,11 +162,14 @@ extension EditorModel {
         at timelineIn: TimeInterval,
         trackName: String = ""
     ) async -> EditorResult {
-        let trackId = projectRef.timeline.addTrack(type: .video, name: trackName)
         let clip = Project.TimelineClip(
             timelineIn: timelineIn,
             content: .color(Project.ColorClipRef(hexColor: hexColor, duration: duration))
         )
+        if let error = EditorValidation.validateClip(clip) {
+            return .failure(error)
+        }
+        let trackId = projectRef.timeline.addTrack(type: .video, name: trackName)
         return await addClip(clip, toTrackId: trackId)
     }
 

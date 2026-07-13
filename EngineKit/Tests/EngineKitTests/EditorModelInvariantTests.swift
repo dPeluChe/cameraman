@@ -137,6 +137,60 @@ final class EditorModelInvariantTests: XCTestCase {
         XCTAssertEqual(updated.opacity, 0.75)
     }
 
+    func testInvalidAdjustmentsAndConvenienceClipsDoNotMutateProject() async throws {
+        let fixture = makeProject(locked: false)
+        let editor = EditorModel(project: fixture.project)
+        let adjustment = try XCTUnwrap(fixture.clip.adjustments?.first)
+
+        assertInvalidClip(await editor.addAdjustment(
+            Project.Adjustment(kind: .sepia, parameters: ["intensity": 2]),
+            toClipId: fixture.clip.id,
+            inTrackId: fixture.lockedTrackId
+        ))
+        var invalidUpdate = adjustment
+        invalidUpdate.end = 20
+        assertInvalidClip(await editor.updateAdjustment(
+            invalidUpdate,
+            inClipId: fixture.clip.id,
+            trackId: fixture.lockedTrackId
+        ))
+        assertInvalidClip(await editor.addAdjustment(
+            Project.Adjustment(kind: .audioPitch, target: .frame, parameters: ["cents": .nan]),
+            toClipId: fixture.clip.id,
+            inTrackId: fixture.lockedTrackId
+        ))
+        assertInvalidClip(await editor.addImageClip(path: "", duration: 2, at: 0))
+        assertInvalidClip(await editor.addAudioClip(path: "audio.wav", duration: -1, at: 0))
+        assertInvalidClip(await editor.addColorClip(duration: .infinity, at: 0))
+
+        let unchanged = await editor.getProject()
+        XCTAssertEqual(unchanged, fixture.project)
+    }
+
+    func testValidAdjustmentIsApplied() async {
+        let fixture = makeProject(locked: false)
+        let editor = EditorModel(project: fixture.project)
+        let adjustment = Project.Adjustment(
+            kind: .vignette,
+            parameters: ["intensity": 0.7, "radius": 1.5],
+            start: 1,
+            end: 4
+        )
+
+        let result = await editor.addAdjustment(
+            adjustment,
+            toClipId: fixture.clip.id,
+            inTrackId: fixture.lockedTrackId
+        )
+
+        guard let project = result.getProject(),
+              let clip = project.timeline.tracks
+                .first(where: { $0.id == fixture.lockedTrackId })?.clips.first else {
+            return XCTFail("Expected adjusted clip")
+        }
+        XCTAssertTrue(clip.adjustments?.contains(adjustment) == true)
+    }
+
     private func assertTrackLocked(
         _ result: EditorResult,
         trackId: UUID,

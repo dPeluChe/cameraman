@@ -57,6 +57,64 @@ public enum EditorValidation {
         isUnitValue(value) ? nil : invalid("\(field) must be finite and between 0 and 1")
     }
 
+    public static func validateAdjustment(
+        _ adjustment: Project.Adjustment,
+        clipDuration: TimeInterval
+    ) -> EditorError? {
+        guard !adjustment.kind.rawValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return invalid("adjustment kind must not be empty")
+        }
+        guard adjustment.parameters.values.allSatisfy(\.isFinite) else {
+            return invalid("adjustment parameters must be finite")
+        }
+        guard adjustment.kind.isAudio == (adjustment.target == .audio) else {
+            return invalid("audio adjustments must target audio and visual adjustments must target video")
+        }
+        if let start = adjustment.start,
+           (!start.isFinite || start < 0 || start > clipDuration) {
+            return invalid("adjustment start must be inside the clip duration")
+        }
+        if let end = adjustment.end,
+           (!end.isFinite || end <= 0 || end > clipDuration) {
+            return invalid("adjustment end must be inside the clip duration")
+        }
+        if let start = adjustment.start, let end = adjustment.end, start >= end {
+            return invalid("adjustment start must be before its end")
+        }
+
+        let ranges: [String: ClosedRange<Double>]
+        switch adjustment.kind {
+        case .sepia:
+            ranges = ["intensity": 0...1]
+        case .brightness:
+            ranges = ["brightness": -1...1]
+        case .contrast:
+            ranges = ["contrast": 0...4]
+        case .saturation:
+            ranges = ["saturation": 0...2]
+        case .colorControls:
+            ranges = ["brightness": -1...1, "contrast": 0...4, "saturation": 0...2]
+        case .vibrance:
+            ranges = ["amount": -1...1]
+        case .vignette:
+            ranges = ["intensity": 0...1, "radius": 0...2]
+        case .gaussianBlur:
+            ranges = ["radius": 0...100]
+        case .audioPitch:
+            ranges = ["cents": -2400...2400, "semitones": -24...24]
+        case .audioGain:
+            ranges = ["gain": 0...4]
+        default:
+            ranges = [:]
+        }
+        for (key, range) in ranges {
+            if let value = adjustment.parameters[key], !range.contains(value) {
+                return invalid("adjustment parameter \(key) must be between \(range.lowerBound) and \(range.upperBound)")
+            }
+        }
+        return nil
+    }
+
     private static func validatePosition(_ position: Project.MediaPosition) -> EditorError? {
         let values = [position.x, position.y, position.w, position.h]
         guard values.allSatisfy(\.isFinite),
