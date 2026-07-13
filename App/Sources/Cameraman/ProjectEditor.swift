@@ -224,6 +224,7 @@ final class ProjectEditor: ObservableObject {
         clipId: String,
         inTrackId trackId: UUID,
         timelineIn: TimeInterval? = nil,
+        volume: Double? = nil,
         position: Project.MediaPosition? = nil,
         content: Project.ClipContent? = nil
     ) async -> EditorResult {
@@ -232,6 +233,7 @@ final class ProjectEditor: ObservableObject {
                 clipId: clipId,
                 inTrackId: trackId,
                 timelineIn: timelineIn,
+                volume: volume,
                 position: position,
                 content: content
             )
