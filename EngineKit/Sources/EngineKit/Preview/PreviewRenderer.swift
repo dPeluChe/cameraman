@@ -113,8 +113,11 @@ extension PreviewEngine {
         canvasSize: CoreFoundation.CGSize
     ) throws {
         // Calculate actual position based on canvas format
-        let x = overlay.transform.x * CGFloat(canvasSize.width)
-        let y = overlay.transform.y * CGFloat(canvasSize.height)
+        let center = OverlayCanvasGeometry.renderPoint(
+            x: overlay.transform.x,
+            y: overlay.transform.y,
+            in: canvasSize
+        )
 
         // Calculate scale based on image size vs canvas size
         let scaleX = imageSize.width / CGFloat(canvasSize.width)
@@ -132,7 +135,7 @@ extension PreviewEngine {
         context.saveGState()
 
         // Apply transformations: position, size scale, user scale, rotation
-        context.translateBy(x: x, y: y)
+        context.translateBy(x: center.x, y: center.y)
         context.scaleBy(x: sizeScaleX * overlay.transform.scale, y: sizeScaleY * overlay.transform.scale)
         context.rotate(by: overlay.transform.rotation * .pi / 180.0)
 

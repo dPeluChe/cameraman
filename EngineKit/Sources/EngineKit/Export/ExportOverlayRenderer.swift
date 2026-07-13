@@ -292,13 +292,16 @@ extension ExportEngine {
         let scaledW = baseSize.width * overlay.transform.scale
         let scaledH = baseSize.height * overlay.transform.scale
 
-        let cx = overlay.transform.x * renderSize.width
-        let cy = (1.0 - overlay.transform.y) * renderSize.height
+        let center = OverlayCanvasGeometry.renderPoint(
+            x: overlay.transform.x,
+            y: overlay.transform.y,
+            in: renderSize
+        )
 
         let containerLayer = CALayer()
         containerLayer.frame = CoreFoundation.CGRect(
-            x: cx - scaledW / 2,
-            y: cy - scaledH / 2,
+            x: center.x - scaledW / 2,
+            y: center.y - scaledH / 2,
             width: scaledW,
             height: scaledH
         )

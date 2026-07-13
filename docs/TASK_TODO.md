@@ -1,6 +1,6 @@
 # Task Backlog
 
-> Updated: 2026-07-04
+> Updated: 2026-07-13
 > Only unfinished work. Completed work lives in `TASK_COMPLETED/`.
 > Ordered by impact and proximity to release, not chronology.
 
@@ -25,6 +25,59 @@ May 2026 (pre-publication push): ultrawide writer fix, mic overload, telemetry s
 - [x] **Telemetry: count `-10877` errors per session, correlate with `writer.status`** `done: 2026-07-08` — `RecordingSession.errorCounts` tracks per-code errors; `CaptureEngine` logs `AVAssetWriter` error codes via `LogWarning`. PR #42.
 - [ ] **UI debug: `Attempting to update all DD element frames, but bounds W:0 H:0`** — appears once during preview. Probably system Drag & Drop or RealityKit, not our code. Low priority; reproduce with the view debugger if it returns.
 - [ ] **Noisy system logs in release builds** — Messages VFX entity remaps, `MLE5Engine disabled`, `ViewBridge to RemoteViewService Terminated`, `AddInstanceForFactory: No factory registered`, `AudioQueueObject Error -4 getting reporterIDs`. None are ours but they drown out useful signal. Audit `LoggingSystem` levels: anything at `info` / `notice` in `capture` / `preview` / `export` that should be `debug`.
+
+---
+
+## Direct Visual Editing in the Player — Priority 0
+
+> Primary editor UX direction: visual elements should be selected and manipulated on the video itself, with the timeline and inspector kept in sync. Build this as one shared interaction system instead of separate ad-hoc canvases.
+
+- [ ] **Unified direct-manipulation layer over the player** `added: 2026-07-13`:
+    - Define stable selection and hit-testing for overlays, camera PiP, positioned image/video clips, subtitles, and future blur regions.
+    - Use one normalized coordinate-space conversion shared by player interaction, project metadata, preview composition, and export.
+    - Click an element in the player to select it; synchronize selection with its timeline row and inspector section.
+    - Drag to move; handles resize, rotate, and crop where supported. Add aspect lock, alignment guides, snapping, safe areas, keyboard nudging, and clear selected/hover states.
+    - Make edits responsive during playback without causing `AttributeGraph` cycles or rebuilding the complete composition for every pointer event; commit one undo/autosave entry when interaction ends.
+    - Validate that player placement exactly matches paused preview, playback, thumbnails, and final export at every canvas aspect ratio.
+- [ ] **Direct overlay editing in the player** `added: 2026-07-13` — first consumer of the unified layer:
+    - Current baseline: select arrow/rect/line/text/image overlays on the real frame and synchronize selection with the timeline.
+    - Current baseline: move, scale, and rotate with on-canvas handles; publish responsive preview drafts and commit one undo entry when interaction ends.
+    - Current baseline: shared top-left normalized coordinates across player interaction, compositor preview, frame preview, and export.
+    - [ ] Add snapping, safe-area/alignment guides, keyboard nudging, crop handles where supported, and contextual style access.
+- [ ] **Direct PiP and positioned-media editing in the player** `added: 2026-07-13` — migrate the existing PiP drag behavior to the shared interaction layer, then expose move/resize/crop/mask for imported image/video clips.
+- [ ] **Direct subtitle and blur-region editing in the player** `added: 2026-07-13` — select cues/regions on-canvas, move/resize their visual bounds, edit subtitle text/style, and preserve their time ranges.
+- [ ] **Player interaction test matrix** `added: 2026-07-13`:
+    - Current coverage: coordinate transforms for 16:9, 9:16, and 1:1 canvases.
+    - [ ] Unit-test rotated hit-testing and snapping; integration-test undo/autosave, playback edits, mixed resolutions, and preview/export parity.
+
+---
+
+## MCP & Agent Editing Roadmap
+
+> Audit from 2026-07-13. First make autonomous edits safe and recoverable; then improve agent context, feedback, and feature coverage.
+
+### Priority 0 — Correctness and data safety
+
+- [ ] **Cross-process project revision and conflict protection** `added: 2026-07-13` — make `project.json` writes atomic and introduce a monotonic revision / compare-and-swap precondition. App and MCP must detect stale state instead of silently overwriting each other; refresh open editors when an external revision changes.
+- [ ] **Repair MCP AI suggestion paths and complete the result flow** `added: 2026-07-13` — make `AIService` use `ProjectStore.baseDirectory` / `CAMERAMAN_PROJECTS_DIR`; add `get_suggestions`, `apply_suggestions(ids)`, and `dismiss_suggestions`; include result metadata in completed jobs.
+- [ ] **Enforce editing invariants through EngineKit** `added: 2026-07-13` — reject edits and moves on locked tracks; validate non-negative timeline positions, positive speed/duration, valid source windows, opacity/volume bounds, effect ranges, canvas positions, and overlay timing. The same validation must protect UI and MCP.
+- [ ] **Make asset staging collision-safe and transactional** `added: 2026-07-13` — use content-addressed or unique filenames instead of replacing an existing same-name asset; clean staged files when the following edit fails; validate file type and size before copying.
+- [ ] **Restore and expand the MCP test suite** `added: 2026-07-13` — update the stale 50→43 tool inventory test, then cover JSON-RPC lifecycle/errors, every mutating tool family, locks/validation, configured project directories, jobs, asset collisions, concurrent app/MCP revisions, and end-to-end edit→preview→export flows.
+
+### Priority 1 — Agent-grade API
+
+- [ ] **MCP protocol conformance hardening** `added: 2026-07-13` — negotiate only supported protocol versions; validate JSON-RPC and request params; return protocol errors for malformed calls/unknown tools; enforce initialization state; add strict schemas with bounds and `additionalProperties: false`.
+- [ ] **Structured tool results and safety annotations** `added: 2026-07-13` — add `outputSchema`, `structuredContent`, stable IDs/revisions/warnings, and `readOnlyHint` / `destructiveHint` / `idempotentHint`. Preserve serialized text results for older clients.
+- [ ] **Transactional agent editing with dry-run and diff** `added: 2026-07-13` — support `begin_edit`, batched operations, `preview_diff`, `commit_edit`, and `rollback_edit`; report affected clips, duration changes, validation warnings, and one undoable commit.
+- [ ] **Checkpoints, undo, and recoverable deletion for agents** `added: 2026-07-13` — expose checkpoint/revert and move project deletion to Trash or a recoverable tombstone instead of immediate irreversible removal.
+- [ ] **Compact, queryable project context** `added: 2026-07-13` — add timeline summaries plus track/time-range filters and pagination so agents do not need the complete project, transcript, subtitles, and overlays for every edit.
+- [ ] **Visual feedback tools for agents** `added: 2026-07-13` — reuse `PreviewFrameExtractor` / `ThumbnailCache` to expose `render_frame`, contact sheets, thumbnails, and waveform summaries. Return resource links or image content so an agent can inspect the result before committing/exporting.
+- [ ] **Persistent and observable jobs** `added: 2026-07-13` — persist export/transcription/AI job state across server restarts; return output paths/results; add progress events where supported and structured audit logs with client, tool, project, revision, duration, and sanitized result/error.
+
+### Priority 2 — MCP feature parity
+
+- [ ] **Expose remaining editor controls to agents** `added: 2026-07-13` — manual zoom keyframes, clip position/size/crop, subtitle cue/style editing, chapter CRUD/application, voiceover recording, screen/window/app/camera source selection, and recording pause/resume.
+- [ ] **Evaluate MCP resources and prompts after the mutation API stabilizes** `added: 2026-07-13` — use resources for project/timeline/render artifacts and prompts for safe common workflows; defer experimental MCP Tasks until they materially improve the existing job model.
 
 ---
 
@@ -83,7 +136,7 @@ May 2026 (pre-publication push): ultrawide writer fix, mic overload, telemetry s
 - [ ] **Overlay polish**:
     - **Timing**: overlays appear in the wrong range during preview — debug the `currentTime >= overlay.start && currentTime <= overlay.end` filter in `MaskedVideoCompositor`.
     - **Edits not reflected**: position / scale / rotation changes from the popover don't show in preview. Verify `rebuildVideoComposition` propagates updated overlays and the overlay layer cache invalidates on property change.
-    - **Visual placement canvas**: the 9-position presets are limited. Implement a mini canvas (like the PiP editor) where the user drags the overlay over a thumbnail of the frame.
+    - **Direct visual placement**: tracked as the Priority 0 player direct-manipulation system above; edit overlays on the real video frame instead of a separate thumbnail-only mini canvas.
     - **Stacking in timeline**: multiple overlays collapse onto a single row; needs visual stacking or per-overlay rows.
     - **Render quality**: arrow / rect sizes and positions don't match the configured values.
     - What works today: timeline track, drag to move, popover controls, basic shape rendering in compositor and export.

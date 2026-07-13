@@ -34,12 +34,11 @@ extension MaskedVideoCompositor {
 
         let scaledW = baseSize.width * overlay.scale
         let scaledH = baseSize.height * overlay.scale
-        let cx = overlay.x * renderSize.width
-        let cy = (1.0 - overlay.y) * renderSize.height
+        let center = OverlayCanvasGeometry.renderPoint(x: overlay.x, y: overlay.y, in: renderSize)
 
         ctx.saveGState()
         ctx.setAlpha(CGFloat(opacity))
-        ctx.translateBy(x: cx, y: cy)
+        ctx.translateBy(x: center.x, y: center.y)
         ctx.rotate(by: overlay.rotation * .pi / 180.0)
 
         if overlay.shadow {
