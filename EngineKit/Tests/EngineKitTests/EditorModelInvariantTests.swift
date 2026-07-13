@@ -71,6 +71,72 @@ final class EditorModelInvariantTests: XCTestCase {
         ), trackId: fixture.lockedTrackId)
     }
 
+    func testInvalidClipValuesAreRejectedWithoutMutation() async {
+        let fixture = makeProject(locked: false)
+        let editor = EditorModel(project: fixture.project)
+        let sourceClip = fixture.project.timeline.tracks
+            .first { $0.id == fixture.unlockedTrackId }!.clips[0]
+
+        assertInvalidClip(await editor.addClip(
+            Project.TimelineClip(
+                timelineIn: -.infinity,
+                content: .image(Project.ImageClipRef(path: "image.png", duration: 2))
+            ),
+            toTrackId: fixture.unlockedTrackId
+        ))
+        assertInvalidClip(await editor.updateClip(
+            clipId: sourceClip.id,
+            inTrackId: fixture.unlockedTrackId,
+            speed: 0
+        ))
+        assertInvalidClip(await editor.moveClip(
+            clipId: sourceClip.id,
+            fromTrackId: fixture.unlockedTrackId,
+            toTrackId: fixture.unlockedTrackId,
+            newTimelineIn: -1
+        ))
+        assertInvalidClip(await editor.setTrackVolume(
+            trackId: fixture.unlockedTrackId,
+            volume: .nan
+        ))
+        assertInvalidClip(await editor.importVideoClip(
+            path: "video.mov",
+            duration: 0,
+            at: 0
+        ))
+
+        let unchanged = await editor.getProject()
+        XCTAssertEqual(unchanged, fixture.project)
+    }
+
+    func testValidClipCandidateIsApplied() async {
+        let fixture = makeProject(locked: false)
+        let editor = EditorModel(project: fixture.project)
+        let sourceClip = fixture.project.timeline.tracks
+            .first { $0.id == fixture.unlockedTrackId }!.clips[0]
+
+        let result = await editor.updateClip(
+            clipId: sourceClip.id,
+            inTrackId: fixture.unlockedTrackId,
+            timelineIn: 2,
+            speed: 2,
+            volume: 0.5,
+            opacity: 0.75,
+            position: Project.MediaPosition(x: 0.1, y: 0.1, w: 0.5, h: 0.5)
+        )
+
+        guard let project = result.getProject(),
+              let updated = project.timeline.tracks
+                .first(where: { $0.id == fixture.unlockedTrackId })?.clips
+                .first(where: { $0.id == sourceClip.id }) else {
+            return XCTFail("Expected updated clip")
+        }
+        XCTAssertEqual(updated.timelineIn, 2)
+        XCTAssertEqual(updated.speed, 2)
+        XCTAssertEqual(updated.volume, 0.5)
+        XCTAssertEqual(updated.opacity, 0.75)
+    }
+
     private func assertTrackLocked(
         _ result: EditorResult,
         trackId: UUID,
@@ -81,6 +147,16 @@ final class EditorModelInvariantTests: XCTestCase {
             return XCTFail("Expected trackLocked, got \(result)", file: file, line: line)
         }
         XCTAssertEqual(id, trackId.uuidString, file: file, line: line)
+    }
+
+    private func assertInvalidClip(
+        _ result: EditorResult,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        guard case .failure(.invalidClipContent) = result else {
+            return XCTFail("Expected invalidClipContent, got \(result)", file: file, line: line)
+        }
     }
 
     private func makeProject(locked: Bool) -> (

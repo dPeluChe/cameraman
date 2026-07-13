@@ -48,11 +48,14 @@ public actor EditorModel {
         at timelineIn: TimeInterval,
         trackName: String = ""
     ) async -> EditorResult {
-        let trackId = project.timeline.addTrack(type: .video, name: trackName)
         let clip = Project.TimelineClip(
             timelineIn: timelineIn,
             content: .video(Project.VideoClipRef(path: path, sourceOut: duration))
         )
+        if let error = EditorValidation.validateClip(clip) {
+            return .failure(error)
+        }
+        let trackId = project.timeline.addTrack(type: .video, name: trackName)
         return await addClip(clip, toTrackId: trackId)
     }
 
@@ -64,11 +67,14 @@ public actor EditorModel {
         at timelineIn: TimeInterval,
         trackName: String = "Voiceover"
     ) async -> EditorResult {
-        let trackId = project.timeline.addTrack(type: .audio, name: trackName)
         let clip = Project.TimelineClip(
             timelineIn: timelineIn,
             content: .audio(Project.AudioClipRef(path: path, duration: duration))
         )
+        if let error = EditorValidation.validateClip(clip) {
+            return .failure(error)
+        }
+        let trackId = project.timeline.addTrack(type: .audio, name: trackName)
         return await addClip(clip, toTrackId: trackId)
     }
 
@@ -141,7 +147,10 @@ public actor EditorModel {
         guard let index = project.timeline.tracks.firstIndex(where: { $0.id == trackId }) else {
             return .failure(.trackNotFound(trackId.uuidString))
         }
-        project.timeline.tracks[index].volume = max(0, min(1, volume))
+        if let error = EditorValidation.validateUnitValue(volume, field: "track volume") {
+            return .failure(error)
+        }
+        project.timeline.tracks[index].volume = volume
         project.updatedAt = Date()
         return .success(project)
     }
@@ -162,6 +171,9 @@ public actor EditorModel {
             return .failure(.trackLocked(trackId.uuidString))
         }
 
+        if let error = EditorValidation.validateClip(clip) {
+            return .failure(error)
+        }
         if let error = validateClipForTrack(clip: clip, track: track) {
             return .failure(error)
         }
@@ -227,12 +239,20 @@ public actor EditorModel {
             return .failure(.trackLocked(trackId.uuidString))
         }
 
-        if let t = timelineIn { project.timeline.tracks[trackIndex].clips[clipIndex].timelineIn = t }
-        if let s = speed { project.timeline.tracks[trackIndex].clips[clipIndex].speed = s }
-        if let v = volume { project.timeline.tracks[trackIndex].clips[clipIndex].volume = v }
-        if let o = opacity { project.timeline.tracks[trackIndex].clips[clipIndex].opacity = o }
-        if let p = position { project.timeline.tracks[trackIndex].clips[clipIndex].position = p }
-        if let c = content { project.timeline.tracks[trackIndex].clips[clipIndex].content = c }
+        var candidate = project.timeline.tracks[trackIndex].clips[clipIndex]
+        if let t = timelineIn { candidate.timelineIn = t }
+        if let s = speed { candidate.speed = s }
+        if let v = volume { candidate.volume = v }
+        if let o = opacity { candidate.opacity = o }
+        if let p = position { candidate.position = p }
+        if let c = content { candidate.content = c }
+        if let error = EditorValidation.validateClip(candidate) {
+            return .failure(error)
+        }
+        if let error = validateClipForTrack(clip: candidate, track: project.timeline.tracks[trackIndex]) {
+            return .failure(error)
+        }
+        project.timeline.tracks[trackIndex].clips[clipIndex] = candidate
 
         recalculateTimelineDuration()
         project.updatedAt = Date()
@@ -265,12 +285,14 @@ public actor EditorModel {
 
         var clip = project.timeline.tracks[fromIndex].clips[clipIndex]
 
-        if let error = validateClipForTrack(clip: clip, track: project.timeline.tracks[toIndex]) {
-            return .failure(error)
-        }
-
         if let newTime = newTimelineIn {
             clip.timelineIn = newTime
+        }
+        if let error = EditorValidation.validateClip(clip) {
+            return .failure(error)
+        }
+        if let error = validateClipForTrack(clip: clip, track: project.timeline.tracks[toIndex]) {
+            return .failure(error)
         }
 
         project.timeline.tracks[fromIndex].clips.remove(at: clipIndex)
