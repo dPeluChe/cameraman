@@ -12,6 +12,7 @@ struct RightPanel: View {
     @ObservedObject var editor: ProjectEditor
     var selectedSegmentId: String?
     var selectedMediaItemId: UUID?
+    var selectedOverlayId: Binding<UUID?> = .constant(nil)
     var playerViewModel: PreviewPlayerViewModel? = nil
 
     // Binding states for expansion
@@ -129,7 +130,8 @@ struct RightPanel: View {
                             playheadTime: Binding(
                                 get: { playerViewModel?.currentTime ?? 0 },
                                 set: { _ in }
-                            )
+                            ),
+                            selectedOverlayId: selectedOverlayId
                         )
                     }
                     
