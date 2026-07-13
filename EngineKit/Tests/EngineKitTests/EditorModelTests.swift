@@ -934,12 +934,10 @@ final class EditorModelTests: XCTestCase {
         case .success, .successWithInfo:
             XCTFail("Expected failure for start time >= end time")
         case .failure(let error):
-            if case .invalidTrimTime(let sourceIn, let sourceOut, let reason) = error {
-                XCTAssertEqual(sourceIn, 11.0)
-                XCTAssertEqual(sourceOut, 10.0)
-                XCTAssertEqual(reason, "Start time must be less than end time")
+            if case .invalidClipContent(let reason) = error {
+                XCTAssertEqual(reason, "overlay timing must be finite, non-empty, and inside the timeline")
             } else {
-                XCTFail("Expected invalidTrimTime error")
+                XCTFail("Expected invalidClipContent error")
             }
         }
     }
@@ -961,12 +959,10 @@ final class EditorModelTests: XCTestCase {
         case .success, .successWithInfo:
             XCTFail("Expected failure for end time <= start time")
         case .failure(let error):
-            if case .invalidTrimTime(let sourceIn, let sourceOut, let reason) = error {
-                XCTAssertEqual(sourceIn, 5.0)
-                XCTAssertEqual(sourceOut, 3.0)
-                XCTAssertEqual(reason, "Start time must be less than end time")
+            if case .invalidClipContent(let reason) = error {
+                XCTAssertEqual(reason, "overlay timing must be finite, non-empty, and inside the timeline")
             } else {
-                XCTFail("Expected invalidTrimTime error")
+                XCTFail("Expected invalidClipContent error")
             }
         }
     }
@@ -985,12 +981,10 @@ final class EditorModelTests: XCTestCase {
         case .success, .successWithInfo:
             XCTFail("Expected failure for negative start time")
         case .failure(let error):
-            if case .invalidTrimTime(let sourceIn, let sourceOut, let reason) = error {
-                XCTAssertEqual(sourceIn, -1.0)
-                XCTAssertEqual(sourceOut, 10.0)
-                XCTAssertEqual(reason, "Overlay timing must be within timeline duration")
+            if case .invalidClipContent(let reason) = error {
+                XCTAssertEqual(reason, "overlay timing must be finite, non-empty, and inside the timeline")
             } else {
-                XCTFail("Expected invalidTrimTime error")
+                XCTFail("Expected invalidClipContent error")
             }
         }
     }
@@ -1009,12 +1003,10 @@ final class EditorModelTests: XCTestCase {
         case .success, .successWithInfo:
             XCTFail("Expected failure for end time exceeding timeline duration")
         case .failure(let error):
-            if case .invalidTrimTime(let sourceIn, let sourceOut, let reason) = error {
-                XCTAssertEqual(sourceIn, 0.0)
-                XCTAssertEqual(sourceOut, 15.0)
-                XCTAssertEqual(reason, "Overlay timing must be within timeline duration")
+            if case .invalidClipContent(let reason) = error {
+                XCTAssertEqual(reason, "overlay timing must be finite, non-empty, and inside the timeline")
             } else {
-                XCTFail("Expected invalidTrimTime error")
+                XCTFail("Expected invalidClipContent error")
             }
         }
     }
