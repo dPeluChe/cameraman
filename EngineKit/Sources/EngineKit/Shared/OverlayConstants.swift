@@ -29,6 +29,12 @@ public enum OverlayBaseSize {
 }
 
 public enum OverlayCanvasGeometry {
+    public struct SnapResult: Equatable, Sendable {
+        public let center: CGPoint
+        public let verticalGuide: CGFloat?
+        public let horizontalGuide: CGFloat?
+    }
+
     public static func normalizedPoint(fromViewPoint point: CGPoint, in canvasSize: CGSize) -> CGPoint? {
         guard canvasSize.width > 0, canvasSize.height > 0 else { return nil }
         return CGPoint(
@@ -69,6 +75,89 @@ public enum OverlayCanvasGeometry {
             x: translation.width / canvasSize.width,
             y: translation.height / canvasSize.height
         )
+    }
+
+    public static func safeAreaRect(in canvasSize: CGSize, inset: CGFloat = 0.05) -> CGRect {
+        CGRect(
+            x: canvasSize.width * inset,
+            y: canvasSize.height * inset,
+            width: canvasSize.width * (1 - inset * 2),
+            height: canvasSize.height * (1 - inset * 2)
+        )
+    }
+
+    public static func snappedCenter(
+        proposed: CGPoint,
+        relativeSize: CGSize,
+        scale: Double,
+        rotationDegrees: Double,
+        in canvasSize: CGSize,
+        thresholdPixels: CGFloat = 8,
+        safeInset: CGFloat = 0.05
+    ) -> SnapResult {
+        guard canvasSize.width > 0, canvasSize.height > 0 else {
+            return SnapResult(center: proposed, verticalGuide: nil, horizontalGuide: nil)
+        }
+
+        let radians = CGFloat(rotationDegrees * .pi / 180)
+        let width = relativeSize.width * CGFloat(scale)
+        let height = relativeSize.height * CGFloat(scale)
+        let halfWidth = min(0.5, (abs(width * cos(radians)) + abs(height * sin(radians))) / 2)
+        let halfHeight = min(0.5, (abs(width * sin(radians)) + abs(height * cos(radians))) / 2)
+
+        let constrained = CGPoint(
+            x: constrain(proposed.x, halfExtent: halfWidth),
+            y: constrain(proposed.y, halfExtent: halfHeight)
+        )
+        let xCandidates = axisCandidates(halfExtent: halfWidth, safeInset: safeInset)
+        let yCandidates = axisCandidates(halfExtent: halfHeight, safeInset: safeInset)
+        let xSnap = nearestSnap(
+            to: constrained.x,
+            candidates: xCandidates,
+            threshold: thresholdPixels / canvasSize.width
+        )
+        let ySnap = nearestSnap(
+            to: constrained.y,
+            candidates: yCandidates,
+            threshold: thresholdPixels / canvasSize.height
+        )
+
+        return SnapResult(
+            center: CGPoint(x: xSnap?.value ?? constrained.x, y: ySnap?.value ?? constrained.y),
+            verticalGuide: xSnap?.guide,
+            horizontalGuide: ySnap?.guide
+        )
+    }
+
+    private static func constrain(_ value: CGFloat, halfExtent: CGFloat) -> CGFloat {
+        guard halfExtent < 0.5 else { return 0.5 }
+        return min(1 - halfExtent, max(halfExtent, value))
+    }
+
+    private static func axisCandidates(
+        halfExtent: CGFloat,
+        safeInset: CGFloat
+    ) -> [(value: CGFloat, guide: CGFloat)] {
+        let leading = safeInset + halfExtent
+        let trailing = 1 - safeInset - halfExtent
+        var candidates: [(CGFloat, CGFloat)] = [(0.5, 0.5)]
+        if leading <= trailing {
+            candidates.append((leading, safeInset))
+            candidates.append((trailing, 1 - safeInset))
+        }
+        return candidates
+    }
+
+    private static func nearestSnap(
+        to value: CGFloat,
+        candidates: [(value: CGFloat, guide: CGFloat)],
+        threshold: CGFloat
+    ) -> (value: CGFloat, guide: CGFloat)? {
+        candidates
+            .map { (value: $0.value, guide: $0.guide, distance: abs(value - $0.value)) }
+            .filter { $0.distance <= threshold }
+            .min { $0.distance < $1.distance }
+            .map { (value: $0.value, guide: $0.guide) }
     }
 }
 
