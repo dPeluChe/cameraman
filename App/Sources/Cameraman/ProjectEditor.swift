@@ -212,6 +212,13 @@ final class ProjectEditor: ObservableObject {
         }
     }
 
+    /// Import an audio file as a clip on its own new audio track (one undo step).
+    func importAudioClip(path: String, duration: TimeInterval, at timelineIn: TimeInterval, trackName: String = "Voiceover") async -> EditorResult {
+        await performEdit {
+            await self.editorModel.importAudioClip(path: path, duration: duration, at: timelineIn, trackName: trackName)
+        }
+    }
+
     /// Update a clip on a timeline track — move, trim (via content), reposition.
     func updateClip(
         clipId: String,

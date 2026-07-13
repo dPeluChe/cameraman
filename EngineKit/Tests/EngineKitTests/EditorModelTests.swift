@@ -93,6 +93,32 @@ final class EditorModelTests: XCTestCase {
         XCTAssertEqual(retrievedProject.name, newProject.name)
     }
 
+    func testImportAudioClipCreatesVoiceoverTrackAndUpdatesDuration() async throws {
+        let editor = EditorModel(project: createTestProject())
+
+        let result = await editor.importAudioClip(
+            path: "assets/voiceovers/take.m4a",
+            duration: 4.5,
+            at: 32,
+            trackName: "Voiceover"
+        )
+
+        guard case .successWithInfo(let project, .clipAdded(let clipId, let trackId)) = result else {
+            return XCTFail("Expected an inserted audio clip")
+        }
+        let track = try XCTUnwrap(project.timeline.tracks.first { $0.id == trackId })
+        let clip = try XCTUnwrap(track.clips.first { $0.id == clipId })
+        XCTAssertEqual(track.type, .audio)
+        XCTAssertEqual(track.name, "Voiceover")
+        XCTAssertEqual(clip.timelineIn, 32)
+        XCTAssertEqual(project.timeline.duration, 36.5)
+        guard case .audio(let audio) = clip.content else {
+            return XCTFail("Expected audio content")
+        }
+        XCTAssertEqual(audio.path, "assets/voiceovers/take.m4a")
+        XCTAssertEqual(audio.duration, 4.5)
+    }
+
     // MARK: - Trim In Tests
 
     func testTrimInSuccess() async throws {

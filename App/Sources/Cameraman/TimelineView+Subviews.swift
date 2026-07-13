@@ -125,7 +125,7 @@ struct TimelineTrackRow: View {
                 let isSelected = clip.id == selectedVideoClipId
 
                 HStack(spacing: 2) {
-                    Image(systemName: "film")
+                    Image(systemName: clipIconName(clip))
                         .font(.system(size: 7))
                         .foregroundStyle(.white.opacity(0.7))
                     Text(clipDisplayName(clip))
@@ -311,6 +311,16 @@ struct TimelineTrackRow: View {
         case .image(let ref): return (ref.path as NSString).lastPathComponent
         case .color: return "Color"
         case .recording: return "Recording"
+        }
+    }
+
+    private func clipIconName(_ clip: Project.TimelineClip) -> String {
+        switch clip.content {
+        case .video: return "film"
+        case .audio: return "waveform"
+        case .image: return "photo"
+        case .color: return "rectangle.fill"
+        case .recording: return "rectangle.dashed"
         }
     }
 }
