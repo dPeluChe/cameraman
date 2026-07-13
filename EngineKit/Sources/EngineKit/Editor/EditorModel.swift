@@ -84,6 +84,9 @@ public actor EditorModel {
         }) else {
             return .failure(.trackNotFound(trackId.uuidString))
         }
+        if project.timeline.tracks[videoIndices[position]].isLocked {
+            return .failure(.trackLocked(trackId.uuidString))
+        }
 
         let neighborPosition = up ? position - 1 : position + 1
         guard videoIndices.indices.contains(neighborPosition) else {
@@ -103,6 +106,9 @@ public actor EditorModel {
         }
         if project.timeline.tracks[index].type == .primary {
             return .failure(.invalidTrackType(expected: "non-primary", got: "primary"))
+        }
+        if project.timeline.tracks[index].isLocked {
+            return .failure(.trackLocked(trackId.uuidString))
         }
         project.timeline.tracks.remove(at: index)
         recalculateTimelineDuration()
@@ -217,6 +223,9 @@ public actor EditorModel {
         guard let clipIndex = project.timeline.tracks[trackIndex].clips.firstIndex(where: { $0.id == clipId }) else {
             return .failure(.clipNotFound(clipId: clipId, trackId: trackId.uuidString))
         }
+        if project.timeline.tracks[trackIndex].isLocked {
+            return .failure(.trackLocked(trackId.uuidString))
+        }
 
         if let t = timelineIn { project.timeline.tracks[trackIndex].clips[clipIndex].timelineIn = t }
         if let s = speed { project.timeline.tracks[trackIndex].clips[clipIndex].speed = s }
@@ -246,6 +255,12 @@ public actor EditorModel {
         }
         guard let clipIndex = project.timeline.tracks[fromIndex].clips.firstIndex(where: { $0.id == clipId }) else {
             return .failure(.clipNotFound(clipId: clipId, trackId: fromTrackId.uuidString))
+        }
+        if project.timeline.tracks[fromIndex].isLocked {
+            return .failure(.trackLocked(fromTrackId.uuidString))
+        }
+        if project.timeline.tracks[toIndex].isLocked {
+            return .failure(.trackLocked(toTrackId.uuidString))
         }
 
         var clip = project.timeline.tracks[fromIndex].clips[clipIndex]
@@ -279,6 +294,9 @@ public actor EditorModel {
         }
         guard let clipIndex = project.timeline.tracks[trackIndex].clips.firstIndex(where: { $0.id == clipId }) else {
             return .failure(.clipNotFound(clipId: clipId, trackId: trackId.uuidString))
+        }
+        if project.timeline.tracks[trackIndex].isLocked {
+            return .failure(.trackLocked(trackId.uuidString))
         }
 
         let clip = project.timeline.tracks[trackIndex].clips[clipIndex]

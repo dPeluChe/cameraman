@@ -21,6 +21,9 @@ extension EditorModel {
         guard let (trackIndex, clipIndex) = locate(clipId: clipId, trackId: trackId) else {
             return .failure(.clipNotFound(clipId: clipId, trackId: trackId.uuidString))
         }
+        if projectRef.timeline.tracks[trackIndex].isLocked {
+            return .failure(.trackLocked(trackId.uuidString))
+        }
         var adjustments = projectRef.timeline.tracks[trackIndex].clips[clipIndex].adjustments ?? []
         adjustments.append(adjustment)
         projectRef.timeline.tracks[trackIndex].clips[clipIndex].adjustments = adjustments
@@ -36,6 +39,9 @@ extension EditorModel {
     ) async -> EditorResult {
         guard let (trackIndex, clipIndex) = locate(clipId: clipId, trackId: trackId) else {
             return .failure(.clipNotFound(clipId: clipId, trackId: trackId.uuidString))
+        }
+        if projectRef.timeline.tracks[trackIndex].isLocked {
+            return .failure(.trackLocked(trackId.uuidString))
         }
         var adjustments = projectRef.timeline.tracks[trackIndex].clips[clipIndex].adjustments ?? []
         adjustments.removeAll { $0.id == adjustmentId }
@@ -53,6 +59,9 @@ extension EditorModel {
         guard let (trackIndex, clipIndex) = locate(clipId: clipId, trackId: trackId) else {
             return .failure(.clipNotFound(clipId: clipId, trackId: trackId.uuidString))
         }
+        if projectRef.timeline.tracks[trackIndex].isLocked {
+            return .failure(.trackLocked(trackId.uuidString))
+        }
         var adjustments = projectRef.timeline.tracks[trackIndex].clips[clipIndex].adjustments ?? []
         guard let idx = adjustments.firstIndex(where: { $0.id == adjustment.id }) else {
             return .failure(.clipNotFound(clipId: clipId, trackId: trackId.uuidString))
@@ -67,6 +76,9 @@ extension EditorModel {
     public func clearAdjustments(clipId: String, inTrackId trackId: UUID) async -> EditorResult {
         guard let (trackIndex, clipIndex) = locate(clipId: clipId, trackId: trackId) else {
             return .failure(.clipNotFound(clipId: clipId, trackId: trackId.uuidString))
+        }
+        if projectRef.timeline.tracks[trackIndex].isLocked {
+            return .failure(.trackLocked(trackId.uuidString))
         }
         projectRef.timeline.tracks[trackIndex].clips[clipIndex].adjustments = nil
         touch()
@@ -83,6 +95,9 @@ extension EditorModel {
     ) async -> EditorResult {
         guard let (trackIndex, clipIndex) = locate(clipId: clipId, trackId: trackId) else {
             return .failure(.clipNotFound(clipId: clipId, trackId: trackId.uuidString))
+        }
+        if projectRef.timeline.tracks[trackIndex].isLocked {
+            return .failure(.trackLocked(trackId.uuidString))
         }
         guard case .recording(var ref) = projectRef.timeline.tracks[trackIndex].clips[clipIndex].content else {
             return .failure(.invalidClipContent(reason: "Per-clip audio mute applies only to recording clips"))
