@@ -28,6 +28,50 @@ public enum OverlayBaseSize {
     }
 }
 
+public enum OverlayCanvasGeometry {
+    public static func normalizedPoint(fromViewPoint point: CGPoint, in canvasSize: CGSize) -> CGPoint? {
+        guard canvasSize.width > 0, canvasSize.height > 0 else { return nil }
+        return CGPoint(
+            x: min(1, max(0, point.x / canvasSize.width)),
+            y: min(1, max(0, point.y / canvasSize.height))
+        )
+    }
+
+    public static func viewPoint(x: Double, y: Double, in canvasSize: CGSize) -> CGPoint {
+        CGPoint(x: x * canvasSize.width, y: y * canvasSize.height)
+    }
+
+    public static func renderPoint(x: Double, y: Double, in canvasSize: CGSize) -> CGPoint {
+        CGPoint(x: x * canvasSize.width, y: (1 - y) * canvasSize.height)
+    }
+
+    public static func viewRect(
+        x: Double,
+        y: Double,
+        relativeSize: CGSize,
+        scale: Double,
+        in canvasSize: CGSize
+    ) -> CGRect {
+        let center = viewPoint(x: x, y: y, in: canvasSize)
+        let width = relativeSize.width * canvasSize.width * scale
+        let height = relativeSize.height * canvasSize.height * scale
+        return CGRect(
+            x: center.x - width / 2,
+            y: center.y - height / 2,
+            width: width,
+            height: height
+        )
+    }
+
+    public static func normalizedTranslation(_ translation: CGSize, in canvasSize: CGSize) -> CGPoint {
+        guard canvasSize.width > 0, canvasSize.height > 0 else { return .zero }
+        return CGPoint(
+            x: translation.width / canvasSize.width,
+            y: translation.height / canvasSize.height
+        )
+    }
+}
+
 // MARK: - Icon and label helpers
 
 public enum OverlayDisplayInfo {
