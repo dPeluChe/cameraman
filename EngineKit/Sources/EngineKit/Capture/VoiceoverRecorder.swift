@@ -24,14 +24,10 @@ public struct VoiceoverResult: Sendable {
 public actor VoiceoverRecorder {
 
     private var audioEngine: AVAudioEngine?
-    private var audioFile: AVAudioFile?
+    private var writer: VoiceoverAudioWriter?
+    private var outputURL: URL?
     private var isRecording = false
     private var startTime: Date?
-
-    private let writeQueue = DispatchQueue(
-        label: "com.projectstudio.enginekit.VoiceoverRecorder.write",
-        qos: .userInitiated
-    )
 
     public init() {}
 
@@ -42,13 +38,10 @@ public actor VoiceoverRecorder {
         guard !isRecording else { return }
 
         let engine = AVAudioEngine()
-        self.audioEngine = engine
-
         let inputNode = engine.inputNode
         let format = inputNode.outputFormat(forBus: 0)
 
         guard format.sampleRate > 0, format.channelCount > 0 else {
-            self.audioEngine = nil
             throw VoiceoverError.noMicrophoneAvailable
         }
 
@@ -60,38 +53,45 @@ public actor VoiceoverRecorder {
             commonFormat: .pcmFormatFloat32,
             interleaved: false
         )
-        self.audioFile = file
+        let writer = VoiceoverAudioWriter(file: file)
 
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
-            guard let self = self, self.isRecording else { return }
-            guard let copy = AudioRecorderUtilities.copyBuffer(buffer) else { return }
-            self.writeQueue.async { [weak self] in
-                guard let self = self, let file = self.audioFile else { return }
-                try? file.write(from: copy)
-            }
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
+            writer.enqueue(buffer)
         }
 
-        try engine.start()
-        isRecording = true
-        startTime = Date()
+        do {
+            try engine.start()
+            audioEngine = engine
+            self.writer = writer
+            self.outputURL = outputURL
+            isRecording = true
+            startTime = Date()
+        } catch {
+            inputNode.removeTap(onBus: 0)
+            try? await writer.finish()
+            try? FileManager.default.removeItem(at: outputURL)
+            throw error
+        }
     }
 
     /// Stop recording and return the file URL + duration.
     public func stopRecording() async throws -> VoiceoverResult {
-        guard isRecording, let url = audioFile?.url else {
+        guard isRecording, let engine = audioEngine,
+              let writer, let url = outputURL else {
             throw VoiceoverError.notRecording
         }
 
-        audioEngine?.stop()
-        audioEngine?.inputNode.removeTap(onBus: 0)
+        engine.stop()
+        engine.inputNode.removeTap(onBus: 0)
         isRecording = false
         audioEngine = nil
-        audioFile = nil
-
-        writeQueue.sync { }
 
         let elapsed = startTime.map { Date().timeIntervalSince($0) } ?? 0
         startTime = nil
+        self.writer = nil
+        outputURL = nil
+
+        try await writer.finish()
 
         return VoiceoverResult(url: url, relativePath: "", duration: elapsed)
     }
@@ -99,13 +99,16 @@ public actor VoiceoverRecorder {
     /// Cancel recording and delete the partial file.
     public func cancelRecording() async {
         guard isRecording else { return }
-        audioEngine?.stop()
-        audioEngine?.inputNode.removeTap(onBus: 0)
+        let engine = audioEngine
+        let writer = writer
+        let url = outputURL
+        engine?.stop()
+        engine?.inputNode.removeTap(onBus: 0)
         isRecording = false
         audioEngine = nil
-        let url = audioFile?.url
-        audioFile = nil
-        writeQueue.sync { }
+        self.writer = nil
+        outputURL = nil
+        try? await writer?.finish()
         if let url { try? FileManager.default.removeItem(at: url) }
         startTime = nil
     }
@@ -119,11 +122,57 @@ public actor VoiceoverRecorder {
 public enum VoiceoverError: Error, LocalizedError {
     case noMicrophoneAvailable
     case notRecording
+    case writeFailed(String)
 
     public var errorDescription: String? {
         switch self {
         case .noMicrophoneAvailable: return "No microphone input available"
         case .notRecording: return "No recording in progress"
+        case .writeFailed(let message): return "Voiceover write failed: \(message)"
         }
+    }
+}
+
+final class VoiceoverAudioWriter: @unchecked Sendable {
+    private var file: AVAudioFile?
+    private let queue = DispatchQueue(
+        label: "com.projectstudio.enginekit.VoiceoverRecorder.write",
+        qos: .userInitiated
+    )
+    private let stateLock = NSLock()
+    private var acceptingBuffers = true
+    private var writeError: String?
+
+    init(file: AVAudioFile) {
+        self.file = file
+    }
+
+    func enqueue(_ buffer: AVAudioPCMBuffer) {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        guard acceptingBuffers,
+              let copy = AudioRecorderUtilities.copyBuffer(buffer) else { return }
+
+        queue.async { [self] in
+            guard let file else { return }
+            do {
+                try file.write(from: copy)
+            } catch {
+                if writeError == nil { writeError = error.localizedDescription }
+            }
+        }
+    }
+
+    func finish() async throws {
+        let error = await withCheckedContinuation { continuation in
+            stateLock.lock()
+            acceptingBuffers = false
+            queue.async { [self] in
+                file = nil
+                continuation.resume(returning: writeError)
+            }
+            stateLock.unlock()
+        }
+        if let error { throw VoiceoverError.writeFailed(error) }
     }
 }
