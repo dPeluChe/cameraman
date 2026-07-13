@@ -191,6 +191,56 @@ final class EditorModelInvariantTests: XCTestCase {
         XCTAssertTrue(clip.adjustments?.contains(adjustment) == true)
     }
 
+    func testInvalidOverlayMediaAndRangeDoNotMutateProject() async {
+        let fixture = makeProject(locked: false)
+        let editor = EditorModel(project: fixture.project)
+        let overlay = makeOverlay(scale: 0)
+        let mediaItem = Project.MediaItem(
+            type: .image,
+            path: "image.png",
+            name: "Image",
+            timelineIn: 0,
+            duration: 2
+        )
+
+        assertInvalidClip(await editor.addOverlay(
+            projectId: fixture.project.projectId,
+            overlay: overlay
+        ))
+        assertInvalidClip(await editor.addMediaItem(Project.MediaItem(
+            type: .image,
+            path: "image.png",
+            name: "Invalid",
+            timelineIn: 0,
+            duration: .nan
+        )))
+        _ = await editor.addMediaItem(mediaItem)
+        let afterValidAdd = await editor.getProject()
+        assertInvalidClip(await editor.updateMediaItem(id: mediaItem.id, opacity: 2))
+        guard case .failure(.invalidRange) = await editor.deleteRange(from: -1, to: 1) else {
+            return XCTFail("Expected invalidRange")
+        }
+        let unchanged = await editor.getProject()
+        XCTAssertEqual(unchanged, afterValidAdd)
+    }
+
+    func testOverlayCandidateValidationPreventsPartialUpdate() async {
+        let fixture = makeProject(locked: false)
+        var project = fixture.project
+        let overlay = makeOverlay()
+        project.overlays = [overlay]
+        let editor = EditorModel(project: project)
+
+        assertInvalidClip(await editor.updateOverlay(
+            projectId: project.projectId,
+            overlayId: overlay.id,
+            transform: Project.Overlay.Transform(x: .nan, y: 0.5, scale: 1),
+            start: 1
+        ))
+        let unchanged = await editor.getProject()
+        XCTAssertEqual(unchanged, project)
+    }
+
     private func assertTrackLocked(
         _ result: EditorResult,
         trackId: UUID,
@@ -263,5 +313,22 @@ final class EditorModelInvariantTests: XCTestCase {
             canvas: canvas
         )
         return (project, clip, lockedTrack.id, unlockedTrack.id)
+    }
+
+    private func makeOverlay(scale: Double = 1) -> Project.Overlay {
+        Project.Overlay(
+            id: UUID(),
+            type: .text,
+            start: 0,
+            end: 2,
+            transform: Project.Overlay.Transform(x: 0.5, y: 0.5, scale: scale),
+            style: Project.Overlay.Style(
+                stroke: "#FFFFFF",
+                strokeWidth: 0,
+                shadow: false,
+                text: "Title"
+            ),
+            animation: .fadeIn
+        )
     }
 }

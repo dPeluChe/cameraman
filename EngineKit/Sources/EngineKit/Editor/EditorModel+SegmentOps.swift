@@ -189,7 +189,7 @@ extension EditorModel {
     /// the range are removed, clips overlapping it are trimmed/split, and clips
     /// after it shift left so all tracks stay in sync.
     public func deleteRange(from startTime: TimeInterval, to endTime: TimeInterval) async -> EditorResult {
-        guard startTime < endTime else {
+        guard startTime.isFinite, endTime.isFinite, startTime >= 0, startTime < endTime else {
             return .failure(.invalidRange(start: startTime, end: endTime))
         }
 
@@ -249,6 +249,15 @@ extension EditorModel {
     // MARK: - Overlay Operations
 
     /// Update an overlay's transform, style, or timing
+    public func addOverlay(projectId: ProjectId, overlay: Project.Overlay) async -> EditorResult {
+        if let error = EditorValidation.validateOverlay(overlay, timelineDuration: projectRef.timeline.duration) {
+            return .failure(error)
+        }
+        projectRef.overlays.append(overlay)
+        projectRef.updatedAt = Date()
+        return .success(projectRef)
+    }
+
     public func updateOverlay(
         projectId: ProjectId,
         overlayId: UUID,
@@ -270,12 +279,8 @@ extension EditorModel {
         if let newEnd = end { overlay.end = newEnd }
         if let newAnimation = animation { overlay.animation = newAnimation }
 
-        guard overlay.start < overlay.end else {
-            return .failure(.invalidTrimTime(sourceIn: overlay.start, sourceOut: overlay.end, reason: "Start time must be less than end time"))
-        }
-
-        guard overlay.start >= 0 && overlay.end <= projectRef.timeline.duration else {
-            return .failure(.invalidTrimTime(sourceIn: overlay.start, sourceOut: overlay.end, reason: "Overlay timing must be within timeline duration"))
+        if let error = EditorValidation.validateOverlay(overlay, timelineDuration: projectRef.timeline.duration) {
+            return .failure(error)
         }
 
         updateOverlayInProject(index: index, overlay: overlay)
@@ -301,7 +306,11 @@ extension EditorModel {
 
     /// Add an imported media item to the project
     public func addMediaItem(_ item: Project.MediaItem) async -> EditorResult {
+        if let error = EditorValidation.validateMediaItem(item) {
+            return .failure(error)
+        }
         appendMediaItem(item)
+        recalculateTimelineDuration()
         return .successWithInfo(projectRef, .mediaItemAdded(mediaItemId: item.id))
     }
 
@@ -329,12 +338,20 @@ extension EditorModel {
             return .failure(.mediaItemNotFound(id.uuidString))
         }
 
-        updateMediaItemInProject(
-            index: index,
-            timelineIn: timelineIn, duration: duration,
-            volume: volume, opacity: opacity,
-            position: position, isMuted: isMuted, name: name
-        )
+        var candidate = projectRef.mediaItems[index]
+        if let timelineIn { candidate.timelineIn = timelineIn }
+        if let duration { candidate.duration = duration }
+        if let volume { candidate.volume = volume }
+        if let opacity { candidate.opacity = opacity }
+        if let position { candidate.position = position }
+        if let isMuted { candidate.isMuted = isMuted }
+        if let name { candidate.name = name }
+        if let error = EditorValidation.validateMediaItem(candidate) {
+            return .failure(error)
+        }
+        projectRef.mediaItems[index] = candidate
+        projectRef.updatedAt = Date()
+        recalculateTimelineDuration()
 
         return .success(projectRef)
     }

@@ -115,6 +115,80 @@ public enum EditorValidation {
         return nil
     }
 
+    public static func validateOverlay(
+        _ overlay: Project.Overlay,
+        timelineDuration: TimeInterval
+    ) -> EditorError? {
+        guard timelineDuration.isFinite, timelineDuration >= 0,
+              overlay.start.isFinite, overlay.end.isFinite,
+              overlay.start >= 0, overlay.start < overlay.end,
+              overlay.end <= timelineDuration else {
+            return invalid("overlay timing must be finite, non-empty, and inside the timeline")
+        }
+        let transform = overlay.transform
+        guard [transform.x, transform.y, transform.scale, transform.rotation].allSatisfy(\.isFinite),
+              transform.scale > 0 else {
+            return invalid("overlay transform must be finite with a positive scale")
+        }
+        let style = overlay.style
+        guard style.strokeWidth.isFinite, style.strokeWidth >= 0 else {
+            return invalid("overlay stroke width must be finite and non-negative")
+        }
+        if let size = style.size, (!size.isFinite || size <= 0) {
+            return invalid("overlay font size must be finite and greater than zero")
+        }
+        if let opacity = style.imageOpacity, !isUnitValue(opacity) {
+            return invalid("overlay image opacity must be finite and between 0 and 1")
+        }
+        if overlay.type == .text,
+           style.text?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
+            return invalid("text overlays require non-empty text")
+        }
+        if overlay.type == .image,
+           style.imagePath?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
+            return invalid("image overlays require a non-empty image path")
+        }
+        if let animation = overlay.animation {
+            let values = [animation.fadeInDuration, animation.fadeOutDuration]
+            guard values.allSatisfy({ $0.isFinite && $0 >= 0 }) else {
+                return invalid("overlay animation durations must be finite and non-negative")
+            }
+            if let drawOn = animation.drawOnDuration,
+               (!drawOn.isFinite || drawOn < 0) {
+                return invalid("overlay draw-on duration must be finite and non-negative")
+            }
+            let duration = overlay.end - overlay.start
+            switch animation.type {
+            case .fadeIn where animation.fadeInDuration > duration,
+                 .fadeOut where animation.fadeOutDuration > duration,
+                 .fadeInOut where animation.fadeInDuration + animation.fadeOutDuration > duration,
+                 .drawOn where (animation.drawOnDuration ?? 0) > duration:
+                return invalid("overlay animation exceeds the overlay duration")
+            default:
+                break
+            }
+        }
+        return nil
+    }
+
+    public static func validateMediaItem(_ item: Project.MediaItem) -> EditorError? {
+        guard !item.path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return invalid("media item path must not be empty")
+        }
+        guard item.timelineIn.isFinite, item.timelineIn >= 0,
+              item.duration.isFinite, item.duration > 0,
+              item.timelineOut.isFinite else {
+            return invalid("media item timing must be finite, non-negative, and non-empty")
+        }
+        guard isUnitValue(item.volume), isUnitValue(item.opacity) else {
+            return invalid("media item volume and opacity must be finite and between 0 and 1")
+        }
+        if let position = item.position, let error = validatePosition(position) {
+            return error
+        }
+        return nil
+    }
+
     private static func validatePosition(_ position: Project.MediaPosition) -> EditorError? {
         let values = [position.x, position.y, position.w, position.h]
         guard values.allSatisfy(\.isFinite),
