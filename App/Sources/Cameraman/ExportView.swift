@@ -168,6 +168,19 @@ struct ExportView: View {
 
             Divider()
 
+            VStack(alignment: .leading, spacing: 8) {
+                Toggle("Ayudar a promocionar Cameraman", isOn: $viewModel.includeCameramanWatermark)
+                    .toggleStyle(.checkbox)
+
+                Text(viewModel.includeCameramanWatermark
+                    ? "Añade discretamente el icono y la página del proyecto al video final."
+                    : "Sin marca. Prometo recomendar Cameraman, darle RT o invitarle un café ☕️")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Divider()
+
             VStack(alignment: .leading, spacing: 12) {
                 Text("Destination")
                     .font(.headline)
