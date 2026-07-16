@@ -70,16 +70,19 @@ final class ExportEngineTests: XCTestCase {
         XCTAssertFalse(defaultOptions.burnCaptions)
         XCTAssertTrue(defaultOptions.includeCursorHighlight)
         XCTAssertNil(defaultOptions.outputFilename)
+        XCTAssertFalse(defaultOptions.includeCameramanWatermark)
 
         // Test custom options
         let customOptions = ExportOptions(
             burnCaptions: true,
             includeCursorHighlight: false,
-            outputFilename: "custom_export.mp4"
+            outputFilename: "custom_export.mp4",
+            includeCameramanWatermark: true
         )
         XCTAssertTrue(customOptions.burnCaptions)
         XCTAssertFalse(customOptions.includeCursorHighlight)
         XCTAssertEqual(customOptions.outputFilename, "custom_export.mp4")
+        XCTAssertTrue(customOptions.includeCameramanWatermark)
     }
 
     // MARK: - Error Tests
