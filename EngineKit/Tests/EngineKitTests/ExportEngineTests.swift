@@ -98,6 +98,27 @@ final class ExportEngineTests: XCTestCase {
         XCTAssertEqual(urlLayer.string as? String, "github.com/dPeluChe/cameraman")
     }
 
+    func testCameramanWatermarkCanBeAppliedToGIFFrames() async throws {
+        let context = try XCTUnwrap(CGContext(
+            data: nil,
+            width: 800,
+            height: 450,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ))
+        context.setFillColor(NSColor.white.cgColor)
+        context.fill(CGRect(x: 0, y: 0, width: 800, height: 450))
+        let frame = try XCTUnwrap(context.makeImage())
+
+        let watermarked = await exportEngine.applyCameramanWatermark(to: [frame])
+
+        XCTAssertEqual(watermarked.count, 1)
+        XCTAssertEqual(watermarked[0].width, 800)
+        XCTAssertEqual(watermarked[0].height, 450)
+    }
+
     // MARK: - Error Tests
 
     func testExportErrors() {
