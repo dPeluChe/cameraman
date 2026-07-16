@@ -85,6 +85,19 @@ final class ExportEngineTests: XCTestCase {
         XCTAssertTrue(customOptions.includeCameramanWatermark)
     }
 
+    func testCameramanWatermarkUsesSafeBottomRightPlacement() async throws {
+        let layer = await exportEngine.buildCameramanWatermarkLayer(
+            renderSize: CGSize(width: 1920, height: 1080)
+        )
+
+        XCTAssertEqual(layer.name, "cameraman-watermark")
+        XCTAssertGreaterThan(layer.frame.minX, 960)
+        XCTAssertGreaterThan(layer.frame.minY, 0)
+        XCTAssertLessThanOrEqual(layer.frame.maxX, 1920)
+        let urlLayer = try XCTUnwrap(layer.sublayers?.first { $0.name == "cameraman-watermark-url" } as? CATextLayer)
+        XCTAssertEqual(urlLayer.string as? String, "github.com/dPeluChe/cameraman")
+    }
+
     // MARK: - Error Tests
 
     func testExportErrors() {

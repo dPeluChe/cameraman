@@ -137,7 +137,8 @@ extension ExportEngine {
         projectId: ProjectId,
         renderSize: CoreFoundation.CGSize,
         compositionDuration: CMTime,
-        burnCaptions: Bool
+        burnCaptions: Bool,
+        includeCameramanWatermark: Bool = false
     ) async throws -> AVVideoCompositionCoreAnimationTool? {
         let hasCaptions = burnCaptions && project.captions != nil
         let hasImageOverlays = !project.mediaItems.filter { $0.type == .image }.isEmpty
@@ -145,7 +146,7 @@ extension ExportEngine {
         let shapeOverlays = project.overlays + project.subtitles
         let hasShapeOverlays = !shapeOverlays.isEmpty
 
-        guard hasCaptions || hasImageOverlays || hasShapeOverlays else {
+        guard hasCaptions || hasImageOverlays || hasShapeOverlays || includeCameramanWatermark else {
             return nil
         }
 
@@ -217,13 +218,71 @@ extension ExportEngine {
             }
         }
 
+        if includeCameramanWatermark {
+            parentLayer.addSublayer(await buildCameramanWatermarkLayer(renderSize: renderSize))
+        }
+
         let animationTool = AVVideoCompositionCoreAnimationTool(
             postProcessingAsVideoLayer: videoLayer,
             in: parentLayer
         )
 
-        logger.debug("Combined overlay layer created (captions: \(hasCaptions), images: \(hasImageOverlays), shapes: \(hasShapeOverlays))")
+        logger.debug("Combined overlay layer created (captions: \(hasCaptions), images: \(hasImageOverlays), shapes: \(hasShapeOverlays), watermark: \(includeCameramanWatermark))")
         return animationTool
+    }
+
+    func buildCameramanWatermarkLayer(renderSize: CGSize) async -> CALayer {
+        let scale = max(0.65, min(2.0, renderSize.height / 1080))
+        let padding = 12 * scale
+        let iconSize = 44 * scale
+        let fontSize = 20 * scale
+        let width = min(renderSize.width * 0.62, 365 * scale)
+        let height = iconSize + padding * 2
+        let margin = max(18, renderSize.height * 0.03)
+
+        let badge = CALayer()
+        badge.name = "cameraman-watermark"
+        badge.frame = CGRect(
+            x: max(margin, renderSize.width - width - margin),
+            y: margin,
+            width: width,
+            height: height
+        )
+        badge.backgroundColor = NSColor.black.withAlphaComponent(0.62).cgColor
+        badge.cornerRadius = height * 0.24
+        badge.opacity = 0.82
+
+        let icon = CALayer()
+        icon.name = "cameraman-watermark-icon"
+        icon.frame = CGRect(x: padding, y: padding, width: iconSize, height: iconSize)
+        icon.contentsGravity = .resizeAspect
+        icon.cornerRadius = iconSize * 0.18
+        icon.masksToBounds = true
+        icon.contents = await MainActor.run { () -> CGImage? in
+            guard let image = NSApplication.shared.applicationIconImage else { return nil }
+            var rect = CGRect(origin: .zero, size: image.size)
+            return image.cgImage(forProposedRect: &rect, context: nil, hints: nil)
+        }
+        badge.addSublayer(icon)
+
+        let label = CATextLayer()
+        label.name = "cameraman-watermark-url"
+        label.string = "github.com/dPeluChe/cameraman"
+        label.font = NSFont.systemFont(ofSize: fontSize, weight: .medium)
+        label.fontSize = fontSize
+        label.foregroundColor = NSColor.white.cgColor
+        label.alignmentMode = .left
+        label.contentsScale = 2
+        label.truncationMode = .end
+        label.frame = CGRect(
+            x: padding * 2 + iconSize,
+            y: (height - fontSize * 1.25) / 2,
+            width: max(1, width - iconSize - padding * 3),
+            height: fontSize * 1.25
+        )
+        badge.addSublayer(label)
+
+        return badge
     }
 
     // MARK: - Shape Overlays
