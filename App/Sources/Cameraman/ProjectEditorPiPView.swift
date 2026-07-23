@@ -23,24 +23,35 @@ struct PiPConfigurationView: View {
         return editor.project.timeline.segments.first(where: { $0.id == segId })?.cameraPosition != nil
     }
 
-    /// The active camera to display/edit
+    /// The active camera to display/edit. With no segment selected, a per-clip
+    /// override (what the compositor actually renders) wins over the project
+    /// camera — otherwise the canvas shows a position the video ignores.
     private var activeCamera: Project.Canvas.Layout.CameraPosition? {
         if let segId = selectedSegmentId,
            let segCam = editor.project.timeline.segments.first(where: { $0.id == segId })?.cameraPosition {
             return segCam
         }
+        if let clipCam = editor.project.timeline.segments.compactMap(\.cameraPosition).first {
+            return clipCam
+        }
         return editor.project.canvas.layout.camera
     }
 
-    /// Unified update: routes to segment or project camera
+    /// Unified update: routes to segment or project camera. A project-wide edit
+    /// clears per-clip overrides first — they shadow the project camera in the
+    /// compositor, so leaving them would make the edit invisible.
     private func updateCamera(_ camera: Project.Canvas.Layout.CameraPosition, recordUndo: Bool = false) {
         Task {
             if let segId = selectedSegmentId {
                 _ = await editor.updateSegmentCameraPosition(segmentId: segId, camera: camera)
-            } else if recordUndo {
-                _ = await editor.updateCameraPosition(camera, recordUndoFrom: editor.project)
             } else {
-                _ = await editor.updateCameraPosition(camera)
+                let snapshot = editor.project
+                await editor.clearPerClipCameraOverrides()
+                if recordUndo {
+                    _ = await editor.updateCameraPosition(camera, recordUndoFrom: snapshot)
+                } else {
+                    _ = await editor.updateCameraPosition(camera)
+                }
             }
         }
     }
@@ -273,10 +284,15 @@ struct PiPCanvasEditor: View {
             if let segId = selectedSegmentId {
                 // Auto-create per-segment override when dragging with segment selected
                 _ = await editor.updateSegmentCameraPosition(segmentId: segId, camera: cam)
-            } else if recordUndo, let snapshot {
-                _ = await editor.updateCameraPosition(cam, recordUndoFrom: snapshot)
             } else {
-                _ = await editor.updateCameraPosition(cam)
+                // Project-wide commit: per-clip overrides shadow the project
+                // camera in the compositor, so clear them or the move is invisible.
+                await editor.clearPerClipCameraOverrides()
+                if recordUndo, let snapshot {
+                    _ = await editor.updateCameraPosition(cam, recordUndoFrom: snapshot)
+                } else {
+                    _ = await editor.updateCameraPosition(cam)
+                }
             }
         }
     }

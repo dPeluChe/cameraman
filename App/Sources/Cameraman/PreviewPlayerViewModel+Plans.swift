@@ -89,6 +89,11 @@ extension PreviewPlayerViewModel {
             temp.timeline.segments[idx].cameraPosition = camera
         } else {
             temp.canvas.layout.camera = camera
+            // Mirror the commit path: per-clip overrides shadow the project
+            // camera in the compositor, so the live draft must drop them too.
+            for idx in temp.timeline.segments.indices where temp.timeline.segments[idx].cameraPosition != nil {
+                temp.timeline.segments[idx].cameraPosition = nil
+            }
         }
         Task { try? await engine.updateProject(temp) }
     }
