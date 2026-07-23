@@ -27,50 +27,16 @@ extension OverlayEditorView {
     }
 
     func openImagePickerForOverlay() {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = true
-        panel.canChooseDirectories = false
-        panel.allowsMultipleSelection = false
-        panel.message = "Select an image, SVG, or GIF to add as overlay"
-        // .image as content type covers PNG, JPEG, HEIC, GIF and many more.
-        // SVG (public.svg-image) isn't a child of .image on macOS so add it
-        // explicitly.
-        panel.allowedContentTypes = [.image, .svg, .gif]
-        panel.begin { response in
-            guard response == .OK, let url = panel.url else { return }
-            Task { @MainActor in
-                addImageOverlayAtPlayhead(imagePath: url.path)
-            }
+        OverlayFactory.presentImagePicker { path in
+            addImageOverlayAtPlayhead(imagePath: path)
         }
     }
 
     func addImageOverlayAtPlayhead(imagePath: String) {
-        let start = playheadTime
-        let remaining = editor.project.timeline.duration - start
-        let duration = max(0.5, min(2.0, remaining))
-        let end = start + duration
-        let fadeDuration = min(0.3, duration / 4)
-
-        let overlay = Project.Overlay(
-            id: UUID(),
-            type: .image,
-            start: start,
-            end: end,
-            // Center the image at (0.5, 0.5) in renderer convention — visually
-            // dead-center of the preview canvas.
-            transform: Project.Overlay.Transform(x: 0.5, y: 0.5, scale: 1.0),
-            style: Project.Overlay.Style(
-                stroke: "#FFFFFF",
-                strokeWidth: 0,
-                shadow: false,
-                imagePath: imagePath,
-                imageOpacity: 1.0
-            ),
-            animation: Project.Overlay.Animation(
-                type: .fadeInOut,
-                fadeInDuration: fadeDuration,
-                fadeOutDuration: fadeDuration
-            )
+        let overlay = OverlayFactory.imageOverlay(
+            imagePath: imagePath,
+            at: playheadTime,
+            timelineDuration: editor.project.timeline.duration
         )
         Task {
             _ = await editor.addOverlay(projectId: editor.project.projectId, overlay: overlay)
@@ -79,42 +45,10 @@ extension OverlayEditorView {
     }
 
     func addOverlayAtPlayhead(type: Project.Overlay.OverlayType) {
-        let start = playheadTime
-        // Default to 2s window — user can drag the timeline clip to extend.
-        // Cap to remaining timeline; if remaining is tiny, fall back to whatever
-        // fits (down to a 0.5s minimum) to avoid the "end ≤ start" validation
-        // error when adding near the end.
-        let remaining = editor.project.timeline.duration - start
-        let defaultDuration: TimeInterval = 2.0
-        let duration = max(0.5, min(defaultDuration, remaining))
-        let end = start + duration
-
-        let transform = Project.Overlay.Transform(x: 0.3, y: 0.3, scale: 1.0)
-        let style = Project.Overlay.Style(
-            stroke: "#FF3B30",
-            strokeWidth: 3.0,
-            shadow: true,
-            text: type == .text ? "Text" : nil
-        )
-        // fadeInOut by default — user expectation is "the overlay fades in,
-        // shows, fades out" within its timeline window. The previous default
-        // of `nil` rendered hard cuts. Fade durations capped to ¼ of overlay
-        // duration each, max 0.3s, so they never overlap or exceed.
-        let fadeDuration = min(0.3, duration / 4)
-        let animation = Project.Overlay.Animation(
-            type: .fadeInOut,
-            fadeInDuration: fadeDuration,
-            fadeOutDuration: fadeDuration
-        )
-
-        let overlay = Project.Overlay(
-            id: UUID(),
+        let overlay = OverlayFactory.shapeOverlay(
             type: type,
-            start: start,
-            end: end,
-            transform: transform,
-            style: style,
-            animation: animation
+            at: playheadTime,
+            timelineDuration: editor.project.timeline.duration
         )
         Task {
             _ = await editor.addOverlay(projectId: editor.project.projectId, overlay: overlay)

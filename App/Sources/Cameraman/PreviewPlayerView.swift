@@ -103,6 +103,9 @@ struct PreviewPlayerView: View {
             }
             .aspectRatio(CoreGraphics.CGFloat(viewModel.aspectRatio), contentMode: .fit)
             .frame(maxWidth: .infinity)
+            .contextMenu {
+                previewContextMenu
+            }
 
             // Playback controls
             PlaybackControlsView(viewModel: viewModel)
@@ -168,33 +171,13 @@ struct PreviewPlayerView: View {
     }
 
     @MainActor
-    private func createImageOverlay(at position: (x: Double, y: Double), imagePath: String) {
-        let start = viewModel.currentTime
-        let remaining = editor.project.timeline.duration - start
-        let duration = max(0.5, min(2.0, remaining))
-        let end = start + duration
-        let fadeDuration = min(0.3, duration / 4)
-
-        let overlay = Project.Overlay(
-            id: UUID(),
-            type: .image,
-            start: start,
-            end: end,
-            transform: Project.Overlay.Transform(x: position.x, y: position.y, scale: 1.0),
-            style: Project.Overlay.Style(
-                stroke: "#FFFFFF",
-                strokeWidth: 0,
-                shadow: false,
-                imagePath: imagePath,
-                imageOpacity: 1.0
-            ),
-            animation: Project.Overlay.Animation(
-                type: .fadeInOut,
-                fadeInDuration: fadeDuration,
-                fadeOutDuration: fadeDuration
-            )
+    func createImageOverlay(at position: (x: Double, y: Double), imagePath: String) {
+        let overlay = OverlayFactory.imageOverlay(
+            imagePath: imagePath,
+            at: viewModel.currentTime,
+            timelineDuration: editor.project.timeline.duration,
+            position: position
         )
-
         Task {
             _ = await editor.addOverlay(projectId: editor.project.projectId, overlay: overlay)
             await MainActor.run { selectedOverlayId?.wrappedValue = overlay.id }

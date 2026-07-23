@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Preview context menu** — right-click on the video preview to add
+  properties at the playhead: text/arrow/rectangle/line/image overlays and
+  manual zoom keyframes, plus a **Configure** submenu that opens the matching
+  tool in the inspector.
+- **Glass sidebar** — the projects sidebar adopts Apple's Liquid Glass on
+  macOS 26+ (when built with the macOS 26 SDK) and falls back to the classic
+  translucent sidebar material on macOS 13–15 (`Theme/GlassEffect.swift`).
 - **Manual zoom keyframes** — users can place zoom in/out keyframes at
   specific timestamps via the right-panel "Manual Zoom" section or by
   clicking the preview with click-to-focus mode. Keyframes merge with
@@ -45,6 +52,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (**42 → 43 tools**).
 
 ### Changed
+- **Inspector redesigned as a tools grid** — the right panel's stacked
+  disclosure rows are now a 3-column grid of tool tiles (icon + title).
+  Tapping a tile expands its controls below that row; tiles show a count
+  badge for elements in use (overlays, subtitles, media, effects, zoom
+  keyframes) or an accent dot for active on/off features (camera, cursor,
+  styled background, captions).
 - **Auto-zoom enabled by default** — `FeatureFlags.autoZoom` now defaults
   to `true`; the dead `!FeatureFlags.autoZoom` branch was removed from
   the timeline suggestion UI.

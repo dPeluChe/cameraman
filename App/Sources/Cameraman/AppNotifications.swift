@@ -18,4 +18,7 @@ extension Notification.Name {
     static let openTranscriptionModal = Notification.Name("openTranscriptionModal")
     /// Notification posted to open the AI suggestions modal in the current editor
     static let openAISuggestions = Notification.Name("openAISuggestions")
+    /// Notification posted to select/expand a tool in the editor right panel.
+    /// Object is the `EditorTool.rawValue` string.
+    static let selectEditorTool = Notification.Name("selectEditorTool")
 }

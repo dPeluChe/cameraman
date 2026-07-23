@@ -9,7 +9,10 @@
 //    - TimelineView+DragDrop.swift     (playhead drag, drop, import, trim)
 //    - TimelineView+EditActions.swift  (split/delete/undo/redo/volume)
 //    - TimelineView+ZoomSuggestions.swift (zoom suggestion workflow)
-//    - TimelineView+Subviews.swift     (track rows, segment views)
+//    - TimelineView+Toolbar.swift      (toolbar row, segment inspector)
+//    - TimelineView+Tracks.swift       (track content, pinned labels)
+//    - TimelineView+Subviews.swift     (playhead, trim handles, markers)
+//    - TimelineTrackRow.swift          (single track row rendering)
 //
 
 import SwiftUI
@@ -50,7 +53,7 @@ struct TimelineView: View {
     @State var isGeneratingSuggestions = false
     @State var selectedManualKeyframeId: UUID?
     @State var showVoiceoverPanel = false
-    @StateObject private var voiceoverVM = VoiceoverRecordingViewModel()
+    @StateObject var voiceoverVM = VoiceoverRecordingViewModel()
     @State var thumbnailTask: Task<Void, Never>?
 
     @State var thumbnailCache: ThumbnailCache?
@@ -85,7 +88,7 @@ struct TimelineView: View {
         )
     }
 
-    private var canZoomIn: Bool {
+    var canZoomIn: Bool {
         currentLayout.pixelsPerSecond < max(fitPPS, maxPixelsPerSecond) - 0.5
     }
 
@@ -168,171 +171,6 @@ struct TimelineView: View {
         }
     }
 
-    // MARK: - Toolbar
-
-    @ViewBuilder
-    private var timelineToolbar: some View {
-        HStack(spacing: 12) {
-            Text("Timeline")
-                .font(.headline)
-
-            Spacer()
-
-            Button("Undo") { undoEdit() }
-                .keyboardShortcut("z", modifiers: [.command])
-                .disabled(!editor.canUndo)
-
-            Button("Redo") { redoEdit() }
-                .keyboardShortcut("z", modifiers: [.command, .shift])
-                .disabled(!editor.canRedo)
-
-            Button("Split") { splitAtPlayhead() }
-                .keyboardShortcut("b", modifiers: [.command])
-                .disabled(!canSplitAtPlayhead)
-
-            Button("Delete") { deleteSelectedSegment() }
-                .keyboardShortcut(.delete, modifiers: [])
-                .disabled(selectedSegmentId == nil)
-
-            zoomSuggestionButtons
-            importAndViewToggles
-            zoomScaleControls
-        }
-    }
-
-    @ViewBuilder
-    private var zoomSuggestionButtons: some View {
-        if !zoomSuggestions.isEmpty {
-            Button {
-                applyZoomSuggestions()
-            } label: {
-                Label("Apply (\(activeSuggestions.count)/\(zoomSuggestions.count))", systemImage: "checkmark.circle")
-            }
-            .disabled(activeSuggestions.isEmpty)
-            .help("Apply selected zoom suggestions as keyframes")
-
-            Button {
-                zoomSuggestions = []
-                dismissedSuggestionIds = []
-            } label: {
-                Image(systemName: "xmark.circle")
-            }
-            .buttonStyle(.borderless)
-            .help("Dismiss all zoom suggestions")
-        } else {
-            Button {
-                generateZoomSuggestions()
-            } label: {
-                Label("Suggest Zooms", systemImage: "sparkle.magnifyingglass")
-            }
-            .disabled(isGeneratingSuggestions || !hasCursorTelemetry)
-            .help(hasCursorTelemetry ? "Detect zoom points from cursor telemetry" : "No cursor telemetry available")
-        }
-    }
-
-    @ViewBuilder
-    private var importAndViewToggles: some View {
-        Button {
-            showImportPanel = true
-        } label: {
-            Label("Import", systemImage: "plus.circle")
-        }
-        .help("Import video, audio or image asset")
-
-        Button {
-            if showVoiceoverPanel {
-                Task { await voiceoverVM.cancelRecording() }
-                showVoiceoverPanel = false
-            } else {
-                voiceoverVM.editor = editor
-                voiceoverVM.playerViewModel = playerViewModel
-                voiceoverVM.projectDirectory = projectDirectory
-                showVoiceoverPanel = true
-            }
-        } label: {
-            Label("Voiceover", systemImage: "mic.circle")
-        }
-        .help("Record voiceover narration at playhead")
-
-        Menu {
-            Toggle("Thumbnails", isOn: $showThumbnails)
-                .disabled(thumbnailCache == nil)
-            Toggle("Waveforms", isOn: $showWaveforms)
-                .disabled(thumbnailCache == nil || waveforms.isEmpty)
-            Divider()
-            Toggle("Zoom Plan", isOn: $playerViewModel.showZoom)
-            Divider()
-            Toggle("Cursor", isOn: $playerViewModel.showCursor)
-            Toggle("Clicks", isOn: $playerViewModel.showClicks)
-            Toggle("Keystrokes", isOn: $playerViewModel.showKeystrokes)
-        } label: {
-            Label("View", systemImage: "eye")
-        }
-        .menuStyle(.borderlessButton)
-        .fixedSize()
-        .help("Timeline and preview visibility options")
-    }
-
-    @ViewBuilder
-    private var zoomScaleControls: some View {
-        Button {
-            zoomScale = max(1, zoomScale / 2)
-        } label: {
-            Image(systemName: "minus.magnifyingglass")
-        }
-        .buttonStyle(.borderless)
-        .disabled(zoomScale <= 1.001)
-        .help("Zoom out (100% = whole timeline)")
-
-        Button("Fit") {
-            zoomScale = 1
-        }
-        .buttonStyle(.borderless)
-        .font(.caption)
-        .disabled(zoomScale <= 1.001)
-        .help("Fit the whole timeline in view")
-
-        Text("\(Int(zoomScale * 100))%")
-            .font(.caption)
-            .foregroundStyle(.secondary)
-
-        Button {
-            zoomScale = zoomScale * 2
-        } label: {
-            Image(systemName: "plus.magnifyingglass")
-        }
-        .buttonStyle(.borderless)
-        .disabled(!canZoomIn)
-    }
-
-    // MARK: - Segment Inspector
-
-    @ViewBuilder
-    private var segmentInspector: some View {
-        if let segId = selectedSegmentId,
-           let segment = project.timeline.segments.first(where: { $0.id == segId }) {
-            SegmentInspectorBar(
-                segment: segment,
-                projectCamera: project.canvas.layout.camera,
-                onSpeedChange: { speed in
-                    Task { await editor.updateSegmentSpeed(segmentId: segId, speed: speed) }
-                },
-                onCameraOverride: {
-                    let camera = segment.cameraPosition ?? project.canvas.layout.camera
-                    Task { await editor.updateSegmentCameraPosition(segmentId: segId, camera: camera) }
-                },
-                onCameraReset: {
-                    Task { await editor.updateSegmentCameraPosition(segmentId: segId, camera: nil) }
-                },
-                onVolumeChange: { vol in
-                    Task { await editor.updateSegmentVolume(segmentId: segId, volume: vol) }
-                },
-                onMuteToggle: { muted in
-                    Task { await editor.updateSegmentAudioMuted(segmentId: segId, muted: muted) }
-                }
-            )
-        }
-    }
 
     // MARK: - Scroll Content
 
@@ -439,159 +277,4 @@ struct TimelineView: View {
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
-    /// The pinned label column rendered above the horizontal scroll view.
-    private func fixedTrackLabels(tracks: [TimelineTrack]) -> some View {
-        VStack(alignment: .leading, spacing: trackSpacing) {
-            ForEach(tracks) { track in
-                if track.kind == .overlay {
-                    let overlayRows = Self.computeOverlayRows(overlays: track.overlays)
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(Array(overlayRows.enumerated()), id: \.element.id) { index, _ in
-                            Text(overlayRows.count > 1 ? "Overlay \(index + 1)" : "Overlays")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                                .padding(.leading, 6)
-                                .frame(height: trackHeight, alignment: .leading)
-                        }
-                    }
-                } else if track.kind == .subtitle {
-                    let hidden = mutedTracks.contains(.subtitle)
-                    Button {
-                        if hidden { mutedTracks.remove(.subtitle) } else { mutedTracks.insert(.subtitle) }
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: hidden ? "eye.slash" : "eye")
-                                .foregroundStyle(.secondary)
-                            Text("Subtitles")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .help(hidden ? "Show subtitles in the preview" : "Hide subtitles in the preview")
-                    .padding(.leading, 6)
-                    .frame(height: trackHeight)
-                } else {
-                    TimelineTrackLabelView(
-                        track: track,
-                        isMuted: track.engineTrackId != nil ? track.engineMuted : mutedTracks.contains(track.kind),
-                        volumeBinding: volumeBinding(for: track.kind),
-                        onToggleMute: {
-                            if let trackId = track.engineTrackId {
-                                let muted = track.engineMuted
-                                Task { _ = await editor.setTrackMuted(trackId: trackId, muted: !muted) }
-                            } else if mutedTracks.contains(track.kind) {
-                                mutedTracks.remove(track.kind)
-                            } else {
-                                mutedTracks.insert(track.kind)
-                            }
-                        }
-                    )
-                    .padding(.leading, 6)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .frame(height: trackHeight)
-                    .contentShape(Rectangle())
-                    .contextMenu {
-                        if let trackId = track.engineTrackId {
-                            Button("Move Row Up") {
-                                Task { _ = await editor.moveVideoTrack(trackId: trackId, up: true) }
-                            }
-                            Button("Move Row Down") {
-                                Task { _ = await editor.moveVideoTrack(trackId: trackId, up: false) }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        .padding(.top, TimelineRulerView.rulerHeight + 2)
-        .padding(.vertical, 4)
-        .frame(width: labelWidth + 6, alignment: .leading)
-        .background(Color(nsColor: .windowBackgroundColor))
-        .overlay(alignment: .trailing) {
-            Rectangle()
-                .fill(Color.primary.opacity(0.12))
-                .frame(width: 1)
-        }
-    }
-
-    private func timelineTracks(layout: TimelineLayout, tracks: [TimelineTrack]) -> some View {
-        let allTracks = tracks
-        return VStack(alignment: .leading, spacing: trackSpacing) {
-            ForEach(allTracks) { track in
-                if track.kind == .overlay {
-                    let overlayRows = Self.computeOverlayRows(overlays: track.overlays)
-                    VStack(spacing: 4) {
-                        ForEach(Array(overlayRows.enumerated()), id: \.element.id) { index, row in
-                            TimelineOverlayTrackRow(
-                                editor: editor,
-                                overlays: row.overlays,
-                                layout: layout,
-                                height: trackHeight,
-                                selectedOverlayId: $selectedOverlayId,
-                                onOverlayDragged: { overlayId, deltaX in
-                                    let item = editor.project.overlays.first { $0.id == overlayId }
-                                    guard let item else { return }
-                                    let newStart = max(0, item.start + deltaX)
-                                    let duration = item.end - item.start
-                                    Task {
-                                        await editor.updateOverlay(
-                                            projectId: editor.project.projectId,
-                                            overlayId: overlayId,
-                                            start: newStart,
-                                            end: newStart + duration
-                                        )
-                                    }
-                                },
-                                onPopoverOpened: { startTime in
-                                    playerViewModel.seek(to: startTime)
-                                },
-                                rowLabel: overlayRows.count > 1 ? "Overlay \(index + 1)" : "Overlays",
-                                showsLabel: false
-                            )
-                            .frame(height: trackHeight)
-                        }
-                    }
-                    .frame(width: layout.contentWidth, alignment: .leading)
-                } else if track.kind == .subtitle {
-                    TimelineSubtitleTrackRow(
-                        cues: track.overlays,
-                        layout: layout,
-                        height: trackHeight,
-                        selectedOverlayId: $selectedOverlayId,
-                        onSeek: { time in playerViewModel.seek(to: time) },
-                        onMove: { id, deltaTime in
-                            guard let cue = editor.project.subtitles.first(where: { $0.id == id }) else { return }
-                            let duration = cue.end - cue.start
-                            let newStart = max(0, cue.start + deltaTime)
-                            Task { await editor.updateSubtitle(id: id, start: newStart, end: newStart + duration) }
-                        },
-                        onTrim: { id, edge, deltaTime in
-                            guard let cue = editor.project.subtitles.first(where: { $0.id == id }) else { return }
-                            switch edge {
-                            case .leading:
-                                let newStart = min(max(0, cue.start + deltaTime), cue.end - 0.2)
-                                Task { await editor.updateSubtitle(id: id, start: newStart) }
-                            case .trailing:
-                                let newEnd = max(cue.start + 0.2, cue.end + deltaTime)
-                                Task { await editor.updateSubtitle(id: id, end: newEnd) }
-                            }
-                        }
-                    )
-                    // Clamp height like the overlay rows: the row contains a
-                    // vertically-flexible Color.clear that would otherwise absorb
-                    // slack space and push the right-side tracks out of alignment
-                    // with the fixed label column.
-                    .frame(width: layout.contentWidth, height: trackHeight, alignment: .leading)
-                } else {
-                    timelineTrackContent(for: track, layout: layout)
-                        .frame(width: layout.contentWidth, alignment: .leading)
-                }
-            }
-        }
-    }
 }
