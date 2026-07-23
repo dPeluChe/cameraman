@@ -99,7 +99,7 @@ final class VoiceoverRecordingViewModel: ObservableObject {
             ) != nil else {
                 throw VoiceoverInsertionError.clipInsertionFailed
             }
-            await playerViewModel?.refreshPreview(with: editor.project)
+            playerViewModel?.refreshPreview(with: editor.project)
             outputFileURL = nil
             return true
         } catch {

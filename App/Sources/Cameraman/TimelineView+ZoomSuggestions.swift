@@ -108,7 +108,7 @@ struct ZoomSuggestionGenerator {
     private func prepareEvents(
         _ events: [TelemetryRecorder.Event]
     ) async -> (events: [TelemetryRecorder.Event], width: Double, height: Double) {
-        if let geometry = await resolveGeometry() {
+        if let geometry = resolveGeometry() {
             return (geometry.rebaseToCaptureSpace(events), geometry.rect.w, geometry.rect.h)
         }
         let dims = captureDimensions
@@ -187,7 +187,7 @@ struct ZoomSuggestionGenerator {
         // Suggestions carry normalized focus; the dims only shape the round-trip
         // through ClickWindow — they must match the space generate() used.
         let dims: (width: Double, height: Double)
-        if let geometry = await resolveGeometry() {
+        if let geometry = resolveGeometry() {
             dims = (geometry.rect.w, geometry.rect.h)
         } else {
             dims = captureDimensions

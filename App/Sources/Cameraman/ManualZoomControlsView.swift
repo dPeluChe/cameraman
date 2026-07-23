@@ -35,7 +35,7 @@ struct ManualZoomControlsView: View {
                 if !manualKeyframes.isEmpty {
                     Button(action: { Task {
                         await editor.clearAllManualZoomKeyframes()
-                        await playerViewModel.applyEffectiveZoomPlan(freshProject: editor.project)
+                        playerViewModel.applyEffectiveZoomPlan(freshProject: editor.project)
                     } }) {
                         Image(systemName: "trash")
                             .foregroundColor(.red)
@@ -132,7 +132,7 @@ struct ManualZoomControlsView: View {
 
             Button(action: { Task {
                 await editor.removeManualZoomKeyframe(id: kf.id)
-                await playerViewModel.applyEffectiveZoomPlan(freshProject: editor.project)
+                playerViewModel.applyEffectiveZoomPlan(freshProject: editor.project)
             } }) {
                 Image(systemName: "minus.circle")
                     .foregroundColor(.red.opacity(0.7))
@@ -171,7 +171,7 @@ struct ManualZoomControlsView: View {
                     set: { v in
                         Task {
                             await editor.updateManualZoomKeyframe(id: kf.id, zoomLevel: v)
-                            await playerViewModel.applyEffectiveZoomPlan(freshProject: editor.project)
+                            playerViewModel.applyEffectiveZoomPlan(freshProject: editor.project)
                         }
                     }
                 ), in: 1.0...4.0, step: 0.1)
@@ -192,7 +192,7 @@ struct ManualZoomControlsView: View {
                     set: { v in
                         Task {
                             await editor.updateManualZoomKeyframe(id: kf.id, focusX: v)
-                            await playerViewModel.applyEffectiveZoomPlan(freshProject: editor.project)
+                            playerViewModel.applyEffectiveZoomPlan(freshProject: editor.project)
                         }
                     }
                 ), in: 0.0...1.0, step: 0.01)
@@ -213,7 +213,7 @@ struct ManualZoomControlsView: View {
                     set: { v in
                         Task {
                             await editor.updateManualZoomKeyframe(id: kf.id, focusY: v)
-                            await playerViewModel.applyEffectiveZoomPlan(freshProject: editor.project)
+                            playerViewModel.applyEffectiveZoomPlan(freshProject: editor.project)
                         }
                     }
                 ), in: 0.0...1.0, step: 0.01)
@@ -230,7 +230,7 @@ struct ManualZoomControlsView: View {
                     set: { e in
                         Task {
                             await editor.updateManualZoomKeyframe(id: kf.id, easing: e)
-                            await playerViewModel.applyEffectiveZoomPlan(freshProject: editor.project)
+                            playerViewModel.applyEffectiveZoomPlan(freshProject: editor.project)
                         }
                     }
                 )) {
@@ -260,7 +260,7 @@ struct ManualZoomControlsView: View {
             selectedKeyframeId = newId
             ManualZoomControlsView.clickToFocus.selectedKeyframeId = newId
         }
-        await playerViewModel.applyEffectiveZoomPlan(freshProject: editor.project)
+        playerViewModel.applyEffectiveZoomPlan(freshProject: editor.project)
     }
 
     private func formatTime(_ seconds: TimeInterval) -> String {
@@ -286,7 +286,7 @@ final class ClickToFocusState: ObservableObject {
         if let selId = selectedKeyframeId {
             Task {
                 await editor.updateManualZoomKeyframe(id: selId, focusX: point.x, focusY: point.y)
-                await playerViewModel?.applyEffectiveZoomPlan(freshProject: editor.project)
+                playerViewModel?.applyEffectiveZoomPlan(freshProject: editor.project)
             }
         } else {
             Task { @MainActor in
@@ -300,7 +300,7 @@ final class ClickToFocusState: ObservableObject {
                     selectedKeyframeId = newId
                     ManualZoomControlsView.clickToFocus.selectedKeyframeId = newId
                 }
-                await playerViewModel?.applyEffectiveZoomPlan(freshProject: editor.project)
+                playerViewModel?.applyEffectiveZoomPlan(freshProject: editor.project)
             }
         }
     }

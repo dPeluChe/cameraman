@@ -235,7 +235,7 @@ struct TimelineView: View {
                         onDragEnded: {
                             Task {
                                 await editor.commitManualZoomKeyframeDrag()
-                                await playerViewModel.applyEffectiveZoomPlan(freshProject: editor.project)
+                                playerViewModel.applyEffectiveZoomPlan(freshProject: editor.project)
                             }
                         },
                         onLiveUpdate: {
@@ -246,7 +246,7 @@ struct TimelineView: View {
                         onContextMenuDelete: {
                             Task {
                                 await editor.removeManualZoomKeyframe(id: kf.id)
-                                await playerViewModel.applyEffectiveZoomPlan(freshProject: editor.project)
+                                playerViewModel.applyEffectiveZoomPlan(freshProject: editor.project)
                                 if selectedManualKeyframeId == kf.id {
                                     selectedManualKeyframeId = nil
                                 }
