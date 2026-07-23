@@ -191,9 +191,11 @@ struct RightPanel: View {
             }
             .padding(.bottom, Spacing.sm)
 
+            // No .clipped() here: it would shrink the hit-test region to the
+            // unpadded content bounds and cut off the PiP canvas drag handles
+            // that sit exactly on the camera-frame corners.
             detailContent(for: tool)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .clipped()
         }
         .padding(Spacing.md)
         .background(AppColor.inset)

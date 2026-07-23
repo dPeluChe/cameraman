@@ -350,6 +350,14 @@ extension ProjectEditor {
         await mutateSegment(segmentId: segmentId) { $0.cameraPosition = camera }
     }
 
+    /// Remove every per-clip camera override so a project-level camera edit
+    /// becomes visible (the compositor prefers per-clip overrides).
+    func clearPerClipCameraOverrides() async {
+        for segment in project.timeline.segments where segment.cameraPosition != nil {
+            _ = await mutateSegment(segmentId: segment.id) { $0.cameraPosition = nil }
+        }
+    }
+
     /// Add a voiceover audio clip to the timeline at the given position.
     /// Creates a new `.audio` track. Returns the clip ID.
     @discardableResult
