@@ -71,7 +71,13 @@ final class OverlayEngineTests: XCTestCase {
         y: Double = 0.5
     ) async throws -> UUID {
         let transform = Project.Overlay.Transform(x: x, y: y, scale: 1.0, rotation: 0.0)
-        let style = Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 6.0, shadow: true)
+        let style = Project.Overlay.Style(
+            stroke: "#FFFFFF",
+            strokeWidth: 6.0,
+            shadow: true,
+            text: type == .text ? "Text" : nil,
+            imagePath: type == .image ? "image.png" : nil
+        )
 
         let result = try await overlayEngine.addOverlay(
             projectId: testProjectId,
@@ -279,6 +285,29 @@ final class OverlayEngineTests: XCTestCase {
         }
     }
 
+    func testInvalidConfigurationIsRejectedWithoutPersistence() async throws {
+        let transform = Project.Overlay.Transform(x: 0.5, y: 0.5, scale: .nan)
+        let style = Project.Overlay.Style(stroke: "#FFFFFF", strokeWidth: 6, shadow: false)
+
+        do {
+            _ = try await overlayEngine.addOverlay(
+                projectId: testProjectId,
+                type: .arrow,
+                start: 1,
+                end: 2,
+                transform: transform,
+                style: style
+            )
+            XCTFail("Expected invalid configuration")
+        } catch OverlayError.invalidConfiguration {
+        } catch {
+            XCTFail("Wrong error type: \(error)")
+        }
+
+        let overlays = try await overlayEngine.getOverlays(projectId: testProjectId)
+        XCTAssertTrue(overlays.isEmpty)
+    }
+
     // MARK: - Update Overlay Tests
 
     func testUpdateOverlay() async throws {
@@ -314,6 +343,29 @@ final class OverlayEngineTests: XCTestCase {
         case .failure(let error):
             XCTFail("Failed to update overlay: \(error.errorDescription ?? "Unknown error")")
         }
+    }
+
+    func testInvalidUpdateDoesNotPersistPartialChanges() async throws {
+        let overlayId = try await createTestOverlay()
+        let original = try await overlayEngine.getOverlay(projectId: testProjectId, overlayId: overlayId)
+        var style = original.style
+        style.imageOpacity = 2
+
+        do {
+            _ = try await overlayEngine.updateOverlay(
+                projectId: testProjectId,
+                overlayId: overlayId,
+                start: 11,
+                style: style
+            )
+            XCTFail("Expected invalid configuration")
+        } catch OverlayError.invalidConfiguration {
+        } catch {
+            XCTFail("Wrong error type: \(error)")
+        }
+
+        let unchanged = try await overlayEngine.getOverlay(projectId: testProjectId, overlayId: overlayId)
+        XCTAssertEqual(unchanged, original)
     }
 
     func testUpdateOverlayNotFound() async throws {

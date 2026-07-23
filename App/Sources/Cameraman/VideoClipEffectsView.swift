@@ -23,7 +23,7 @@ struct VideoClipEffectsView: View {
         struct Param { let key: String; let range: ClosedRange<Double>; let def: Double }
     }
 
-    static let catalog: [Effect] = [
+    static let visualCatalog: [Effect] = [
         Effect(kind: .sepia, label: "Sepia", param: .init(key: "intensity", range: 0...1, def: 1)),
         Effect(kind: .monochrome, label: "Black & White", param: nil),
         Effect(kind: .invert, label: "Invert", param: nil),
@@ -31,9 +31,22 @@ struct VideoClipEffectsView: View {
         Effect(kind: .brightness, label: "Brightness", param: .init(key: "brightness", range: -0.5...0.5, def: 0)),
         Effect(kind: .contrast, label: "Contrast", param: .init(key: "contrast", range: 0.5...1.5, def: 1)),
         Effect(kind: .saturation, label: "Saturation", param: .init(key: "saturation", range: 0...2, def: 1)),
-        Effect(kind: .gaussianBlur, label: "Blur", param: .init(key: "radius", range: 0...20, def: 8)),
-        Effect(kind: .audioPitch, label: "Audio Pitch", param: .init(key: "cents", range: -1200...1200, def: 0))
+        Effect(kind: .gaussianBlur, label: "Blur", param: .init(key: "radius", range: 0...20, def: 8))
     ]
+
+    static let audioCatalog: [Effect] = [
+        Effect(kind: .audioPitch, label: "Audio Pitch", param: .init(key: "cents", range: -1200...1200, def: 0)),
+        Effect(kind: .audioGain, label: "Audio Gain", param: .init(key: "gain", range: 0...4, def: 1))
+    ]
+
+    private var clip: Project.TimelineClip? {
+        editor.project.timeline.tracks.first { $0.id == trackId }?
+            .clips.first { $0.id == clipId }
+    }
+
+    private var availableEffects: [Effect] {
+        clip?.isAudio == true ? Self.audioCatalog : Self.visualCatalog + Self.audioCatalog
+    }
 
     private var applied: [Project.Adjustment] {
         editor.project.timeline.tracks.first { $0.id == trackId }?
@@ -48,7 +61,7 @@ struct VideoClipEffectsView: View {
                     .foregroundStyle(.secondary)
                 Spacer()
                 Menu {
-                    ForEach(Self.catalog) { effect in
+                    ForEach(availableEffects) { effect in
                         Button(effect.label) { add(effect) }
                     }
                 } label: {
@@ -60,7 +73,7 @@ struct VideoClipEffectsView: View {
             }
 
             if applied.isEmpty {
-                Text("No effects. Add color filters, blur or audio pitch.")
+                Text(clip?.isAudio == true ? "No audio effects." : "No effects.")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             } else {
@@ -73,7 +86,7 @@ struct VideoClipEffectsView: View {
 
     @ViewBuilder
     private func effectRow(_ adj: Project.Adjustment) -> some View {
-        let effect = Self.catalog.first { $0.kind.rawValue == adj.kind.rawValue }
+        let effect = (Self.visualCatalog + Self.audioCatalog).first { $0.kind.rawValue == adj.kind.rawValue }
         HStack(spacing: 6) {
             Text(effect?.label ?? adj.kind.rawValue)
                 .font(.caption)
@@ -103,7 +116,8 @@ struct VideoClipEffectsView: View {
     private func add(_ effect: Effect) {
         var params: [String: Double] = [:]
         if let p = effect.param { params[p.key] = p.def }
-        let adj = Project.Adjustment(kind: effect.kind, target: .frame, parameters: params)
+        let target: Project.AdjustmentTarget = effect.kind.isAudio ? .audio : .frame
+        let adj = Project.Adjustment(kind: effect.kind, target: target, parameters: params)
         Task { _ = await editor.addAdjustment(adj, toClipId: clipId, inTrackId: trackId) }
     }
 

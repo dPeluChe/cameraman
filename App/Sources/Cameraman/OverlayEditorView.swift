@@ -15,9 +15,9 @@ import CoreGraphics
 struct OverlayEditorView: View {
     @ObservedObject var editor: ProjectEditor
     @Binding var playheadTime: TimeInterval
+    @Binding var selectedOverlayId: UUID?
 
     @State var selectedTool: OverlayTool = .arrow
-    @State var selectedOverlayId: UUID?
 
     let availableTools: [OverlayTool] = [.arrow, .rect, .line, .text, .image]
 

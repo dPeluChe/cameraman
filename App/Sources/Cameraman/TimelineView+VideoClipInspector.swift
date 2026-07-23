@@ -23,28 +23,37 @@ extension TimelineView {
     var videoClipInspector: some View {
         if let selected = selectedVideoClip, let clip = liveSelectedVideoClip {
             HStack(spacing: 14) {
-                Label(videoClipName(clip), systemImage: "film")
+                Label(clipInspectorName(clip), systemImage: clip.isAudio ? "waveform" : "film")
                     .font(.caption)
                     .lineLimit(1)
 
                 Divider().frame(height: 18)
 
-                positionGrid(for: clip, trackId: selected.trackId)
+                if clip.isVisual {
+                    positionGrid(for: clip, trackId: selected.trackId)
 
-                Picker("", selection: sizeBinding(for: clip, trackId: selected.trackId)) {
-                    Text("S").tag(0.25)
-                    Text("M").tag(0.35)
-                    Text("L").tag(0.5)
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 110)
-                .help("PiP size")
+                    Picker("", selection: sizeBinding(for: clip, trackId: selected.trackId)) {
+                        Text("S").tag(0.25)
+                        Text("M").tag(0.35)
+                        Text("L").tag(0.5)
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 110)
+                    .help("PiP size")
 
-                Button("Fullscreen") {
-                    apply(position: Project.MediaPosition(x: 0, y: 0, w: 1, h: 1), to: clip, trackId: selected.trackId)
+                    Button("Fullscreen") {
+                        apply(position: Project.MediaPosition(x: 0, y: 0, w: 1, h: 1), to: clip, trackId: selected.trackId)
+                    }
+                    .controlSize(.small)
+                    .help("Cover the whole canvas")
+                } else if clip.isAudio {
+                    Image(systemName: "speaker.wave.2")
+                        .foregroundStyle(.secondary)
+                    Slider(value: volumeBinding(for: clip, trackId: selected.trackId), in: 0...1)
+                        .frame(width: 140)
+                        .controlSize(.small)
+                        .help("Clip volume")
                 }
-                .controlSize(.small)
-                .help("Cover the whole canvas")
 
                 // Effects live in a popover so the row stays one line tall — adding
                 // effects never pushes the timeline down.
@@ -54,7 +63,7 @@ extension TimelineView {
                     Label("Effects", systemImage: "wand.and.stars")
                 }
                 .controlSize(.small)
-                .help("Color filters, blur and audio pitch")
+                .help(clip.isAudio ? "Audio effects" : "Color filters, blur and audio effects")
                 .popover(isPresented: $showVideoClipEffects, arrowEdge: .bottom) {
                     VideoClipEffectsView(editor: editor, clipId: clip.id, trackId: selected.trackId)
                         .padding(12)
@@ -158,10 +167,33 @@ extension TimelineView {
         }
     }
 
-    private func videoClipName(_ clip: Project.TimelineClip) -> String {
-        if case .video(let ref) = clip.content {
+    private func volumeBinding(for clip: Project.TimelineClip, trackId: UUID) -> Binding<Double> {
+        Binding(
+            get: { clip.volume ?? 1 },
+            set: { volume in
+                Task {
+                    _ = await editor.updateClip(
+                        clipId: clip.id,
+                        inTrackId: trackId,
+                        volume: volume
+                    )
+                }
+            }
+        )
+    }
+
+    private func clipInspectorName(_ clip: Project.TimelineClip) -> String {
+        switch clip.content {
+        case .video(let ref):
             return (ref.path as NSString).lastPathComponent
+        case .audio(let ref):
+            return (ref.path as NSString).lastPathComponent
+        case .image(let ref):
+            return (ref.path as NSString).lastPathComponent
+        case .color:
+            return "Color"
+        case .recording:
+            return "Recording"
         }
-        return "Clip"
     }
 }

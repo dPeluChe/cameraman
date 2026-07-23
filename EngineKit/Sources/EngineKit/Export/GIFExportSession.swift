@@ -130,7 +130,7 @@ extension ExportEngine {
             let frameRate: Int = gifOptions.frameRate ?? preset.output.fps
             
             // Extract frames from video
-            let frames = try await extractFramesFromVideo(
+            var frames = try await extractFramesFromVideo(
                 asset: composition,
                 duration: currentTime.seconds,
                 frameRate: frameRate,
@@ -140,6 +140,10 @@ extension ExportEngine {
                     await self.updateExportStage(jobId: jobId, stage: .compositionBuilding, progress: 0.2 + progress * 0.4)
                 }
             )
+
+            if options.includeCameramanWatermark {
+                frames = await applyCameramanWatermark(to: frames)
+            }
 
             logger.debug("Extracted \(frames.count) frames")
 
@@ -386,5 +390,27 @@ extension ExportEngine {
         }
 
         logger.debug("GIF encoding completed successfully")
+    }
+
+    func applyCameramanWatermark(to frames: [CGImage]) async -> [CGImage] {
+        guard let first = frames.first else { return [] }
+        let size = CGSize(width: first.width, height: first.height)
+        let watermark = await buildCameramanWatermarkLayer(renderSize: size)
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+
+        return frames.compactMap { frame in
+            guard let context = CGContext(
+                data: nil,
+                width: frame.width,
+                height: frame.height,
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: colorSpace,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ) else { return nil }
+            context.draw(frame, in: CGRect(origin: .zero, size: size))
+            watermark.render(in: context)
+            return context.makeImage()
+        }
     }
 }

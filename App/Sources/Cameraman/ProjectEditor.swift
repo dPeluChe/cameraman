@@ -224,6 +224,7 @@ final class ProjectEditor: ObservableObject {
         clipId: String,
         inTrackId trackId: UUID,
         timelineIn: TimeInterval? = nil,
+        volume: Double? = nil,
         position: Project.MediaPosition? = nil,
         content: Project.ClipContent? = nil
     ) async -> EditorResult {
@@ -232,6 +233,7 @@ final class ProjectEditor: ObservableObject {
                 clipId: clipId,
                 inTrackId: trackId,
                 timelineIn: timelineIn,
+                volume: volume,
                 position: position,
                 content: content
             )
@@ -487,6 +489,13 @@ final class ProjectEditor: ObservableObject {
     }
 
     /// Perform overlay delete via editor model (used by extensions)
+    func performAddOverlay(
+        projectId: ProjectId,
+        overlay: Project.Overlay
+    ) async -> EditorResult {
+        await editorModel.addOverlay(projectId: projectId, overlay: overlay)
+    }
+
     func performDeleteOverlay(
         projectId: ProjectId,
         overlayId: UUID

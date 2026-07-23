@@ -26,6 +26,7 @@ public enum OverlayError: Error, Equatable {
     case overlayOutsideTimeline(String)
     case projectNotFound(ProjectId)
     case invalidAnimation(String)
+    case invalidConfiguration(String)
 
     public var errorDescription: String? {
         switch self {
@@ -39,6 +40,8 @@ public enum OverlayError: Error, Equatable {
             return "Project not found: \(id.uuidString)"
         case .invalidAnimation(let message):
             return "Invalid animation: \(message)"
+        case .invalidConfiguration(let message):
+            return "Invalid overlay configuration: \(message)"
         }
     }
 }

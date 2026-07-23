@@ -64,6 +64,8 @@ public actor OverlayEngine {
             animation: animation
         )
 
+        try validateConfiguration(overlay, timelineDuration: project.timeline.duration)
+
         // Add to project
         project.overlays.append(overlay)
 
@@ -136,6 +138,8 @@ public actor OverlayEngine {
         if let newAnimation = animation {
             overlay.animation = newAnimation
         }
+
+        try validateConfiguration(overlay, timelineDuration: project.timeline.duration)
 
         // Update in project
         project.overlays[index] = overlay
@@ -283,6 +287,7 @@ public actor OverlayEngine {
             end: newOverlay.end,
             timelineDuration: project.timeline.duration
         )
+        try validateConfiguration(newOverlay, timelineDuration: project.timeline.duration)
 
         // Add to project
         project.overlays.append(newOverlay)
@@ -346,6 +351,9 @@ public actor OverlayEngine {
 
     /// Validate time range (start < end, both non-negative)
     private func validateTimeRange(start: TimeInterval, end: TimeInterval) throws {
+        guard start.isFinite, end.isFinite else {
+            throw OverlayError.invalidTimeRange("Times must be finite")
+        }
         guard start >= 0 else {
             throw OverlayError.invalidTimeRange("Start time cannot be negative")
         }
@@ -416,6 +424,15 @@ public actor OverlayEngine {
 
         case .none:
             break
+        }
+    }
+
+    private func validateConfiguration(
+        _ overlay: Project.Overlay,
+        timelineDuration: TimeInterval
+    ) throws {
+        if let error = EditorValidation.validateOverlay(overlay, timelineDuration: timelineDuration) {
+            throw OverlayError.invalidConfiguration(error.localizedDescription)
         }
     }
 }

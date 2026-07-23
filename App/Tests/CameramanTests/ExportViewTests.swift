@@ -89,6 +89,7 @@ final class ExportViewTests: XCTestCase {
         XCTAssertNil(viewModel.errorMessage)
         XCTAssertNil(viewModel.exportResult)
         XCTAssertFalse(viewModel.showSuccessAlert)
+        XCTAssertTrue(viewModel.includeCameramanWatermark)
     }
 
     func testExportViewModelCanExport() {

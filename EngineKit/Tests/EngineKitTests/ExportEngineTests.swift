@@ -70,16 +70,53 @@ final class ExportEngineTests: XCTestCase {
         XCTAssertFalse(defaultOptions.burnCaptions)
         XCTAssertTrue(defaultOptions.includeCursorHighlight)
         XCTAssertNil(defaultOptions.outputFilename)
+        XCTAssertFalse(defaultOptions.includeCameramanWatermark)
 
         // Test custom options
         let customOptions = ExportOptions(
             burnCaptions: true,
             includeCursorHighlight: false,
-            outputFilename: "custom_export.mp4"
+            outputFilename: "custom_export.mp4",
+            includeCameramanWatermark: true
         )
         XCTAssertTrue(customOptions.burnCaptions)
         XCTAssertFalse(customOptions.includeCursorHighlight)
         XCTAssertEqual(customOptions.outputFilename, "custom_export.mp4")
+        XCTAssertTrue(customOptions.includeCameramanWatermark)
+    }
+
+    func testCameramanWatermarkUsesSafeBottomRightPlacement() async throws {
+        let layer = await exportEngine.buildCameramanWatermarkLayer(
+            renderSize: CGSize(width: 1920, height: 1080)
+        )
+
+        XCTAssertEqual(layer.name, "cameraman-watermark")
+        XCTAssertGreaterThan(layer.frame.minX, 960)
+        XCTAssertGreaterThan(layer.frame.minY, 0)
+        XCTAssertLessThanOrEqual(layer.frame.maxX, 1920)
+        let urlLayer = try XCTUnwrap(layer.sublayers?.first { $0.name == "cameraman-watermark-url" } as? CATextLayer)
+        XCTAssertEqual(urlLayer.string as? String, "github.com/dPeluChe/cameraman")
+    }
+
+    func testCameramanWatermarkCanBeAppliedToGIFFrames() async throws {
+        let context = try XCTUnwrap(CGContext(
+            data: nil,
+            width: 800,
+            height: 450,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ))
+        context.setFillColor(NSColor.white.cgColor)
+        context.fill(CGRect(x: 0, y: 0, width: 800, height: 450))
+        let frame = try XCTUnwrap(context.makeImage())
+
+        let watermarked = await exportEngine.applyCameramanWatermark(to: [frame])
+
+        XCTAssertEqual(watermarked.count, 1)
+        XCTAssertEqual(watermarked[0].width, 800)
+        XCTAssertEqual(watermarked[0].height, 450)
     }
 
     // MARK: - Error Tests

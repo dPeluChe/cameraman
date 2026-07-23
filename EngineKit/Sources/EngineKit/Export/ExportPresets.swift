@@ -152,6 +152,8 @@ public struct ExportOptions: Equatable, Sendable {
     public let videoMuteState: VideoMuteState?
     /// Scales the preset's target bitrate: 0.6 = smaller file, 1.5 = higher quality
     public let qualityMultiplier: Double
+    /// Whether to add Cameraman's promotional badge to the final render.
+    public let includeCameramanWatermark: Bool
 
     public init(
         burnCaptions: Bool = false,
@@ -163,7 +165,8 @@ public struct ExportOptions: Equatable, Sendable {
         cursorPlan: CursorPlan? = nil,
         audioMuteState: AudioMixBuilder.TrackMuteState? = nil,
         videoMuteState: VideoMuteState? = nil,
-        qualityMultiplier: Double = 1.0
+        qualityMultiplier: Double = 1.0,
+        includeCameramanWatermark: Bool = false
     ) {
         self.burnCaptions = burnCaptions
         self.includeCursorHighlight = includeCursorHighlight
@@ -175,6 +178,7 @@ public struct ExportOptions: Equatable, Sendable {
         self.audioMuteState = audioMuteState
         self.videoMuteState = videoMuteState
         self.qualityMultiplier = qualityMultiplier
+        self.includeCameramanWatermark = includeCameramanWatermark
     }
 
     public static let `default` = ExportOptions()

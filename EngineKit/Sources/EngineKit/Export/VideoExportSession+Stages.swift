@@ -137,15 +137,16 @@ extension ExportEngine {
         let hasImageOverlays = !project.mediaItems.filter { $0.type == .image }.isEmpty
         let hasShapeOverlays = !project.overlays.isEmpty || !project.subtitles.isEmpty
 
-        if hasCaptions || hasImageOverlays || hasShapeOverlays {
-            logger.debug("Creating combined overlay layer (captions: \(hasCaptions), images: \(hasImageOverlays), shapes: \(hasShapeOverlays))")
+        if hasCaptions || hasImageOverlays || hasShapeOverlays || options.includeCameramanWatermark {
+            logger.debug("Creating combined overlay layer (captions: \(hasCaptions), images: \(hasImageOverlays), shapes: \(hasShapeOverlays), watermark: \(options.includeCameramanWatermark))")
             do {
                 let combinedTool = try await createCombinedOverlayLayer(
                     for: project,
                     projectId: projectId,
                     renderSize: videoComposition.renderSize,
                     compositionDuration: composition.duration,
-                    burnCaptions: hasCaptions
+                    burnCaptions: hasCaptions,
+                    includeCameramanWatermark: options.includeCameramanWatermark
                 )
                 if let tool = combinedTool {
                     videoComposition.animationTool = tool

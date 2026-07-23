@@ -30,6 +30,7 @@ final class ExportViewModel: ObservableObject {
     @Published var exportResult: URL? = nil
     @Published var showSuccessAlert: Bool = false
     @Published var temporaryExportURL: URL? = nil
+    @Published var includeCameramanWatermark: Bool = true
 
     // GIF-specific options
     @Published var gifFrameRate: Int = 15
@@ -260,7 +261,8 @@ final class ExportViewModel: ObservableObject {
                         screenMuted: mutedTracks.contains(.screen),
                         cameraMuted: mutedTracks.contains(.camera)
                     ),
-                    qualityMultiplier: qualityMultiplier
+                    qualityMultiplier: qualityMultiplier,
+                    includeCameramanWatermark: includeCameramanWatermark
                 )
             )
 
