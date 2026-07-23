@@ -98,6 +98,29 @@ struct IconHeader: View {
     }
 }
 
+/// Full-width icon + title label for panel action buttons. Replaces the
+/// ad-hoc `HStack { Image; Text }.frame(maxWidth: .infinity).padding(...)`
+/// pattern repeated across inspector panels. Wrap in a Button and apply the
+/// button style at the call site.
+struct PanelActionLabel: View {
+    let title: String
+    let icon: String
+
+    init(_ title: String, icon: String) {
+        self.title = title
+        self.icon = icon
+    }
+
+    var body: some View {
+        HStack {
+            Image(systemName: icon)
+            Text(title)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, Spacing.sm)
+    }
+}
+
 /// Consistent empty-state placeholder: icon + title + optional message + optional action.
 struct EmptyStateView<Action: View>: View {
     let icon: String

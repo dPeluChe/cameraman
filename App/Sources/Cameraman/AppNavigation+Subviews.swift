@@ -177,3 +177,129 @@ struct TagFilterButton: View {
     }
 }
 
+
+// MARK: - Project Filter Controls
+
+/// Search field + sort controls + tag filter chips for the projects sidebar.
+/// Extracted from `AppNavigation.sidebar` so the navigation file stays inside
+/// the size budget and the controls use the shared design tokens.
+struct ProjectFilterControls: View {
+    @ObservedObject var viewModel: AppNavigationViewModel
+
+    var body: some View {
+        VStack(spacing: Spacing.sm) {
+            searchField
+            sortControls
+            if !viewModel.allTags.isEmpty {
+                tagFilter
+            }
+        }
+    }
+
+    private var searchField: some View {
+        HStack {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+                .font(.system(size: 14))
+
+            TextField("Search", text: $viewModel.searchText)
+                .textFieldStyle(.plain)
+                .font(.system(size: 13))
+                .frame(maxWidth: .infinity)
+                .lineLimit(1)
+
+            if !viewModel.searchText.isEmpty {
+                Button {
+                    viewModel.searchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                        .font(.system(size: 14))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, Spacing.sm)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity)
+        .background(AppColor.inset)
+        .cornerRadius(Radius.medium)
+    }
+
+    private var sortControls: some View {
+        HStack(spacing: Spacing.sm) {
+            Menu {
+                ForEach(ProjectSortOption.allCases, id: \.self) { option in
+                    Button {
+                        viewModel.setSortOption(option)
+                    } label: {
+                        HStack {
+                            Text(option.rawValue)
+                            if viewModel.sortOption == option {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+            } label: {
+                HStack(spacing: Spacing.xs) {
+                    Image(systemName: "arrow.up.arrow.down")
+                        .font(.system(size: 12))
+                    Text(viewModel.sortOption.rawValue)
+                        .font(.system(size: 12))
+                }
+                .padding(.horizontal, Spacing.sm)
+                .padding(.vertical, Spacing.xs)
+                .background(AppColor.inset)
+                .cornerRadius(Radius.small)
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+
+            Button {
+                viewModel.toggleSortDirection()
+            } label: {
+                Image(systemName: viewModel.sortDirectionAscending ? "arrow.up" : "arrow.down")
+                    .font(.system(size: 12))
+                    .padding(.horizontal, Spacing.sm)
+                    .padding(.vertical, Spacing.xs)
+                    .background(AppColor.inset)
+                    .cornerRadius(Radius.small)
+            }
+            .buttonStyle(.plain)
+
+            Spacer()
+
+            if !viewModel.searchText.isEmpty || viewModel.selectedTagFilter != nil {
+                Button("Clear") {
+                    viewModel.clearFilters()
+                }
+                .font(.system(size: 11))
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var tagFilter: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                TagFilterButton(
+                    title: "All",
+                    isSelected: viewModel.selectedTagFilter == nil
+                ) {
+                    viewModel.setTagFilter(nil)
+                }
+
+                ForEach(viewModel.allTags, id: \.self) { tag in
+                    TagFilterButton(
+                        title: tag,
+                        isSelected: viewModel.selectedTagFilter == tag
+                    ) {
+                        viewModel.setTagFilter(tag)
+                    }
+                }
+            }
+            .padding(.horizontal, Spacing.xs)
+        }
+    }
+}
