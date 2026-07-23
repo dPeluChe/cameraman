@@ -358,6 +358,7 @@ struct AppNavigation: View {
                 }
             }
         }
+        .sidebarGlassBackground()
         .navigationTitle("Project Studio")
     }
 

@@ -98,16 +98,6 @@ struct ProjectEditorView: View {
     @State private var showTranscriptionModal = false
     @State private var showAISuggestionsModal = false
     
-    // UI State for DisclosureGroups
-    @State private var isLayoutExpanded = true
-    @State private var isFormatExpanded = true
-    @State private var isCameraExpanded = true
-    @State private var isVideoEffectsExpanded = false
-    @State private var isBackgroundExpanded = false
-    @State private var isZoomExpanded = false
-    @State private var isCursorExpanded = false
-    @State private var isOverlaysExpanded = false
-    @State private var isExportExpanded = true
     @State private var isAssetsExpanded = true
 
     init(projectSummary: ProjectSummary, library: ProjectLibrary = ProjectLibrary.shared) {
@@ -144,15 +134,6 @@ struct ProjectEditorView: View {
                         selectedMediaItemId: viewModel.selectedMediaItemId,
                         selectedOverlayId: $viewModel.selectedOverlayId,
                         playerViewModel: viewModel.playerViewModel,
-                        isLayoutExpanded: $isLayoutExpanded,
-                        isFormatExpanded: $isFormatExpanded,
-                        isCameraExpanded: $isCameraExpanded,
-                        isVideoEffectsExpanded: $isVideoEffectsExpanded,
-                        isBackgroundExpanded: $isBackgroundExpanded,
-                        isZoomExpanded: $isZoomExpanded,
-                        isCursorExpanded: $isCursorExpanded,
-                        isOverlaysExpanded: $isOverlaysExpanded,
-                        isExportExpanded: $isExportExpanded,
                         showExportModal: $showExportModal,
                         showTranscriptionModal: $showTranscriptionModal,
                         showAISuggestionsModal: $showAISuggestionsModal

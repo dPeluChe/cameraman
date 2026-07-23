@@ -5,6 +5,7 @@
 //  Created by Ralphy on 2026-01-20.
 //
 
+import AppKit
 import AVFoundation
 import AVKit
 import CoreGraphics
@@ -103,6 +104,9 @@ struct PreviewPlayerView: View {
             }
             .aspectRatio(CoreGraphics.CGFloat(viewModel.aspectRatio), contentMode: .fit)
             .frame(maxWidth: .infinity)
+            .contextMenu {
+                previewContextMenu
+            }
 
             // Playback controls
             PlaybackControlsView(viewModel: viewModel)
@@ -130,6 +134,152 @@ struct PreviewPlayerView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .togglePlayPause)) { _ in
             viewModel.togglePlayPause()
+        }
+    }
+
+    // MARK: - Context menu
+
+    /// Right-click menu on the preview: quick-add project properties at the
+    /// playhead, plus shortcuts that expand the matching tool in the right
+    /// panel (via the `.selectEditorTool` notification).
+    @ViewBuilder
+    private var previewContextMenu: some View {
+        Button {
+            addOverlayAtPlayhead(type: .text)
+        } label: {
+            Label("Add Text Overlay", systemImage: "textformat")
+        }
+
+        Button {
+            addOverlayAtPlayhead(type: .arrow)
+        } label: {
+            Label("Add Arrow Overlay", systemImage: "arrow.up.right")
+        }
+
+        Button {
+            addOverlayAtPlayhead(type: .rect)
+        } label: {
+            Label("Add Rectangle Overlay", systemImage: "rectangle")
+        }
+
+        Button {
+            addOverlayAtPlayhead(type: .line)
+        } label: {
+            Label("Add Line Overlay", systemImage: "line.diagonal")
+        }
+
+        Button {
+            openImagePickerForOverlay()
+        } label: {
+            Label("Add Image Overlay...", systemImage: "photo")
+        }
+
+        Divider()
+
+        Button {
+            addZoomKeyframeAtPlayhead()
+        } label: {
+            Label("Add Zoom Keyframe at Playhead", systemImage: "plus.magnifyingglass")
+        }
+
+        Divider()
+
+        Menu {
+            ForEach(configurableTools) { tool in
+                Button {
+                    NotificationCenter.default.post(name: .selectEditorTool, object: tool.rawValue)
+                } label: {
+                    Label(tool.title, systemImage: tool.icon)
+                }
+            }
+        } label: {
+            Label("Configure", systemImage: "slider.horizontal.3")
+        }
+    }
+
+    /// Tools offered in the "Configure" submenu — mirrors the availability
+    /// rules of the right panel grid.
+    private var configurableTools: [EditorTool] {
+        EditorTool.allCases.filter { tool in
+            switch tool {
+            case .camera:
+                return editor.project.canvas.layout.camera != nil
+            case .mediaItems:
+                return !editor.project.mediaItems.isEmpty
+            default:
+                return true
+            }
+        }
+    }
+
+    /// Create a shape/text overlay at the playhead with the same defaults as
+    /// the overlay toolbar, then reveal the Overlays tool in the right panel.
+    @MainActor
+    private func addOverlayAtPlayhead(type: Project.Overlay.OverlayType) {
+        let start = viewModel.currentTime
+        let remaining = editor.project.timeline.duration - start
+        let duration = max(0.5, min(2.0, remaining))
+        let end = start + duration
+        let fadeDuration = min(0.3, duration / 4)
+
+        let overlay = Project.Overlay(
+            id: UUID(),
+            type: type,
+            start: start,
+            end: end,
+            transform: Project.Overlay.Transform(x: 0.3, y: 0.3, scale: 1.0),
+            style: Project.Overlay.Style(
+                stroke: "#FF3B30",
+                strokeWidth: 3.0,
+                shadow: true,
+                text: type == .text ? "Text" : nil
+            ),
+            animation: Project.Overlay.Animation(
+                type: .fadeInOut,
+                fadeInDuration: fadeDuration,
+                fadeOutDuration: fadeDuration
+            )
+        )
+
+        Task {
+            _ = await editor.addOverlay(projectId: editor.project.projectId, overlay: overlay)
+            await MainActor.run {
+                selectedOverlayId?.wrappedValue = overlay.id
+                NotificationCenter.default.post(
+                    name: .selectEditorTool,
+                    object: EditorTool.overlays.rawValue
+                )
+            }
+        }
+    }
+
+    @MainActor
+    private func openImagePickerForOverlay() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.message = "Select an image, SVG, or GIF to add as overlay"
+        panel.allowedContentTypes = [.image, .svg, .gif]
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            Task { @MainActor in
+                createImageOverlay(at: (0.5, 0.5), imagePath: url.path)
+            }
+        }
+    }
+
+    @MainActor
+    private func addZoomKeyframeAtPlayhead() {
+        let time = viewModel.currentTime
+        Task {
+            _ = await editor.addManualZoomKeyframe(at: time, zoomLevel: 2.0)
+            await MainActor.run {
+                NotificationCenter.default.post(
+                    name: .selectEditorTool,
+                    object: EditorTool.manualZoom.rawValue
+                )
+            }
         }
     }
 
