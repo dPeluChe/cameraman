@@ -165,12 +165,12 @@ public actor ProjectLibrary {
                     filter.tags.contains { project.tags.contains($0) }
                 }
             }
+        }
 
-            // Apply excluded tags
-            if !filter.excludedTags.isEmpty {
-                filtered = filtered.filter { project in
-                    !filter.excludedTags.contains { project.tags.contains($0) }
-                }
+        // Exclusion stands on its own: a filter that only excludes must still filter.
+        if !filter.excludedTags.isEmpty {
+            filtered = filtered.filter { project in
+                !filter.excludedTags.contains { project.tags.contains($0) }
             }
         }
 

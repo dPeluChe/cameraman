@@ -49,7 +49,7 @@ final class ProjectStoreTests: XCTestCase {
         let project = try await sut.loadProject(projectId: projectId)
         XCTAssertEqual(project.name, testName)
         XCTAssertEqual(project.tags, testTags)
-        XCTAssertEqual(project.sources?.screen.path, "sources/screen.mov")
+        XCTAssertEqual(project.takes.first?.sources.screen.path, "sources/screen.mov")
         XCTAssertEqual(project.timeline.duration, 120.0)
     }
 
@@ -260,7 +260,7 @@ final class ProjectStoreTests: XCTestCase {
         let loadedProject = try await sut.loadProject(projectId: projectId)
 
         // Then
-        XCTAssertEqual(loadedProject.schemaVersion, 1) // Should be migrated to current
+        XCTAssertEqual(loadedProject.schemaVersion, 2) // Should be migrated to current
     }
 
     // MARK: - Helper Methods
