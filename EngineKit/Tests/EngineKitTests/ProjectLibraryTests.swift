@@ -346,16 +346,22 @@ final class ProjectLibraryTests: XCTestCase {
 
     func testListProjects_WithDateRange_ExcludesOldProjects() async throws {
         // Given
-        let now = Date()
-        let oneSecondAgo = now.addingTimeInterval(-1)
-
         _ = try await createMockProject(name: "Old Project", tags: [], duration: 60)
-        try await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 seconds
-
+        // Persisted dates are ISO8601 without fractional seconds, so the two
+        // projects need more than a second between them to be distinguishable.
+        try await Task.sleep(nanoseconds: 2_000_000_000)
         _ = try await createMockProject(name: "New Project", tags: [], duration: 60)
 
-        // When - filter for projects created in the last second
-        let dateRange = ProjectFilter.DateRange(startDate: oneSecondAgo, endDate: nil)
+        // Boundary comes from the stored values, not the wall clock, so the
+        // one-second resolution cannot put it on the wrong side.
+        let stored = try await library.listProjects()
+        let oldUpdated = try XCTUnwrap(stored.first { $0.name == "Old Project" }).updatedAt
+        let newUpdated = try XCTUnwrap(stored.first { $0.name == "New Project" }).updatedAt
+        XCTAssertGreaterThan(newUpdated, oldUpdated)
+        let boundary = oldUpdated.addingTimeInterval(newUpdated.timeIntervalSince(oldUpdated) / 2)
+
+        // When - filter for projects updated after the boundary
+        let dateRange = ProjectFilter.DateRange(startDate: boundary, endDate: nil)
         let filter = ProjectFilter(dateRange: dateRange)
 
         let projects = try await library.listProjects(filter: filter)
@@ -568,7 +574,7 @@ final class ProjectLibraryTests: XCTestCase {
 
         // Then
         XCTAssertEqual(projects.count, 2)
-        XCTAssertTrue(projects.allSatisfy { $0.name.contains("tutorial") })
+        XCTAssertTrue(projects.allSatisfy { $0.name.lowercased().contains("tutorial") })
     }
 
     func testSearchProjects_ByTagsOnly() async throws {
