@@ -284,9 +284,10 @@ final class ClickToFocusState: ObservableObject {
         guard let editor = editor else { return }
 
         if let selId = selectedKeyframeId {
-            Task {
+            Task { @MainActor in
                 await editor.updateManualZoomKeyframe(id: selId, focusX: point.x, focusY: point.y)
-                playerViewModel?.applyEffectiveZoomPlan(freshProject: editor.project)
+                let freshProject = editor.project
+                playerViewModel?.applyEffectiveZoomPlan(freshProject: freshProject)
             }
         } else {
             Task { @MainActor in
@@ -300,7 +301,8 @@ final class ClickToFocusState: ObservableObject {
                     selectedKeyframeId = newId
                     ManualZoomControlsView.clickToFocus.selectedKeyframeId = newId
                 }
-                playerViewModel?.applyEffectiveZoomPlan(freshProject: editor.project)
+                let freshProject = editor.project
+                playerViewModel?.applyEffectiveZoomPlan(freshProject: freshProject)
             }
         }
     }
