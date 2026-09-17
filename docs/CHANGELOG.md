@@ -11,7 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-16
+
 ### Added
+- **Mobile project bundle import (`.cameramanproject`)** — desktop Cameraman
+  can now import bundles exported by Cameraman Mobile (`ProjectStore+MobileBundle.swift`).
+  Reads the `manifest.json` descriptor and translation schema (`project.enginekit.json`),
+  re-probes track dimensions and frame rates for macOS, and presents any translation notes
+  and missing media alerts directly to the user.
 - **Preview context menu** — right-click on the video preview to add
   properties at the playhead: text/arrow/rectangle/line/image overlays and
   manual zoom keyframes, plus a **Configure** submenu that opens the matching

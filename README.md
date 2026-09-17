@@ -8,7 +8,7 @@
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Landing](https://img.shields.io/badge/landing-cameraman.dev-blue.svg)](https://cameraman.dev)
 
-**Version**: 0.7.0 (beta) · **Platform**: macOS 13+ (Ventura)
+**Version**: 0.8.0 (beta) · **Platform**: macOS 13+ (Ventura)
 
 > **Landing page:** the marketing site lives in a separate repo —
 > [`dPeluChe/cameraman-landing`](https://github.com/dPeluChe/cameraman-landing)
@@ -53,7 +53,7 @@ Cameraman captures your screen, camera, and audio as **separate tracks**, gives 
 - **Animated GIF** — configurable fps, size, loop
 - Quality control (smaller file / standard / higher quality) with a live size estimate
 - Per-segment camera positions, visual effects and audio are all preserved in export
-- Share whole projects between machines as portable `.cameramanproject` bundles
+- Share whole projects between machines as portable `.cameramanproject` bundles (now interoperable with Cameraman Mobile)
 
 ### Captions & transcription
 - On-device speech-to-text (WhisperKit, Apple Silicon) with a model picker — keeps the spoken language or translates to English

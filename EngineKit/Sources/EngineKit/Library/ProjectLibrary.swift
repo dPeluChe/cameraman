@@ -299,6 +299,11 @@ public actor ProjectLibrary {
         try await store.importProjectBundle(from: bundleURL)
     }
 
+    /// Import any Cameraman bundle (mobile or desktop) with everything the user should be told.
+    public func importBundle(from bundleURL: URL) async throws -> BundleImportResult {
+        try await store.importBundle(from: bundleURL)
+    }
+
     /// Delete a project
     /// - Parameter projectId: Project ID to delete
     public func deleteProject(projectId: ProjectId) async throws {

@@ -137,6 +137,17 @@ struct AppNavigation: View {
             } message: {
                 Text(viewModel.loadErrorMessage ?? "Unknown error.")
             }
+            .alert("Import Notes", isPresented: Binding(get: {
+                viewModel.importNotesMessage != nil
+            }, set: { newValue in
+                if !newValue {
+                    viewModel.clearImportNotes()
+                }
+            })) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(viewModel.importNotesMessage ?? "")
+            }
     }
 
     @ToolbarContentBuilder

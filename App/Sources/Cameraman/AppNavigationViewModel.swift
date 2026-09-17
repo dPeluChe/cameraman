@@ -36,6 +36,7 @@ final class AppNavigationViewModel: ObservableObject {
     @Published private(set) var projects: [ProjectSummary] = []
     @Published var selectedItem: AppNavigationItem = .recording
     @Published private(set) var loadErrorMessage: String?
+    @Published var importNotesMessage: String?
     @Published var libraryLayout: ProjectLibraryLayout = .list
     @Published var searchText: String = ""
     @Published var selectedTagFilter: String? = nil
@@ -223,9 +224,20 @@ final class AppNavigationViewModel: ObservableObject {
         guard panel.runModal() == .OK, let bundleURL = panel.url else { return }
 
         do {
-            let newId = try await library.importProjectBundle(from: bundleURL)
+            let result = try await library.importBundle(from: bundleURL)
             await loadProjects()
-            selectedItem = .project(newId)
+            selectedItem = .project(result.projectId)
+
+            var notes: [String] = []
+            if !result.mappingNotes.isEmpty {
+                notes.append(contentsOf: result.mappingNotes)
+            }
+            if !result.missingMedia.isEmpty {
+                notes.append("Missing media: " + result.missingMedia.joined(separator: ", "))
+            }
+            if !notes.isEmpty {
+                importNotesMessage = notes.joined(separator: "\n")
+            }
         } catch {
             loadErrorMessage = error.localizedDescription
         }
@@ -275,6 +287,10 @@ final class AppNavigationViewModel: ObservableObject {
 
     func clearError() {
         loadErrorMessage = nil
+    }
+
+    func clearImportNotes() {
+        importNotesMessage = nil
     }
 
     func toggleLibraryLayout() {
