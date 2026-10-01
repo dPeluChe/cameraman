@@ -3,7 +3,7 @@
 //  cameraman-mcp
 //
 //  Closes the edit→deliver loop: render a project (export_project) and track the
-//  async render/transcribe jobs (get_job_status / list_jobs / cancel_job), plus
+//  async render/transcribe jobs (get_job_status / cancel_job), plus
 //  on-device transcription (transcribe_project) and reading the captions back.
 //  All jobs live in ProjectLibrary.shared's in-memory JobQueue, so they're
 //  pollable across tool calls within one server session.
@@ -31,7 +31,7 @@ extension MCPTools {
         guard let preset = Self.presetsById[presetId] else {
             throw MCPToolError("Unknown preset '\(presetId)'. Valid presets: \(Self.presetIds.joined(separator: ", "))")
         }
-        let burnCaptions = (try? args.bool("burnCaptions")) ?? false
+        let burnCaptions = args.optBool("burnCaptions") ?? false
         let filename = args.optStr("filename")
 
         let engine = try await ProjectLibrary.shared.getExportEngine()
@@ -65,7 +65,8 @@ extension MCPTools {
     func getJobStatus(_ args: [String: Any]) async throws -> String {
         let queue = try await ProjectLibrary.shared.getJobQueue()
         if args.optUUID("jobId") == nil {
-            let projectId = try args.uuid("projectId") // neither given: ask for the project
+            guard args.optUUID("projectId") != nil else { throw MCPToolError("Pass jobId (one job) or projectId (list jobs).") }
+            let projectId = try args.uuid("projectId")
             let jobs = await queue.listJobs(for: projectId)
             return try json(["jobs": jobs.map { Self.jobPayload($0) }])
         }
@@ -121,7 +122,7 @@ extension MCPTools {
             throw MCPToolError("Unknown model '\(modelRaw)'. Valid models: base, small, medium, large.")
         }
         let language = args.optStr("language")
-        let translate = (try? args.bool("translate")) ?? false
+        let translate = args.optBool("translate") ?? false
 
         let engine = try await ProjectLibrary.shared.getTranscriptionEngine()
         let jobId = try await engine.transcribe(
@@ -173,8 +174,4 @@ extension MCPTools {
 
     /// Serialize a heterogeneous dictionary (mixed String/number/Bool/array)
     /// — JSONEncoder can't, so use JSONSerialization like `summary` does.
-    func json(_ object: [String: Any]) throws -> String {
-        let data = try JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted, .sortedKeys])
-        return String(data: data, encoding: .utf8) ?? "{}"
-    }
 }

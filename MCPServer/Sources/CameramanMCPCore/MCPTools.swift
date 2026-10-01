@@ -2,7 +2,7 @@
 //  MCPTools.swift
 //  cameraman-mcp
 //
-//  Tool catalog and dispatch. Every editing tool follows the same shape:
+//  Tool dispatch and shared helpers (the catalog lives in MCPCatalog.swift). Every editing tool follows the same shape:
 //  load the project via ProjectLibrary, run the operation through EditorModel
 //  (the app's own non-destructive editing logic), then persist. This guarantees
 //  the MCP edits and the GUI edits behave identically.
@@ -104,8 +104,7 @@ final class MCPTools {
 
     private func createEmptyProject(_ args: [String: Any]) async throws -> String {
         let name = args.optStr("name")
-        let tags = (args["tags"] as? [Any])?.compactMap { $0 as? String }
-        let projectId = try await ProjectLibrary.shared.createEmptyProject(name: name, tags: tags)
+        let projectId = try await ProjectLibrary.shared.createEmptyProject(name: name, tags: args.optStrArray("tags"))
         return "Created empty project \(projectId.uuidString)"
     }
 
@@ -116,8 +115,8 @@ final class MCPTools {
         guard activeRecording == nil else {
             throw MCPToolError("A recording is already in progress; call stop_recording first")
         }
-        let captureSystemAudio = (try? args.bool("captureSystemAudio")) ?? true
-        let captureMic = (try? args.bool("captureMicAudio")) ?? false
+        let captureSystemAudio = args.optBool("captureSystemAudio") ?? true
+        let captureMic = args.optBool("captureMicAudio") ?? false
 
         let displays = try await SourceSelector.shared.listDisplays()
         guard let display = displays.first else {
@@ -181,7 +180,7 @@ final class MCPTools {
 
     /// Load the project and locate a (track, clip) pair, with clear errors if
     /// either is missing. Shared by tools that must read the clip's current
-    /// state before editing (trim, update_adjustment, list_adjustments).
+    /// state before editing (edit_clip trim, update_adjustment).
     func resolveClip(_ args: [String: Any]) async throws
         -> (project: Project, track: Project.TimelineTrack, clip: Project.TimelineClip) {
         let trackId = try args.uuid("trackId")
@@ -304,13 +303,30 @@ final class MCPTools {
             "duration": project.timeline.duration,
             "tracks": tracks
         ]
-        let data = try JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys])
-        return String(data: data, encoding: .utf8) ?? message
+        return try json(payload)
+    }
+
+    /// Run edit steps in order. The first failure wins, so a later success cannot mask it
+    /// and the caller never persists a half-applied multi-field edit.
+    func runSteps(_ steps: [() async -> EditorResult]) async -> EditorResult? {
+        var last: EditorResult?
+        for step in steps {
+            let result = await step()
+            if case .failure = result { return result }
+            last = result
+        }
+        return last
+    }
+
+    func json(_ object: [String: Any]) throws -> String {
+        let data = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+        return String(data: data, encoding: .utf8) ?? "{}"
     }
 
     func jsonText<T: Encodable>(_ value: T) throws -> String {
         let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        // Compact: pretty-printing costs about a third more tokens on a large project.
+        encoder.outputFormatting = [.sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
         let data = try encoder.encode(value)
         return String(data: data, encoding: .utf8) ?? "{}"
@@ -326,6 +342,7 @@ extension Dictionary where Key == String, Value == Any {
     }
 
     func optStr(_ key: String) -> String? { self[key] as? String }
+    func optStrArray(_ key: String) -> [String]? { (self[key] as? [Any])?.compactMap { $0 as? String } }
 
     func num(_ key: String) throws -> Double {
         if let d = self[key] as? Double { return d }

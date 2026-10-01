@@ -23,7 +23,7 @@ extension MCPTools {
     func updateProject(_ args: [String: Any]) async throws -> String {
         let projectId = try args.uuid("projectId")
         let name = args.optStr("name")
-        let tags = (args["tags"] as? [Any])?.compactMap { $0 as? String }
+        let tags = args.optStrArray("tags")
         guard name != nil || tags != nil else { throw MCPToolError("Pass name and/or tags.") }
         if let name { try await ProjectLibrary.shared.renameProject(projectId: projectId, to: name) }
         if let tags { try await ProjectLibrary.shared.setTags(projectId: projectId, tags: tags) }

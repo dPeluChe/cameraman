@@ -44,7 +44,7 @@ extension MCPTools {
                  required: ["projectId"]),
 
             tool("update_project",
-                 "Rename a project and/or replace its tags. Pass only what changes.",
+                 "Rename a project and/or replace its tags (metadata only; not for timeline edits). Pass only what changes.",
                  properties: [
                     "projectId": str("Project UUID"),
                     "name": str("New name"),
@@ -67,7 +67,7 @@ extension MCPTools {
                  required: ["firstId", "secondId"]),
 
             tool("export_bundle",
-                 "Export a project as a portable .cameramanproject bundle into a folder. Returns the bundle path.",
+                 "Export a portable, editable project package (.cameramanproject) into a folder. Returns the bundle path. For a final video use export_project.",
                  properties: [
                     "projectId": str("Project UUID"),
                     "destinationFolder": str("Absolute path to an existing destination folder")
@@ -102,7 +102,7 @@ extension MCPTools {
     private static var clipTools: [[String: Any]] {
         [
             tool("add_clip",
-                 "Add a clip to the timeline. type=image|video|audio (need an absolute `path`, copied into the project) or color (uses hexColor). video/audio need `duration`; image defaults 5s, color 3s.",
+                 "Add a clip as a NEW track (video/image/color on a video track, audio on an audio track) at timeline time `at`. type=image|video|audio need an absolute `path` (copied into the project); color uses hexColor. video/audio need `duration`; image defaults to 5s, color to 3s (hexColor default #000000). Returns the timeline with the new clip id.",
                  properties: [
                     "projectId": str("Project UUID"),
                     "type": strEnum("Clip type", ["image", "video", "audio", "color"]),
@@ -125,7 +125,7 @@ extension MCPTools {
                  required: ["projectId", "trackId", "clipId", "atTime"]),
 
             tool("delete_clip",
-                 "Remove a clip from a track.",
+                 "Remove ONE clip from its track, leaving a gap; other clips do not move. To cut a time span across all tracks and close the gap, use delete_range.",
                  properties: [
                     "projectId": str("Project UUID"),
                     "trackId": str("Track UUID"),
@@ -141,17 +141,17 @@ extension MCPTools {
                     "clipId": str("Clip id"),
                     "timelineIn": num("New timeline start in seconds"),
                     "toTrackId": str("Destination track UUID (to move across tracks)"),
-                    "speed": num("Playback speed multiplier (e.g. 0.5, 2.0)"),
+                    "speed": num("Playback speed multiplier, greater than 0 (e.g. 0.5, 2.0)"),
                     "volume": num("Clip volume 0.0–1.0"),
                     "opacity": num("Clip opacity 0.0–1.0 (video)"),
                     "sourceIn": num("New source in-point (seconds)"),
-                    "sourceOut": num("New source out-point (seconds)"),
+                    "sourceOut": num("New source out-point (seconds), must be greater than sourceIn"),
                     "audioMuted": bool("Mute or unmute the clip's own audio (recording clips)")
                  ],
                  required: ["projectId", "trackId", "clipId"]),
 
             tool("delete_range",
-                 "Ripple-delete a time range from the timeline: remove everything between two times and close the gap.",
+                 "Ripple-delete the span from..to on every unlocked track: clips are trimmed or split and later clips shift left. To remove a single clip, use delete_clip.",
                  properties: [
                     "projectId": str("Project UUID"),
                     "from": num("Range start in seconds"),
@@ -195,7 +195,7 @@ extension MCPTools {
                     "projectId": str("Project UUID"),
                     "trackId": str("Track UUID"),
                     "clipId": str("Clip id"),
-                    "adjustmentId": str("Adjustment UUID (from list_adjustments / add_adjustment)")
+                    "adjustmentId": str("Adjustment UUID (from add_adjustment's [id=...] or get_project)")
                  ],
                  required: ["projectId", "trackId", "clipId", "adjustmentId"]),
 
@@ -268,7 +268,7 @@ extension MCPTools {
                  required: ["projectId"]),
 
             tool("get_job_status",
-                 "Get an export/transcription/AI job: status (queued/running/success/failed/canceled), progress (0–1), and any error. Pass jobId for one job, or projectId to list all jobs for that project in this session.",
+                 "Poll an export/transcription/AI job by jobId, or pass projectId to list every job for that project. Jobs are in memory and lost when the server restarts. Returns status (queued/running/success/failed/canceled), progress 0-1, and any error.",
                  properties: [
                     "jobId": str("Job UUID returned by export_project / transcribe_project / suggest_*"),
                     "projectId": str("Instead of jobId: list every job for this project")
@@ -281,7 +281,7 @@ extension MCPTools {
                  required: ["jobId"]),
 
             tool("transcribe_project",
-                 "Transcribe the project's audio on-device (Apple Silicon only). Async: returns a jobId; on success captions are written and readable via get_captions.",
+                 "Transcribe the project's audio on-device (Apple Silicon only). Async: returns a jobId. Writes transcript/caption files but does NOT change the timeline; next use get_captions to read, or add_subtitles to place cues on the timeline.",
                  properties: [
                     "projectId": str("Project UUID"),
                     "model": strEnum("Whisper model (bigger = slower/more accurate; default base)", ["base", "small", "medium", "large"]),
@@ -291,7 +291,7 @@ extension MCPTools {
                  required: ["projectId"]),
 
             tool("get_captions",
-                 "Read the generated captions for a project (run transcribe_project first).",
+                 "Read the raw text produced by transcribe_project (srt, vtt, or json = full transcript with segments). Read-only; does not touch the timeline.",
                  properties: [
                     "projectId": str("Project UUID"),
                     "format": strEnum("Caption format (default srt)", ["srt", "vtt", "json"])
@@ -304,12 +304,12 @@ extension MCPTools {
                  required: ["projectId"]),
 
             tool("suggest_silence_edits",
-                 "Analyze the project audio on-device and suggest silent ranges to cut. Async: returns a jobId; poll get_job_status.",
+                 "Analyze the project audio on-device for silent ranges worth cutting. Async: returns a jobId; poll get_job_status. Results are saved to the project as ai_suggestions.json; this server has no tool to read them back yet.",
                  properties: ["projectId": str("Project UUID")],
                  required: ["projectId"]),
 
             tool("suggest_chapters",
-                 "Suggest chapter markers from the project's transcript on-device (run transcribe_project first). Async: returns a jobId; poll get_job_status.",
+                 "Suggest chapter markers from the project's transcript on-device (run transcribe_project first). Async: returns a jobId; poll get_job_status. Results are saved to the project as ai_suggestions.json; this server has no tool to read them back yet.",
                  properties: ["projectId": str("Project UUID")],
                  required: ["projectId"])
         ]
@@ -348,12 +348,12 @@ extension MCPTools {
     private static var overlayTools: [[String: Any]] {
         [
             tool("add_overlay",
-                 "Add an overlay: arrow, rect, line or text. Shapes use stroke/strokeWidth; text needs text (and optional fontSize/color). Optional drawOn (shapes) or fadeIn (text) animation. Returns the new overlayId.",
+                 "Add an overlay: arrow, rect, line or text. Shapes use stroke/strokeWidth; text needs text (and optional fontSize/color). Optional drawOn (arrow/line only) or fadeIn (text) animation. Returns the new overlayId.",
                  properties: [
                     "projectId": str("Project UUID"),
                     "type": strEnum("Overlay type", ["arrow", "rect", "line", "text"]),
                     "start": num("Start time in seconds"),
-                    "end": num("End time in seconds"),
+                    "end": num("End time in seconds (must not exceed the project duration; see get_project)"),
                     "x": num("Normalized x 0–1 (default 0.5)"),
                     "y": num("Normalized y 0–1 (default 0.5)"),
                     "scale": num("Scale (default 1.0)"),
@@ -372,13 +372,13 @@ extension MCPTools {
                  "Update an overlay. Pass only the fields to change (position x/y, scale, rotation, start/end, stroke, strokeWidth, color, fontSize, text).",
                  properties: [
                     "projectId": str("Project UUID"),
-                    "overlayId": str("Overlay UUID (from list_overlays / add_overlay)"),
+                    "overlayId": str("Overlay UUID (from add_overlay or get_project)"),
                     "x": num("Normalized x 0–1"),
                     "y": num("Normalized y 0–1"),
                     "scale": num("Scale"),
                     "rotation": num("Rotation in degrees"),
                     "start": num("Start time in seconds"),
-                    "end": num("End time in seconds"),
+                    "end": num("End time in seconds (must not exceed the project duration; see get_project)"),
                     "stroke": str("Shape stroke hex color"),
                     "strokeWidth": num("Shape stroke width"),
                     "color": str("Text hex color"),
@@ -401,7 +401,6 @@ extension MCPTools {
     /// false for other writes (the spec default is true, so it must be stated).
     private static let readOnlyTools: Set<String> = [
         "list_projects", "get_project", "get_job_status", "get_captions",
-        "suggest_silence_edits", "suggest_chapters",
     ]
     private static let destructiveTools: Set<String> = [
         "delete_project", "delete_clip", "delete_range", "remove_track", "remove_adjustment",

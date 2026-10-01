@@ -75,21 +75,19 @@ extension MCPTools {
         }
 
         let project = try await mutate(args) { editor in
-            var track = trackId
+            let track = (crossTrack ? toTrackId : nil) ?? trackId
+            var steps: [() async -> EditorResult] = []
             if crossTrack, let dest = toTrackId {
-                _ = await editor.moveClip(clipId: clipId, fromTrackId: trackId, toTrackId: dest, newTimelineIn: timelineIn)
-                track = dest
+                steps.append { await editor.moveClip(clipId: clipId, fromTrackId: trackId, toTrackId: dest, newTimelineIn: timelineIn) }
             }
-            var result: EditorResult?
             if wantsUpdate {
-                result = await editor.updateClip(clipId: clipId, inTrackId: track, timelineIn: crossTrack ? nil : timelineIn,
-                                                 speed: speed, volume: volume, opacity: opacity, content: newContent)
+                steps.append { await editor.updateClip(clipId: clipId, inTrackId: track, timelineIn: crossTrack ? nil : timelineIn,
+                                                       speed: speed, volume: volume, opacity: opacity, content: newContent) }
             }
             if let muted = audioMuted {
-                result = await editor.setClipAudioMuted(clipId: clipId, inTrackId: track, muted: muted)
+                steps.append { await editor.setClipAudioMuted(clipId: clipId, inTrackId: track, muted: muted) }
             }
-            if let result { return result }
-            return await editor.updateClip(clipId: clipId, inTrackId: track)
+            return await self.runSteps(steps) ?? .failure(.clipNotFound(clipId: clipId, trackId: trackId.uuidString))
         }
         return try summary("Edited clip \(clipId)", project)
     }
@@ -142,6 +140,9 @@ extension MCPTools {
             throw MCPToolError("Adjustment \(adjustmentId) not found on clip \(clipId)")
         }
 
+        if let kindRaw = args.optStr("kind"), !Self.knownAdjustmentKinds.contains(kindRaw) {
+            throw MCPToolError("Unknown adjustment kind '\(kindRaw)'. Valid kinds: \(Self.knownAdjustmentKinds.sorted().joined(separator: ", "))")
+        }
         let kind = args.optStr("kind").map(Project.AdjustmentKind.init(rawValue:)) ?? existing.kind
         let target = args.optStr("target").flatMap(Project.AdjustmentTarget.init(rawValue:)) ?? existing.target
         let parameters = (args["parameters"] as? [String: Any]) != nil ? args.doubleDict("parameters") : existing.parameters

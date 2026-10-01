@@ -8,6 +8,7 @@
 
 import XCTest
 @testable import CameramanMCPCore
+import EngineKit
 
 final class MCPCatalogTests: XCTestCase {
 
@@ -86,5 +87,19 @@ final class MCPCatalogTests: XCTestCase {
         // The catalog is sent verbatim over JSON-RPC, so it must serialize.
         let data = try JSONSerialization.data(withJSONObject: ["tools": MCPTools.catalog])
         XCTAssertGreaterThan(data.count, 0)
+    }
+
+    /// edit_clip and set_track chain several edits; a later success must not mask an earlier failure.
+    func testRunStepsStopsAtFirstFailure() async {
+        let tools = MCPTools()
+        var laterRan = false
+        let result = await tools.runSteps([
+            { .failure(.trackNotFound("first")) },
+            { laterRan = true; return .failure(.trackNotFound("second")) },
+        ])
+        XCTAssertEqual(result, .failure(.trackNotFound("first")))
+        XCTAssertFalse(laterRan)
+        let none = await tools.runSteps([])
+        XCTAssertNil(none)
     }
 }

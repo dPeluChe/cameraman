@@ -3,8 +3,7 @@
 //  cameraman-mcp
 //
 //  Symmetric overlay editing via OverlayEngine: add arrow/rect/line/text (with
-//  optional draw-on / fade-in animation), list, update (partial), and delete.
-//  Complements the existing add_text_overlay tool.
+//  optional draw-on / fade-in animation), update (partial), and delete.
 //
 
 import Foundation
