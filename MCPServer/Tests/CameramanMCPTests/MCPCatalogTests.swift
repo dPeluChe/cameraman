@@ -126,4 +126,16 @@ final class MCPCatalogTests: XCTestCase {
         func add(_ e: String) { lock.lock(); items.append(e); lock.unlock() }
         var events: [String] { lock.lock(); defer { lock.unlock() }; return items }
     }
+
+    func testGetProjectOmitsSubtitlesButReportsTheCount() {
+        let project: [String: Any] = ["name": "x", "subtitles": [["t": 1], ["t": 2], ["t": 3]], "overlays": []]
+        let trimmed = MCPTools.trimmedProject(project, includeSubtitles: false)
+        XCTAssertNil(trimmed["subtitles"])
+        XCTAssertEqual(trimmed["subtitleCount"] as? Int, 3)
+        XCTAssertNotNil(trimmed["overlays"])
+
+        let full = MCPTools.trimmedProject(project, includeSubtitles: true)
+        XCTAssertEqual((full["subtitles"] as? [Any])?.count, 3)
+        XCTAssertNil(full["subtitleCount"])
+    }
 }

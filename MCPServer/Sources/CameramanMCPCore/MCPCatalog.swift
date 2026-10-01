@@ -26,8 +26,11 @@ extension MCPTools {
                  required: []),
 
             tool("get_project",
-                 "Get the full project: timeline tracks & clips (with ids), canvas, takes, overlays and per-clip adjustments. Call this first to discover track/clip ids for editing.",
-                 properties: ["projectId": str("Project UUID")],
+                 "Get the project: timeline tracks & clips (with ids), canvas, takes, overlays and per-clip adjustments, plus subtitleCount. Subtitle cues are omitted unless include has subtitles (they can be large); the transcript text is get_captions. Call this first to discover track/clip ids for editing.",
+                 properties: [
+                    "projectId": str("Project UUID"),
+                    "include": array("Optional extras: \"subtitles\" (omitted by default)")
+                 ],
                  required: ["projectId"]),
 
             tool("create_empty_project",
@@ -268,7 +271,7 @@ extension MCPTools {
                  required: ["projectId"]),
 
             tool("get_job_status",
-                 "Poll an export/transcription/AI job by jobId, or pass projectId to list every job for that project. Jobs are in memory and lost when the server restarts. Returns status (queued/running/success/failed/canceled), progress 0-1, and any error.",
+                 "Poll an export/transcription/AI job by jobId, or pass projectId to list every job for that project. Jobs are in memory and lost when the server restarts. Returns status (queued/running/success/failed/canceled), progress 0-1, any error, and for a finished suggest_* job its `suggestions`.",
                  properties: [
                     "jobId": str("Job UUID returned by export_project / transcribe_project / suggest_*"),
                     "projectId": str("Instead of jobId: list every job for this project")
@@ -304,12 +307,12 @@ extension MCPTools {
                  required: ["projectId"]),
 
             tool("suggest_silence_edits",
-                 "Analyze the project audio on-device for silent ranges worth cutting. Async: returns a jobId; poll get_job_status. Results are saved to the project as ai_suggestions.json; this server has no tool to read them back yet.",
+                 "Analyze the project audio on-device for silent ranges worth cutting. Async: returns a jobId; poll get_job_status, whose success reply includes `suggestions`.",
                  properties: ["projectId": str("Project UUID")],
                  required: ["projectId"]),
 
             tool("suggest_chapters",
-                 "Suggest chapter markers from the project's transcript on-device (run transcribe_project first). Async: returns a jobId; poll get_job_status. Results are saved to the project as ai_suggestions.json; this server has no tool to read them back yet.",
+                 "Suggest chapter markers from the project's transcript on-device (run transcribe_project first). Async: returns a jobId; poll get_job_status, whose success reply includes `suggestions`.",
                  properties: ["projectId": str("Project UUID")],
                  required: ["projectId"])
         ]

@@ -370,7 +370,8 @@ public actor ProjectLibrary {
     /// Create an AIService instance for the project library
     /// - Returns: Configured AIService
     public func getAIService() async throws -> AIService {
-        let service = AIService(jobQueue: jobQueue, projectStore: store)
+        // Same directory the store uses, so results land where the store (and the MCP reader) look.
+        let service = AIService(jobQueue: jobQueue, projectStore: store, projectDirectoryOverride: store.baseDirectory)
         return service
     }
 

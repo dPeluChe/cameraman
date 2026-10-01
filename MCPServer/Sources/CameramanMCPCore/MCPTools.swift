@@ -103,7 +103,23 @@ final class MCPTools {
 
     private func getProject(_ args: [String: Any]) async throws -> String {
         let project = try await loadProject(args)
-        return try jsonText(project)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let object = try JSONSerialization.jsonObject(with: try encoder.encode(project))
+        let includeSubtitles = args.optStrArray("include")?.contains("subtitles") ?? false
+        guard let dict = object as? [String: Any] else { throw MCPToolError("Unexpected project encoding") }
+        return try json(Self.trimmedProject(dict, includeSubtitles: includeSubtitles))
+    }
+
+    /// Subtitle cues are full overlays, so they grow with talk length and dwarf everything else.
+    /// Off by default; the count says whether there are any. (The transcript is a separate file:
+    /// use get_captions.)
+    static func trimmedProject(_ project: [String: Any], includeSubtitles: Bool) -> [String: Any] {
+        var out = project
+        guard !includeSubtitles else { return out }
+        out["subtitleCount"] = (project["subtitles"] as? [Any])?.count ?? 0
+        out.removeValue(forKey: "subtitles")
+        return out
     }
 
     // MARK: - Create / record

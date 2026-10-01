@@ -555,6 +555,31 @@ final class AIServiceTests: XCTestCase {
             }
         }
     }
+
+    /// silence and chapters jobs share a project; one must not overwrite the other's result.
+    func testSuggestionsAreSavedPerJobSoRunsDoNotOverwriteEachOther() async throws {
+        func suggestion(_ title: String, _ type: SuggestionType) -> Suggestion {
+            Suggestion(id: UUID(), type: type, title: title, description: "", confidence: 1,
+                       timelineIn: 0, timelineOut: 1)
+        }
+        let projectDir = tempDirectory.appendingPathComponent(testProjectId.uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
+        let silenceJob = UUID(), chaptersJob = UUID()
+
+        await aiService.saveSuggestions([suggestion("silence", .removeSilence)], for: testProjectId, jobId: silenceJob)
+        await aiService.saveSuggestions([suggestion("chapter", .createChapter)], for: testProjectId, jobId: chaptersJob)
+
+        func titles(_ job: JobId) throws -> [String] {
+            let url = projectDir.appendingPathComponent(AIService.suggestionsFileName(jobId: job))
+            return try JSONDecoder().decode([Suggestion].self, from: Data(contentsOf: url)).map { $0.title }
+        }
+        XCTAssertEqual(try titles(silenceJob), ["silence"])
+        XCTAssertEqual(try titles(chaptersJob), ["chapter"])
+        // The shared file keeps the latest run for existing readers.
+        let latest = try JSONDecoder().decode([Suggestion].self,
+            from: Data(contentsOf: projectDir.appendingPathComponent("ai_suggestions.json")))
+        XCTAssertEqual(latest.map { $0.title }, ["chapter"])
+    }
 }
 
 // MARK: - Mock AI Provider

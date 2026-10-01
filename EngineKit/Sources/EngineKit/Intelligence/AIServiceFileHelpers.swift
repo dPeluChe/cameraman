@@ -32,9 +32,15 @@ extension AIService {
         return projectDir.appendingPathComponent("transcript/transcript.json")
     }
 
-    func saveSuggestions(_ suggestions: [Suggestion], for projectId: ProjectId) async {
-        // Save suggestions to project metadata
+    /// File holding one suggestion job's result (silence and chapters used to overwrite a shared file).
+    /// Public so readers outside EngineKit, such as the MCP server, build the same name.
+    public static func suggestionsFileName(jobId: JobId) -> String {
+        "ai_suggestions_\(jobId.uuidString).json"
+    }
+
+    func saveSuggestions(_ suggestions: [Suggestion], for projectId: ProjectId, jobId: JobId) async {
         let projectDir = getProjectDirectory(for: projectId)
+        // Latest run, kept for existing readers; the per-job file is the one that is never overwritten.
         let suggestionsPath = projectDir.appendingPathComponent("ai_suggestions.json")
 
         do {
@@ -42,6 +48,7 @@ extension AIService {
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             let data = try encoder.encode(suggestions)
             try data.write(to: suggestionsPath)
+            try data.write(to: projectDir.appendingPathComponent(Self.suggestionsFileName(jobId: jobId)))
 
             await EngineKit.logging.debug(
                 category: .ai,

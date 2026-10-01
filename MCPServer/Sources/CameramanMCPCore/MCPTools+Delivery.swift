@@ -74,7 +74,24 @@ extension MCPTools {
         guard let job = await queue.getJob(jobId: jobId) else {
             throw MCPToolError("No job with id \(jobId). Jobs are in-memory for this server session and are lost on restart.")
         }
-        return try json(Self.jobPayload(job))
+        var payload = Self.jobPayload(job)
+        if job.type == .aiSuggestion, case .success = job.status {
+            if let suggestions = await savedSuggestions(for: job) {
+                payload["suggestions"] = suggestions
+            } else {
+                payload["suggestionsNote"] = "Result file not found. The write may have failed; check that the server and the app use the same projects directory."
+            }
+        }
+        return try json(payload)
+    }
+
+    /// Each suggest_* job writes its own result file, so an older job is never answered with a
+    /// newer run's data. nil means the file is missing (a failed write, or a different directory).
+    private func savedSuggestions(for job: Job) async -> Any? {
+        guard let dir = try? await ProjectLibrary.shared.getProjectDirectory(projectId: job.projectId),
+              let data = try? Data(contentsOf: dir.appendingPathComponent(AIService.suggestionsFileName(jobId: job.jobId)))
+        else { return nil }
+        return try? JSONSerialization.jsonObject(with: data)
     }
 
     func cancelJob(_ args: [String: Any]) async throws -> String {
