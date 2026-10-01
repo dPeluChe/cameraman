@@ -42,7 +42,8 @@ final class ProjectEditorViewModel: ObservableObject {
         NotificationCenter.default.publisher(for: .projectUpdated)
             .compactMap { $0.object as? ProjectId }
             .filter { [weak self] id in id == self?.projectId }
-            .receive(on: DispatchQueue.main)
+            // One reload per burst: an MCP agent can issue many edits back to back.
+            .debounce(for: .milliseconds(250), scheduler: DispatchQueue.main)
             .sink { [weak self] _ in
                 Task {
                     await self?.loadProject()
@@ -78,6 +79,7 @@ final class ProjectEditorViewModel: ObservableObject {
         // body update cycle.
         if let (project, dir) = result {
             await Task.yield()
+            self.editor?.cancelPendingAutosave()
             self.editor = ProjectEditor(project: project)
             self.projectDirectory = dir
             self.loadError = nil

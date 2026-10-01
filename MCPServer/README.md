@@ -136,3 +136,14 @@ env = { CAMERAMAN_PROJECTS_DIR = "/Users/you/Library/Containers/dev.dpeluche.Cam
   directly in Foundation — no external SDK).
 - `stdout` is reserved for protocol messages; logs go to `stderr`.
 - Implements `initialize`, `tools/list`, `tools/call`, and `ping`.
+
+## In-app HTTP server (Mac App Store friendly)
+
+The app can host the same server in-process over loopback HTTP, so one build works in the
+sandbox (a helper launched by another app cannot inherit it). Opt in under
+Preferences → Integrations → "Built-in server (HTTP)".
+
+- `POST http://127.0.0.1:8765/mcp`, JSON-RPC, `Authorization: Bearer <token>` required.
+- The token lives in the Keychain; Preferences shows ready-to-paste snippets for Claude Code
+  and Cursor. Claude Desktop's local config is stdio-only, so it keeps using the helper binary.
+- Loopback only; `Host`/`Origin` must be loopback; 32 connections max, 10s request deadline.

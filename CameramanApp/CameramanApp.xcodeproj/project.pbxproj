@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		9F2C1A6B3C4D5E6F7A8B9C0F /* EngineKit in Frameworks */ = {isa = PBXBuildFile; productRef = 9F2C1A6B3C4D5E6F7A8B9C0E /* EngineKit */; };
+		9F2C1A6B3C4D5E6F7A8B9C13 /* CameramanMCPCore in Frameworks */ = {isa = PBXBuildFile; productRef = 9F2C1A6B3C4D5E6F7A8B9C12 /* CameramanMCPCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -33,6 +34,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				9F2C1A6B3C4D5E6F7A8B9C0F /* EngineKit in Frameworks */,
+				9F2C1A6B3C4D5E6F7A8B9C13 /* CameramanMCPCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -79,6 +81,7 @@
 			name = CameramanApp;
 			packageProductDependencies = (
 				9F2C1A6B3C4D5E6F7A8B9C0E /* EngineKit */,
+				9F2C1A6B3C4D5E6F7A8B9C12 /* CameramanMCPCore */,
 			);
 			productName = CameramanApp;
 			productReference = 8674BA2C2F2059B1005D004A /* CameramanApp.app */;
@@ -110,6 +113,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				9F2C1A6B3C4D5E6F7A8B9C0D /* XCLocalSwiftPackageReference "../EngineKit" */,
+				9F2C1A6B3C4D5E6F7A8B9C11 /* XCLocalSwiftPackageReference "../MCPServer" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 8674BA2D2F2059B1005D004A /* Products */;
@@ -396,6 +400,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../EngineKit;
 		};
+		9F2C1A6B3C4D5E6F7A8B9C11 /* XCLocalSwiftPackageReference "../MCPServer" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../MCPServer;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -403,6 +411,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9F2C1A6B3C4D5E6F7A8B9C0D /* XCLocalSwiftPackageReference "../EngineKit" */;
 			productName = EngineKit;
+		};
+		9F2C1A6B3C4D5E6F7A8B9C12 /* CameramanMCPCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9F2C1A6B3C4D5E6F7A8B9C11 /* XCLocalSwiftPackageReference "../MCPServer" */;
+			productName = CameramanMCPCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

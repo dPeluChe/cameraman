@@ -167,7 +167,7 @@ extension MCPTools {
         let count = project.setSubtitles(
             fromSegments: transcript.segments.map { (text: $0.text, start: $0.start, end: $0.end) }
         )
-        try await ProjectLibrary.shared.updateProject(project)
+        try await persist(project)
         return try summary("Added \(count) subtitle cues to the timeline from the transcript.", project)
     }
 

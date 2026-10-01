@@ -31,9 +31,12 @@ enum MCPInfo {
 /// suspension points, so a slow export never blocks `ping`; tool state in `MCPTools`
 /// must be safe for that (see its `activeRecording`).
 public actor MCPServer {
-    private let tools = MCPTools()
+    private let tools: MCPTools
 
-    public init() {}
+    /// - Parameter onProjectChanged: called after each persisted edit with the project id.
+    public init(onProjectChanged: (@Sendable (UUID) -> Void)? = nil) {
+        tools = MCPTools(onProjectChanged: onProjectChanged)
+    }
 
     /// Read stdin line-by-line until EOF, dispatching each JSON-RPC message.
     public func run() async {

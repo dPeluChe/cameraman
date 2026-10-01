@@ -21,6 +21,14 @@ final class MCPTools {
 
     let overlayEngine = OverlayEngine()
 
+    /// Told after every persisted edit, so a host app can refresh an open editor
+    /// instead of letting its next autosave overwrite the change with a stale copy.
+    private let onProjectChanged: (@Sendable (UUID) -> Void)?
+
+    init(onProjectChanged: (@Sendable (UUID) -> Void)? = nil) {
+        self.onProjectChanged = onProjectChanged
+    }
+
     /// In-flight recording started via `start_recording`, finalized by
     /// `stop_recording`. Only one recording at a time (the engine enforces this).
     private var activeRecording: (session: Recorder.RecordingSession, outputURL: URL)?
@@ -254,8 +262,14 @@ final class MCPTools {
         guard let updated = result.getProject() else {
             throw MCPToolError(describe(result))
         }
-        try await ProjectLibrary.shared.updateProject(updated)
+        try await persist(updated)
         return updated
+    }
+
+    /// The one write path for edits: persist, then announce.
+    func persist(_ project: Project) async throws {
+        try await ProjectLibrary.shared.updateProject(project)
+        onProjectChanged?(project.projectId)
     }
 
     /// Recognized visual/audio adjustment kinds — derived from EngineKit so app,

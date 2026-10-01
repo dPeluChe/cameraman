@@ -22,6 +22,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Setup hotkeys
         setupHotkeys()
 
+        // In-app MCP server (opt-in, loopback only)
+        MCPHostService.shared.startIfEnabled()
+
         // Create status bar menu (legacy, can be removed later)
         statusBarMenu = StatusBarMenu()
 
@@ -52,6 +55,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         // Cleanup
         hotkeyManager?.unregisterAllHotkeys()
+        MCPHostService.shared.stop()
     }
 
     private func setupNotifications() {

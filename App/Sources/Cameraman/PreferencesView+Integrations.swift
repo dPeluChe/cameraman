@@ -9,9 +9,12 @@
 
 import SwiftUI
 import UniformTypeIdentifiers
+import AppKit
 import EngineKit
 
 struct IntegrationsPreferencesView: View {
+    @ObservedObject private var host = MCPHostService.shared
+    @AppStorage("mcp.host.enabled") private var hostEnabled = false
     @AppStorage("mcp.binaryPath") private var binaryPath = ""
     @State private var showBinaryPicker = false
     @State private var selectedClient: MCPClient = .claudeDesktop
@@ -69,6 +72,8 @@ struct IntegrationsPreferencesView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
+            builtInServerSection
+
             // Binary status — bundled with the app, or build-it-yourself fallback
             SettingsSection("Server binary", spacing: Spacing.sm) {
                 if usingBundled {
@@ -120,6 +125,52 @@ struct IntegrationsPreferencesView: View {
         .fileImporter(isPresented: $showBinaryPicker, allowedContentTypes: [.unixExecutable, .item]) { result in
             if case .success(let url) = result { binaryPath = url.path }
         }
+    }
+
+    // MARK: - Built-in server
+
+    /// Runs inside the app, so it sees the app's own projects and works in the sandbox.
+    private var builtInServerSection: some View {
+        SettingsSection("Built-in server (HTTP)", spacing: Spacing.sm) {
+            Toggle("Allow AI clients to connect on this Mac", isOn: $hostEnabled)
+                .onChange(of: hostEnabled) { host.setEnabled($0) }
+            switch host.state {
+            case .stopped:
+                Text("Off. Nothing is listening.").font(.caption).foregroundStyle(.secondary)
+            case .failed(let message):
+                Label(message, systemImage: "exclamationmark.triangle.fill").font(.caption).foregroundStyle(.orange)
+            case .running:
+                if let endpoint = host.endpoint {
+                    Label("Listening on \(endpoint) (this Mac only, token required)", systemImage: "checkmark.circle.fill")
+                        .font(.caption).foregroundStyle(.green)
+                    clientRow(detail: "Claude Code — run in your terminal", snippet: httpClaudeCodeSnippet(endpoint))
+                    clientRow(detail: "Cursor — add to ~/.cursor/mcp.json", snippet: httpCursorSnippet(endpoint))
+                    HStack {
+                        Text("Treat the token like a password: anyone with it can edit your projects.")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Regenerate token") { host.regenerateToken() }.controlSize(.small)
+                    }
+                }
+            }
+        }
+    }
+
+    private func httpClaudeCodeSnippet(_ endpoint: String) -> String {
+        "claude mcp add --transport http cameraman \(endpoint) --header \"Authorization: Bearer \(host.token)\""
+    }
+
+    private func httpCursorSnippet(_ endpoint: String) -> String {
+        """
+        {
+          "mcpServers": {
+            "cameraman": {
+              "url": "\(endpoint)",
+              "headers": { "Authorization": "Bearer \(host.token)" }
+            }
+          }
+        }
+        """
     }
 
     // MARK: - Snippets
