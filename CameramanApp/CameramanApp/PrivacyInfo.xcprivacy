@@ -38,8 +38,8 @@
             <string>NSPrivacyAccessedAPICategoryDiskSpace</string>
             <key>NSPrivacyAccessedAPITypeReasons</key>
             <array>
-                <!-- Used to decide whether to proceed with an operation -->
-                <string>85F4.1</string>
+                <!-- Checks free space before writing (ProxyGenerator): E174.1 -->
+                <string>E174.1</string>
             </array>
         </dict>
 
