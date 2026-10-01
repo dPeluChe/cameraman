@@ -7,12 +7,16 @@ let package = Package(
         .macOS(.v13)
     ],
     dependencies: [
-        .package(path: "../EngineKit")
+        .package(path: "../EngineKit"),
+        .package(path: "../MCPServer")
     ],
     targets: [
         .executableTarget(
             name: "Cameraman",
-            dependencies: ["EngineKit"],
+            dependencies: [
+                "EngineKit",
+                .product(name: "CameramanMCPCore", package: "MCPServer")
+            ],
             path: "Sources/Cameraman"
         ),
         .testTarget(

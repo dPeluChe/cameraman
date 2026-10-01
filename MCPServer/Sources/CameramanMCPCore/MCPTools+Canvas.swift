@@ -14,7 +14,7 @@ import EngineKit
 extension MCPTools {
 
     func setCanvasLayout(_ args: [String: Any]) async throws -> String {
-        var project = try await loadProject(args)
+        var project = try await loadForEdit(args)
 
         if let typeRaw = args.optStr("type") {
             let valid = ["fullscreen", "pip", "side_by_side"]
@@ -58,7 +58,7 @@ extension MCPTools {
         let value = try args.str("value")
         let fitMode = args.optStr("fitMode")
 
-        var project = try await loadProject(args)
+        var project = try await loadForEdit(args)
         // For an image background, copy the source into the project's assets/.
         var resolvedValue = value
         if type == "image" {

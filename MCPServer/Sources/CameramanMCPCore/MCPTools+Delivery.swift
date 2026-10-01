@@ -162,7 +162,7 @@ extension MCPTools {
               let transcript = try? JSONDecoder().decode(TranscriptionEngine.Transcript.self, from: data) else {
             throw MCPToolError("No transcript found. Run transcribe_project and wait for the job to finish first.")
         }
-        var project = try await loadProject(args)
+        var project = try await loadForEdit(args)
         let count = project.setSubtitles(
             fromSegments: transcript.segments.map { (text: $0.text, start: $0.start, end: $0.end) }
         )

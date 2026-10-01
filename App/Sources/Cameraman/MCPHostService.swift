@@ -66,12 +66,13 @@ final class MCPHostService: ObservableObject {
         }
     }
 
-    /// MCP edits go straight to disk; tell any open editor to reload so its next
-    /// autosave does not overwrite them with a stale copy.
+    /// MCP edits go straight to disk. AgentActivityCenter freezes the open editor, flushes its
+    /// unsaved work first, and reloads once the agent goes quiet.
     private static func makeServer() -> MCPServer {
-        MCPServer(onProjectChanged: { id in
-            Task { @MainActor in NotificationCenter.default.post(name: .projectUpdated, object: id) }
-        })
+        MCPServer(
+            onProjectChanged: { id in Task { @MainActor in AgentActivityCenter.shared.agentDidEdit(id) } },
+            onProjectWillChange: { id in await AgentActivityCenter.shared.agentWillEdit(id) }
+        )
     }
 
     func stop() {
