@@ -34,8 +34,10 @@ public actor MCPServer {
     private let tools: MCPTools
 
     /// - Parameter onProjectChanged: called after each persisted edit with the project id.
-    public init(onProjectChanged: (@Sendable (UUID) -> Void)? = nil) {
-        tools = MCPTools(onProjectChanged: onProjectChanged)
+    /// - Parameter onProjectWillChange: awaited before an edit reads the project from disk.
+    public init(onProjectChanged: (@Sendable (UUID) -> Void)? = nil,
+                onProjectWillChange: (@Sendable (UUID) async -> Void)? = nil) {
+        tools = MCPTools(onProjectChanged: onProjectChanged, onProjectWillChange: onProjectWillChange)
     }
 
     /// Read stdin line-by-line until EOF, dispatching each JSON-RPC message.

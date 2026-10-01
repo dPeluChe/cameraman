@@ -102,4 +102,28 @@ final class MCPCatalogTests: XCTestCase {
         let none = await tools.runSteps([])
         XCTAssertNil(none)
     }
+
+    /// The host freezes its editor on "will change" and reloads on "changed"; the order is the contract.
+    func testEditedAnnouncesBeforeAndAfterTheWrite() async throws {
+        let log = Log()
+        let tools = MCPTools(onProjectChanged: { _ in log.add("changed") },
+                             onProjectWillChange: { _ in log.add("will") })
+        let id = UUID().uuidString
+        _ = try await tools.edited(["projectId": id]) { log.add("write"); return "ok" }
+        XCTAssertEqual(log.events, ["will", "write", "changed"])
+
+        // A failing write announces the start but not a change.
+        let failing = Log()
+        let failTools = MCPTools(onProjectChanged: { _ in failing.add("changed") },
+                                 onProjectWillChange: { _ in failing.add("will") })
+        _ = try? await failTools.edited(["projectId": id]) { throw MCPToolError("boom") }
+        XCTAssertEqual(failing.events, ["will"])
+    }
+
+    private final class Log: @unchecked Sendable {
+        private let lock = NSLock()
+        private var items: [String] = []
+        func add(_ e: String) { lock.lock(); items.append(e); lock.unlock() }
+        var events: [String] { lock.lock(); defer { lock.unlock() }; return items }
+    }
 }

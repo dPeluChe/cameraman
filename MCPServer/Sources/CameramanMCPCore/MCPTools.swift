@@ -25,8 +25,14 @@ final class MCPTools {
     /// instead of letting its next autosave overwrite the change with a stale copy.
     private let onProjectChanged: (@Sendable (UUID) -> Void)?
 
-    init(onProjectChanged: (@Sendable (UUID) -> Void)? = nil) {
+    /// Awaited before an edit loads the project from disk, so a host can pause its own editor and
+    /// flush unsaved work first; the agent then starts from what the user last wrote.
+    private let onProjectWillChange: (@Sendable (UUID) async -> Void)?
+
+    init(onProjectChanged: (@Sendable (UUID) -> Void)? = nil,
+         onProjectWillChange: (@Sendable (UUID) async -> Void)? = nil) {
         self.onProjectChanged = onProjectChanged
+        self.onProjectWillChange = onProjectWillChange
     }
 
     /// In-flight recording started via `start_recording`, finalized by
@@ -69,12 +75,12 @@ final class MCPTools {
         case "set_canvas_layout":    return try await setCanvasLayout(arguments)
         case "set_background":       return try await setBackground(arguments)
         // Overlays
-        case "add_overlay":          return try await addOverlay(arguments)
-        case "update_overlay":       return try await updateOverlay(arguments)
-        case "delete_overlay":       return try await deleteOverlay(arguments)
+        case "add_overlay":          return try await edited(arguments) { try await addOverlay(arguments) }
+        case "update_overlay":       return try await edited(arguments) { try await updateOverlay(arguments) }
+        case "delete_overlay":       return try await edited(arguments) { try await deleteOverlay(arguments) }
         // Library / metadata
         case "duplicate_project":    return try await duplicateProject(arguments)
-        case "update_project":       return try await updateProject(arguments)
+        case "update_project":       return try await edited(arguments) { try await updateProject(arguments) }
         case "merge_projects":       return try await mergeProjects(arguments)
         case "export_bundle":        return try await exportBundle(arguments)
         case "import_bundle":        return try await importBundle(arguments)
@@ -231,7 +237,7 @@ final class MCPTools {
 
     /// Load → edit → persist, returning the updated project.
     func mutate(_ args: [String: Any], _ op: (EditorModel) async -> EditorResult) async throws -> Project {
-        let project = try await loadProject(args)
+        let project = try await loadForEdit(args)
         let editor = EditorModel(project: project)
         let result = await op(editor)
         guard let updated = result.getProject() else {
@@ -264,6 +270,22 @@ final class MCPTools {
     func stageAsset(_ sourcePath: String, projectId: UUID) async throws -> String {
         let dir = try await ProjectLibrary.shared.getProjectDirectory(projectId: projectId)
         return try ProjectLibrary.stageAsset(from: URL(fileURLWithPath: sourcePath), intoProjectDirectory: dir)
+    }
+
+    /// For tools that write through another engine (overlays, metadata) instead of
+    /// `mutate`: same before/after announcements, so the host sees every kind of edit.
+    func edited(_ args: [String: Any], _ body: () async throws -> String) async throws -> String {
+        let projectId = try args.uuid("projectId")
+        await onProjectWillChange?(projectId)
+        let result = try await body()
+        onProjectChanged?(projectId)
+        return result
+    }
+
+    /// Like `loadProject`, for callers that will write the result back.
+    func loadForEdit(_ args: [String: Any]) async throws -> Project {
+        await onProjectWillChange?(try args.uuid("projectId"))
+        return try await loadProject(args)
     }
 
     func loadProject(_ args: [String: Any]) async throws -> Project {

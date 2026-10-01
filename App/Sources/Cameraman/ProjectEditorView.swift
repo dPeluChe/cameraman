@@ -22,6 +22,7 @@ final class ProjectEditorViewModel: ObservableObject {
     @Published var selectedSegmentId: String?
     @Published var selectedMediaItemId: UUID?
     @Published var selectedOverlayId: UUID?
+    @Published private(set) var agentIsEditing = false
 
     let playerViewModel = PreviewPlayerViewModel()
 
@@ -39,6 +40,16 @@ final class ProjectEditorViewModel: ObservableObject {
     }
 
     private func setupObservers() {
+        AgentActivityCenter.shared.$activeProjects
+            .map { [projectId] in $0.contains(projectId) }
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] editing in
+                self?.agentIsEditing = editing
+                self?.editor?.isFrozen = editing
+            }
+            .store(in: &cancellables)
+
         NotificationCenter.default.publisher(for: .projectUpdated)
             .compactMap { $0.object as? ProjectId }
             .filter { [weak self] id in id == self?.projectId }
@@ -80,7 +91,12 @@ final class ProjectEditorViewModel: ObservableObject {
         if let (project, dir) = result {
             await Task.yield()
             self.editor?.cancelPendingAutosave()
-            self.editor = ProjectEditor(project: project)
+            let newEditor = ProjectEditor(project: project)
+            newEditor.isFrozen = agentIsEditing
+            self.editor = newEditor
+            AgentActivityCenter.shared.registerFlusher(for: projectId) { [weak newEditor] in
+                await newEditor?.flushPendingAutosave()
+            }
             self.projectDirectory = dir
             self.loadError = nil
             self.playerViewModel.seek(to: 0)
@@ -150,6 +166,7 @@ struct ProjectEditorView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(Color(NSColor.windowBackgroundColor))
+        .overlay { if viewModel.agentIsEditing { AgentEditingOverlay() } }
         .toast(Binding(
             get: { viewModel.editor?.showAutosaveToast ?? false },
             set: { viewModel.editor?.showAutosaveToast = $0 }
@@ -210,5 +227,33 @@ struct ProjectEditorView: View {
                     .frame(width: 600, height: 500)
             }
         }
+    }
+}
+
+// MARK: - Agent editing notice
+
+/// Swallows input while an AI agent edits the project, and says why.
+private struct AgentEditingOverlay: View {
+    var body: some View {
+        ZStack(alignment: .top) {
+            Color.black.opacity(0.18)
+                .contentShape(Rectangle())  // blocks clicks and drags beneath
+            HStack(spacing: Spacing.sm) {
+                ProgressView().controlSize(.small)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("An AI agent is editing this project")
+                        .font(.headline)
+                    Text("Editing is paused so your changes don't collide. It resumes when the agent finishes.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.horizontal, Spacing.lg)
+            .padding(.vertical, Spacing.md)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
+            .padding(.top, Spacing.xl)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("An AI agent is editing this project. Editing is paused.")
     }
 }

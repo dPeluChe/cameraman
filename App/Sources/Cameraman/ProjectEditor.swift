@@ -23,11 +23,29 @@ final class ProjectEditor: ObservableObject {
     private var redoStack: [Project] = []
     private let historyLimit = 50
     private var autosaveTask: Task<Void, Never>?
+    private var hasUnsavedChanges = false
+
+    /// True while an AI agent is editing this project: autosave is suspended and the view
+    /// blocks input, so anything typed in the meantime is dropped by the reload that follows.
+    var isFrozen = false
 
     init(project: Project) {
         self.project = project
         self.editorModel = EditorModel(project: project)
         updateHistoryState()
+    }
+
+    /// Persist now if anything is pending, so an agent that is about to read the project from
+    /// disk starts from the user's latest work.
+    func flushPendingAutosave() async {
+        autosaveTask?.cancel()
+        guard hasUnsavedChanges else { return }
+        do {
+            try await ProjectLibrary.shared.updateProject(project)
+            hasUnsavedChanges = false
+        } catch {
+            LogError(.editor, "[AUTOSAVE] Flush before agent edit failed: \(error.localizedDescription)")
+        }
     }
 
     /// Drop a queued save. Used when this editor is being replaced by a fresh copy from
@@ -39,12 +57,15 @@ final class ProjectEditor: ObservableObject {
     /// Schedule a debounced autosave (called after edits)
     /// Shows a brief toast notification when save completes
     func scheduleAutosave() {
+        guard !isFrozen else { return }
+        hasUnsavedChanges = true
         autosaveTask?.cancel()
         autosaveTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 1_000_000_000) // 1s debounce
             guard !Task.isCancelled, let self else { return }
             do {
                 try await ProjectLibrary.shared.updateProject(self.project)
+                self.hasUnsavedChanges = false
                 await MainActor.run {
                     self.showAutosaveToast = true
                 }
