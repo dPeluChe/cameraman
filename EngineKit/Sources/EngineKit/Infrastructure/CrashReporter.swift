@@ -299,57 +299,10 @@ public actor CrashReporter {
     // MARK: - Private Methods
     
     private func setupCrashHandlers() async {
-        // Set up signal handlers for common crash signals
-        signal(SIGABRT) { _ in
-            Task {
-                await CrashReporter.shared.reportCrash(
-                    reason: "SIGABRT - Abort signal",
-                    severity: .fatal,
-                    stackTrace: nil
-                )
-            }
-        }
-        
-        signal(SIGBUS) { _ in
-            Task {
-                await CrashReporter.shared.reportCrash(
-                    reason: "SIGBUS - Bus error",
-                    severity: .fatal,
-                    stackTrace: nil
-                )
-            }
-        }
-        
-        signal(SIGFPE) { _ in
-            Task {
-                await CrashReporter.shared.reportCrash(
-                    reason: "SIGFPE - Floating point exception",
-                    severity: .fatal,
-                    stackTrace: nil
-                )
-            }
-        }
-        
-        signal(SIGILL) { _ in
-            Task {
-                await CrashReporter.shared.reportCrash(
-                    reason: "SIGILL - Illegal instruction",
-                    severity: .fatal,
-                    stackTrace: nil
-                )
-            }
-        }
-        
-        signal(SIGSEGV) { _ in
-            Task {
-                await CrashReporter.shared.reportCrash(
-                    reason: "SIGSEGV - Segmentation fault",
-                    severity: .fatal,
-                    stackTrace: nil
-                )
-            }
-        }
-        
+        // No signal() handlers: a handler that returns after SIGSEGV/SIGBUS re-runs the
+        // faulting instruction (hang, no .ips), and Task/actor calls are not async-signal-safe.
+        // Fatal signals are left to the system crash reporter.
+
         // Set up Swift error handler
         NSSetUncaughtExceptionHandler { exception in
             Task {

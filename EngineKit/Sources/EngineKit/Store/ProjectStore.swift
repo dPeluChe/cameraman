@@ -127,7 +127,7 @@ public actor ProjectStore {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
 
         let data = try encoder.encode(projectToSave)
-        try data.write(to: projectFile)
+        try data.write(to: projectFile, options: .atomic)
     }
 
     /// Delete a project
@@ -173,7 +173,7 @@ public actor ProjectStore {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try encoder.encode(project).write(to: projectFile)
+        try encoder.encode(project).write(to: projectFile, options: .atomic)
 
         return newProjectId
     }
