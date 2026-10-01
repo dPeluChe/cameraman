@@ -17,7 +17,10 @@ enum MCPInfo {
     static let defaultProtocolVersion = "2024-11-05"
 }
 
-public final class MCPServer {
+/// Protocol core, transport-agnostic: bytes in, bytes out. stdio and HTTP are thin
+/// transports over `handle(message:)`. An actor so concurrent HTTP requests serialize
+/// around `MCPTools` state (e.g. the in-flight recording).
+public actor MCPServer {
     private let tools = MCPTools()
 
     public init() {}
@@ -28,7 +31,10 @@ public final class MCPServer {
             for try await line in FileHandle.standardInput.bytes.lines {
                 let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !trimmed.isEmpty else { continue }
-                await handle(line: trimmed)
+                if var out = await handle(message: Data(trimmed.utf8)) {
+                    out.append(0x0A) // newline frames the message
+                    FileHandle.standardOutput.write(out)
+                }
             }
         } catch {
             log("read loop ended: \(error)")
@@ -37,98 +43,99 @@ public final class MCPServer {
 
     // MARK: - Dispatch
 
-    private func handle(line: String) async {
-        guard let data = line.data(using: .utf8),
-              let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
-            send(errorId: NSNull(), code: -32700, message: "Parse error")
-            return
+    /// One JSON-RPC message (or a batch) in, the serialized reply out. nil means
+    /// nothing to send back (notifications, or a batch of only notifications).
+    public func handle(message data: Data) async -> Data? {
+        guard let parsed = try? JSONSerialization.jsonObject(with: data) else {
+            return serialize(errorReply(id: NSNull(), code: -32700, message: "Parse error"))
         }
+        if let batch = parsed as? [Any] {
+            var replies: [[String: Any]] = []
+            for item in batch {
+                guard let object = item as? [String: Any] else {
+                    replies.append(errorReply(id: NSNull(), code: -32600, message: "Invalid Request"))
+                    continue
+                }
+                if let reply = await process(object) { replies.append(reply) }
+            }
+            return replies.isEmpty ? nil : serialize(replies)
+        }
+        guard let object = parsed as? [String: Any] else {
+            return serialize(errorReply(id: NSNull(), code: -32600, message: "Invalid Request"))
+        }
+        return await process(object).flatMap { serialize($0) }
+    }
 
-        let method = object["method"] as? String
-        let id = object["id"]   // may be absent (notification), number, string, or null
+    private func process(_ object: [String: Any]) async -> [String: Any]? {
+        let id = object["id"]   // absent (notification), number, string, or null
         let params = object["params"] as? [String: Any] ?? [:]
-
-        guard let method = method else {
-            // A response/garbage with no method — ignore.
-            return
-        }
-
+        // A response/garbage with no method is ignored.
+        guard let method = object["method"] as? String else { return nil }
         // Notifications carry no id and never get a reply.
         let isNotification = (id == nil)
+        let replyId = id ?? NSNull()
 
         switch method {
         case "initialize":
             let clientVersion = params["protocolVersion"] as? String
-            let result: [String: Any] = [
+            return result([
                 "protocolVersion": clientVersion ?? MCPInfo.defaultProtocolVersion,
                 "capabilities": ["tools": ["listChanged": false]],
                 "serverInfo": ["name": MCPInfo.name, "version": MCPInfo.version]
-            ]
-            send(result: result, id: id ?? NSNull())
+            ], id: replyId)
 
         case "notifications/initialized", "initialized":
-            break // notification, no reply
+            return nil
 
         case "ping":
-            if !isNotification { send(result: [:], id: id ?? NSNull()) }
+            return isNotification ? nil : result([:], id: replyId)
 
         case "tools/list":
-            send(result: ["tools": MCPTools.catalog], id: id ?? NSNull())
+            return result(["tools": MCPTools.catalog], id: replyId)
 
         case "tools/call":
             let name = params["name"] as? String ?? ""
             let arguments = params["arguments"] as? [String: Any] ?? [:]
-            await callTool(name: name, arguments: arguments, id: id ?? NSNull(), isNotification: isNotification)
+            return await callTool(name: name, arguments: arguments, id: replyId, isNotification: isNotification)
 
         default:
-            if !isNotification {
-                send(errorId: id ?? NSNull(), code: -32601, message: "Method not found: \(method)")
-            }
+            return isNotification ? nil : errorReply(id: replyId, code: -32601, message: "Method not found: \(method)")
         }
     }
 
     /// Run a tool and report the result. Tool failures are returned as a
     /// successful JSON-RPC response with `isError: true` (per MCP convention),
     /// so the model sees the error text rather than a transport-level fault.
-    private func callTool(name: String, arguments: [String: Any], id: Any, isNotification: Bool) async {
+    private func callTool(name: String, arguments: [String: Any], id: Any, isNotification: Bool) async -> [String: Any]? {
         do {
             let text = try await tools.execute(name: name, arguments: arguments)
-            guard !isNotification else { return }
-            send(result: [
-                "content": [["type": "text", "text": text]],
-                "isError": false
-            ], id: id)
+            guard !isNotification else { return nil }
+            return result(["content": [["type": "text", "text": text]], "isError": false], id: id)
         } catch {
             // Prefer a human message: MCPToolError, then any LocalizedError
             // (e.g. EngineKit's ExportError), falling back to the raw value.
             let message = (error as? MCPToolError)?.message ?? error.localizedDescription
             log("tool '\(name)' failed: \(message)")
-            guard !isNotification else { return }
-            send(result: [
-                "content": [["type": "text", "text": "Error: \(message)"]],
-                "isError": true
-            ], id: id)
+            guard !isNotification else { return nil }
+            return result(["content": [["type": "text", "text": "Error: \(message)"]], "isError": true], id: id)
         }
     }
 
     // MARK: - Output
 
-    private func send(result: [String: Any], id: Any) {
-        write(["jsonrpc": "2.0", "id": id, "result": result])
+    private nonisolated func result(_ result: [String: Any], id: Any) -> [String: Any] {
+        ["jsonrpc": "2.0", "id": id, "result": result]
     }
 
-    private func send(errorId id: Any, code: Int, message: String) {
-        write(["jsonrpc": "2.0", "id": id, "error": ["code": code, "message": message]])
+    private nonisolated func errorReply(id: Any, code: Int, message: String) -> [String: Any] {
+        ["jsonrpc": "2.0", "id": id, "error": ["code": code, "message": message]]
     }
 
-    private func write(_ object: [String: Any]) {
-        guard let data = try? JSONSerialization.data(withJSONObject: object) else { return }
-        var line = data
-        line.append(0x0A) // newline frames the message
-        FileHandle.standardOutput.write(line)
+    private nonisolated func serialize(_ object: Any) -> Data? {
+        try? JSONSerialization.data(withJSONObject: object)
     }
 
-    private func log(_ message: String) {
+    private nonisolated func log(_ message: String) {
         FileHandle.standardError.write(Data("cameraman-mcp: \(message)\n".utf8))
     }
 }
