@@ -76,18 +76,22 @@ extension MCPTools {
         }
         var payload = Self.jobPayload(job)
         if job.type == .aiSuggestion, case .success = job.status {
-            payload["suggestions"] = await savedSuggestions(projectId: job.projectId)
+            if let suggestions = await savedSuggestions(for: job) {
+                payload["suggestions"] = suggestions
+            } else {
+                payload["suggestionsNote"] = "Result file not found. The write may have failed; check that the server and the app use the same projects directory."
+            }
         }
         return try json(payload)
     }
 
-    /// suggest_silence_edits and suggest_chapters both write ai_suggestions.json, so it holds
-    /// the most recent run; read it right after the job succeeds.
-    private func savedSuggestions(projectId: UUID) async -> Any {
-        guard let dir = try? await ProjectLibrary.shared.getProjectDirectory(projectId: projectId),
-              let data = try? Data(contentsOf: dir.appendingPathComponent("ai_suggestions.json")),
-              let object = try? JSONSerialization.jsonObject(with: data) else { return [Any]() }
-        return object
+    /// Each suggest_* job writes its own result file, so an older job is never answered with a
+    /// newer run's data. nil means the file is missing (a failed write, or a different directory).
+    private func savedSuggestions(for job: Job) async -> Any? {
+        guard let dir = try? await ProjectLibrary.shared.getProjectDirectory(projectId: job.projectId),
+              let data = try? Data(contentsOf: dir.appendingPathComponent(AIService.suggestionsFileName(jobId: job.jobId)))
+        else { return nil }
+        return try? JSONSerialization.jsonObject(with: data)
     }
 
     func cancelJob(_ args: [String: Any]) async throws -> String {

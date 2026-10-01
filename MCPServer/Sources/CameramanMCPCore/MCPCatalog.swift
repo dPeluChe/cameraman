@@ -307,12 +307,12 @@ extension MCPTools {
                  required: ["projectId"]),
 
             tool("suggest_silence_edits",
-                 "Analyze the project audio on-device for silent ranges worth cutting. Async: returns a jobId; poll get_job_status, whose success reply includes `suggestions`. Overwrites the previous suggest_* result for this project.",
+                 "Analyze the project audio on-device for silent ranges worth cutting. Async: returns a jobId; poll get_job_status, whose success reply includes `suggestions`.",
                  properties: ["projectId": str("Project UUID")],
                  required: ["projectId"]),
 
             tool("suggest_chapters",
-                 "Suggest chapter markers from the project's transcript on-device (run transcribe_project first). Async: returns a jobId; poll get_job_status, whose success reply includes `suggestions`. Overwrites the previous suggest_* result for this project.",
+                 "Suggest chapter markers from the project's transcript on-device (run transcribe_project first). Async: returns a jobId; poll get_job_status, whose success reply includes `suggestions`.",
                  properties: ["projectId": str("Project UUID")],
                  required: ["projectId"])
         ]

@@ -107,7 +107,8 @@ final class MCPTools {
         encoder.dateEncodingStrategy = .iso8601
         let object = try JSONSerialization.jsonObject(with: try encoder.encode(project))
         let includeSubtitles = args.optStrArray("include")?.contains("subtitles") ?? false
-        return try json(Self.trimmedProject(object as? [String: Any] ?? [:], includeSubtitles: includeSubtitles))
+        guard let dict = object as? [String: Any] else { throw MCPToolError("Unexpected project encoding") }
+        return try json(Self.trimmedProject(dict, includeSubtitles: includeSubtitles))
     }
 
     /// Subtitle cues are full overlays, so they grow with talk length and dwarf everything else.

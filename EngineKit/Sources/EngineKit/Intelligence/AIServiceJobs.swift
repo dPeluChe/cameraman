@@ -48,7 +48,7 @@ extension AIService {
             }
 
             // Save suggestions to project
-            await saveSuggestions(suggestions, for: projectId)
+            await saveSuggestions(suggestions, for: projectId, jobId: jobId)
 
             await jobQueue.updateJobProgress(jobId: jobId, progress: 1.0)
             await jobQueue.completeJob(jobId: jobId)
@@ -114,7 +114,7 @@ extension AIService {
             }
 
             // Save suggestions to project
-            await saveSuggestions(suggestions, for: projectId)
+            await saveSuggestions(suggestions, for: projectId, jobId: jobId)
 
             await jobQueue.updateJobProgress(jobId: jobId, progress: 1.0)
             await jobQueue.completeJob(jobId: jobId)
