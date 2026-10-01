@@ -6,11 +6,8 @@
 //
 
 import AppKit
+import Carbon.HIToolbox
 import Foundation
-
-// Note: Carbon framework is needed for global hotkeys
-// In a real implementation, this would use the actual Carbon framework
-// For now, we're providing stub implementations for testing
 
 /// HotkeyManager manages global keyboard shortcuts for recording control
 /// Uses Carbon Events API for global hotkey registration (pre-QQElement style)
@@ -55,7 +52,7 @@ public class HotkeyManager {
         public static let cmdKey: UInt32 = 0x100
         public static let optionKey: UInt32 = 0x0800
         public static let controlKey: UInt32 = 0x1000
-        public static let shiftKey: UInt32 = 0x2000
+        public static let shiftKey: UInt32 = 0x0200 // Carbon shiftKey; 0x2000 is rightShiftKey
 
         /// Common virtual key codes
         public static let spaceKey: UInt32 = 49
@@ -165,7 +162,7 @@ public class HotkeyManager {
     /// Hotkey registration info
     private struct HotkeyRegistration {
         let hotkey: Hotkey
-        let eventHotkeyRef: AnyObject
+        let eventHotkeyRef: EventHotKeyRef
     }
 
     // MARK: - Properties
@@ -181,6 +178,9 @@ public class HotkeyManager {
 
     /// Whether hotkeys are enabled
     private var isEnabled: Bool = false
+
+    /// Carbon event handler, installed once for the app target
+    private var hotkeyHandlerRef: EventHandlerRef?
 
     /// Queue for thread safety
     private let queue = DispatchQueue(label: "com.enginekit.hotkeymanager", attributes: .concurrent)
@@ -237,12 +237,12 @@ public class HotkeyManager {
         }
 
         // Create hotkey reference
-        var eventHotkeyRef: AnyObject?
+        var eventHotkeyRef: EventHotKeyRef?
         let hotkeyID = UInt32(abs(hotkey.action.hashValue % Int(UInt32.max)))
         let status = RegisterEventHotKey(
             hotkey.keyCode,
             hotkey.modifiers,
-            EventHotkeyID(signature: 0x48544B59, id: hotkeyID),
+            EventHotKeyID(signature: 0x48544B59, id: hotkeyID),
             GetApplicationEventTarget(),
             0,
             &eventHotkeyRef
@@ -329,41 +329,42 @@ public class HotkeyManager {
     // MARK: - Event Handling
 
     private func installEventHandler() {
+        guard hotkeyHandlerRef == nil else { return }
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
 
         let observer = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
 
         let status = InstallEventHandler(GetApplicationEventTarget(), { (nextHandler, theEvent, userData) -> OSStatus in
             guard let userData = userData else {
-                return eventNotHandledErr
+                return OSStatus(eventNotHandledErr)
             }
 
             let manager = Unmanaged<HotkeyManager>.fromOpaque(userData).takeUnretainedValue()
             return manager.handleHotkeyEvent(theEvent)
-        }, 1, &spec, observer, nil)
+        }, 1, &spec, observer, &hotkeyHandlerRef)
         if status != noErr {
             LogError(.capture, "[HotkeyManager] InstallEventHandler failed with status: \(status)")
         }
     }
 
-    private func handleHotkeyEvent(_ event: AnyObject?) -> OSStatus {
+    private func handleHotkeyEvent(_ event: EventRef?) -> OSStatus {
         guard let event = event else {
-            return eventNotHandledErr
+            return OSStatus(eventNotHandledErr)
         }
 
-        var hotkeyID = EventHotkeyID(signature: 0x48544B59, id: 0)
+        var hotkeyID = EventHotKeyID(signature: 0x48544B59, id: 0)
         let status = GetEventParameter(
             event,
-            0x70617261, // 'para'
-            0x68746B69, // 'htki'
+            EventParamName(kEventParamDirectObject),
+            EventParamType(typeEventHotKeyID),
             nil,
-            UInt32(MemoryLayout<EventHotkeyID>.size),
+            MemoryLayout<EventHotKeyID>.size,
             nil,
             &hotkeyID
         )
 
         guard status == noErr else {
-            return eventNotHandledErr
+            return OSStatus(eventNotHandledErr)
         }
 
         // Find matching action by hash value
@@ -380,79 +381,6 @@ public class HotkeyManager {
             }
         }
 
-        return eventNotHandledErr
+        return OSStatus(eventNotHandledErr)
     }
-}
-
-// MARK: - Carbon Event Types (Simplified Stubs)
-
-private let kEventClassKeyboard: UInt32 = 0x6B657962 // 'keyb'
-private let kEventHotKeyPressed: UInt32 = 5
-private let eventNotHandledErr: OSStatus = -9870
-
-// MARK: - Carbon Function Definitions (Stubs)
-
-private func GetApplicationEventTarget() -> AnyObject {
-    return NSObject()
-}
-
-private func InstallEventHandler(
-    _ inTarget: AnyObject,
-    _ inHandler: @convention(c) (AnyObject?, AnyObject?, UnsafeMutableRawPointer?) -> OSStatus,
-    _ inNumTypes: UInt32,
-    _ inList: UnsafePointer<EventTypeSpec>?,
-    _ inUserData: UnsafeMutableRawPointer?,
-    _ outRef: UnsafeMutablePointer<AnyObject?>?
-) -> OSStatus {
-    // Stub implementation - in production, this would call the actual Carbon API
-    _ = inHandler // Suppress unused warning
-    return noErr
-}
-
-private func RegisterEventHotKey(
-    _ inKeyCode: UInt32,
-    _ inModifiers: UInt32,
-    _ inHotkeyID: EventHotkeyID,
-    _ inTarget: AnyObject,
-    _ inOptions: UInt32,
-    _ outRef: UnsafeMutablePointer<AnyObject?>?
-) -> OSStatus {
-    // Stub implementation - in production, this would call the actual Carbon API
-    // For testing, we need to provide a non-nil reference
-    if let outRef = outRef {
-        outRef.pointee = NSObject()
-    }
-    return noErr
-}
-
-private func UnregisterEventHotKey(_ inHotkeyRef: AnyObject) -> OSStatus {
-    // Stub implementation - in production, this would call the actual Carbon API
-    return noErr
-}
-
-private func GetEventParameter(
-    _ inEvent: AnyObject?,
-    _ inName: UInt32,
-    _ inDesiredType: UInt32,
-    _ outActualType: UnsafeMutablePointer<UInt32>?,
-    _ inBufferSize: UInt32,
-    _ outActualSize: UnsafeMutablePointer<UInt32>?,
-    _ outData: UnsafeMutableRawPointer?
-) -> OSStatus {
-    // Stub implementation - in production, this would call the actual Carbon API
-    return noErr
-}
-
-public let noErr: OSStatus = 0
-
-public typealias OSStatus = Int32
-
-private struct EventTypeSpec {
-    var eventClass: UInt32
-    var eventKind: UInt32
-}
-
-private struct EventHotkeyID {
-    var signature: UInt32
-    var id: UInt32
 }
