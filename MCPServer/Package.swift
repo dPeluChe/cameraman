@@ -16,6 +16,10 @@ let package = Package(
     platforms: [
         .macOS(.v13)
     ],
+    products: [
+        .library(name: "CameramanMCPCore", targets: ["CameramanMCPCore"]),
+        .executable(name: "cameraman-mcp", targets: ["cameraman-mcp"])
+    ],
     dependencies: [
         .package(path: "../EngineKit")
     ],
