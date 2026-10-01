@@ -44,10 +44,7 @@ final class ProjectEditorViewModel: ObservableObject {
             .map { [projectId] in $0.contains(projectId) }
             .removeDuplicates()
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] editing in
-                self?.agentIsEditing = editing
-                self?.editor?.isFrozen = editing
-            }
+            .sink { [weak self] editing in self?.agentIsEditing = editing }
             .store(in: &cancellables)
 
         NotificationCenter.default.publisher(for: .projectUpdated)
@@ -65,6 +62,12 @@ final class ProjectEditorViewModel: ObservableObject {
 
     func loadProject() async {
         guard !isLoading else { return }
+        // The editor stays frozen until the reload lands; releasing it earlier would let
+        // edits made in the gap be replaced by the fresh copy.
+        defer { AgentActivityCenter.shared.reloadFinished(projectId) }
+
+        // Keep the playhead across an agent-triggered reload.
+        let previousTime = playerViewModel.currentTime
 
         // Reset player state before loading new project to prevent leaks
         playerViewModel.reset()
@@ -91,15 +94,17 @@ final class ProjectEditorViewModel: ObservableObject {
         if let (project, dir) = result {
             await Task.yield()
             self.editor?.cancelPendingAutosave()
-            let newEditor = ProjectEditor(project: project)
-            newEditor.isFrozen = agentIsEditing
+            let id = projectId
+            let newEditor = ProjectEditor(project: project) {
+                AgentActivityCenter.shared.activeProjects.contains(id)
+            }
             self.editor = newEditor
             AgentActivityCenter.shared.registerFlusher(for: projectId) { [weak newEditor] in
                 await newEditor?.flushPendingAutosave()
             }
             self.projectDirectory = dir
             self.loadError = nil
-            self.playerViewModel.seek(to: 0)
+            self.playerViewModel.seek(to: min(previousTime, project.timeline.duration))
             self.isLoading = false
         }
     }

@@ -150,3 +150,8 @@ Preferences → Integrations → "Built-in server (HTTP)".
 
 Tools carry MCP annotations: `readOnlyHint` on reads and `destructiveHint` on removals, so clients
 can skip or require confirmation. A test keeps the catalog and the dispatcher in sync.
+
+**Agent priority.** When an agent edits through the in-app server, that project's editor
+freezes behind a notice, unsaved work is saved first, and the editor reloads once the agent
+goes quiet. The stdio helper is a separate process and cannot signal the app, so it does not
+get this protection: prefer the in-app server when the app is open.

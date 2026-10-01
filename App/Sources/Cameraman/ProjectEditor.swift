@@ -25,11 +25,14 @@ final class ProjectEditor: ObservableObject {
     private var autosaveTask: Task<Void, Never>?
     private var hasUnsavedChanges = false
 
-    /// True while an AI agent is editing this project: autosave is suspended and the view
-    /// blocks input, so anything typed in the meantime is dropped by the reload that follows.
-    var isFrozen = false
+    /// True while an AI agent is editing this project. Read straight from the activity center
+    /// (not mirrored) so it flips the instant the agent is marked active; edits, undo/redo and
+    /// autosave are all refused while it holds.
+    private let isFrozenCheck: () -> Bool
+    var isFrozen: Bool { isFrozenCheck() }
 
-    init(project: Project) {
+    init(project: Project, isFrozen: @escaping () -> Bool = { false }) {
+        self.isFrozenCheck = isFrozen
         self.project = project
         self.editorModel = EditorModel(project: project)
         updateHistoryState()
@@ -62,7 +65,9 @@ final class ProjectEditor: ObservableObject {
         autosaveTask?.cancel()
         autosaveTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 1_000_000_000) // 1s debounce
-            guard !Task.isCancelled, let self else { return }
+            // Re-check: an agent may have taken over during the debounce; writing now would
+            // put this stale snapshot over its edits.
+            guard !Task.isCancelled, let self, !self.isFrozen else { return }
             do {
                 try await ProjectLibrary.shared.updateProject(self.project)
                 self.hasUnsavedChanges = false
@@ -223,6 +228,8 @@ final class ProjectEditor: ObservableObject {
     /// Snapshot current project, run an EditorModel operation, then propagate the
     /// result + undo snapshot. Centralizes the trim/split/add/delete pattern.
     private func performEdit(_ op: () async -> EditorResult) async -> EditorResult {
+        // Keyboard shortcuts and menu commands reach here even though the overlay blocks the mouse.
+        guard !isFrozen else { return .failure(.invalidClipContent(reason: "An AI agent is editing this project")) }
         let previousProject = project
         let result = await op()
         updatePublishedProject(from: result, previousProject: previousProject)
@@ -230,6 +237,7 @@ final class ProjectEditor: ObservableObject {
     }
 
     func undo() async -> Bool {
+        guard !isFrozen else { return false }
         guard let previousProject = undoStack.popLast() else {
             updateHistoryState()
             return false
@@ -243,6 +251,7 @@ final class ProjectEditor: ObservableObject {
     }
 
     func redo() async -> Bool {
+        guard !isFrozen else { return false }
         guard let nextProject = redoStack.popLast() else {
             updateHistoryState()
             return false
