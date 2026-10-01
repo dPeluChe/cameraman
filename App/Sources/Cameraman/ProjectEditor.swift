@@ -30,6 +30,12 @@ final class ProjectEditor: ObservableObject {
         updateHistoryState()
     }
 
+    /// Drop a queued save. Used when this editor is being replaced by a fresh copy from
+    /// disk, so its stale snapshot cannot be written after the reload.
+    func cancelPendingAutosave() {
+        autosaveTask?.cancel()
+    }
+
     /// Schedule a debounced autosave (called after edits)
     /// Shows a brief toast notification when save completes
     func scheduleAutosave() {

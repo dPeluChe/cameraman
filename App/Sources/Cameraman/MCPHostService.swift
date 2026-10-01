@@ -8,8 +8,8 @@
 //
 
 import Combine
+import EngineKit
 import Foundation
-import os
 import Security
 import CameramanMCPCore
 
@@ -21,14 +21,13 @@ final class MCPHostService: ObservableObject {
     static let defaultPort: UInt16 = 8765
 
     private static let enabledKey = "mcp.host.enabled"
-    private static let portKey = "mcp.host.port"
     private static let keychainService = "dev.dpeluche.CameramanApp.mcp"
 
     @Published private(set) var state: State = .stopped
-    @Published private(set) var token: String
+    /// Empty until the server first starts, so the Keychain is untouched while the feature is off.
+    @Published private(set) var token = ""
 
     private var http: MCPHTTPServer?
-    private let log = Logger(subsystem: "dev.dpeluche.CameramanApp", category: "mcp-host")
 
     var isEnabled: Bool { UserDefaults.standard.bool(forKey: Self.enabledKey) }
 
@@ -37,12 +36,9 @@ final class MCPHostService: ObservableObject {
         return "http://127.0.0.1:\(port)/mcp"
     }
 
-    private init() {
-        token = Self.loadOrCreateToken()
-    }
+    private init() {}
 
     func startIfEnabled() {
-        log.info("startIfEnabled enabled=\(self.isEnabled, privacy: .public)")
         if isEnabled { Task { await start() } }
     }
 
@@ -53,22 +49,20 @@ final class MCPHostService: ObservableObject {
 
     func start() async {
         guard http == nil else { return }
-        let stored = UserDefaults.standard.integer(forKey: Self.portKey)
-        let preferred = UInt16(exactly: stored).flatMap { $0 == 0 ? nil : $0 } ?? Self.defaultPort
-        // Keep the port stable so client configs stay valid; fall back to any free port.
-        for port in [preferred, 0] {
-            let server = MCPHTTPServer(server: Self.makeServer(), token: token, port: port)
-            do {
-                let bound = try await server.start()
-                http = server
-                UserDefaults.standard.set(Int(bound), forKey: Self.portKey)
-                state = .running(port: bound)
-                log.info("listening on \(bound, privacy: .public)")
-                return
-            } catch {
-                log.error("start on port \(port, privacy: .public) failed: \(String(describing: error), privacy: .public)")
-                if port == 0 { state = .failed("\(error)") }
-            }
+        if token.isEmpty { token = Self.loadOrCreateToken() }
+        let port = Self.defaultPort
+        let server = MCPHTTPServer(server: Self.makeServer(), token: token, port: port)
+        do {
+            let bound = try await server.start()
+            // Turned off while the listener was coming up.
+            guard isEnabled else { server.stop(); return }
+            http = server
+            state = .running(port: bound)
+            LogInfo(.ui, "[MCP] in-app server listening on 127.0.0.1:\(bound)")
+        } catch {
+            // No silent fallback to another port: it would break every pasted client config.
+            state = .failed("Port \(port) is unavailable. Close what is using it and turn this on again.")
+            LogError(.ui, "[MCP] could not listen on port \(port): \(error)")
         }
     }
 
@@ -114,9 +108,7 @@ final class MCPHostService: ObservableObject {
     private static func storeNewToken() -> String {
         var bytes = [UInt8](repeating: 0, count: 32)
         _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
-        let value = Data(bytes).base64EncodedString()
-            .replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_")
-            .replacingOccurrences(of: "=", with: "")
+        let value = bytes.map { String(format: "%02x", $0) }.joined()
 
         let identity: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -127,7 +119,8 @@ final class MCPHostService: ObservableObject {
         var add = identity
         add[kSecValueData as String] = Data(value.utf8)
         add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-        SecItemAdd(add as CFDictionary, nil)
+        let status = SecItemAdd(add as CFDictionary, nil)
+        if status != errSecSuccess { LogError(.ui, "[MCP] could not store token in Keychain (\(status))") }
         return value
     }
 }

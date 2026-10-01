@@ -14,7 +14,7 @@ import EngineKit
 
 struct IntegrationsPreferencesView: View {
     @ObservedObject private var host = MCPHostService.shared
-    @State private var hostEnabled = MCPHostService.shared.isEnabled
+    @AppStorage("mcp.host.enabled") private var hostEnabled = false
     @AppStorage("mcp.binaryPath") private var binaryPath = ""
     @State private var showBinaryPicker = false
     @State private var selectedClient: MCPClient = .claudeDesktop
@@ -132,10 +132,8 @@ struct IntegrationsPreferencesView: View {
     /// Runs inside the app, so it sees the app's own projects and works in the sandbox.
     private var builtInServerSection: some View {
         SettingsSection("Built-in server (HTTP)", spacing: Spacing.sm) {
-            Toggle("Allow AI clients to connect on this Mac", isOn: Binding(
-                get: { hostEnabled },
-                set: { hostEnabled = $0; host.setEnabled($0) }
-            ))
+            Toggle("Allow AI clients to connect on this Mac", isOn: $hostEnabled)
+                .onChange(of: hostEnabled) { host.setEnabled($0) }
             switch host.state {
             case .stopped:
                 Text("Off. Nothing is listening.").font(.caption).foregroundStyle(.secondary)
