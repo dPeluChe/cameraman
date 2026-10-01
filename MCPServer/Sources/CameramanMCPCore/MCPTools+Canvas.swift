@@ -44,7 +44,7 @@ extension MCPTools {
             project.canvas.videoShadowIntensity = min(max(shadow, 0), 1)
         }
 
-        try await ProjectLibrary.shared.updateProject(project)
+        try await persist(project)
         return try summary("Updated canvas layout (\(project.canvas.layout.type))", project)
     }
 
@@ -70,7 +70,7 @@ extension MCPTools {
         project.canvas.background = Project.Canvas.Background(
             type: type, value: resolvedValue, fitMode: fitMode
         )
-        try await ProjectLibrary.shared.updateProject(project)
+        try await persist(project)
         return try summary("Updated background (\(type))", project)
     }
 

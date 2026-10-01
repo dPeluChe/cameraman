@@ -57,7 +57,7 @@ final class MCPHostService: ObservableObject {
         let preferred = UInt16(exactly: stored).flatMap { $0 == 0 ? nil : $0 } ?? Self.defaultPort
         // Keep the port stable so client configs stay valid; fall back to any free port.
         for port in [preferred, 0] {
-            let server = MCPHTTPServer(server: MCPServer(), token: token, port: port)
+            let server = MCPHTTPServer(server: Self.makeServer(), token: token, port: port)
             do {
                 let bound = try await server.start()
                 http = server
@@ -70,6 +70,14 @@ final class MCPHostService: ObservableObject {
                 if port == 0 { state = .failed("\(error)") }
             }
         }
+    }
+
+    /// MCP edits go straight to disk; tell any open editor to reload so its next
+    /// autosave does not overwrite them with a stale copy.
+    private static func makeServer() -> MCPServer {
+        MCPServer(onProjectChanged: { id in
+            Task { @MainActor in NotificationCenter.default.post(name: .projectUpdated, object: id) }
+        })
     }
 
     func stop() {
