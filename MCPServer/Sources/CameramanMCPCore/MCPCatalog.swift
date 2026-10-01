@@ -10,9 +10,8 @@ import Foundation
 extension MCPTools {
 
     /// Tool definitions returned by `tools/list`.
-    static var catalog: [[String: Any]] {
+    static let catalog: [[String: Any]] =
         projectTools + clipTools + trackTools + deliveryTools + canvasTools + overlayTools
-    }
 
     // MARK: - Projects / management
 

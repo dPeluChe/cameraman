@@ -24,17 +24,17 @@ public final class MCPHTTPServer: @unchecked Sendable {
     static let path = "/mcp"
 
     private let server: MCPServer
-    private let token: String
+    private let expectedAuthorization: String
     private let requestedPort: UInt16
     private let queue = DispatchQueue(label: "cameraman.mcp.http")
     private var listener: NWListener?
 
-    public private(set) var port: UInt16 = 0
+    public var port: UInt16 { listener?.port?.rawValue ?? 0 }
 
     /// - Parameter port: 0 picks a free port; read it back from `start()`.
     public init(server: MCPServer, token: String, port: UInt16 = 0) {
         self.server = server
-        self.token = token
+        self.expectedAuthorization = "Bearer \(token)"
         self.requestedPort = port
     }
 
@@ -57,12 +57,12 @@ public final class MCPHTTPServer: @unchecked Sendable {
         do { listener = try NWListener(using: params) } catch { throw StartError.failed("\(error)") }
         listener.newConnectionHandler = { [weak self] connection in self?.accept(connection) }
 
-        let bound: UInt16 = try await withCheckedThrowingContinuation { cont in
+        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
             let resumed = ResumeOnce()
             listener.stateUpdateHandler = { state in
                 switch state {
                 case .ready:
-                    if resumed.claim() { cont.resume(returning: listener.port?.rawValue ?? 0) }
+                    if resumed.claim() { cont.resume() }
                 case .failed(let error):
                     if resumed.claim() { cont.resume(throwing: StartError.failed("\(error)")) }
                 case .cancelled:
@@ -74,39 +74,72 @@ public final class MCPHTTPServer: @unchecked Sendable {
             listener.start(queue: queue)
         }
         self.listener = listener
-        self.port = bound
-        return bound
+        return port
     }
 
     public func stop() {
         listener?.cancel()
         listener = nil
-        port = 0
     }
 
     // MARK: - Connections
 
-    private func accept(_ connection: NWConnection) {
-        connection.start(queue: queue)
-        receive(on: connection, buffer: Data())
+    /// Per-connection state, mutated only on `queue`.
+    private final class Connection {
+        let nw: NWConnection
+        var buffer = Data()
+        var head: HTTPRequest.Head?
+        var bodyStart = 0
+        init(_ nw: NWConnection) { self.nw = nw }
     }
 
-    private func receive(on connection: NWConnection, buffer: Data) {
-        connection.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { [weak self] data, _, isComplete, error in
-            guard let self else { return }
-            var buffer = buffer
-            if let data { buffer.append(data) }
+    private var activeConnections = 0
+    static let maxConnections = 32
+    static let requestDeadline: TimeInterval = 10
 
-            switch HTTPRequest.parse(buffer) {
-            case .needMore:
-                if isComplete || error != nil { connection.cancel() } else { self.receive(on: connection, buffer: buffer) }
-            case .invalid(let status):
-                self.respond(connection, status: status)
-            case .request(let request):
-                Task { [server = self.server] in
-                    let response = await self.route(request, server: server)
-                    self.respond(connection, status: response.status, body: response.body)
+    private func accept(_ nw: NWConnection) {
+        guard activeConnections < Self.maxConnections else { nw.cancel(); return }
+        activeConnections += 1
+        let connection = Connection(nw)
+        nw.stateUpdateHandler = { [weak self] state in
+            switch state {
+            case .failed, .cancelled: self?.queue.async { self?.activeConnections -= 1 }
+            default: break
+            }
+        }
+        nw.start(queue: queue)
+        // A peer that connects and trickles (or sends nothing) must not hold a slot forever.
+        queue.asyncAfter(deadline: .now() + Self.requestDeadline) { nw.cancel() }
+        receive(connection)
+    }
+
+    private func receive(_ connection: Connection) {
+        connection.nw.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { [weak self] data, _, isComplete, error in
+            guard let self else { return }
+            if let data { connection.buffer.append(data) }
+
+            if connection.head == nil {
+                switch HTTPRequest.parseHead(connection.buffer) {
+                case .invalid(let status): return self.respond(connection.nw, status: status)
+                case .needMore: break
+                case .head(let head, let bodyStart):
+                    // Reject before buffering a body from an unauthenticated peer.
+                    if let status = self.reject(head) { return self.respond(connection.nw, status: status) }
+                    connection.head = head
+                    connection.bodyStart = bodyStart
                 }
+            }
+
+            if let head = connection.head, connection.buffer.count - connection.bodyStart >= head.contentLength {
+                let body = connection.buffer.subdata(in: connection.bodyStart..<(connection.bodyStart + head.contentLength))
+                Task {
+                    let reply = await self.dispatch(body)
+                    self.respond(connection.nw, status: reply.status, body: reply.body)
+                }
+            } else if isComplete || error != nil {
+                connection.nw.cancel()
+            } else {
+                self.receive(connection)
             }
         }
     }
@@ -115,18 +148,18 @@ public final class MCPHTTPServer: @unchecked Sendable {
 
     struct Reply { var status: Int; var body: Data? }
 
-    func route(_ request: HTTPRequest, server: MCPServer) async -> Reply {
-        guard Self.isLoopbackHost(request.headers["host"]) else { return Reply(status: 403, body: nil) }
-        if let origin = request.headers["origin"], !Self.isLoopbackOrigin(origin) {
-            return Reply(status: 403, body: nil)
-        }
-        guard Self.constantTimeEqual(request.headers["authorization"] ?? "", "Bearer \(token)") else {
-            return Reply(status: 401, body: nil)
-        }
-        guard request.path == Self.path else { return Reply(status: 404, body: nil) }
-        guard request.method == "POST" else { return Reply(status: 405, body: nil) }
+    /// Status to refuse with, decided from the headers alone.
+    func reject(_ head: HTTPRequest.Head) -> Int? {
+        guard Self.isLoopbackHost(head.headers["host"]) else { return 403 }
+        if let origin = head.headers["origin"], !Self.isLoopbackOrigin(origin) { return 403 }
+        guard Self.constantTimeEqual(head.headers["authorization"] ?? "", expectedAuthorization) else { return 401 }
+        guard head.path == Self.path else { return 404 }
+        guard head.method == "POST" else { return 405 }
+        return nil
+    }
 
-        guard let out = await server.handle(message: request.body) else {
+    func dispatch(_ body: Data) async -> Reply {
+        guard let out = await server.handle(message: body) else {
             return Reply(status: 202, body: nil) // notification: accepted, no content
         }
         return Reply(status: 200, body: out)
@@ -156,8 +189,7 @@ public final class MCPHTTPServer: @unchecked Sendable {
     }
 
     static func isLoopbackOrigin(_ origin: String) -> Bool {
-        guard let host = URL(string: origin)?.host else { return false }
-        return host == "127.0.0.1" || host == "localhost"
+        isLoopbackHost(URL(string: origin)?.host)
     }
 
     static func constantTimeEqual(_ a: String, _ b: String) -> Bool {
@@ -196,31 +228,33 @@ private final class ResumeOnce: @unchecked Sendable {
 }
 
 /// Minimal HTTP/1.1 request parser: request line, headers, Content-Length body.
+/// Header parsing is separate so a request can be refused before its body is read.
 struct HTTPRequest {
-    enum Parsed { case needMore, invalid(Int), request(HTTPRequest) }
+    struct Head {
+        let method: String
+        let path: String
+        let headers: [String: String]   // lowercased names
+        let contentLength: Int
+    }
 
-    let method: String
-    let path: String
-    let headers: [String: String]   // lowercased names
-    let body: Data
+    enum HeadResult { case needMore, invalid(Int), head(Head, bodyStart: Int) }
+    enum Parsed { case needMore, invalid(Int), request(Head, body: Data) }
 
-    static func parse(_ data: Data) -> Parsed {
-        let terminator = Data("\r\n\r\n".utf8)
-        guard let end = data.range(of: terminator) else {
+    static func parseHead(_ data: Data) -> HeadResult {
+        guard let end = data.range(of: Data("\r\n\r\n".utf8)) else {
             return data.count > MCPHTTPServer.maxHeaderBytes ? .invalid(413) : .needMore
         }
         guard end.lowerBound <= MCPHTTPServer.maxHeaderBytes,
-              let head = String(data: data[..<end.lowerBound], encoding: .utf8) else { return .invalid(400) }
+              let text = String(data: data[..<end.lowerBound], encoding: .utf8) else { return .invalid(400) }
 
-        var lines = head.components(separatedBy: "\r\n")
+        var lines = text.components(separatedBy: "\r\n")
         let requestLine = lines.removeFirst().split(separator: " ")
         guard requestLine.count == 3 else { return .invalid(400) }
 
         var headers: [String: String] = [:]
         for line in lines {
             guard let colon = line.firstIndex(of: ":") else { return .invalid(400) }
-            let name = line[..<colon].lowercased()
-            headers[name] = line[line.index(after: colon)...].trimmingCharacters(in: .whitespaces)
+            headers[line[..<colon].lowercased()] = line[line.index(after: colon)...].trimmingCharacters(in: .whitespaces)
         }
         if headers["transfer-encoding"] != nil { return .invalid(400) } // only Content-Length
 
@@ -228,10 +262,17 @@ struct HTTPRequest {
         guard length >= 0 else { return .invalid(400) }
         guard length <= MCPHTTPServer.maxBodyBytes else { return .invalid(413) }
 
-        let bodyStart = end.upperBound
-        guard data.count - bodyStart >= length else { return .needMore }
-        let body = data[bodyStart..<(bodyStart + length)]
-        return .request(HTTPRequest(method: String(requestLine[0]), path: String(requestLine[1]),
-                                    headers: headers, body: Data(body)))
+        return .head(Head(method: String(requestLine[0]), path: String(requestLine[1]),
+                          headers: headers, contentLength: length), bodyStart: end.upperBound)
+    }
+
+    static func parse(_ data: Data) -> Parsed {
+        switch parseHead(data) {
+        case .needMore: return .needMore
+        case .invalid(let status): return .invalid(status)
+        case .head(let head, let bodyStart):
+            guard data.count - bodyStart >= head.contentLength else { return .needMore }
+            return .request(head, body: data.subdata(in: bodyStart..<(bodyStart + head.contentLength)))
+        }
     }
 }

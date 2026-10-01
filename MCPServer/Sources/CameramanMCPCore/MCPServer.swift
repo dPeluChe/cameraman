@@ -14,12 +14,22 @@ enum MCPInfo {
     static let name = "cameraman-mcp"
     static let version = "0.1.0"
     /// Protocol revision we implement; we echo the client's if it sends one.
-    static let defaultProtocolVersion = "2024-11-05"
+    /// Revisions whose tools/list + tools/call shape we implement, newest first.
+    static let supportedProtocolVersions = ["2025-06-18", "2025-03-26", "2024-11-05"]
+
+    /// The client's version when we speak it, otherwise our newest (the client decides to go on).
+    static func negotiate(_ requested: String?) -> String {
+        guard let requested, supportedProtocolVersions.contains(requested) else {
+            return supportedProtocolVersions[0]
+        }
+        return requested
+    }
 }
 
 /// Protocol core, transport-agnostic: bytes in, bytes out. stdio and HTTP are thin
-/// transports over `handle(message:)`. An actor so concurrent HTTP requests serialize
-/// around `MCPTools` state (e.g. the in-flight recording).
+/// transports over `handle(message:)`. Requests are not serialized across a tool's
+/// suspension points, so a slow export never blocks `ping`; tool state in `MCPTools`
+/// must be safe for that (see its `activeRecording`).
 public actor MCPServer {
     private let tools = MCPTools()
 
@@ -37,7 +47,7 @@ public actor MCPServer {
                 }
             }
         } catch {
-            log("read loop ended: \(error)")
+            Self.log("read loop ended: \(error)")
         }
     }
 
@@ -47,23 +57,23 @@ public actor MCPServer {
     /// nothing to send back (notifications, or a batch of only notifications).
     public func handle(message data: Data) async -> Data? {
         guard let parsed = try? JSONSerialization.jsonObject(with: data) else {
-            return serialize(errorReply(id: NSNull(), code: -32700, message: "Parse error"))
+            return Self.serialize(Self.errorReply(id: NSNull(), code: -32700, message: "Parse error"))
         }
         if let batch = parsed as? [Any] {
             var replies: [[String: Any]] = []
             for item in batch {
                 guard let object = item as? [String: Any] else {
-                    replies.append(errorReply(id: NSNull(), code: -32600, message: "Invalid Request"))
+                    replies.append(Self.errorReply(id: NSNull(), code: -32600, message: "Invalid Request"))
                     continue
                 }
                 if let reply = await process(object) { replies.append(reply) }
             }
-            return replies.isEmpty ? nil : serialize(replies)
+            return replies.isEmpty ? nil : Self.serialize(replies)
         }
         guard let object = parsed as? [String: Any] else {
-            return serialize(errorReply(id: NSNull(), code: -32600, message: "Invalid Request"))
+            return Self.serialize(Self.errorReply(id: NSNull(), code: -32600, message: "Invalid Request"))
         }
-        return await process(object).flatMap { serialize($0) }
+        return await process(object).flatMap { Self.serialize($0) }
     }
 
     private func process(_ object: [String: Any]) async -> [String: Any]? {
@@ -77,9 +87,8 @@ public actor MCPServer {
 
         switch method {
         case "initialize":
-            let clientVersion = params["protocolVersion"] as? String
-            return result([
-                "protocolVersion": clientVersion ?? MCPInfo.defaultProtocolVersion,
+            return Self.result([
+                "protocolVersion": MCPInfo.negotiate(params["protocolVersion"] as? String),
                 "capabilities": ["tools": ["listChanged": false]],
                 "serverInfo": ["name": MCPInfo.name, "version": MCPInfo.version]
             ], id: replyId)
@@ -88,54 +97,53 @@ public actor MCPServer {
             return nil
 
         case "ping":
-            return isNotification ? nil : result([:], id: replyId)
+            return isNotification ? nil : Self.result([:], id: replyId)
 
         case "tools/list":
-            return result(["tools": MCPTools.catalog], id: replyId)
+            return Self.result(["tools": MCPTools.catalog], id: replyId)
 
         case "tools/call":
             let name = params["name"] as? String ?? ""
             let arguments = params["arguments"] as? [String: Any] ?? [:]
-            return await callTool(name: name, arguments: arguments, id: replyId, isNotification: isNotification)
+            let reply = await callTool(name: name, arguments: arguments, id: replyId)
+            return isNotification ? nil : reply
 
         default:
-            return isNotification ? nil : errorReply(id: replyId, code: -32601, message: "Method not found: \(method)")
+            return isNotification ? nil : Self.errorReply(id: replyId, code: -32601, message: "Method not found: \(method)")
         }
     }
 
     /// Run a tool and report the result. Tool failures are returned as a
     /// successful JSON-RPC response with `isError: true` (per MCP convention),
     /// so the model sees the error text rather than a transport-level fault.
-    private func callTool(name: String, arguments: [String: Any], id: Any, isNotification: Bool) async -> [String: Any]? {
+    private func callTool(name: String, arguments: [String: Any], id: Any) async -> [String: Any] {
         do {
             let text = try await tools.execute(name: name, arguments: arguments)
-            guard !isNotification else { return nil }
-            return result(["content": [["type": "text", "text": text]], "isError": false], id: id)
+            return Self.result(["content": [["type": "text", "text": text]], "isError": false], id: id)
         } catch {
             // Prefer a human message: MCPToolError, then any LocalizedError
             // (e.g. EngineKit's ExportError), falling back to the raw value.
             let message = (error as? MCPToolError)?.message ?? error.localizedDescription
-            log("tool '\(name)' failed: \(message)")
-            guard !isNotification else { return nil }
-            return result(["content": [["type": "text", "text": "Error: \(message)"]], "isError": true], id: id)
+            Self.log("tool '\(name)' failed: \(message)")
+            return Self.result(["content": [["type": "text", "text": "Error: \(message)"]], "isError": true], id: id)
         }
     }
 
     // MARK: - Output
 
-    private nonisolated func result(_ result: [String: Any], id: Any) -> [String: Any] {
+    private static func result(_ result: [String: Any], id: Any) -> [String: Any] {
         ["jsonrpc": "2.0", "id": id, "result": result]
     }
 
-    private nonisolated func errorReply(id: Any, code: Int, message: String) -> [String: Any] {
+    private static func errorReply(id: Any, code: Int, message: String) -> [String: Any] {
         ["jsonrpc": "2.0", "id": id, "error": ["code": code, "message": message]]
     }
 
-    private nonisolated func serialize(_ object: Any) -> Data? {
+    private static func serialize(_ object: Any) -> Data? {
         try? JSONSerialization.data(withJSONObject: object)
     }
 
-    private nonisolated func log(_ message: String) {
+    private static func log(_ message: String) {
         FileHandle.standardError.write(Data("cameraman-mcp: \(message)\n".utf8))
     }
 }

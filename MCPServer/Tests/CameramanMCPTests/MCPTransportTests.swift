@@ -14,6 +14,12 @@ final class MCPProtocolTests: XCTestCase {
         XCTAssertEqual(result["protocolVersion"] as? String, "2025-03-26")
     }
 
+    func testUnknownProtocolVersionFallsBackToNewestSupported() {
+        XCTAssertEqual(MCPInfo.negotiate("2099-01-01"), MCPInfo.supportedProtocolVersions[0])
+        XCTAssertEqual(MCPInfo.negotiate("2024-11-05"), "2024-11-05")
+        XCTAssertEqual(MCPInfo.negotiate(nil), MCPInfo.supportedProtocolVersions[0])
+    }
+
     func testNotificationGetsNoReply() async {
         let reply = await call(MCPServer(), #"{"jsonrpc":"2.0","method":"notifications/initialized"}"#)
         XCTAssertNil(reply)
@@ -84,6 +90,13 @@ final class MCPHTTPServerTests: XCTestCase {
     func testForeignOriginIs403() async throws {
         let (status, _) = try await post(#"{"jsonrpc":"2.0","id":1,"method":"ping"}"#, extra: ["Origin": "https://evil.example"])
         XCTAssertEqual(status, 403)
+    }
+
+    func testRefusedFromHeadersAloneBeforeBodyIsRead() {
+        let head = HTTPRequest.Head(method: "POST", path: "/mcp",
+                                    headers: ["host": "127.0.0.1:1", "content-length": "8388608"],
+                                    contentLength: 8_388_608)
+        XCTAssertEqual(http.reject(head), 401) // no token, no body needed to decide
     }
 
     func testGetIs405() async throws {
