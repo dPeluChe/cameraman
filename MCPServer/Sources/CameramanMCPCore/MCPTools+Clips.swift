@@ -59,10 +59,12 @@ extension MCPTools {
         let opacity = args.optNum("opacity")
         let sourceIn = args.optNum("sourceIn")
         let sourceOut = args.optNum("sourceOut")
+        let audioMuted = args.optBool("audioMuted")
         let crossTrack = toTrackId != nil && toTrackId != trackId
-        guard crossTrack || timelineIn != nil || speed != nil || volume != nil
-                || opacity != nil || sourceIn != nil || sourceOut != nil else {
-            throw MCPToolError("Pass at least one change: timelineIn, toTrackId, speed, volume, opacity, sourceIn, sourceOut.")
+        let wantsUpdate = crossTrack || timelineIn != nil || speed != nil || volume != nil
+            || opacity != nil || sourceIn != nil || sourceOut != nil
+        guard wantsUpdate || audioMuted != nil else {
+            throw MCPToolError("Pass at least one change: timelineIn, toTrackId, speed, volume, opacity, sourceIn, sourceOut, audioMuted.")
         }
 
         // Trim recomputes the clip's content from its current source window.
@@ -73,13 +75,21 @@ extension MCPTools {
         }
 
         let project = try await mutate(args) { editor in
+            var track = trackId
             if crossTrack, let dest = toTrackId {
                 _ = await editor.moveClip(clipId: clipId, fromTrackId: trackId, toTrackId: dest, newTimelineIn: timelineIn)
-                return await editor.updateClip(clipId: clipId, inTrackId: dest,
-                                               speed: speed, volume: volume, opacity: opacity, content: newContent)
+                track = dest
             }
-            return await editor.updateClip(clipId: clipId, inTrackId: trackId, timelineIn: timelineIn,
-                                           speed: speed, volume: volume, opacity: opacity, content: newContent)
+            var result: EditorResult?
+            if wantsUpdate {
+                result = await editor.updateClip(clipId: clipId, inTrackId: track, timelineIn: crossTrack ? nil : timelineIn,
+                                                 speed: speed, volume: volume, opacity: opacity, content: newContent)
+            }
+            if let muted = audioMuted {
+                result = await editor.setClipAudioMuted(clipId: clipId, inTrackId: track, muted: muted)
+            }
+            if let result { return result }
+            return await editor.updateClip(clipId: clipId, inTrackId: track)
         }
         return try summary("Edited clip \(clipId)", project)
     }

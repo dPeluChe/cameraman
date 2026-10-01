@@ -63,19 +63,17 @@ extension MCPTools {
     // MARK: - Jobs
 
     func getJobStatus(_ args: [String: Any]) async throws -> String {
-        let jobId = try args.uuid("jobId")
         let queue = try await ProjectLibrary.shared.getJobQueue()
+        if args.optUUID("jobId") == nil {
+            let projectId = try args.uuid("projectId") // neither given: ask for the project
+            let jobs = await queue.listJobs(for: projectId)
+            return try json(["jobs": jobs.map { Self.jobPayload($0) }])
+        }
+        let jobId = try args.uuid("jobId")
         guard let job = await queue.getJob(jobId: jobId) else {
             throw MCPToolError("No job with id \(jobId). Jobs are in-memory for this server session and are lost on restart.")
         }
         return try json(Self.jobPayload(job))
-    }
-
-    func listJobs(_ args: [String: Any]) async throws -> String {
-        let projectId = try args.uuid("projectId")
-        let queue = try await ProjectLibrary.shared.getJobQueue()
-        let jobs = await queue.listJobs(for: projectId)
-        return try json(["jobs": jobs.map { Self.jobPayload($0) }])
     }
 
     func cancelJob(_ args: [String: Any]) async throws -> String {

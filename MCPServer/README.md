@@ -13,16 +13,16 @@ logic the app uses.
 
 | Area | Tools |
 |------|-------|
-| **Inspect** | `list_projects`, `get_project`, `list_adjustments` |
+| **Inspect** | `list_projects` (optional `query`), `get_project` (includes overlays and per-clip adjustments) |
 | **Create / record** | `create_empty_project`, `start_recording`, `stop_recording` |
-| **Clips** | `add_clip` (image/video/audio/color), `split_clip`, `delete_clip`, `edit_clip` (move/retime/trim), `delete_range`, `set_clip_audio_muted` |
+| **Clips** | `add_clip` (image/video/audio/color), `split_clip`, `delete_clip`, `edit_clip` (move/retime/trim/mute), `delete_range` |
 | **Tracks** | `add_track`, `remove_track`, `move_video_track`, `set_track` (muted/volume/locked) |
 | **Effects** | `add_adjustment`, `update_adjustment`, `remove_adjustment`, `clear_adjustments` |
-| **Overlays** | `add_overlay` (arrow/rect/line/text), `list_overlays`, `update_overlay`, `delete_overlay` |
+| **Overlays** | `add_overlay` (arrow/rect/line/text), `update_overlay`, `delete_overlay` |
 | **Canvas** | `set_canvas_layout`, `set_background` |
-| **Manage** | `duplicate_project`, `rename_project`, `set_tags`, `search_projects`, `merge_projects`, `export_bundle`, `import_bundle` |
+| **Manage** | `duplicate_project`, `update_project` (name/tags), `merge_projects`, `export_bundle`, `import_bundle` |
 | **AI (local)** | `suggest_silence_edits`, `suggest_chapters` |
-| **Export** | `export_project`, `get_job_status`, `list_jobs`, `cancel_job` |
+| **Export** | `export_project`, `get_job_status` (by `jobId`, or `projectId` to list), `cancel_job` |
 | **Transcribe** | `transcribe_project`, `get_captions` |
 
 > **Export & transcription are async.** `export_project` / `transcribe_project`
@@ -147,3 +147,6 @@ Preferences → Integrations → "Built-in server (HTTP)".
 - The token lives in the Keychain; Preferences shows ready-to-paste snippets for Claude Code
   and Cursor. Claude Desktop's local config is stdio-only, so it keeps using the helper binary.
 - Loopback only; `Host`/`Origin` must be loopback; 32 connections max, 10s request deadline.
+
+Tools carry MCP annotations: `readOnlyHint` on reads and `destructiveHint` on removals, so clients
+can skip or require confirmation. A test keeps the catalog and the dispatcher in sync.

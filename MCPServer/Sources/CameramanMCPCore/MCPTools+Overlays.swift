@@ -57,12 +57,6 @@ extension MCPTools {
                          "message": "Added \(typeRaw) overlay [\(start)s–\(end)s]. Manage it with update_overlay / delete_overlay."])
     }
 
-    func listOverlays(_ args: [String: Any]) async throws -> String {
-        let projectId = try args.uuid("projectId")
-        let overlays = try await overlayEngine.getOverlays(projectId: projectId)
-        return try jsonText(overlays)
-    }
-
     func updateOverlay(_ args: [String: Any]) async throws -> String {
         let projectId = try args.uuid("projectId")
         let overlayId = try args.uuid("overlayId")

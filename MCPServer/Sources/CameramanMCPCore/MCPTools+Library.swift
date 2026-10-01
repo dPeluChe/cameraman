@@ -2,7 +2,7 @@
 //  MCPTools+Library.swift
 //  cameraman-mcp
 //
-//  Project management/metadata (duplicate, rename, tags, search, merge, bundle
+//  Project management/metadata (duplicate, update, merge, bundle
 //  import/export) and local AI suggestions (silence edits, chapters). These wrap
 //  ProjectLibrary / AIService directly — no timeline mutation.
 //
@@ -20,27 +20,14 @@ extension MCPTools {
         return "Duplicated project \(projectId) -> \(newId.uuidString)"
     }
 
-    func renameProject(_ args: [String: Any]) async throws -> String {
+    func updateProject(_ args: [String: Any]) async throws -> String {
         let projectId = try args.uuid("projectId")
-        let name = try args.str("name")
-        try await ProjectLibrary.shared.renameProject(projectId: projectId, to: name)
-        return "Renamed project \(projectId) to \"\(name)\""
-    }
-
-    func setTags(_ args: [String: Any]) async throws -> String {
-        let projectId = try args.uuid("projectId")
-        let tags = (args["tags"] as? [Any])?.compactMap { $0 as? String } ?? []
-        try await ProjectLibrary.shared.setTags(projectId: projectId, tags: tags)
-        return "Set tags on \(projectId): [\(tags.joined(separator: ", "))]"
-    }
-
-    func searchProjects(_ args: [String: Any]) async throws -> String {
-        let query = try args.str("query")
-        let matchAll = args.optBool("matchAllTerms") ?? false
-        let results = try await ProjectLibrary.shared.searchProjects(
-            searchText: query, matchAllTerms: matchAll
-        )
-        return try jsonText(results)
+        let name = args.optStr("name")
+        let tags = (args["tags"] as? [Any])?.compactMap { $0 as? String }
+        guard name != nil || tags != nil else { throw MCPToolError("Pass name and/or tags.") }
+        if let name { try await ProjectLibrary.shared.renameProject(projectId: projectId, to: name) }
+        if let tags { try await ProjectLibrary.shared.setTags(projectId: projectId, tags: tags) }
+        return "Updated project \(projectId)"
     }
 
     // MARK: - Merge / bundles

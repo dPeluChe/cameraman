@@ -49,12 +49,10 @@ final class MCPTools {
         case "delete_clip":          return try await deleteClip(arguments)
         case "edit_clip":            return try await editClip(arguments)
         case "delete_range":         return try await deleteRange(arguments)
-        case "set_clip_audio_muted": return try await setClipAudioMuted(arguments)
         case "add_adjustment":       return try await addAdjustment(arguments)
         case "update_adjustment":    return try await updateAdjustment(arguments)
         case "remove_adjustment":    return try await removeAdjustment(arguments)
         case "clear_adjustments":    return try await clearAdjustments(arguments)
-        case "list_adjustments":     return try await listAdjustments(arguments)
         // Tracks
         case "add_track":            return try await addTrack(arguments)
         case "remove_track":         return try await removeTrack(arguments)
@@ -63,7 +61,6 @@ final class MCPTools {
         // Delivery
         case "export_project":       return try await exportProject(arguments)
         case "get_job_status":       return try await getJobStatus(arguments)
-        case "list_jobs":            return try await listJobs(arguments)
         case "cancel_job":           return try await cancelJob(arguments)
         case "transcribe_project":   return try await transcribeProject(arguments)
         case "get_captions":         return try await getCaptions(arguments)
@@ -73,14 +70,11 @@ final class MCPTools {
         case "set_background":       return try await setBackground(arguments)
         // Overlays
         case "add_overlay":          return try await addOverlay(arguments)
-        case "list_overlays":        return try await listOverlays(arguments)
         case "update_overlay":       return try await updateOverlay(arguments)
         case "delete_overlay":       return try await deleteOverlay(arguments)
         // Library / metadata
         case "duplicate_project":    return try await duplicateProject(arguments)
-        case "rename_project":       return try await renameProject(arguments)
-        case "set_tags":             return try await setTags(arguments)
-        case "search_projects":      return try await searchProjects(arguments)
+        case "update_project":       return try await updateProject(arguments)
         case "merge_projects":       return try await mergeProjects(arguments)
         case "export_bundle":        return try await exportBundle(arguments)
         case "import_bundle":        return try await importBundle(arguments)
@@ -94,8 +88,11 @@ final class MCPTools {
     // MARK: - Projects
 
     private func listProjects(_ args: [String: Any]) async throws -> String {
-        let summaries = try await ProjectLibrary.shared.listProjects()
-        return try jsonText(summaries)
+        if let query = args.optStr("query"), !query.isEmpty {
+            let matchAll = args.optBool("matchAllTerms") ?? false
+            return try jsonText(try await ProjectLibrary.shared.searchProjects(searchText: query, matchAllTerms: matchAll))
+        }
+        return try jsonText(try await ProjectLibrary.shared.listProjects())
     }
 
     private func getProject(_ args: [String: Any]) async throws -> String {
@@ -182,16 +179,6 @@ final class MCPTools {
         return try summary("Removed clip \(clipId)", project)
     }
 
-    private func setClipAudioMuted(_ args: [String: Any]) async throws -> String {
-        let trackId = try args.uuid("trackId")
-        let clipId = try args.str("clipId")
-        let muted = try args.bool("muted")
-        let project = try await mutate(args) { editor in
-            await editor.setClipAudioMuted(clipId: clipId, inTrackId: trackId, muted: muted)
-        }
-        return try summary("Clip \(clipId) audioMuted=\(muted)", project)
-    }
-
     /// Load the project and locate a (track, clip) pair, with clear errors if
     /// either is missing. Shared by tools that must read the clip's current
     /// state before editing (trim, update_adjustment, list_adjustments).
@@ -239,17 +226,6 @@ final class MCPTools {
             await editor.removeAdjustment(adjustmentId, fromClipId: clipId, inTrackId: trackId)
         }
         return try summary("Removed adjustment \(adjustmentId)", project)
-    }
-
-    private func listAdjustments(_ args: [String: Any]) async throws -> String {
-        let trackId = try args.uuid("trackId")
-        let clipId = try args.str("clipId")
-        let project = try await loadProject(args)
-        guard let track = project.timeline.tracks.first(where: { $0.id == trackId }),
-              let clip = track.clips.first(where: { $0.id == clipId }) else {
-            throw MCPToolError("Clip \(clipId) not found on track \(trackId)")
-        }
-        return try jsonText(clip.adjustments ?? [])
     }
 
     // MARK: - Shared helpers

@@ -17,11 +17,57 @@ final class MCPCatalogTests: XCTestCase {
             "list_projects", "get_project",
             "create_empty_project", "start_recording", "stop_recording",
             "add_clip", "edit_clip", "split_clip", "delete_clip",
-            "add_track", "set_track", "move_video_track", "set_clip_audio_muted",
+            "add_track", "set_track", "move_video_track",
             "add_overlay", "update_overlay", "delete_overlay",
-            "add_adjustment", "update_adjustment", "remove_adjustment", "list_adjustments"
+            "add_adjustment", "update_adjustment", "remove_adjustment",
+            "update_project", "get_job_status"
         ]
         XCTAssertTrue(expected.isSubset(of: names), "Missing tools: \(expected.subtracting(names))")
+    }
+
+    /// Folded into other tools; they must not creep back as duplicates.
+    func testConsolidatedToolsAreGone() {
+        let names = Set(MCPTools.catalog.compactMap { $0["name"] as? String })
+        let removed: Set<String> = ["search_projects", "rename_project", "set_tags", "list_overlays",
+                                    "list_adjustments", "list_jobs", "set_clip_audio_muted"]
+        XCTAssertTrue(names.isDisjoint(with: removed), "Duplicates back: \(names.intersection(removed))")
+    }
+
+    func testToolNamesAreUnique() {
+        let names = MCPTools.catalog.compactMap { $0["name"] as? String }
+        XCTAssertEqual(names.count, Set(names).count)
+    }
+
+    /// Catalog and dispatcher drifting apart is how dead or unreachable tools appear.
+    /// Reads the dispatch switch from source: executing tools here would hit the real
+    /// project library (create_empty_project, start_recording).
+    func testCatalogMatchesDispatchSwitch() throws {
+        let source = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Sources/CameramanMCPCore/MCPTools.swift")
+        let text = try String(contentsOf: source, encoding: .utf8)
+        let start = try XCTUnwrap(text.range(of: "func execute(name:"))
+        let switchBody = String(text[start.upperBound...])
+        let regex = try NSRegularExpression(pattern: #"case "([a-z_]+)":"#)
+        var dispatched = Set<String>()
+        for match in regex.matches(in: switchBody, range: NSRange(switchBody.startIndex..., in: switchBody)) {
+            if let range = Range(match.range(at: 1), in: switchBody) { dispatched.insert(String(switchBody[range])) }
+        }
+        let cataloged = Set(MCPTools.catalog.compactMap { $0["name"] as? String })
+        XCTAssertTrue(cataloged.subtracting(dispatched).isEmpty, "in catalog, not dispatched: \(cataloged.subtracting(dispatched))")
+        XCTAssertTrue(dispatched.subtracting(cataloged).isEmpty, "dispatched, not in catalog: \(dispatched.subtracting(cataloged))")
+    }
+
+    func testAnnotationsMarkReadOnlyAndDestructive() throws {
+        func annotations(_ name: String) throws -> [String: Bool] {
+            let tool = try XCTUnwrap(MCPTools.catalog.first { $0["name"] as? String == name })
+            return try XCTUnwrap(tool["annotations"] as? [String: Bool])
+        }
+        XCTAssertEqual(try annotations("get_project")["readOnlyHint"], true)
+        XCTAssertEqual(try annotations("delete_project")["destructiveHint"], true)
+        XCTAssertNil(try annotations("get_project")["destructiveHint"])
+        XCTAssertNil(try annotations("add_clip")["readOnlyHint"])
+        XCTAssertEqual(try annotations("add_clip")["destructiveHint"], false) // spec default is true
     }
 
     func testEveryToolHasObjectSchema() throws {
