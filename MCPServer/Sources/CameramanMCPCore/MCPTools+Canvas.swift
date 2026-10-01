@@ -62,10 +62,7 @@ extension MCPTools {
         // For an image background, copy the source into the project's assets/.
         var resolvedValue = value
         if type == "image" {
-            let dir = try await ProjectLibrary.shared.getProjectDirectory(projectId: projectId)
-            resolvedValue = try ProjectLibrary.stageAsset(
-                from: URL(fileURLWithPath: value), intoProjectDirectory: dir
-            )
+            resolvedValue = try await stageAsset(value, projectId: projectId)
         }
         project.canvas.background = Project.Canvas.Background(
             type: type, value: resolvedValue, fitMode: fitMode

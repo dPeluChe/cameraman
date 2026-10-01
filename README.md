@@ -142,7 +142,7 @@ cameraman/                         # this repo — the macOS app + engine
 │   ├── Zoom/                      # Auto-zoom from cursor telemetry
 │   ├── Transcription/             # Offline STT (WhisperKit)
 │   └── Shared/Models/Store/       # Cross-cutting code + persistence
-├── MCPServer/                     # MCP server (cameraman-mcp, 43 tools)
+├── MCPServer/                     # MCP server (cameraman-mcp, 37 tools)
 ├── docs/                          # CHANGELOG, PRD, TECH_SPEC, DEV_ONBOARDING, TASK_*
 │   ├── index.html                 # Legacy static landing (superseded by cameraman-landing)
 │   └── branding/                  # App icon, wordmark, DMG background

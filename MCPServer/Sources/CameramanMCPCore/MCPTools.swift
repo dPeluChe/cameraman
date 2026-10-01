@@ -2,7 +2,7 @@
 //  MCPTools.swift
 //  cameraman-mcp
 //
-//  Tool catalog and dispatch. Every editing tool follows the same shape:
+//  Tool dispatch and shared helpers (the catalog lives in MCPCatalog.swift). Every editing tool follows the same shape:
 //  load the project via ProjectLibrary, run the operation through EditorModel
 //  (the app's own non-destructive editing logic), then persist. This guarantees
 //  the MCP edits and the GUI edits behave identically.
@@ -49,12 +49,10 @@ final class MCPTools {
         case "delete_clip":          return try await deleteClip(arguments)
         case "edit_clip":            return try await editClip(arguments)
         case "delete_range":         return try await deleteRange(arguments)
-        case "set_clip_audio_muted": return try await setClipAudioMuted(arguments)
         case "add_adjustment":       return try await addAdjustment(arguments)
         case "update_adjustment":    return try await updateAdjustment(arguments)
         case "remove_adjustment":    return try await removeAdjustment(arguments)
         case "clear_adjustments":    return try await clearAdjustments(arguments)
-        case "list_adjustments":     return try await listAdjustments(arguments)
         // Tracks
         case "add_track":            return try await addTrack(arguments)
         case "remove_track":         return try await removeTrack(arguments)
@@ -63,7 +61,6 @@ final class MCPTools {
         // Delivery
         case "export_project":       return try await exportProject(arguments)
         case "get_job_status":       return try await getJobStatus(arguments)
-        case "list_jobs":            return try await listJobs(arguments)
         case "cancel_job":           return try await cancelJob(arguments)
         case "transcribe_project":   return try await transcribeProject(arguments)
         case "get_captions":         return try await getCaptions(arguments)
@@ -73,14 +70,11 @@ final class MCPTools {
         case "set_background":       return try await setBackground(arguments)
         // Overlays
         case "add_overlay":          return try await addOverlay(arguments)
-        case "list_overlays":        return try await listOverlays(arguments)
         case "update_overlay":       return try await updateOverlay(arguments)
         case "delete_overlay":       return try await deleteOverlay(arguments)
         // Library / metadata
         case "duplicate_project":    return try await duplicateProject(arguments)
-        case "rename_project":       return try await renameProject(arguments)
-        case "set_tags":             return try await setTags(arguments)
-        case "search_projects":      return try await searchProjects(arguments)
+        case "update_project":       return try await updateProject(arguments)
         case "merge_projects":       return try await mergeProjects(arguments)
         case "export_bundle":        return try await exportBundle(arguments)
         case "import_bundle":        return try await importBundle(arguments)
@@ -94,8 +88,11 @@ final class MCPTools {
     // MARK: - Projects
 
     private func listProjects(_ args: [String: Any]) async throws -> String {
-        let summaries = try await ProjectLibrary.shared.listProjects()
-        return try jsonText(summaries)
+        if let query = args.optStr("query"), !query.isEmpty {
+            let matchAll = args.optBool("matchAllTerms") ?? false
+            return try jsonText(try await ProjectLibrary.shared.searchProjects(searchText: query, matchAllTerms: matchAll))
+        }
+        return try jsonText(try await ProjectLibrary.shared.listProjects())
     }
 
     private func getProject(_ args: [String: Any]) async throws -> String {
@@ -107,8 +104,7 @@ final class MCPTools {
 
     private func createEmptyProject(_ args: [String: Any]) async throws -> String {
         let name = args.optStr("name")
-        let tags = (args["tags"] as? [Any])?.compactMap { $0 as? String }
-        let projectId = try await ProjectLibrary.shared.createEmptyProject(name: name, tags: tags)
+        let projectId = try await ProjectLibrary.shared.createEmptyProject(name: name, tags: args.optStrArray("tags"))
         return "Created empty project \(projectId.uuidString)"
     }
 
@@ -119,8 +115,8 @@ final class MCPTools {
         guard activeRecording == nil else {
             throw MCPToolError("A recording is already in progress; call stop_recording first")
         }
-        let captureSystemAudio = (try? args.bool("captureSystemAudio")) ?? true
-        let captureMic = (try? args.bool("captureMicAudio")) ?? false
+        let captureSystemAudio = args.optBool("captureSystemAudio") ?? true
+        let captureMic = args.optBool("captureMicAudio") ?? false
 
         let displays = try await SourceSelector.shared.listDisplays()
         guard let display = displays.first else {
@@ -182,19 +178,9 @@ final class MCPTools {
         return try summary("Removed clip \(clipId)", project)
     }
 
-    private func setClipAudioMuted(_ args: [String: Any]) async throws -> String {
-        let trackId = try args.uuid("trackId")
-        let clipId = try args.str("clipId")
-        let muted = try args.bool("muted")
-        let project = try await mutate(args) { editor in
-            await editor.setClipAudioMuted(clipId: clipId, inTrackId: trackId, muted: muted)
-        }
-        return try summary("Clip \(clipId) audioMuted=\(muted)", project)
-    }
-
     /// Load the project and locate a (track, clip) pair, with clear errors if
     /// either is missing. Shared by tools that must read the clip's current
-    /// state before editing (trim, update_adjustment, list_adjustments).
+    /// state before editing (edit_clip trim, update_adjustment).
     func resolveClip(_ args: [String: Any]) async throws
         -> (project: Project, track: Project.TimelineTrack, clip: Project.TimelineClip) {
         let trackId = try args.uuid("trackId")
@@ -239,17 +225,6 @@ final class MCPTools {
             await editor.removeAdjustment(adjustmentId, fromClipId: clipId, inTrackId: trackId)
         }
         return try summary("Removed adjustment \(adjustmentId)", project)
-    }
-
-    private func listAdjustments(_ args: [String: Any]) async throws -> String {
-        let trackId = try args.uuid("trackId")
-        let clipId = try args.str("clipId")
-        let project = try await loadProject(args)
-        guard let track = project.timeline.tracks.first(where: { $0.id == trackId }),
-              let clip = track.clips.first(where: { $0.id == clipId }) else {
-            throw MCPToolError("Clip \(clipId) not found on track \(trackId)")
-        }
-        return try jsonText(clip.adjustments ?? [])
     }
 
     // MARK: - Shared helpers
@@ -328,13 +303,30 @@ final class MCPTools {
             "duration": project.timeline.duration,
             "tracks": tracks
         ]
-        let data = try JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys])
-        return String(data: data, encoding: .utf8) ?? message
+        return try json(payload)
+    }
+
+    /// Run edit steps in order. The first failure wins, so a later success cannot mask it
+    /// and the caller never persists a half-applied multi-field edit.
+    func runSteps(_ steps: [() async -> EditorResult]) async -> EditorResult? {
+        var last: EditorResult?
+        for step in steps {
+            let result = await step()
+            if case .failure = result { return result }
+            last = result
+        }
+        return last
+    }
+
+    func json(_ object: [String: Any]) throws -> String {
+        let data = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+        return String(data: data, encoding: .utf8) ?? "{}"
     }
 
     func jsonText<T: Encodable>(_ value: T) throws -> String {
         let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        // Compact: pretty-printing costs about a third more tokens on a large project.
+        encoder.outputFormatting = [.sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
         let data = try encoder.encode(value)
         return String(data: data, encoding: .utf8) ?? "{}"
@@ -350,6 +342,7 @@ extension Dictionary where Key == String, Value == Any {
     }
 
     func optStr(_ key: String) -> String? { self[key] as? String }
+    func optStrArray(_ key: String) -> [String]? { (self[key] as? [Any])?.compactMap { $0 as? String } }
 
     func num(_ key: String) throws -> Double {
         if let d = self[key] as? Double { return d }

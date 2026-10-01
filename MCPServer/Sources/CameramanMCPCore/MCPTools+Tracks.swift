@@ -44,11 +44,11 @@ extension MCPTools {
             throw MCPToolError("Pass at least one of: muted, volume, locked.")
         }
         let project = try await mutate(args) { editor in
-            var result: EditorResult?
-            if let muted { result = await editor.setTrackMuted(trackId: trackId, muted: muted) }
-            if let volume { result = await editor.setTrackVolume(trackId: trackId, volume: volume) }
-            if let locked { result = await editor.setTrackLocked(trackId: trackId, locked: locked) }
-            return result ?? .failure(.trackNotFound(trackId.uuidString))
+            var steps: [() async -> EditorResult] = []
+            if let muted { steps.append { await editor.setTrackMuted(trackId: trackId, muted: muted) } }
+            if let volume { steps.append { await editor.setTrackVolume(trackId: trackId, volume: volume) } }
+            if let locked { steps.append { await editor.setTrackLocked(trackId: trackId, locked: locked) } }
+            return await self.runSteps(steps) ?? .failure(.trackNotFound(trackId.uuidString))
         }
         return try summary("Updated track \(trackId)", project)
     }

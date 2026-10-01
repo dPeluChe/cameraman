@@ -3,8 +3,7 @@
 //  cameraman-mcp
 //
 //  Symmetric overlay editing via OverlayEngine: add arrow/rect/line/text (with
-//  optional draw-on / fade-in animation), list, update (partial), and delete.
-//  Complements the existing add_text_overlay tool.
+//  optional draw-on / fade-in animation), update (partial), and delete.
 //
 
 import Foundation
@@ -55,12 +54,6 @@ extension MCPTools {
         let id = try Self.overlayId(from: result)
         return try json(["overlayId": id.uuidString, "type": typeRaw,
                          "message": "Added \(typeRaw) overlay [\(start)s–\(end)s]. Manage it with update_overlay / delete_overlay."])
-    }
-
-    func listOverlays(_ args: [String: Any]) async throws -> String {
-        let projectId = try args.uuid("projectId")
-        let overlays = try await overlayEngine.getOverlays(projectId: projectId)
-        return try jsonText(overlays)
     }
 
     func updateOverlay(_ args: [String: Any]) async throws -> String {
