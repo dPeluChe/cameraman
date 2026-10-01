@@ -74,7 +74,20 @@ extension MCPTools {
         guard let job = await queue.getJob(jobId: jobId) else {
             throw MCPToolError("No job with id \(jobId). Jobs are in-memory for this server session and are lost on restart.")
         }
-        return try json(Self.jobPayload(job))
+        var payload = Self.jobPayload(job)
+        if job.type == .aiSuggestion, case .success = job.status {
+            payload["suggestions"] = await savedSuggestions(projectId: job.projectId)
+        }
+        return try json(payload)
+    }
+
+    /// suggest_silence_edits and suggest_chapters both write ai_suggestions.json, so it holds
+    /// the most recent run; read it right after the job succeeds.
+    private func savedSuggestions(projectId: UUID) async -> Any {
+        guard let dir = try? await ProjectLibrary.shared.getProjectDirectory(projectId: projectId),
+              let data = try? Data(contentsOf: dir.appendingPathComponent("ai_suggestions.json")),
+              let object = try? JSONSerialization.jsonObject(with: data) else { return [Any]() }
+        return object
     }
 
     func cancelJob(_ args: [String: Any]) async throws -> String {
