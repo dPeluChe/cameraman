@@ -129,10 +129,16 @@ struct TimelineThumbnailStrip: View {
             let mid = (lo + hi) / 2
             if sortedTimes[mid] < time { lo = mid + 1 } else { hi = mid }
         }
-        let candidates = [lo - 1, lo].filter { sortedTimes.indices.contains($0) }.map { sortedTimes[$0] }
-        guard let closest = candidates.min(by: { abs($0 - time) < abs($1 - time) }),
-              abs(closest - time) <= 1.0 else { return nil }
-        return thumbnails[closest]
+        let before = lo > 0 ? sortedTimes[lo - 1] : nil
+        let after = lo < sortedTimes.count ? sortedTimes[lo] : nil
+        let closest: TimeInterval
+        switch (before, after) {
+        case let (b?, a?): closest = abs(b - time) <= abs(a - time) ? b : a
+        case let (b?, nil): closest = b
+        case let (nil, a?): closest = a
+        default: return nil
+        }
+        return abs(closest - time) <= 1.0 ? thumbnails[closest] : nil
     }
 }
 

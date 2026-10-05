@@ -179,14 +179,19 @@ extension CaptureEngine {
         // Frames are handed to one consumer per kind in arrival order. A Task per frame could
         // reorder timestamps and had no bound on how many buffers stayed alive.
         finishFramePumps()
-        let video = makeFramePump(bufferingNewest: 8)   // under a stall, drop old frames, as the writer would
+        let video = makeFramePump(.bufferingNewest(4))   // under a stall drop old frames; stay below queueDepth so SCK keeps surfaces
         let videoOutput = CaptureStreamOutput { sampleBuffer, _ in video.yield(sampleBuffer) }
         self.videoStreamOutput = videoOutput
-        try stream.addStreamOutput(videoOutput, type: .screen, sampleHandlerQueue: sampleQueue)
+        do {
+            try stream.addStreamOutput(videoOutput, type: .screen, sampleHandlerQueue: sampleQueue)
+        } catch {
+            finishFramePumps()
+            throw error
+        }
         logger.debug("Added video stream output")
 
         if configuration.capturesAudio {
-            let audio = makeFramePump(bufferingNewest: nil)   // audio is small; never drop it
+            let audio = makeFramePump(.bufferingNewest(256))   // small buffers; the cap only bounds a stalled writer
             let audioOutput = CaptureStreamOutput { sampleBuffer, _ in audio.yield(sampleBuffer) }
             self.audioStreamOutput = audioOutput
             try stream.addStreamOutput(audioOutput, type: .audio, sampleHandlerQueue: sampleQueue)
@@ -194,22 +199,27 @@ extension CaptureEngine {
         }
 
         logger.debug("Starting capture...")
-        try await stream.startCapture()
+        do {
+            try await stream.startCapture()
+        } catch {
+            finishFramePumps()
+            throw error
+        }
         logger.debug("Capture started successfully")
 
         return stream
     }
 
-    private func makeFramePump(bufferingNewest limit: Int?) -> AsyncStream<SendableSampleBuffer>.Continuation {
-        let policy: AsyncStream<SendableSampleBuffer>.Continuation.BufferingPolicy =
-            limit.map { .bufferingNewest($0) } ?? .unbounded
+    private func makeFramePump(
+        _ policy: AsyncStream<SendableSampleBuffer>.Continuation.BufferingPolicy
+    ) -> AsyncStream<SendableSampleBuffer>.Continuation {
         let (stream, continuation) = AsyncStream.makeStream(of: SendableSampleBuffer.self, bufferingPolicy: policy)
-        framePumps.append(Task { [weak self] in
+        Task { [weak self] in
             for await frame in stream {
                 guard let self else { return }
                 await self.handleSampleBuffer(frame.buffer)
             }
-        })
+        }
         frameContinuations.append(continuation)
         return continuation
     }
@@ -218,7 +228,6 @@ extension CaptureEngine {
     func finishFramePumps() {
         frameContinuations.forEach { $0.finish() }
         frameContinuations.removeAll()
-        framePumps.removeAll()
     }
 
     func createVideoWriter(

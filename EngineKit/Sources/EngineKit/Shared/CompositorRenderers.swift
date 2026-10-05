@@ -49,10 +49,9 @@ extension MaskedVideoCompositor {
     }
 
     private func pathMask(path: CGPath, renderSize: CGSize) -> CIImage? {
-        cacheLock.lock()
-        let hit = maskCache.first { $0.size == renderSize && $0.path == path }?.mask
-        cacheLock.unlock()
-        if let hit { return hit }
+        if let hit = cacheLock.withLock({ maskCache.first { $0.size == renderSize && $0.path == path }?.mask }) {
+            return hit
+        }
 
         guard let ctx = createBGRAContext(size: renderSize) else { return nil }
         ctx.setFillColor(CGColor(red: 0, green: 0, blue: 0, alpha: 1))
@@ -63,10 +62,10 @@ extension MaskedVideoCompositor {
         guard let maskCGImage = ctx.makeImage() else { return nil }
         let mask = CIImage(cgImage: maskCGImage)
 
-        cacheLock.lock()
-        if maskCache.count >= 4 { maskCache.removeFirst() }
-        maskCache.append((path, renderSize, mask))
-        cacheLock.unlock()
+        cacheLock.withLock {
+            if maskCache.count >= 4 { maskCache.removeFirst() }
+            maskCache.append((path, renderSize, mask))
+        }
         return mask
     }
 

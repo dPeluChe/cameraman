@@ -258,7 +258,6 @@ public actor CaptureEngine {
     var streamDelegate: StreamDelegate?
     var videoStreamOutput: CaptureStreamOutput?
     var audioStreamOutput: CaptureStreamOutput?
-    var framePumps: [Task<Void, Never>] = []
     var frameContinuations: [AsyncStream<SendableSampleBuffer>.Continuation] = []
     
     // Debug counters
