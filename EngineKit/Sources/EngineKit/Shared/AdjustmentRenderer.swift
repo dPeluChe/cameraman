@@ -115,7 +115,10 @@ enum AdjustmentRenderer {
             let blurred = image
                 .clampedToExtent()
                 .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: p["radius"] ?? 8.0])
-            return blurred.cropped(to: extent)
+                .cropped(to: extent)
+            // With a region (x, y, w, h), only that part is blurred: the rest of the layer stays sharp.
+            guard let region = blurRegion(from: p, in: extent) else { return blurred }
+            return blurred.cropped(to: region).composited(over: image)
 
         default:
             // Unknown kind: best-effort generic CIFilter passthrough so config can
@@ -125,6 +128,22 @@ enum AdjustmentRenderer {
             for (key, value) in p { params[key] = value }
             return filtered(image, config.kind, params)
         }
+    }
+
+    /// The blur region as a CoreImage rect, or nil when the adjustment has no region. Parameters are
+    /// fractions of the layer (0...1) with a top-left origin, like overlays; CoreImage's origin is
+    /// bottom-left, so y is flipped here. Partial or empty regions mean "whole layer".
+    static func blurRegion(from p: [String: Double], in extent: CGRect) -> CGRect? {
+        guard let x = p["x"], let y = p["y"], let w = p["w"], let h = p["h"], w > 0, h > 0 else { return nil }
+        let nx = min(max(x, 0), 1), ny = min(max(y, 0), 1)
+        let nw = min(w, 1 - nx), nh = min(h, 1 - ny)
+        guard nw > 0, nh > 0 else { return nil }
+        return CGRect(
+            x: extent.minX + nx * extent.width,
+            y: extent.minY + (1 - ny - nh) * extent.height,
+            width: nw * extent.width,
+            height: nh * extent.height
+        )
     }
 
     /// Apply a named CIFilter, wiring `image` as the input and forwarding params.
