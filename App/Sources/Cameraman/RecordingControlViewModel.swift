@@ -67,7 +67,7 @@ class RecordingControlViewModel: ObservableObject {
         let names: [Notification.Name] = [AVCaptureDevice.wasConnectedNotification, AVCaptureDevice.wasDisconnectedNotification]
         deviceObservers = names.map { name in
             NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                Task { @MainActor in self?.refreshDevices() }
+                Task { @MainActor [weak self] in self?.refreshDevices() }
             }
         }
     }
@@ -249,7 +249,9 @@ class RecordingControlViewModel: ObservableObject {
             if countdownSeconds > 0 {
                 isCountingDown = true
                 statusText = "Starting in \(countdownSeconds)…"
-                let go = await CountdownWindow().run(seconds: countdownSeconds)
+                // Show it on the display being recorded, not wherever the app window happens to be.
+                let recordedScreen = selectedDisplaySource.flatMap { UInt32($0.id) }.flatMap(NSScreen.screen(forDisplayID:))
+                let go = await CountdownWindow().run(seconds: countdownSeconds, on: recordedScreen)
                 isCountingDown = false
                 guard go else { statusText = "Cancelled"; return }
                 // Let the countdown window leave the screen before capture begins.
