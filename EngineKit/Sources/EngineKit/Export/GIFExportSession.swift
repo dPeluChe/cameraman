@@ -34,7 +34,7 @@ extension ExportEngine {
 
             // Generate output filename with timestamp
             let timestamp = ISO8601DateFormatter().string(from: Date())
-            let outputFilename = options.outputFilename ?? "export_\(timestamp).gif"
+            let outputFilename = options.resolvedFilename(fileExtension: "gif", timestamp: timestamp)
             let outputURL = outputDirectory.appendingPathComponent(outputFilename)
 
             logger.info("Output GIF file: \(outputFilename)")

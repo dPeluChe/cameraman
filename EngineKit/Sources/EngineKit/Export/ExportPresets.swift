@@ -165,6 +165,18 @@ public struct ExportPreset: Equatable, Hashable, Sendable {
 
 // MARK: - Export Options
 
+extension ExportOptions {
+    /// The file name to write inside the renders folder. A caller-supplied name is reduced to its last
+    /// path component (a `../` in it, for example from an MCP argument, must not leave the folder) and
+    /// gets the format's extension if it lacks one.
+    public func resolvedFilename(fileExtension: String, timestamp: String) -> String {
+        let supplied = outputFilename.map { ($0 as NSString).lastPathComponent }
+            .flatMap { $0.isEmpty || $0 == "." || $0 == ".." ? nil : $0 }
+        guard let name = supplied else { return "export_\(timestamp).\(fileExtension)" }
+        return (name as NSString).pathExtension.lowercased() == fileExtension ? name : "\(name).\(fileExtension)"
+    }
+}
+
 /// Additional export options
 public struct ExportOptions: Equatable, Sendable {
     /// Whether to burn captions into the video
