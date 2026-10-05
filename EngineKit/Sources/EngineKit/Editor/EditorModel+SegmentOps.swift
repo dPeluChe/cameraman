@@ -228,20 +228,24 @@ extension EditorModel {
                 let (_, postContent) = splitContent(clip.content, at: postOffset, speed: clip.speed)
 
                 clipsToReplace.append((id: clip.id, replacements: [
-                    Project.TimelineClip(timelineIn: clip.timelineIn, content: preContent, speed: clip.speed, volume: clip.volume, opacity: clip.opacity, position: clip.position, adjustments: clip.adjustments),
-                    Project.TimelineClip(timelineIn: endTime, content: postContent, speed: clip.speed, volume: clip.volume, opacity: clip.opacity, position: clip.position, adjustments: clip.adjustments)
+                    Project.TimelineClip(timelineIn: clip.timelineIn, content: preContent, speed: clip.speed, volume: clip.volume, opacity: clip.opacity, position: clip.position,
+                                         adjustments: Project.Adjustment.slicing(clip.adjustments, clipDuration: clip.duration, from: 0, to: preOffset, keepIDs: true)),
+                    Project.TimelineClip(timelineIn: endTime, content: postContent, speed: clip.speed, volume: clip.volume, opacity: clip.opacity, position: clip.position,
+                                         adjustments: Project.Adjustment.slicing(clip.adjustments, clipDuration: clip.duration, from: postOffset, to: clip.duration, keepIDs: false))
                 ]))
             } else if clip.timelineIn < startTime && clipEnd > startTime && clipEnd <= endTime {
                 let preOffset = startTime - clip.timelineIn
                 let (preContent, _) = splitContent(clip.content, at: preOffset, speed: clip.speed)
                 clipsToReplace.append((id: clip.id, replacements: [
-                    Project.TimelineClip(timelineIn: clip.timelineIn, content: preContent, speed: clip.speed, volume: clip.volume, opacity: clip.opacity, position: clip.position, adjustments: clip.adjustments)
+                    Project.TimelineClip(timelineIn: clip.timelineIn, content: preContent, speed: clip.speed, volume: clip.volume, opacity: clip.opacity, position: clip.position,
+                                         adjustments: Project.Adjustment.slicing(clip.adjustments, clipDuration: clip.duration, from: 0, to: preOffset, keepIDs: true))
                 ]))
             } else if clip.timelineIn >= startTime && clip.timelineIn < endTime && clipEnd > endTime {
                 let postOffset = endTime - clip.timelineIn
                 let (_, postContent) = splitContent(clip.content, at: postOffset, speed: clip.speed)
                 clipsToReplace.append((id: clip.id, replacements: [
-                    Project.TimelineClip(timelineIn: endTime, content: postContent, speed: clip.speed, volume: clip.volume, opacity: clip.opacity, position: clip.position, adjustments: clip.adjustments)
+                    Project.TimelineClip(timelineIn: endTime, content: postContent, speed: clip.speed, volume: clip.volume, opacity: clip.opacity, position: clip.position,
+                                         adjustments: Project.Adjustment.slicing(clip.adjustments, clipDuration: clip.duration, from: postOffset, to: clip.duration, keepIDs: true))
                 ]))
             }
         }

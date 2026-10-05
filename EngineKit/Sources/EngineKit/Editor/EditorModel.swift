@@ -335,18 +335,20 @@ public actor EditorModel {
         let offset = timelineTime - clip.timelineIn
         let (firstContent, secondContent) = splitContent(clip.content, at: offset, speed: clip.speed)
 
-        // Both halves inherit the parent's effects. Adjustment time windows are
-        // clip-relative; whole-clip adjustments (the common case) carry over
-        // cleanly, time-windowed ones keep their original offsets.
+        // Each half gets the part of the parent's effects that falls inside it. Windows are
+        // clip-relative, so the second half's are shifted and the halves do not share ids.
+        let duration = clip.duration
         let firstClip = Project.TimelineClip(
             timelineIn: clip.timelineIn, content: firstContent,
             speed: clip.speed, volume: clip.volume, opacity: clip.opacity,
-            position: clip.position, adjustments: clip.adjustments
+            position: clip.position,
+            adjustments: Project.Adjustment.slicing(clip.adjustments, clipDuration: duration, from: 0, to: offset, keepIDs: true)
         )
         let secondClip = Project.TimelineClip(
             timelineIn: timelineTime, content: secondContent,
             speed: clip.speed, volume: clip.volume, opacity: clip.opacity,
-            position: clip.position, adjustments: clip.adjustments
+            position: clip.position,
+            adjustments: Project.Adjustment.slicing(clip.adjustments, clipDuration: duration, from: offset, to: duration, keepIDs: false)
         )
 
         replaceClipInProject(trackIndex: trackIndex, clipIndex: clipIndex, with: [firstClip, secondClip])

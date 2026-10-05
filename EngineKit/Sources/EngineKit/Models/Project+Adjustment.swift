@@ -308,3 +308,41 @@ extension Project.TimelineClip {
             }
     }
 }
+
+
+// MARK: - Cutting a clip's effects
+
+extension Project.Adjustment {
+    /// The effects of a clip cut to the part between `from` and `to` (seconds from the clip's start,
+    /// in timeline seconds), rebased so 0 is `from`. An effect's `start`/`end` are relative to its clip,
+    /// so a piece that begins later in the clip must shift them, drop effects that fall outside it and
+    /// clamp the ones that straddle an edge. `keepIDs` is for the piece that continues the original
+    /// clip; the other piece gets fresh ids so two clips never share an effect's identity.
+    /// Returns nil when nothing is left, so the clip omits the key like one that never had effects.
+    public static func slicing(
+        _ adjustments: [Project.Adjustment]?,
+        clipDuration: TimeInterval,
+        from: TimeInterval,
+        to: TimeInterval,
+        keepIDs: Bool
+    ) -> [Project.Adjustment]? {
+        guard let adjustments, !adjustments.isEmpty else { return nil }
+        let pieceDuration = to - from
+        let epsilon = 0.0001
+        let cut: [Project.Adjustment] = adjustments.compactMap { adjustment in
+            let windowStart = adjustment.start ?? 0
+            let windowEnd = adjustment.end ?? clipDuration
+            let newStart = max(windowStart, from) - from
+            let newEnd = min(windowEnd, to) - from
+            guard newEnd - newStart > epsilon else { return nil }   // outside this piece
+            return Project.Adjustment(
+                id: keepIDs ? adjustment.id : UUID(),
+                kind: adjustment.kind, target: adjustment.target, parameters: adjustment.parameters,
+                enabled: adjustment.enabled,
+                start: newStart <= epsilon ? nil : newStart,                  // nil = from the clip's start
+                end: newEnd >= pieceDuration - epsilon ? nil : newEnd         // nil = to the clip's end
+            )
+        }
+        return cut.isEmpty ? nil : cut
+    }
+}

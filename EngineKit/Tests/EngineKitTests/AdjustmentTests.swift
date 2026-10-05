@@ -147,4 +147,73 @@ final class AdjustmentTests: XCTestCase {
         let halves = primaryClips.filter { ($0.adjustments?.isEmpty == false) }
         XCTAssertEqual(halves.count, 2)
     }
+
+    // MARK: - Cutting a clip keeps effects where they belong
+
+    private func slice(_ start: Double?, _ end: Double?, from: Double, to: Double, keep: Bool = true) -> [Project.Adjustment]? {
+        let a = Project.Adjustment(kind: .gaussianBlur, target: .frame, parameters: ["radius": 8], start: start, end: end)
+        return Project.Adjustment.slicing([a], clipDuration: 10, from: from, to: to, keepIDs: keep)
+    }
+
+    func testWholeClipEffectStaysWholeClipOnBothHalvesWithDistinctIds() async throws {
+        let editor = EditorModel(project: makeProject())
+        let p0 = await editor.getProject()
+        let trackId = p0.timeline.primaryTrack!.id, clipId = p0.timeline.primaryTrack!.clips.first!.id
+        let adj = Project.Adjustment(kind: .sepia, target: .frame)
+        _ = await editor.addAdjustment(adj, toClipId: clipId, inTrackId: trackId)
+        let halves = await editor.splitClip(clipId: clipId, inTrackId: trackId, at: 5).getProject()!
+            .timeline.primaryTrack!.clips.prefix(2)
+        let ids = halves.compactMap { $0.adjustments?.first?.id }
+        XCTAssertEqual(ids.count, 2)
+        XCTAssertNotEqual(ids[0], ids[1], "two clips must not share an effect's identity")
+        XCTAssertEqual(ids[0], adj.id, "the half that continues the original keeps its id")
+        for half in halves {
+            XCTAssertNil(half.adjustments?.first?.start)
+            XCTAssertNil(half.adjustments?.first?.end)
+        }
+    }
+
+    func testTimedEffectIsRebasedOntoTheSecondHalfOfASplit() async throws {
+        let editor = EditorModel(project: makeProject())
+        let p0 = await editor.getProject()
+        let trackId = p0.timeline.primaryTrack!.id, clipId = p0.timeline.primaryTrack!.clips.first!.id
+        // A blur from 6s to 9s of a 10s clip, then a split at 5s.
+        let adj = Project.Adjustment(kind: .gaussianBlur, target: .frame, parameters: ["radius": 8], start: 6, end: 9)
+        _ = await editor.addAdjustment(adj, toClipId: clipId, inTrackId: trackId)
+        let clips = await editor.splitClip(clipId: clipId, inTrackId: trackId, at: 5).getProject()!
+            .timeline.primaryTrack!.clips
+        XCTAssertNil(clips[0].adjustments, "the blur starts after the cut, so the first half has none")
+        let second = try XCTUnwrap(clips[1].adjustments?.first)
+        XCTAssertEqual(second.start ?? -1, 1, accuracy: 0.0001, "6s in the old clip is 1s into the second half")
+        XCTAssertEqual(second.end ?? -1, 4, accuracy: 0.0001)
+    }
+
+    func testEffectStraddlingTheCutIsClampedOnEachSide() {
+        let first = slice(3, 8, from: 0, to: 5)
+        XCTAssertEqual(first?.first?.start ?? -1, 3, accuracy: 0.0001)
+        XCTAssertNil(first?.first?.end, "it runs to the end of the first piece")
+        let second = slice(3, 8, from: 5, to: 10, keep: false)
+        XCTAssertNil(second?.first?.start, "it is already active at the start of the second piece")
+        XCTAssertEqual(second?.first?.end ?? -1, 3, accuracy: 0.0001)
+    }
+
+    func testRangeDeleteRebasesTheEffectOfTheClipAfterTheGap() async throws {
+        let editor = EditorModel(project: makeProject())
+        let p0 = await editor.getProject()
+        let trackId = p0.timeline.primaryTrack!.id, clipId = p0.timeline.primaryTrack!.clips.first!.id
+        let adj = Project.Adjustment(kind: .gaussianBlur, target: .frame, parameters: ["radius": 8], start: 5, end: 9)
+        _ = await editor.addAdjustment(adj, toClipId: clipId, inTrackId: trackId)
+        // Delete 4..6 inside the first clip (0..10): the part before keeps nothing, the part after starts at old 6s.
+        let result = await editor.deleteRange(from: 4, to: 6)
+        let clips = try XCTUnwrap(result.getProject()?.timeline.primaryTrack?.clips)
+        XCTAssertNil(clips[0].adjustments, "the blur (5-9) lies after the part that is kept before the gap")
+        let after = try XCTUnwrap(clips[1].adjustments?.first)
+        XCTAssertNil(after.start, "5s is inside the deleted range, so it is active from the start of what remains")
+        XCTAssertEqual(after.end ?? -1, 3, accuracy: 0.0001, "9s in the old clip is 3s after the cut at 6s")
+    }
+
+    func testNoEffectsStayNil() {
+        XCTAssertNil(Project.Adjustment.slicing(nil, clipDuration: 10, from: 0, to: 5, keepIDs: true))
+        XCTAssertNil(Project.Adjustment.slicing([], clipDuration: 10, from: 0, to: 5, keepIDs: true))
+    }
 }
