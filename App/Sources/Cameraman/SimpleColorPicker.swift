@@ -2,8 +2,7 @@
 //  SimpleColorPicker.swift
 //  App
 //
-//  A short row of preset swatches instead of the full system color panel. The last dot opens
-//  the system panel for the rare custom color.
+//  A short grid of preset swatches instead of the full system color panel.
 //
 
 import SwiftUI
@@ -13,7 +12,7 @@ struct SimpleColorPicker: View {
 
     static let palette = ["#FFFFFF", "#000000", "#FF3B30", "#FF9500", "#FFCC00", "#34C759", "#007AFF", "#AF52DE"]
 
-    private let columns = Array(repeating: GridItem(.fixed(18), spacing: 5), count: 5)
+    private let columns = Array(repeating: GridItem(.fixed(18), spacing: 5), count: 4)
 
     var body: some View {
         LazyVGrid(columns: columns, alignment: .leading, spacing: 5) {
@@ -28,13 +27,6 @@ struct SimpleColorPicker: View {
                 .buttonStyle(.plain)
                 .help(swatch)
             }
-            ColorPicker("", selection: Binding(
-                get: { Color(hex: hex) },
-                set: { hex = $0.toHex() ?? hex }
-            ))
-            .labelsHidden()
-            .frame(width: 18, height: 18)
-            .help("Custom color")
         }
     }
 

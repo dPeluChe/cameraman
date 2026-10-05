@@ -265,6 +265,7 @@ public actor PreviewEngine {
             return
         }
 
+        let changedSections = self.project.map { Self.changedSections(from: $0, to: project) } ?? []
         let oldFormat = self.project?.canvas.format
         let oldClipCount = self.project?.timeline.primaryTrack?.clips.count
         // Overlay (.video/.audio) tracks live inside the AVComposition and the
@@ -278,7 +279,7 @@ public actor PreviewEngine {
             || oldOverlayTracks != project.timeline.tracks.filter { $0.type != .primary }
 
         let camera = project.canvas.layout.camera
-        LogInfo(.preview, "[PREVIEW] updateProject fullRebuild=\(needsFullRebuild) cameraShape=\(camera?.maskShape.rawValue ?? "none") cameraRect=\(camera.map { "\($0.x),\($0.y),\($0.w),\($0.h)" } ?? "-")")
+        LogInfo(.preview, "[PREVIEW] updateProject fullRebuild=\(needsFullRebuild) changed=\(changedSections) cameraShape=\(camera?.maskShape.rawValue ?? "none") cameraRect=\(camera.map { "\($0.x),\($0.y),\($0.w),\($0.h)" } ?? "-")")
 
         if needsFullRebuild {
             // Full rebuild needed (different tracks or render size)
@@ -307,6 +308,22 @@ public actor PreviewEngine {
     /// Refresh overlays and visual effects without recreating the player
     public func refreshVisuals() async throws {
         try await rebuildVideoComposition()
+    }
+
+    /// Names of the top-level project sections that differ, for the refresh diagnostics.
+    static func changedSections(from old: Project, to new: Project) -> [String] {
+        var changed: [String] = []
+        if old.canvas != new.canvas { changed.append("canvas") }
+        if old.timeline != new.timeline { changed.append("timeline") }
+        if old.overlays != new.overlays { changed.append("overlays") }
+        if old.subtitles != new.subtitles { changed.append("subtitles") }
+        if old.chapters != new.chapters { changed.append("chapters") }
+        if old.mediaItems != new.mediaItems { changed.append("mediaItems") }
+        if old.manualZoomKeyframes != new.manualZoomKeyframes { changed.append("zoomKeyframes") }
+        if old.syntheticCursor != new.syntheticCursor { changed.append("syntheticCursor") }
+        if old.takes != new.takes { changed.append("takes") }
+        if old.updatedAt != new.updatedAt { changed.append("updatedAt") }
+        return changed
     }
 
     /// Swaps the composition on the item and forces a re-render. AVFoundation keeps using the
