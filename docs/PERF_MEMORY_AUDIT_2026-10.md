@@ -23,3 +23,14 @@ Source: code reading only, nothing profiled. Impact is estimated. Paths under `E
 Fine as is: camera capture append path, export memory (AVAssetExportSession streams), weak self in observers/timers.
 
 Suggested order: 1, 5, 4, 3, 2, then 6 and 13.
+
+## Status after PR perf/capture-frame-path
+
+Done: 1 (ordered pumps, video buffer 4 under queueDepth 6), 2 (path mask cache, 4 entries), 3 (cursor plan cache), 4 (binary search, no GeometryReader), 5 (partial).
+
+Open follow-ups from the simplify review:
+- Root cause of 5: `TimelineView` still observes the player, so its body re-runs at 20 Hz. `cachedTracks` compares the whole `Project` per tick. Proper fix: move the playhead into a child view that alone observes `currentTime` (watch `canSplit` and the overlay toggles, which read player state in the toolbar), then drop the memo.
+- Pause calls `stopCapture` and resume is not implemented, so a pause behaves like a stop; the pumps only finish on stop or a failed start.
+- Masks are 4 bytes per pixel (about 33 MB each at 4K, up to 4 cached). A 1-byte mask or a CI-native rounded-rect generator would cut that.
+- Three ad hoc caches in the compositor and loaders (border, mask, cursor plan) could share one small cache type.
+- Thumbnail sorted keys are rebuilt each render; store them next to the dictionary.

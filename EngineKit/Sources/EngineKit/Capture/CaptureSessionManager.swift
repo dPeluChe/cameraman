@@ -62,6 +62,8 @@ extension CaptureEngine {
         let (width, height) = outputDimensions(for: config)
         streamConfig.width = width
         streamConfig.height = height
+        // SCK defaults to 3 surfaces; a couple more absorbs a slow writer without starving the pool.
+        streamConfig.queueDepth = 6
         streamConfig.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(config.frameRate))
         streamConfig.pixelFormat = config.pixelFormat
         streamConfig.capturesAudio = config.captureSystemAudio
@@ -174,41 +176,58 @@ extension CaptureEngine {
         // Create a queue for sample handling
         let sampleQueue = DispatchQueue(label: "com.cameraman.samplequeue")
 
-        // Add video stream output
-        let videoOutput = CaptureStreamOutput { [weak self] sampleBuffer, _ in
-            Task { [weak self] in
-                guard let self else { return }
-                await self.handleSampleBuffer(sampleBuffer)
-            }
-        }
-
-        // Retain output to prevent deallocation
+        // Frames are handed to one consumer per kind in arrival order. A Task per frame could
+        // reorder timestamps and had no bound on how many buffers stayed alive.
+        finishFramePumps()
+        let video = makeFramePump(.bufferingNewest(4))   // under a stall drop old frames; stay below queueDepth so SCK keeps surfaces
+        let videoOutput = CaptureStreamOutput { sampleBuffer, _ in video.yield(sampleBuffer) }
         self.videoStreamOutput = videoOutput
-
-        try stream.addStreamOutput(videoOutput, type: .screen, sampleHandlerQueue: sampleQueue)
+        do {
+            try stream.addStreamOutput(videoOutput, type: .screen, sampleHandlerQueue: sampleQueue)
+        } catch {
+            finishFramePumps()
+            throw error
+        }
         logger.debug("Added video stream output")
 
-        // Add audio stream output if enabled
         if configuration.capturesAudio {
-            let audioOutput = CaptureStreamOutput { [weak self] sampleBuffer, _ in
-                Task { [weak self] in
-                    guard let self else { return }
-                    await self.handleSampleBuffer(sampleBuffer)
-                }
-            }
-
-            // Retain audio output to prevent deallocation
+            let audio = makeFramePump(.bufferingNewest(256))   // small buffers; the cap only bounds a stalled writer
+            let audioOutput = CaptureStreamOutput { sampleBuffer, _ in audio.yield(sampleBuffer) }
             self.audioStreamOutput = audioOutput
-
             try stream.addStreamOutput(audioOutput, type: .audio, sampleHandlerQueue: sampleQueue)
             logger.debug("Added audio stream output")
         }
 
         logger.debug("Starting capture...")
-        try await stream.startCapture()
+        do {
+            try await stream.startCapture()
+        } catch {
+            finishFramePumps()
+            throw error
+        }
         logger.debug("Capture started successfully")
 
         return stream
+    }
+
+    private func makeFramePump(
+        _ policy: AsyncStream<SendableSampleBuffer>.Continuation.BufferingPolicy
+    ) -> AsyncStream<SendableSampleBuffer>.Continuation {
+        let (stream, continuation) = AsyncStream.makeStream(of: SendableSampleBuffer.self, bufferingPolicy: policy)
+        Task { [weak self] in
+            for await frame in stream {
+                guard let self else { return }
+                await self.handleSampleBuffer(frame.buffer)
+            }
+        }
+        frameContinuations.append(continuation)
+        return continuation
+    }
+
+    /// Ends the consumers when recording stops (not on pause, which reuses the same stream).
+    func finishFramePumps() {
+        frameContinuations.forEach { $0.finish() }
+        frameContinuations.removeAll()
     }
 
     func createVideoWriter(
@@ -488,4 +507,12 @@ extension CaptureEngine {
             }
         }
     }
+}
+
+struct SendableSampleBuffer: @unchecked Sendable {
+    let buffer: CMSampleBuffer
+}
+
+extension AsyncStream.Continuation where Element == SendableSampleBuffer {
+    func yield(_ buffer: CMSampleBuffer) { _ = yield(SendableSampleBuffer(buffer: buffer)) }
 }

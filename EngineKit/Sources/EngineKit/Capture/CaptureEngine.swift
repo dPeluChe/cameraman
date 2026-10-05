@@ -258,6 +258,7 @@ public actor CaptureEngine {
     var streamDelegate: StreamDelegate?
     var videoStreamOutput: CaptureStreamOutput?
     var audioStreamOutput: CaptureStreamOutput?
+    var frameContinuations: [AsyncStream<SendableSampleBuffer>.Continuation] = []
     
     // Debug counters
     var videoFrameCount = 0
@@ -394,6 +395,7 @@ public actor CaptureEngine {
         if let stream = session.getStream() {
             try? await stream.stopCapture()
         }
+        finishFramePumps()
         logger.debug("Stream stopped")
 
         logger.debug("Finalizing video writer...")

@@ -292,6 +292,8 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
     private var renderContext: AVVideoCompositionRenderContext?
     let ciContext = CIContext(options: [.useSoftwareRenderer: false])
     let cacheLock = NSLock()
+    /// Path masks are identical frame to frame; rendering one is a full-canvas bitmap fill and upload.
+    var maskCache: [(path: CGPath, size: CGSize, mask: CIImage)] = []
 
     var cachedBorderImage: CIImage?
     var cachedBorderKey: String?

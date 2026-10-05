@@ -125,6 +125,16 @@ struct TimelineTrack: Identifiable {
 }
 
 enum TimelineTrackBuilder {
+    /// One-entry memo: the timeline body re-runs at playback rate but the project rarely changes.
+    @MainActor private static var memo: (project: Project, tracks: [TimelineTrack])?
+
+    @MainActor static func cachedTracks(for project: Project) -> [TimelineTrack] {
+        if let memo, memo.project == project { return memo.tracks }
+        let tracks = tracks(for: project)
+        memo = (project, tracks)
+        return tracks
+    }
+
     /// Build the ordered list of timeline tracks. Convention: overlays at the
     /// TOP so users can see/manipulate them above the primary video tracks
     /// (same pattern as Final Cut / Premiere where overlay/effect tracks
