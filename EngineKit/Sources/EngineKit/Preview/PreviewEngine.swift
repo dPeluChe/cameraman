@@ -262,6 +262,7 @@ public actor PreviewEngine {
         // debounced tick — including for UI-only state that doesn't affect the composition.
         // Short-circuit when nothing actually changed to avoid cascading AVMutableVideoComposition rebuilds.
         if let existing = self.project, existing == project {
+            LogDebug(.preview, "[PREVIEW] updateProject skipped: project unchanged")
             return
         }
 
@@ -276,6 +277,9 @@ public actor PreviewEngine {
         let needsFullRebuild = oldFormat != project.canvas.format
             || oldClipCount != project.timeline.primaryTrack?.clips.count
             || oldOverlayTracks != project.timeline.tracks.filter { $0.type != .primary }
+
+        let camera = project.canvas.layout.camera
+        LogDebug(.preview, "[PREVIEW] updateProject fullRebuild=\(needsFullRebuild) cameraShape=\(camera?.maskShape.rawValue ?? "none") cameraRect=\(camera.map { "\($0.x),\($0.y),\($0.w),\($0.h)" } ?? "-")")
 
         if needsFullRebuild {
             // Full rebuild needed (different tracks or render size)
