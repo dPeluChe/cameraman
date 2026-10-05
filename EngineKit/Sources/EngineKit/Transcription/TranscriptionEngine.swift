@@ -247,7 +247,10 @@ public actor TranscriptionEngine {
                 id: index,
                 start: segment.start,
                 end: segment.end,
-                text: segment.text
+                text: segment.text,
+                words: segment.words.isEmpty ? nil : segment.words.map {
+                    Transcript.Word(text: $0.text, start: $0.start, end: $0.end, probability: $0.probability)
+                }
             )
         }
 
@@ -370,6 +373,17 @@ public extension TranscriptionEngine {
             public let start: TimeInterval
             public let end: TimeInterval
             public let text: String
+            /// Per-word timing; nil in transcripts made before word timestamps existed.
+            public var words: [Word]? = nil
+        }
+
+        /// One spoken word with where it starts and ends in the audio, and how sure the model was.
+        public struct Word: Codable, Equatable {
+            public let text: String
+            public let start: TimeInterval
+            public let end: TimeInterval
+            /// Model confidence, 0...1. Low values are where a transcript is least trustworthy.
+            public let probability: Double
         }
     }
 }

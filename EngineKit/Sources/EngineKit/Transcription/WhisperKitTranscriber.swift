@@ -34,6 +34,16 @@ enum WhisperKitTranscriber {
         let start: TimeInterval
         let end: TimeInterval
         let text: String
+        /// Per-word timing and confidence; empty when the model returned none.
+        let words: [Word]
+    }
+
+    struct Word {
+        let text: String
+        let start: TimeInterval
+        let end: TimeInterval
+        /// Model confidence for this word, 0...1.
+        let probability: Double
     }
 
     /// Whether on-device transcription can run on this machine.
@@ -79,7 +89,8 @@ enum WhisperKitTranscriber {
             task: translate ? .translate : .transcribe,
             language: language,
             detectLanguage: language == nil,
-            skipSpecialTokens: true
+            skipSpecialTokens: true,
+            wordTimestamps: true   // cutting by transcript needs where each word starts and ends
         )
         let results = try await pipe.transcribe(audioPath: audioPath.path, decodeOptions: options)
 
@@ -90,10 +101,17 @@ enum WhisperKitTranscriber {
             for segment in result.segments {
                 let text = cleanText(segment.text)
                 guard !text.isEmpty else { continue }
+                let words = (segment.words ?? []).compactMap { timing -> Word? in
+                    let word = cleanText(timing.word)
+                    guard !word.isEmpty else { return nil }
+                    return Word(text: word, start: TimeInterval(timing.start), end: TimeInterval(timing.end),
+                                probability: Double(timing.probability))
+                }
                 segments.append(Segment(
                     start: TimeInterval(segment.start),
                     end: TimeInterval(segment.end),
-                    text: text
+                    text: text,
+                    words: words
                 ))
             }
         }
