@@ -38,6 +38,21 @@ final class AgentActivityCenter: ObservableObject {
         flushers[projectId] = flush
     }
 
+    /// Persist every open editor's unsaved work. Used on quit; bounded so a stuck save cannot
+    /// keep the app from exiting.
+    func flushAllEditors(timeout: Duration = .seconds(3)) async {
+        let pending = Array(flushers.values)
+        guard !pending.isEmpty else { return }
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { try? await Task.sleep(for: timeout) }
+            group.addTask { await withTaskGroup(of: Void.self) { inner in
+                for flush in pending { inner.addTask { await flush() } }
+            } }
+            await group.next()      // first to finish: all saved, or the timeout
+            group.cancelAll()
+        }
+    }
+
     /// Called before an agent edit reads the project from disk.
     func agentWillEdit(_ projectId: ProjectId) async {
         markActive(projectId, quietFor: editHold)  // freeze first so nothing new slips in during the flush

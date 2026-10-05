@@ -52,6 +52,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return false
     }
 
+    /// Autosave waits a second after an edit; quitting inside that second used to drop it.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        Task { @MainActor in
+            await AgentActivityCenter.shared.flushAllEditors()
+            NSApp.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         // Cleanup
         hotkeyManager?.unregisterAllHotkeys()

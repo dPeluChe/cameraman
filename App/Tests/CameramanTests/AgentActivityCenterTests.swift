@@ -52,4 +52,23 @@ final class AgentActivityCenterTests: XCTestCase {
         await center.agentWillEdit(editing)
         XCTAssertFalse(center.activeProjects.contains(other))
     }
+
+    func testFlushAllEditorsSavesEveryOpenEditor() async {
+        let center = AgentActivityCenter()
+        var saved: Set<ProjectId> = []
+        let a = ProjectId(), b = ProjectId()
+        center.registerFlusher(for: a) { saved.insert(a) }
+        center.registerFlusher(for: b) { saved.insert(b) }
+        await center.flushAllEditors()
+        XCTAssertEqual(saved, [a, b])
+    }
+
+    /// Quit must never hang on a save that does not return.
+    func testFlushAllEditorsGivesUpOnAStuckSave() async {
+        let center = AgentActivityCenter()
+        center.registerFlusher(for: ProjectId()) { try? await Task.sleep(for: .seconds(30)) }
+        let started = Date()
+        await center.flushAllEditors(timeout: .milliseconds(200))
+        XCTAssertLessThan(Date().timeIntervalSince(started), 2)
+    }
 }
