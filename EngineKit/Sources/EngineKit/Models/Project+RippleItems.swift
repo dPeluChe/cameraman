@@ -6,29 +6,50 @@ extension Project {
     /// aligned with the footage after a ripple delete.
     mutating func rippleTimedItems(removing start: TimeInterval, to end: TimeInterval) {
         let width = end - start
-        func map(_ t: TimeInterval) -> TimeInterval {
-            t <= start ? t : (t >= end ? t - width : start)
+        func rippled(_ t: TimeInterval) -> TimeInterval {
+            if t <= start { return t }
+            return t >= end ? t - width : start
         }
-        func remap(_ s: TimeInterval, _ e: TimeInterval) -> (TimeInterval, TimeInterval)? {
-            let (ns, ne) = (map(s), map(e))
-            return ne - ns > 0.001 ? (ns, ne) : nil
+        // Items that collapse to nothing (fully inside the range) are dropped.
+        func ripple<T>(_ items: [T], _ span: WritableKeyPath<T, (TimeInterval, TimeInterval)>) -> [T] {
+            items.compactMap { item in
+                let (s, e) = item[keyPath: span]
+                let (ns, ne) = (rippled(s), rippled(e))
+                guard ne - ns > 0.001 else { return nil }
+                var out = item
+                out[keyPath: span] = (ns, ne)
+                return out
+            }
         }
 
-        overlays = overlays.compactMap { var o = $0; guard let r = remap(o.start, o.end) else { return nil }; (o.start, o.end) = r; return o }
-        subtitles = subtitles.compactMap { var o = $0; guard let r = remap(o.start, o.end) else { return nil }; (o.start, o.end) = r; return o }
-        chapters = chapters.compactMap { var c = $0; guard let r = remap(c.startTime, c.endTime) else { return nil }; (c.startTime, c.endTime) = r; return c }
-        mediaItems = mediaItems.compactMap {
-            var m = $0
-            guard let r = remap(m.timelineIn, m.timelineOut) else { return nil }
-            (m.timelineIn, m.duration) = (r.0, r.1 - r.0)
-            return m
-        }
-        manualZoomKeyframes = manualZoomKeyframes?.compactMap {
-            var k = $0
-            if k.timestamp > start && k.timestamp < end { return nil }
-            k.timestamp = map(k.timestamp)
-            return k
-        }
+        overlays = ripple(overlays, \.span)
+        subtitles = ripple(subtitles, \.span)
+        chapters = ripple(chapters, \.span)
+        mediaItems = ripple(mediaItems, \.span)
+        manualZoomKeyframes = manualZoomKeyframes?
+            .filter { !($0.timestamp > start && $0.timestamp < end) }
+            .map { var k = $0; k.timestamp = rippled(k.timestamp); return k }
         updatedAt = Date()
+    }
+}
+
+private extension Project.Overlay {
+    var span: (TimeInterval, TimeInterval) {
+        get { (start, end) }
+        set { (start, end) = newValue }
+    }
+}
+
+private extension Project.Chapter {
+    var span: (TimeInterval, TimeInterval) {
+        get { (startTime, endTime) }
+        set { (startTime, endTime) = newValue }
+    }
+}
+
+private extension Project.MediaItem {
+    var span: (TimeInterval, TimeInterval) {
+        get { (timelineIn, timelineOut) }
+        set { (timelineIn, duration) = (newValue.0, newValue.1 - newValue.0) }
     }
 }
