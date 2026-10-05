@@ -247,6 +247,7 @@ final class ProjectEditor: ObservableObject {
         await editorModel.setProject(previousProject)
         project = previousProject
         updateHistoryState()
+        scheduleAutosave()
         return true
     }
 
@@ -261,6 +262,7 @@ final class ProjectEditor: ObservableObject {
         await editorModel.setProject(nextProject)
         project = nextProject
         updateHistoryState()
+        scheduleAutosave()
         return true
     }
 

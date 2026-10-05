@@ -100,7 +100,7 @@ extension ProjectEditor {
 
     @discardableResult
     private func applyCanvasUpdate(
-        saveAfter: Bool = false,
+        saveAfter: Bool = true,
         _ mutation: (inout Project) throws -> Void
     ) async -> Bool {
         let previousProject = project
