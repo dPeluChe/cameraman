@@ -103,15 +103,18 @@ extension TimelineView {
         VStack(alignment: .leading, spacing: trackSpacing) {
             ForEach(tracks) { track in
                 if track.kind == .elements {
-                    let lines = TimelineElement.pack(track.elements)
                     VStack(alignment: .leading, spacing: 4) {
-                        ForEach(Array(lines.enumerated()), id: \.offset) { index, _ in
-                            Text(index == 0 ? "Elements" : "")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                                .padding(.leading, 6)
-                                .frame(height: trackHeight, alignment: .leading)
+                        ForEach(Array(track.elementLines.enumerated()), id: \.element.id) { index, _ in
+                            if index == 0 {
+                                Text("Elements")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                    .padding(.leading, 6)
+                                    .frame(height: trackHeight, alignment: .leading)
+                            } else {
+                                Color.clear.frame(height: trackHeight)
+                            }
                         }
                     }
                 } else if track.kind == .subtitle {
@@ -184,10 +187,10 @@ extension TimelineView {
             ForEach(allTracks) { track in
                 if track.kind == .elements {
                     VStack(spacing: 4) {
-                        ForEach(Array(TimelineElement.pack(track.elements).enumerated()), id: \.offset) { _, line in
+                        ForEach(track.elementLines) { line in
                             TimelineElementsRow(
                                 editor: editor,
-                                elements: line,
+                                elements: line.elements,
                                 layout: layout,
                                 height: trackHeight,
                                 selectedOverlayId: $selectedOverlayId,

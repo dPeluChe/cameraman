@@ -44,6 +44,11 @@ struct TimelineElement: Identifiable {
         }
     }
 
+    var overlayId: UUID? {
+        if case .overlay(let o) = source { return o.id }
+        return nil
+    }
+
     var icon: String {
         switch source {
         case .overlay(let o): return OverlayDisplayInfo.icon(for: o.type)
@@ -76,7 +81,8 @@ struct TimelineElement: Identifiable {
     }
 
     /// Greedy line packing by start time: an element goes on the first line where it does not overlap.
-    static func pack(_ elements: [TimelineElement]) -> [[TimelineElement]] {
+    /// Lines are keyed by their first element so a line keeps its view state when others move.
+    static func pack(_ elements: [TimelineElement]) -> [ElementLine] {
         var lines: [[TimelineElement]] = []
         for element in elements.sorted(by: { $0.start < $1.start }) {
             if let index = lines.firstIndex(where: { line in !line.contains { element.start < $0.end && element.end > $0.start } }) {
@@ -85,8 +91,13 @@ struct TimelineElement: Identifiable {
                 lines.append([element])
             }
         }
-        return lines
+        return lines.map { ElementLine(id: $0[0].id, elements: $0) }
     }
+}
+
+struct ElementLine: Identifiable {
+    let id: String
+    let elements: [TimelineElement]
 }
 
 /// One line of the elements lane.
@@ -140,10 +151,10 @@ struct TimelineElementsRow: View {
             .stroke(Color.white.opacity(selected ? 0.9 : 0.3), lineWidth: selected ? 2 : 1))
         .offset(x: layout.xPosition(for: element.start) - layout.labelWidth + (dragOffset[element.id] ?? 0))
         .popover(isPresented: Binding(
-            get: { if case .overlay(let o) = element.source { return popoverOverlayId == o.id } else { return false } },
+            get: { element.overlayId != nil && popoverOverlayId == element.overlayId },
             set: { if !$0 { popoverOverlayId = nil } }
         ), arrowEdge: .top) {
-            if case .overlay(let o) = element.source { OverlayPopoverContent(editor: editor, overlayId: o.id) }
+            if let id = element.overlayId { OverlayPopoverContent(editor: editor, overlayId: id) }
         }
         // highPriority so the chip wins over the timeline's seek gesture
         .highPriorityGesture(TapGesture().onEnded { select(element) })
@@ -157,6 +168,11 @@ struct TimelineElementsRow: View {
     }
 
     private func select(_ element: TimelineElement) {
+        // One element is selected at a time, whatever its kind.
+        selectedOverlayId = nil
+        selectedMediaItemId = nil
+        editor.selectedBlurRegionId = nil
+        popoverOverlayId = nil
         var seekTarget = element.start
         switch element.source {
         case .overlay(let o):

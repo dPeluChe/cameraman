@@ -83,6 +83,8 @@ struct TimelineTrack: Identifiable {
     let mediaItems: [Project.MediaItem]
     let overlays: [Project.Overlay]
     let elements: [TimelineElement]
+    /// `elements` packed into lines once per build instead of once per render.
+    let elementLines: [ElementLine]
     /// Clips from a new-model timeline track (imported video rows)
     let timelineClips: [Project.TimelineClip]
     /// Backing Project.TimelineTrack id for new-model rows (nil for legacy kinds)
@@ -114,6 +116,7 @@ struct TimelineTrack: Identifiable {
         self.mediaItems = mediaItems
         self.overlays = overlays
         self.elements = elements
+        self.elementLines = TimelineElement.pack(elements)
         self.timelineClips = timelineClips
         self.engineTrackId = engineTrackId
         self.engineMuted = engineMuted

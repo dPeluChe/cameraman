@@ -59,6 +59,19 @@ struct BlurRegion: Identifiable {
 }
 
 extension Project {
+    /// Direct lookup for the canvas editor, which asks at playback rate: no sorting, no full rebuild.
+    func blurRegion(id: String) -> BlurRegion? {
+        for track in timeline.tracks {
+            for clip in track.clips {
+                for adjustment in clip.adjustments ?? [] where adjustment.kind == .gaussianBlur
+                    && BlurRegion.hasRegion(adjustment.parameters) && "\(clip.id)/\(adjustment.id)" == id {
+                    return BlurRegion(trackId: track.id, clip: clip, adjustment: adjustment)
+                }
+            }
+        }
+        return nil
+    }
+
     var blurRegions: [BlurRegion] {
         timeline.tracks.flatMap { track in
             track.clips.flatMap { clip in
@@ -82,7 +95,8 @@ struct BlurRegionCanvasEditor: View {
     private var region: BlurRegion? {
         guard let id = editor.selectedBlurRegionId else { return nil }
         let t = playerViewModel.currentTime
-        return editor.project.blurRegions.first { $0.id == id && t >= $0.absoluteStart && t <= $0.absoluteEnd }
+        guard let region = editor.project.blurRegion(id: id), t >= region.absoluteStart, t <= region.absoluteEnd else { return nil }
+        return region
     }
 
     var body: some View {

@@ -84,7 +84,7 @@ private struct TimelineSection: View {
     private var height: CGFloat {
         let rows = TimelineTrackBuilder.cachedTracks(for: editor.project).reduce(0) { count, track in
             count + (track.kind == .elements
-                ? max(1, TimelineElement.pack(track.elements).count)
+                ? max(1, track.elementLines.count)
                 : 1)
         }
         // toolbar + ruler + paddings ~= 120; row = 34 + 8 spacing
