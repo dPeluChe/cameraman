@@ -23,24 +23,24 @@ May 2026 (pre-publication push): ultrawide writer fix, mic overload, telemetry s
 
 ### 0.7.1 — what already exists, made reliable
 
-- [ ] **Version alignment** — `MARKETING_VERSION` is `0.7.0` in the Xcode project, `App/Info.plist` and the README say `0.8.0` (and `GENERATE_INFOPLIST_FILE = YES` means the plist is unused), `docs/README.md` and `APP_STORE_METADATA.md` say `0.7.0`. No `0.8.0` tag or release exists, so the unpublished `[0.8.0]` changelog section folds into 0.7.1. (S)
-- [ ] **CHANGELOG** — `[Unreleased]` is empty. Add as we go: in-app MCP server, agent-edit freeze, tool consolidation (**breaking tool names**, 43→37), real global hotkeys, crash-handler fix, atomic project writes. (S)
-- [ ] **Surface capture errors** — `SCStream` is created with `delegate: nil` and `StreamDelegate` is never passed in, so if the display disconnects, permission is revoked or the system stops the stream the app keeps showing "recording" and writes a truncated or empty file. Deliver `didStopWithError` through `recordingFailed`. (M)
-- [ ] **Flush edits on quit** — autosave is a 1 s debounce held by `[weak self]`; quitting or closing inside that second loses the edit, and `applicationWillTerminate` does not flush. (S)
-- [ ] **Helper signing** — sign `cameraman-mcp` with `--timestamp` and build it universal (arm64 only today); needed before notarization. (S)
+- [x] **Version alignment** — `MARKETING_VERSION` is `0.7.0` in the Xcode project, `App/Info.plist` and the README say `0.8.0` (and `GENERATE_INFOPLIST_FILE = YES` means the plist is unused), `docs/README.md` and `APP_STORE_METADATA.md` say `0.7.0`. No `0.8.0` tag or release exists, so the unpublished `[0.8.0]` changelog section folds into 0.7.1. (S) `done 2026-10-04` (#62)
+- [x] **CHANGELOG** — `[Unreleased]` is empty. Add as we go: in-app MCP server, agent-edit freeze, tool consolidation (**breaking tool names**, 43→37), real global hotkeys, crash-handler fix, atomic project writes. (S) `updated 2026-10-04` as the batch lands; rename the header at release.
+- [x] **Surface capture errors** — `SCStream` is created with `delegate: nil` and `StreamDelegate` is never passed in, so if the display disconnects, permission is revoked or the system stops the stream the app keeps showing "recording" and writes a truncated or empty file. Deliver `didStopWithError` through `recordingFailed`. (M) `done 2026-10-04` (#63). Not seen to happen on screen: revoke Screen Recording mid-recording or unplug a monitor to check.
+- [x] **Flush edits on quit** — autosave is a 1 s debounce held by `[weak self]`; quitting or closing inside that second loses the edit, and `applicationWillTerminate` does not flush. (S) `done 2026-10-04` (#64). Check by hand: edit, then Cmd+Q at once.
+- [x] **Helper signing** — sign `cameraman-mcp` with `--timestamp` and build it universal (arm64 only today); needed before notarization. (S) `done 2026-10-04` (#65). The `--timestamp` path with the Developer ID certificate first runs in the release build.
 - [ ] **Manual validation** (nothing here has run on screen): global hotkeys fire with the app in the background (PR #53 has unit tests only); the agent-freeze notice shows and releases (#57); Claude Code connects over the in-app HTTP server (#55); one 30-60 minute recording and export (nothing has run past an hour). (S, waiting)
 - [ ] **At the end of the batch**: `make release`, signed with the installed Developer ID certificate, notarize, staple, open on a clean user. The notary profile `cameraman-notary` is **not** in this machine's keychain yet (`xcrun notarytool store-credentials cameraman-notary`).
 - [ ] **Public pieces** — privacy policy at a public URL (text in `docs/PRIVACY_POLICY.md`; GitHub Pages is not enabled and the landing is undecided), a minimal landing with the download link, and a decision on price and license (open source plus a signed build, amount open; the competitor is $9 one-time).
 
 ### 0.7.2 — cheap gaps against competitors
 
-- [ ] **Keystroke overlay** (S-M) — confirmed not implemented; `keys.jsonl` is already captured. See Feature Exploration.
-- [ ] **Reframe presets 1:1 and 4:5** (S) — today there is 9:16. Keep the MCP preset list in sync.
-- [ ] **Self-timer** (S).
+- [ ] **Keystroke overlay** (M, needs a decision) `corrected 2026-10-04` — earlier notes said `keys.jsonl` was already captured; it is not. `KeystrokeRecorder` exists but is **never instantiated** (`Recorder` only starts `TelemetryRecorder`, the mouse), so nothing records keys. Building the overlay means capturing the keyboard globally: a new Accessibility or Input Monitoring permission, a privacy-policy change, and likely a problem in a sandboxed build. Proposal if we do it: record only shortcut chords (with ⌘ ⌃ ⌥) and special keys, never plain typed text, so a password is never captured. Decide before building.
+- [x] **Reframe presets 1:1 and 4:5** (S) — today there is 9:16. Keep the MCP preset list in sync. `done 2026-10-04` (#66). Check an export of each by eye.
+- [x] **Self-timer** (S). `done 2026-10-04` (#67).
 
 ### 0.7.3 — manual region blur
 
-- [ ] **Region blur** (M) — add `x, y, w, h` parameters to the existing `gaussianBlur` adjustment (time-ranged and whole-layer today) and an inspector control. Detection comes later.
+- [x] **Region blur** (M) — add `x, y, w, h` parameters to the existing `gaussianBlur` adjustment (time-ranged and whole-layer today) and an inspector control. Detection comes later. `done 2026-10-04` (#68 engine and MCP, #69 UI). Verified on a real export. Region sliders only: dragging the region on the preview belongs to Direct Visual Editing.
 
 ### 0.7.4 and after — the headline feature
 
