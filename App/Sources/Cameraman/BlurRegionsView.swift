@@ -15,34 +15,14 @@ struct BlurRegionsView: View {
     @ObservedObject var playerViewModel: PreviewPlayerViewModel
     @State private var lastError: String?
 
-    private struct Region: Identifiable {
-        let trackId: UUID
-        let clip: Project.TimelineClip
-        let adjustment: Project.Adjustment
-        var id: String { "\(clip.id)/\(adjustment.id)" }
-        var absoluteStart: TimeInterval { clip.timelineIn + (adjustment.start ?? 0) }
-        var absoluteEnd: TimeInterval { clip.timelineIn + (adjustment.end ?? clip.duration) }
-    }
+    private typealias Region = BlurRegion
 
-    /// Clip-relative start/end are shown on the timeline, so a region reads the same as the playhead.
-    private var regions: [Region] {
-        editor.project.timeline.tracks.flatMap { track in
-            track.clips.flatMap { clip in
-                (clip.adjustments ?? [])
-                    .filter { $0.kind == .gaussianBlur && Self.hasRegion($0.parameters) }
-                    .map { Region(trackId: track.id, clip: clip, adjustment: $0) }
-            }
-        }.sorted { $0.absoluteStart < $1.absoluteStart }
-    }
+    private var regions: [Region] { editor.project.blurRegions }
 
-    /// Smallest region side, and so the furthest an origin can sit: at x = 1 there is no room left
-    /// for a width, which validation rejects.
-    private static let minSide = 0.02
+    private static let minSide = BlurRegion.minSide
     private static var maxOrigin: Double { 1 - minSide }
 
-    static func hasRegion(_ p: [String: Double]) -> Bool {
-        ["x", "y", "w", "h"].allSatisfy { p[$0] != nil }
-    }
+    static func hasRegion(_ p: [String: Double]) -> Bool { BlurRegion.hasRegion(p) }
 
     /// The recording clip under the playhead, where a new region attaches.
     private var clipAtPlayhead: (trackId: UUID, clip: Project.TimelineClip)? {
@@ -99,15 +79,21 @@ struct BlurRegionsView: View {
             HStack {
                 Text("\(Self.timeLabel(region.absoluteStart)) - \(Self.timeLabel(region.absoluteEnd))")
                     .font(.caption.monospacedDigit())
+                    .fontWeight(editor.selectedBlurRegionId == region.id ? .bold : .regular)
+                if editor.selectedBlurRegionId == region.id {
+                    Text("on canvas").font(.caption2).foregroundStyle(.secondary)
+                }
                 Spacer()
                 Button {
+                    editor.selectedBlurRegionId = region.id
                     selectTime(region.absoluteStart)
                 } label: {
                     Image(systemName: "scope")
                 }
                 .buttonStyle(.plain)
-                .help("Jump to the start of this blur")
+                .help("Select it and jump to its start, then drag it on the preview")
                 Button {
+                    if editor.selectedBlurRegionId == region.id { editor.selectedBlurRegionId = nil }
                     run { await editor.removeAdjustment(region.adjustment.id, fromClipId: region.clip.id, inTrackId: region.trackId) }
                 } label: {
                     Image(systemName: "xmark.circle.fill")
@@ -153,6 +139,7 @@ struct BlurRegionsView: View {
             parameters: ["radius": 24, "x": 0.3, "y": 0.44, "w": 0.4, "h": 0.12],
             start: start, end: end
         )
+        editor.selectedBlurRegionId = "\(target.clip.id)/\(adjustment.id)"
         run { await editor.addAdjustment(adjustment, toClipId: target.clip.id, inTrackId: target.trackId) }
     }
 

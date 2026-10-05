@@ -50,6 +50,8 @@ struct PreviewPlayerView: View {
                         )
                     }
 
+                    BlurRegionCanvasEditor(editor: editor, playerViewModel: viewModel)
+
                     if viewModel.showCursor || viewModel.showClicks || viewModel.showKeystrokes {
                         GeometryReader { geometry in
                             TelemetryOverlayView(
