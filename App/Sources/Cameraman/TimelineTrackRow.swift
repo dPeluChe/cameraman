@@ -71,13 +71,13 @@ struct TimelineTrackRow: View {
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .fill(Color.primary.opacity(0.06))
 
-            // Render media items (for additional audio / image tracks)
+            // Render media items (imported audio rows)
             ForEach(track.mediaItems) { item in
                 let width = layout.segmentWidth(for: item.duration)
                 let xPosition = layout.xPosition(for: item.timelineIn) - layout.labelWidth
 
                 HStack(spacing: 2) {
-                    Image(systemName: item.type == .audio ? "waveform" : "photo")
+                    Image(systemName: "waveform")
                         .font(.system(size: 7))
                         .foregroundStyle(.white.opacity(0.7))
                     Text(item.name)

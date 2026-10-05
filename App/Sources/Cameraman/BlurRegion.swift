@@ -59,6 +59,19 @@ struct BlurRegion: Identifiable {
 }
 
 extension Project {
+    /// Direct lookup for the canvas editor, which asks at playback rate: no sorting, no full rebuild.
+    func blurRegion(id: String) -> BlurRegion? {
+        for track in timeline.tracks {
+            for clip in track.clips {
+                for adjustment in clip.adjustments ?? [] where adjustment.kind == .gaussianBlur
+                    && BlurRegion.hasRegion(adjustment.parameters) && "\(clip.id)/\(adjustment.id)" == id {
+                    return BlurRegion(trackId: track.id, clip: clip, adjustment: adjustment)
+                }
+            }
+        }
+        return nil
+    }
+
     var blurRegions: [BlurRegion] {
         timeline.tracks.flatMap { track in
             track.clips.flatMap { clip in
@@ -82,7 +95,8 @@ struct BlurRegionCanvasEditor: View {
     private var region: BlurRegion? {
         guard let id = editor.selectedBlurRegionId else { return nil }
         let t = playerViewModel.currentTime
-        return editor.project.blurRegions.first { $0.id == id && t >= $0.absoluteStart && t <= $0.absoluteEnd }
+        guard let region = editor.project.blurRegion(id: id), t >= region.absoluteStart, t <= region.absoluteEnd else { return nil }
+        return region
     }
 
     var body: some View {
@@ -134,56 +148,6 @@ struct BlurRegionCanvasEditor: View {
         Task {
             _ = await editor.updateAdjustment(updated, inClipId: region.clip.id, trackId: region.trackId)
             draft = nil
-        }
-    }
-}
-
-/// Timeline lane for blur regions: one chip per region. Tap to select (and jump to it), drag to move in time.
-struct TimelineBlurTrackRow: View {
-    @ObservedObject var editor: ProjectEditor
-    let regions: [BlurRegion]
-    let layout: TimelineLayout
-    let height: TimelineScalar
-    let onSeek: (TimeInterval) -> Void
-
-    @State private var dragOffset: [String: TimelineScalar] = [:]
-
-    var body: some View {
-        HStack(spacing: 0) {
-            Color.clear.frame(width: layout.labelWidth)
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(Color.primary.opacity(0.06))
-                ForEach(regions) { region in
-                    let isSelected = region.id == editor.selectedBlurRegionId
-                    let width = layout.segmentWidth(for: region.absoluteEnd - region.absoluteStart)
-                    HStack(spacing: 2) {
-                        Image(systemName: "drop.halffull").font(.system(size: 8))
-                        Text("Blur").font(.system(size: 8)).lineLimit(1)
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 4)
-                    .frame(width: max(width, 30), height: height - 10)
-                    .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Color.purple.opacity(isSelected ? 1.0 : 0.7)))
-                    .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .stroke(Color.white.opacity(isSelected ? 0.9 : 0.3), lineWidth: isSelected ? 2 : 1))
-                    .offset(x: layout.xPosition(for: region.absoluteStart) - layout.labelWidth + (dragOffset[region.id] ?? 0))
-                    // highPriority so the chip wins over the timeline's seek gesture
-                    .highPriorityGesture(TapGesture().onEnded {
-                        editor.selectedBlurRegionId = region.id
-                        onSeek(region.absoluteStart)
-                    })
-                    .highPriorityGesture(DragGesture(minimumDistance: 4)
-                        .onChanged { dragOffset[region.id] = $0.translation.width }
-                        .onEnded { value in
-                            dragOffset.removeValue(forKey: region.id)
-                            let updated = region.shifted(by: TimeInterval(value.translation.width / layout.pixelsPerSecond))
-                            editor.selectedBlurRegionId = region.id
-                            Task { _ = await editor.updateAdjustment(updated, inClipId: region.clip.id, trackId: region.trackId) }
-                        })
-                    .help("Click to select, drag to move in time")
-                }
-            }
         }
     }
 }
