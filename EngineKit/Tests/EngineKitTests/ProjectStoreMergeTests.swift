@@ -132,6 +132,23 @@ final class ProjectStoreMergeTests: XCTestCase {
         XCTAssertEqual(Set(merged.tags), Set(["demo", "beta"]))
     }
 
+    func testMerge_carriesSubtitlesAndZoomKeyframesShifted() async throws {
+        let idA = try await makeProject(name: "A", duration: 10, screenFile: "aaaa_screen.mov")
+        let idB = try await makeProject(name: "B", duration: 5, screenFile: "bbbb_screen.mov")
+        var b = try await sut.loadProject(projectId: idB)
+        b.subtitles = [Project.Overlay(
+            id: UUID(), type: .text, start: 1, end: 2,
+            transform: .init(), style: .init(stroke: "#FFFFFF", strokeWidth: 0, shadow: false), animation: nil
+        )]
+        b.manualZoomKeyframes = [ZoomPlanGenerator.ZoomKeyframe(timestamp: 3, zoomLevel: 2, focusX: 0.5, focusY: 0.5)]
+        try await sut.saveProject(b)
+
+        let merged = try await sut.loadProject(projectId: try await sut.mergeProjects(idA, idB))
+
+        XCTAssertEqual(merged.subtitles.first?.start ?? 0, 11, accuracy: 0.001)
+        XCTAssertEqual(merged.manualZoomKeyframes?.first?.timestamp ?? 0, 13, accuracy: 0.001)
+    }
+
     func testMerge_copiesSourceFilesFromBothProjects() async throws {
         let idA = try await makeProject(name: "A", duration: 10, screenFile: "aaaa_screen.mov")
         let idB = try await makeProject(name: "B", duration: 5, screenFile: "bbbb_screen.mov")

@@ -281,7 +281,9 @@ final class EditorModelInvariantTests: XCTestCase {
             return XCTFail("Expected range deletion result")
         }
         XCTAssertEqual(clips.count, 2)
-        XCTAssertTrue(clips.allSatisfy { $0.adjustments == fixture.clip.adjustments })
+        // The second half gets fresh adjustment ids; kind and parameters must survive on both.
+        let expected = fixture.clip.adjustments?.map { [$0.kind.rawValue: $0.parameters] }
+        XCTAssertTrue(clips.allSatisfy { $0.adjustments?.map { [$0.kind.rawValue: $0.parameters] } == expected })
     }
 
     private func assertTrackLocked(

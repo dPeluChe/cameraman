@@ -6,15 +6,26 @@ extension Project {
     /// aligned with the footage after a ripple delete.
     mutating func rippleTimedItems(removing start: TimeInterval, to end: TimeInterval) {
         let width = end - start
-        func rippled(_ t: TimeInterval) -> TimeInterval {
-            if t <= start { return t }
-            return t >= end ? t - width : start
-        }
-        // Items that collapse to nothing (fully inside the range) are dropped.
-        func ripple<T>(_ items: [T], _ span: WritableKeyPath<T, (TimeInterval, TimeInterval)>) -> [T] {
+        retimeTimedItems(
+            map: { t in t <= start ? t : (t >= end ? t - width : start) },
+            dropsKeyframe: { $0 > start && $0 < end }
+        )
+    }
+
+    /// Opens `width` seconds at `time`: items at or after it move later, spanning ones stretch.
+    mutating func rippleTimedItems(insertingAt time: TimeInterval, width: TimeInterval) {
+        retimeTimedItems(map: { $0 >= time ? $0 + width : $0 }, dropsKeyframe: { _ in false })
+    }
+
+    private mutating func retimeTimedItems(
+        map: (TimeInterval) -> TimeInterval,
+        dropsKeyframe: (TimeInterval) -> Bool
+    ) {
+        // Items that collapse to nothing (fully inside a removed range) are dropped.
+        func retime<T>(_ items: [T], _ span: WritableKeyPath<T, (TimeInterval, TimeInterval)>) -> [T] {
             items.compactMap { item in
                 let (s, e) = item[keyPath: span]
-                let (ns, ne) = (rippled(s), rippled(e))
+                let (ns, ne) = (map(s), map(e))
                 guard ne - ns > 0.001 else { return nil }
                 var out = item
                 out[keyPath: span] = (ns, ne)
@@ -22,13 +33,13 @@ extension Project {
             }
         }
 
-        overlays = ripple(overlays, \.span)
-        subtitles = ripple(subtitles, \.span)
-        chapters = ripple(chapters, \.span)
-        mediaItems = ripple(mediaItems, \.span)
+        overlays = retime(overlays, \.span)
+        subtitles = retime(subtitles, \.span)
+        chapters = retime(chapters, \.span)
+        mediaItems = retime(mediaItems, \.span)
         manualZoomKeyframes = manualZoomKeyframes?
-            .filter { !($0.timestamp > start && $0.timestamp < end) }
-            .map { var k = $0; k.timestamp = rippled(k.timestamp); return k }
+            .filter { !dropsKeyframe($0.timestamp) }
+            .map { var k = $0; k.timestamp = map(k.timestamp); return k }
         updatedAt = Date()
     }
 }

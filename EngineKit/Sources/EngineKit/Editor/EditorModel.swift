@@ -375,13 +375,6 @@ public actor EditorModel {
 
     // MARK: - Internal Mutation Helpers
 
-    func adjustSubsequentClips(trackIndex: Int, from startIndex: Int, by delta: TimeInterval) {
-        guard startIndex < project.timeline.tracks[trackIndex].clips.count else { return }
-        for i in startIndex..<project.timeline.tracks[trackIndex].clips.count {
-            project.timeline.tracks[trackIndex].clips[i].timelineIn += delta
-        }
-    }
-
     func recalculateTimelineDuration() {
         var maxEnd: TimeInterval = 0
         for track in project.timeline.tracks {
@@ -428,6 +421,14 @@ public actor EditorModel {
 
     func rippleTimedItems(removing start: TimeInterval, to end: TimeInterval) {
         project.rippleTimedItems(removing: start, to: end)
+    }
+
+    /// Opens `width` seconds at `time` on every unlocked track and for timed items (trim extension).
+    func insertGap(at time: TimeInterval, width: TimeInterval) {
+        for t in project.timeline.tracks.indices where !project.timeline.tracks[t].isLocked {
+            shiftClipsAfter(time, by: width, trackIndex: t)
+        }
+        project.rippleTimedItems(insertingAt: time, width: width)
     }
 
     func deleteClipsByIds(_ ids: [String], trackIndex: Int) {
