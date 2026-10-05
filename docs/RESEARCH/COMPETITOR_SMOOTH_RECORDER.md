@@ -15,7 +15,7 @@ A native macOS (15+) recorder in SwiftUI/AppKit that sells "record once, edited 
 | Smooth cursor + click ripple | yes (up to 4x size) | yes (synthetic cursor, ripples, hide-cursor) |
 | On-device captions | yes, word-by-word highlight | yes (on-device transcription) |
 | Camera bubble / split | yes, adjustable after recording | yes (PiP, side-by-side layouts) |
-| Annotations | text, arrows, boxes, spotlight, blur | arrow, rect, line, text, image, GIF overlays; blur not yet |
+| Annotations | text, arrows, boxes, spotlight, blur | arrow, rect, line, text, image, GIF overlays; `gaussianBlur` exists only as a whole-layer, time-ranged effect (no region) |
 | Trim / split / speed | speed up to 8x | trim, split, per-clip speed |
 | Backgrounds | 76 wallpapers, padding/corners/shadow | color, image, blur, padding, corners, shadow |
 | Export | MP4/MOV, H.264/HEVC, 30/60 fps, GIF | MP4, HEVC, GIF presets, portrait |
@@ -47,7 +47,7 @@ Ordered by fit with our audience (developers, people making demos) over effort. 
 | # | Candidate | Why | Effort | Notes |
 |---|---|---|---|---|
 | 1 | **Cut by transcript + filler removal** | Their strongest hook; we already transcribe and have ripple `delete_range` and silence detection | Medium | Also an MCP tool: an agent can "remove every um". Our edge over a UI-only version |
-| 2 | **Smart Redact / blur regions** | Developers record terminals and dashboards full of secrets; regex for keys plus Vision text boxes | Medium | Backlog: "Blur regions in video" phase 2. Raise priority |
+| 2 | **Smart Redact / blur regions** | Developers record terminals and dashboards full of secrets; regex for keys plus Vision text boxes | Medium | Backlog: "Blur regions in video" phase 2. Raise priority. **Building block exists**: the `gaussianBlur` adjustment (radius, `start`/`end`) on a layer. Missing: a region (x, y, w, h params in `AdjustmentRenderer`) and the detection (Vision text boxes plus regex) that creates time-ranged adjustments |
 | 3 | **Keys on screen overlay** | Expected in dev tutorials | Small | Backlog: keystroke overlay; data already captured |
 | 4 | **Reframe presets 1:1 and 4:5** (and manual 9:16 crop) | Social export from one recording | Small | Backlog: auto reframe; start with presets |
 | 5 | **More backgrounds** (a curated pack) | Cheap perceived polish | Small | Content work, not engine work |

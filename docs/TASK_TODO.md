@@ -87,7 +87,7 @@ May 2026 (pre-publication push): ultrawide writer fix, mic overload, telemetry s
 > Analysis in `RESEARCH/COMPETITOR_SMOOTH_RECORDER.md`; landing plan in `RESEARCH/LANDING_CONTENT_BASE.md`. Candidates, not commitments.
 
 - [ ] **Cut by transcript + filler/pause removal** `added: 2026-10-04` — delete words in the transcript to ripple-delete the matching range (builds on transcription, `delete_range`, silence detection). Expose as an MCP tool so an agent can "remove every um". Their headline feature.
-- [ ] **Smart Redact** `added: 2026-10-04` — extends "Blur regions in video" (Feature Exploration): detect emails, card numbers, API keys, faces on-device (Vision text boxes plus regex) and blur them. Raise priority: developers record secrets.
+- [ ] **Smart Redact** `added: 2026-10-04` — extends "Blur regions in video" (Feature Exploration). Starting point: the existing `gaussianBlur` adjustment is time-ranged but whole-layer, so add region params and a detector that emits adjustments. Detect emails, card numbers, API keys, faces on-device (Vision text boxes plus regex) and blur them. Raise priority: developers record secrets.
 - [ ] **Reframe presets 1:1 and 4:5** `added: 2026-10-04` — small step toward auto reframe; today there is a 9:16 preset.
 - [ ] **Curated background pack** `added: 2026-10-04` — backgrounds are color/image/blur only; content work, not engine work.
 - [ ] **Self-timer and menu bar item** `added: 2026-10-04`.
