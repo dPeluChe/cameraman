@@ -159,6 +159,7 @@ struct RecordingControlView: View {
                 ToggleRow(icon: "text.justify.leading", title: "Teleprompter", isOn: $showTeleprompter, offIcon: "text.justify.leading")
                 Divider().opacity(0.3)
                 qualityRow
+                countdownRow
                 if viewModel.selectedDisplaySource != nil {
                     captureAreaRow
                 }
@@ -226,6 +227,10 @@ struct RecordingControlView: View {
 
     private var qualityRow: some View {
         RecordingQualityRow(recordingQuality: $viewModel.recordingQuality)
+    }
+
+    private var countdownRow: some View {
+        RecordingCountdownRow(seconds: $viewModel.countdownSeconds)
     }
 
     private var captureAreaRow: some View {

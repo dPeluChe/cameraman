@@ -27,6 +27,11 @@ class RecordingControlViewModel: ObservableObject {
     @Published var hideSystemCursor = false
     @Published var lastRecordingURL: URL?
     @Published var recordingQuality: RecordingQuality = .native
+    /// Self-timer before recording starts; 0 = off. Remembered between launches.
+    @Published var countdownSeconds: Int = UserDefaults.standard.integer(forKey: "recording.countdownSeconds") {
+        didSet { UserDefaults.standard.set(countdownSeconds, forKey: "recording.countdownSeconds") }
+    }
+    private var isCountingDown = false
     /// Selected capture area in display points (top-left origin). nil = full display.
     @Published var selectedArea: CGRect?
 
@@ -94,7 +99,7 @@ class RecordingControlViewModel: ObservableObject {
 
     func startRecording() async {
         log("startRecording() called")
-        guard !isRecording else {
+        guard !isRecording, !isCountingDown else {
             log("Already recording, ignoring start request")
             return
         }
@@ -205,6 +210,17 @@ class RecordingControlViewModel: ObservableObject {
                 cameraConfig: cameraConfig,
                 captureMicAudio: includeMicrophoneForSession
             )
+
+            // After permissions and setup, so system prompts never land during the countdown.
+            if countdownSeconds > 0 {
+                isCountingDown = true
+                statusText = "Starting in \(countdownSeconds)…"
+                let go = await CountdownWindow().run(seconds: countdownSeconds)
+                isCountingDown = false
+                guard go else { statusText = "Cancelled"; return }
+                // Let the countdown window leave the screen before capture begins.
+                try? await Task.sleep(for: .milliseconds(250))
+            }
 
             // Start recording
             log("Calling Recorder.shared.startRecording...")

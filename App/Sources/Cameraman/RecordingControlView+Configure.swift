@@ -36,6 +36,31 @@ struct RecordingQualityRow: View {
     }
 }
 
+struct RecordingCountdownRow: View {
+    @Binding var seconds: Int
+
+    var body: some View {
+        HStack {
+            Image(systemName: "timer")
+                .font(.system(size: 14))
+                .frame(width: 22)
+
+            Text("Timer")
+                .font(.system(size: 13))
+
+            Spacer()
+
+            Picker("", selection: $seconds) {
+                ForEach(CountdownWindow.options, id: \.self) { option in
+                    Text(option == 0 ? "Off" : "\(option)s").tag(option)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 160)
+        }
+    }
+}
+
 struct CaptureAreaRow: View {
     @Binding var selectedArea: CGRect?
     let selectedDisplaySource: SourceSelector.DisplaySource?
