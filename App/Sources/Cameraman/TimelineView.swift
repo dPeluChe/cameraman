@@ -94,7 +94,7 @@ struct TimelineView: View {
 
     var body: some View {
         let layout = currentLayout
-        let tracks = TimelineTrackBuilder.tracks(for: project)
+        let tracks = TimelineTrackBuilder.cachedTracks(for: project)
         let totalHeight = max(
             0,
             (TimelineScalar(tracks.count) * trackHeight) + (TimelineScalar(max(tracks.count - 1, 0)) * trackSpacing)

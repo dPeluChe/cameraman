@@ -12,6 +12,22 @@ enum CursorPlanLoader {
     /// Build a CursorPlan from the project's cursor telemetry, rebased into
     /// capture-local space via CaptureGeometry. Returns nil when telemetry is
     /// missing, the cursor feature is disabled, or no events survive rebasing.
+    private static let cache = PlanCache()
+
+    /// Keeps only the latest plan; switching projects replaces it.
+    private final class PlanCache: @unchecked Sendable {
+        private let lock = NSLock()
+        private var entry: (key: String, plan: CursorPlan)?
+        func value(for key: String) -> CursorPlan? {
+            lock.lock(); defer { lock.unlock() }
+            return entry?.key == key ? entry?.plan : nil
+        }
+        func store(_ plan: CursorPlan, for key: String) {
+            lock.lock(); defer { lock.unlock() }
+            entry = (key, plan)
+        }
+    }
+
     static func loadCursorPlan(
         for project: Project,
         projectDirectory: URL?
@@ -27,6 +43,14 @@ enum CursorPlanLoader {
         }
 
         let cursorURL = projectDirectory.appendingPathComponent(cursorTrack.path)
+        let geometry = await MainActor.run { resolveGeometry(for: project) }
+        let dims = geometry.map { ($0.rect.w, $0.rect.h) } ?? { let d = fallbackDimensions(for: project); return (d.width, d.height) }()
+
+        // Edits re-enter here on every change; the plan only depends on the file and geometry.
+        let attrs = try? FileManager.default.attributesOfItem(atPath: cursorURL.path)
+        let cacheKey = "\(cursorURL.path)|\(attrs?[.modificationDate] ?? "")|\(attrs?[.size] ?? "")|\(String(describing: geometry?.rect))|\(dims.0)x\(dims.1)"
+        if let hit = cache.value(for: cacheKey) { return hit }
+
         let parser = TelemetryParser()
 
         var rawEvents: [TelemetryRecorder.Event] = []
@@ -43,15 +67,13 @@ enum CursorPlanLoader {
             return nil
         }
 
-        let geometry = await MainActor.run { resolveGeometry(for: project) }
         let prepared: (events: [TelemetryRecorder.Event], width: Double, height: Double)
         if let geometry {
             prepared = (geometry.rebaseToCaptureSpace(rawEvents), geometry.rect.w, geometry.rect.h)
             LogDebug(.telemetry, "Synthetic cursor: loaded \(rawEvents.count) raw events, \(prepared.events.count) inside capture region \(geometry.rect)")
         } else {
-            let dims = fallbackDimensions(for: project)
-            prepared = (rawEvents, dims.width, dims.height)
-            LogDebug(.telemetry, "Synthetic cursor: no capture geometry, using fallback \(dims.width)x\(dims.height)")
+            prepared = (rawEvents, dims.0, dims.1)
+            LogDebug(.telemetry, "Synthetic cursor: no capture geometry, using fallback \(dims.0)x\(dims.1)")
         }
 
         guard prepared.width > 0, prepared.height > 0 else { return nil }
@@ -62,6 +84,7 @@ enum CursorPlanLoader {
             screenHeight: prepared.height
         )
         LogDebug(.telemetry, "Synthetic cursor plan: \(plan.samples.count) samples, \(plan.clicks.count) clicks")
+        cache.store(plan, for: cacheKey)
         return plan
     }
 

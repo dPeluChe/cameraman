@@ -10,22 +10,10 @@ import EngineKit
 
 struct CenterPanel: View {
     @ObservedObject var viewModel: ProjectEditorViewModel
-    @ObservedObject var playerViewModel: PreviewPlayerViewModel
+    /// Not observed: this panel only passes it down, and observing re-ran the layout at playback rate.
+    let playerViewModel: PreviewPlayerViewModel
     @Binding var showExportModal: Bool
     @Binding var showTranscriptionModal: Bool
-
-    /// Height that shows every timeline row without inner clipping: the window
-    /// grows (or the user scrolls the window) instead of rows vanishing.
-    private var timelineHeight: CGFloat {
-        guard let editor = viewModel.editor else { return 250 }
-        let rows = TimelineTrackBuilder.tracks(for: editor.project).reduce(0) { count, track in
-            count + (track.kind == .overlay
-                ? max(1, TimelineView.computeOverlayRows(overlays: track.overlays).count)
-                : 1)
-        }
-        // toolbar + ruler + paddings ~= 120; row = 34 + 8 spacing
-        return max(230, CGFloat(rows) * 42 + 120)
-    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -51,16 +39,11 @@ struct CenterPanel: View {
 
             // Timeline
             if let editor = viewModel.editor {
-                TimelineView(
+                TimelineSection(
                     editor: editor,
                     playerViewModel: playerViewModel,
-                    projectDirectory: viewModel.projectDirectory,
-                    mutedTracks: $viewModel.mutedTracks,
-                    selectedSegmentId: $viewModel.selectedSegmentId,
-                    selectedMediaItemId: $viewModel.selectedMediaItemId,
-                    selectedOverlayId: $viewModel.selectedOverlayId
+                    viewModel: viewModel
                 )
-                .frame(height: timelineHeight)
             } else {
                  Color(NSColor.controlBackgroundColor)
                     .frame(height: 250)
@@ -86,5 +69,38 @@ private extension View {
         } else {
             self
         }
+    }
+}
+
+/// Sizes the timeline to its rows. Observes the editor (not the player), so it only
+/// re-evaluates when the project changes, not at playback rate.
+private struct TimelineSection: View {
+    @ObservedObject var editor: ProjectEditor
+    let playerViewModel: PreviewPlayerViewModel
+    @ObservedObject var viewModel: ProjectEditorViewModel
+
+    /// Height that shows every timeline row without inner clipping: the window
+    /// grows (or the user scrolls the window) instead of rows vanishing.
+    private var height: CGFloat {
+        let rows = TimelineTrackBuilder.cachedTracks(for: editor.project).reduce(0) { count, track in
+            count + (track.kind == .overlay
+                ? max(1, TimelineView.computeOverlayRows(overlays: track.overlays).count)
+                : 1)
+        }
+        // toolbar + ruler + paddings ~= 120; row = 34 + 8 spacing
+        return max(230, CGFloat(rows) * 42 + 120)
+    }
+
+    var body: some View {
+        TimelineView(
+            editor: editor,
+            playerViewModel: playerViewModel,
+            projectDirectory: viewModel.projectDirectory,
+            mutedTracks: $viewModel.mutedTracks,
+            selectedSegmentId: $viewModel.selectedSegmentId,
+            selectedMediaItemId: $viewModel.selectedMediaItemId,
+            selectedOverlayId: $viewModel.selectedOverlayId
+        )
+        .frame(height: height)
     }
 }

@@ -136,6 +136,16 @@ enum TimelineTrackBuilder {
     ///   5. systemAudio (if available)
     ///   6. micAudio (if available)
     ///   7. additionalAudio (imported music / voiceover)
+    /// One-entry memo: the timeline body re-runs at playback rate but the project rarely changes.
+    @MainActor private static var memo: (project: Project, tracks: [TimelineTrack])?
+
+    @MainActor static func cachedTracks(for project: Project) -> [TimelineTrack] {
+        if let memo, memo.project == project { return memo.tracks }
+        let tracks = tracks(for: project)
+        memo = (project, tracks)
+        return tracks
+    }
+
     static func tracks(for project: Project) -> [TimelineTrack] {
         var tracks: [TimelineTrack] = []
 

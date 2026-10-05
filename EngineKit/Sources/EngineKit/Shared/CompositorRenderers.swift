@@ -37,16 +37,7 @@ extension MaskedVideoCompositor {
 
     /// Apply a CIBlendWithMask using a path-based mask over the given image.
     func applyPathMask(to image: CIImage, path: CGPath, renderSize: CGSize) -> CIImage {
-        guard let ctx = createBGRAContext(size: renderSize) else { return image }
-
-        ctx.setFillColor(CGColor(red: 0, green: 0, blue: 0, alpha: 1))
-        ctx.fill(CGRect(origin: .zero, size: renderSize))
-        ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
-        ctx.addPath(path)
-        ctx.fillPath()
-
-        guard let maskCGImage = ctx.makeImage() else { return image }
-        let maskCIImage = CIImage(cgImage: maskCGImage)
+        guard let maskCIImage = pathMask(path: path, renderSize: renderSize) else { return image }
 
         guard let blendFilter = CIFilter(name: "CIBlendWithMask") else { return image }
         let clearBG = CIImage(color: .clear).cropped(to: CGRect(origin: .zero, size: renderSize))
@@ -55,6 +46,28 @@ extension MaskedVideoCompositor {
         blendFilter.setValue(maskCIImage, forKey: kCIInputMaskImageKey)
 
         return blendFilter.outputImage ?? image
+    }
+
+    private func pathMask(path: CGPath, renderSize: CGSize) -> CIImage? {
+        cacheLock.lock()
+        let hit = maskCache.first { $0.size == renderSize && $0.path == path }?.mask
+        cacheLock.unlock()
+        if let hit { return hit }
+
+        guard let ctx = createBGRAContext(size: renderSize) else { return nil }
+        ctx.setFillColor(CGColor(red: 0, green: 0, blue: 0, alpha: 1))
+        ctx.fill(CGRect(origin: .zero, size: renderSize))
+        ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
+        ctx.addPath(path)
+        ctx.fillPath()
+        guard let maskCGImage = ctx.makeImage() else { return nil }
+        let mask = CIImage(cgImage: maskCGImage)
+
+        cacheLock.lock()
+        if maskCache.count >= 4 { maskCache.removeFirst() }
+        maskCache.append((path, renderSize, mask))
+        cacheLock.unlock()
+        return mask
     }
 
     // MARK: - Mask Application

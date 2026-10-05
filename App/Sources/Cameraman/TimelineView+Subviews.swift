@@ -98,22 +98,22 @@ struct TimelineThumbnailStrip: View {
         let thumbnailCount = max(1, Int(segmentWidth / (minThumbnailWidth + thumbnailSpacing)))
         let interval = segment.timelineDuration / Double(max(thumbnailCount - 1, 1))
 
-        ZStack {
+        let sortedTimes = thumbnails.keys.sorted()
+
+        ZStack(alignment: .leading) {
             ForEach(0..<thumbnailCount, id: \.self) { index in
                 let time = segment.timelineIn + (Double(index) * interval)
                 let relativeTime = time - segment.timelineIn
                 let thumbnailX = (relativeTime / segment.timelineDuration) * segmentWidth
 
-                if let thumbnail = findClosestThumbnail(for: time) {
-                    GeometryReader { geometry in
-                        Image(nsImage: thumbnail)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: minThumbnailWidth, height: height)
-                            .clipped()
-                            .opacity(0.7)
-                            .offset(x: thumbnailX)
-                    }
+                if let thumbnail = findClosestThumbnail(for: time, in: sortedTimes) {
+                    Image(nsImage: thumbnail)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: minThumbnailWidth, height: height)
+                        .clipped()
+                        .opacity(0.7)
+                        .offset(x: thumbnailX)
                 }
             }
         }
@@ -121,16 +121,17 @@ struct TimelineThumbnailStrip: View {
         .clipped()
     }
 
-    private func findClosestThumbnail(for time: TimeInterval) -> NSImage? {
-        guard !thumbnails.isEmpty else { return nil }
-        // O(n) linear scan — cheaper than sorting keys every render
-        var bestTime: TimeInterval?
-        var bestDist = Double.greatestFiniteMagnitude
-        for key in thumbnails.keys {
-            let dist = abs(key - time)
-            if dist < bestDist { bestDist = dist; bestTime = key }
+    /// Binary search over the sorted capture times (computed once per render, not per tile).
+    private func findClosestThumbnail(for time: TimeInterval, in sortedTimes: [TimeInterval]) -> NSImage? {
+        guard !sortedTimes.isEmpty else { return nil }
+        var lo = 0, hi = sortedTimes.count
+        while lo < hi {
+            let mid = (lo + hi) / 2
+            if sortedTimes[mid] < time { lo = mid + 1 } else { hi = mid }
         }
-        guard let closest = bestTime, bestDist <= 1.0 else { return nil }
+        let candidates = [lo - 1, lo].filter { sortedTimes.indices.contains($0) }.map { sortedTimes[$0] }
+        guard let closest = candidates.min(by: { abs($0 - time) < abs($1 - time) }),
+              abs(closest - time) <= 1.0 else { return nil }
         return thumbnails[closest]
     }
 }
