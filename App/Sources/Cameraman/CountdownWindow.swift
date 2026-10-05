@@ -17,11 +17,11 @@ final class CountdownWindow {
     private var continuation: CheckedContinuation<Bool, Never>?
 
     /// Counts down on screen. Returns false if the user cancelled.
-    func run(seconds: Int) async -> Bool {
+    func run(seconds: Int, on screen: NSScreen? = nil) async -> Bool {
         guard seconds > 0 else { return true }
         let panel = CountdownPanel { [weak self] in self?.finish(completed: false) }
         self.panel = panel
-        panel.show()
+        panel.show(on: screen)
 
         return await withCheckedContinuation { continuation in
             self.continuation = continuation
@@ -81,8 +81,8 @@ private final class CountdownPanel: NSPanel {
 
     override var canBecomeKey: Bool { true }
 
-    func show() {
-        if let screen = NSScreen.main {
+    func show(on target: NSScreen?) {
+        if let screen = target ?? NSScreen.main {
             setFrameOrigin(NSPoint(x: screen.frame.midX - 110, y: screen.frame.midY - 110))
         }
         makeKeyAndOrderFront(nil)
@@ -103,4 +103,11 @@ private final class ClickView: NSView {
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
     override func mouseDown(with event: NSEvent) { onClick() }
+}
+
+extension NSScreen {
+    /// The screen showing this CGDisplayID (the one being recorded), if it is still attached.
+    static func screen(forDisplayID id: CGDirectDisplayID) -> NSScreen? {
+        screens.first { ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value == id }
+    }
 }
