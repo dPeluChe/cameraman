@@ -69,69 +69,20 @@ extension EditorModel {
         return .success(projectRef)
     }
 
-    /// Split a segment into two parts at a specified timeline time
+    /// Split a segment into two parts at a specified timeline time. Goes through `splitClip`, so the
+    /// clip's opacity, position and effects are kept and the effects are sliced onto each half.
     public func split(segmentId: String, at timelineTime: TimeInterval) async -> EditorResult {
         guard let trackIndex = primaryTrackIndex else {
             return .failure(.trackNotFound("primary"))
         }
-        if projectRef.timeline.tracks[trackIndex].isLocked {
-            return .failure(.trackLocked("primary"))
-        }
-        guard let clipIndex = projectRef.timeline.tracks[trackIndex].clips.firstIndex(where: { $0.id == segmentId }) else {
+        let track = projectRef.timeline.tracks[trackIndex]
+        guard let clip = track.clips.first(where: { $0.id == segmentId }) else {
             return .failure(.segmentNotFound(segmentId))
         }
-
-        let clip = projectRef.timeline.tracks[trackIndex].clips[clipIndex]
-        guard case .recording(let ref) = clip.content else {
+        guard case .recording = clip.content else {
             return .failure(.invalidClipContent(reason: "split only applies to recording clips"))
         }
-
-        guard timelineTime > clip.timelineIn && timelineTime < clip.timelineOut else {
-            return .failure(.invalidSplitTime(
-                segmentId: segmentId,
-                timelineIn: clip.timelineIn,
-                timelineOut: clip.timelineOut,
-                requestedTime: timelineTime
-            ))
-        }
-
-        let timelineOffset = timelineTime - clip.timelineIn
-        let sourceSplitTime = ref.sourceIn + (timelineOffset * clip.speed)
-
-        let firstClip = Project.TimelineClip(
-            id: UUID().uuidString,
-            timelineIn: clip.timelineIn,
-            content: .recording(Project.RecordingClipRef(
-                takeId: ref.takeId,
-                sourceIn: ref.sourceIn,
-                sourceOut: sourceSplitTime,
-                zoom: ref.zoom,
-                cameraPosition: ref.cameraPosition,
-                audioMuted: ref.audioMuted
-            )),
-            speed: clip.speed,
-            volume: clip.volume
-        )
-
-        let secondClip = Project.TimelineClip(
-            id: UUID().uuidString,
-            timelineIn: timelineTime,
-            content: .recording(Project.RecordingClipRef(
-                takeId: ref.takeId,
-                sourceIn: sourceSplitTime,
-                sourceOut: ref.sourceOut,
-                zoom: ref.zoom,
-                cameraPosition: ref.cameraPosition,
-                audioMuted: ref.audioMuted
-            )),
-            speed: clip.speed,
-            volume: clip.volume
-        )
-
-        replaceClipInProject(trackIndex: trackIndex, clipIndex: clipIndex, with: [firstClip, secondClip])
-        recalculateTimelineDuration()
-
-        return .successWithInfo(projectRef, .splitCreated(newSegmentId: secondClip.id))
+        return await splitClip(clipId: segmentId, inTrackId: track.id, at: timelineTime)
     }
 
     /// Add a new segment to the timeline (recording clip to primary track)

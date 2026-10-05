@@ -1176,6 +1176,41 @@ final class EditorModelTests: XCTestCase {
 
     // MARK: - Split Propagation Tests
 
+    func testSplit_KeepsAndSlicesClipEffects() async {
+        var project = createTestProject()
+        let idx = project.timeline.primaryTrackIndex!
+        project.timeline.tracks[idx].clips[0].opacity = 0.5
+        project.timeline.tracks[idx].clips[0].adjustments = [
+            Project.Adjustment(kind: .sepia, start: 2.0, end: 8.0)
+        ]
+        let editor = EditorModel(project: project)
+
+        let result = await editor.split(segmentId: "seg-1", at: 5.0)
+        guard let updated = result.getProject() else { XCTFail("Split failed: \(result)"); return }
+
+        let clips = updated.timeline.tracks[updated.timeline.primaryTrackIndex!].clips
+        XCTAssertEqual(clips[0].opacity, 0.5)
+        XCTAssertEqual(clips[1].opacity, 0.5)
+        XCTAssertEqual(clips[0].adjustments?.count, 1)
+        XCTAssertEqual(clips[1].adjustments?.count, 1)
+    }
+
+    func testSegmentsSetter_KeepsClipEffects() {
+        var project = createTestProject()
+        let idx = project.timeline.primaryTrackIndex!
+        project.timeline.tracks[idx].clips[0].opacity = 0.5
+        project.timeline.tracks[idx].clips[0].adjustments = [Project.Adjustment(kind: .sepia)]
+
+        var segments = project.timeline.segments
+        segments[0].speed = 2.0
+        project.timeline.segments = segments
+
+        let clip = project.timeline.tracks[project.timeline.primaryTrackIndex!].clips[0]
+        XCTAssertEqual(clip.speed, 2.0)
+        XCTAssertEqual(clip.opacity, 0.5)
+        XCTAssertEqual(clip.adjustments?.count, 1)
+    }
+
     func testSplit_PropagatesTakeId() async {
         var project = createTestProject()
         let takeId = UUID()

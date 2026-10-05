@@ -120,7 +120,22 @@ extension Project {
                 }
             }
             set {
-                let newRecordingClips = newValue.map { TimelineClip.fromSegment($0) }
+                // A Segment carries only what the legacy API knows. Rebuilding every clip from it dropped
+                // the clip-level opacity, position and effects of clips that already existed, so any
+                // zoom, speed, volume or camera edit through `segments` silently deleted them.
+                let existing = Dictionary(
+                    (primaryTrack?.clips ?? []).map { ($0.id, $0) },
+                    uniquingKeysWith: { first, _ in first }
+                )
+                let newRecordingClips = newValue.map { segment -> TimelineClip in
+                    var clip = TimelineClip.fromSegment(segment)
+                    if let old = existing[segment.id] {
+                        clip.opacity = old.opacity
+                        clip.position = old.position
+                        clip.adjustments = old.adjustments
+                    }
+                    return clip
+                }
                 if let idx = primaryTrackIndex {
                     // Preserve non-recording clips (images, colors, videos)
                     let nonRecordingClips = tracks[idx].clips.filter { !$0.isRecording }
