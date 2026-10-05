@@ -132,9 +132,7 @@ extension PreviewEngine {
         )
         self.videoCompositionConfig = videoComposition
 
-        await MainActor.run {
-            currentItem.videoComposition = videoComposition
-        }
+        await install(videoComposition, on: currentItem, player: player)
     }
 
     /// Apply audio mix to the current player item for per-track mute/volume

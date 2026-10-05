@@ -309,6 +309,18 @@ public actor PreviewEngine {
         try await rebuildVideoComposition()
     }
 
+    /// Swaps the composition on the item and forces a re-render. AVFoundation keeps using the
+    /// instructions it already queued until we seek, paused or playing: without the seek a
+    /// shape/layout edit made during playback only showed after pausing. A seek keeps a playing
+    /// player playing.
+    func install(_ videoComposition: AVVideoComposition, on item: AVPlayerItem, player: AVPlayer) async {
+        nonisolated(unsafe) let unsafeComposition = videoComposition
+        await MainActor.run {
+            item.videoComposition = unsafeComposition
+            player.seek(to: player.currentTime(), toleranceBefore: .zero, toleranceAfter: .zero)
+        }
+    }
+
     /// Rebuild only the videoComposition without recreating tracks/player
     func rebuildVideoComposition() async throws {
         guard let project = project,
@@ -325,13 +337,7 @@ public actor PreviewEngine {
             videoOverlays: compositionResult?.videoOverlaySources ?? []
         )
         self.videoCompositionConfig = videoComposition
-        await MainActor.run {
-            currentItem.videoComposition = videoComposition
-            // AVFoundation keeps using the instructions it already queued until we seek, paused or
-            // playing: without this a shape/layout edit made during playback only showed after pausing.
-            // A seek on a playing player keeps it playing.
-            player.seek(to: player.currentTime(), toleranceBefore: .zero, toleranceAfter: .zero)
-        }
+        await install(videoComposition, on: currentItem, player: player)
 
         // Also rebuild audio mix to pick up per-segment volume changes
         if let compositionResult = compositionResult {
