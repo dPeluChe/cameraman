@@ -163,14 +163,14 @@ extension MCPTools {
                  required: ["projectId", "from", "to"]),
 
             tool("add_adjustment",
-                 "Attach an extensible effect to a clip. Visual kinds: sepia, monochrome, brightness, contrast, saturation, colorControls, vibrance, hue, invert, vignette, gaussianBlur. Audio kinds: audioPitch (params: cents or semitones), audioGain. Target a layer to e.g. sepia the camera while the background is black & white.",
+                 "Attach an extensible effect to a clip. Visual kinds: sepia, monochrome, brightness, contrast, saturation, colorControls, vibrance, hue, invert, vignette, gaussianBlur. To hide something on screen (an API key, an email), use gaussianBlur with a region: parameters radius plus x, y, w, h, all four together, as fractions of the frame (0 to 1) with the origin at the top-left, and start/end to limit it in time; without a region the whole layer is blurred. Audio kinds: audioPitch (params: cents or semitones), audioGain. Target a layer to e.g. sepia the camera while the background is black & white.",
                  properties: [
                     "projectId": str("Project UUID"),
                     "trackId": str("Track UUID"),
                     "clipId": str("Clip id"),
                     "kind": str("Effect kind (e.g. sepia, monochrome, audioPitch)"),
                     "target": strEnum("Layer the effect applies to", ["frame", "screen", "camera", "background", "audio"]),
-                    "parameters": object("Effect parameters, e.g. {\"intensity\": 0.8} or {\"semitones\": -3}"),
+                    "parameters": object("Effect parameters, e.g. {\"intensity\": 0.8}, {\"semitones\": -3} or a blur region {\"radius\": 20, \"x\": 0.1, \"y\": 0.2, \"w\": 0.4, \"h\": 0.1}"),
                     "start": num("Clip-relative start in seconds (optional, default whole clip)"),
                     "end": num("Clip-relative end in seconds (optional)")
                  ],

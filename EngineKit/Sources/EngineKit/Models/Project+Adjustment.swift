@@ -112,7 +112,7 @@ extension Project {
         public static let invert = AdjustmentKind(rawValue: "invert")
         /// Darkened edges. Params: `intensity` (0…1), `radius` (0…2).
         public static let vignette = AdjustmentKind(rawValue: "vignette")
-        /// Gaussian blur. Params: `radius` (px).
+        /// Gaussian blur. Params: `radius` (px); optional region `x`, `y`, `w`, `h` (fractions of the frame, top-left origin, all four together) to blur only that area.
         public static let gaussianBlur = AdjustmentKind(rawValue: "gaussianBlur")
 
         // MARK: Built-in audio kinds

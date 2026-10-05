@@ -99,7 +99,7 @@ public enum EditorValidation {
         case .vignette:
             ranges = ["intensity": 0...1, "radius": 0...2]
         case .gaussianBlur:
-            ranges = ["radius": 0...100]
+            ranges = ["radius": 0...100, "x": 0...1, "y": 0...1, "w": 0...1, "h": 0...1]
         case .audioPitch:
             ranges = ["cents": -2400...2400, "semitones": -24...24]
         case .audioGain:
@@ -112,6 +112,21 @@ public enum EditorValidation {
                 return invalid("adjustment parameter \(key) must be between \(range.lowerBound) and \(range.upperBound)")
             }
         }
+        if adjustment.kind == .gaussianBlur, let message = blurRegionProblem(adjustment.parameters) {
+            return invalid(message)
+        }
+        return nil
+    }
+
+    /// A blur region is all-or-nothing: a half-specified one would silently blur the whole layer.
+    private static func blurRegionProblem(_ p: [String: Double]) -> String? {
+        let present = ["x", "y", "w", "h"].filter { p[$0] != nil }
+        guard !present.isEmpty else { return nil }
+        guard present.count == 4, let x = p["x"], let y = p["y"], let w = p["w"], let h = p["h"] else {
+            return "a blur region needs x, y, w and h together (fractions of the frame, top-left origin)"
+        }
+        guard w > 0, h > 0 else { return "blur region w and h must be greater than 0" }
+        guard x + w <= 1.0001, y + h <= 1.0001 else { return "blur region must stay inside the frame (x + w and y + h at most 1)" }
         return nil
     }
 
