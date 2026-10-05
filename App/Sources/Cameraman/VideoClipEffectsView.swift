@@ -134,7 +134,7 @@ struct VideoClipEffectsView: View {
 
 /// Slider that edits locally and commits once on release (avoids an undo entry
 /// per drag tick).
-private struct AdjustmentSlider: View {
+struct AdjustmentSlider: View {
     @State private var value: Double
     let range: ClosedRange<Double>
     let onCommit: (Double) -> Void
