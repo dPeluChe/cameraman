@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > to `[0.7.1] - <date>` when the batch is built, signed and notarized.
 
 ### Added
+- **Blur a part of the screen** — a new Blur tool in the editor adds a region blur (position, size, strength, start
+  and end) at the playhead, to hide an API key or an email. Under the hood it is the blur effect with an optional
+  `x, y, w, h` region, so preview, export and MCP agree. Verified on a real export.
+- **Recording self-timer** — Off / 3s / 5s / 10s next to Quality, with an on-screen countdown you can cancel with a
+  click or Esc; it is not part of the recording.
+- **Square (1:1) and 4:5 export presets**, in the export dialog and over MCP, next to the existing 9:16.
 - **Agents can edit inside the app (MCP over local HTTP)** — the MCP server now also runs inside Cameraman
   (Preferences → Integrations → "Built-in server"), opt-in, loopback only, with a token kept in the Keychain.
   It works in the sandboxed app, so the same build can ship outside and inside the Mac App Store. The `cameraman-mcp`
@@ -101,6 +107,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the new landing repo.
 
 ### Fixed
+- **Recording kept "recording" after the system stopped it** — if the display disconnected or Screen Recording
+  permission was revoked, the app wrote a truncated file and said nothing. It now saves what was captured and shows
+  why it stopped; a failed finish no longer blocks the next recording until restart.
+- **Edits made just before quitting were lost** — autosave waits a second; quitting, closing the window or opening
+  another project inside it dropped the edit. Pending work is saved on quit (bounded at 3 s) and on leaving the editor.
+- **Export names could escape the renders folder, and had no extension** — `export_project` with a name like
+  `../../x` wrote outside `renders/`, and `demo` produced a file named `demo` that does not open. Names are now
+  reduced to their last path component and get `.mp4` or `.gif`.
+- **Splitting or cutting a clip left its timed effects pointing at the wrong footage** (and both halves shared effect
+  ids). Effects are now rebased onto each piece.
+- **The embedded `cameraman-mcp` helper** is built universal (arm64 + x86_64) in Release and signed with a secure
+  timestamp, which notarization requires.
 - **Global hotkeys never fired** — the Carbon calls were stubs that returned success; they now register for real, and
   `Hotkey.shiftKey` has the correct Carbon value.
 - **App could hang on a crash** — removed signal handlers that were not async-signal-safe and prevented the system
