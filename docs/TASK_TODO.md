@@ -1,6 +1,6 @@
 # Task Backlog
 
-> Updated: 2026-07-13
+> Updated: 2026-10-04
 > Only unfinished work. Completed work lives in `TASK_COMPLETED/`.
 > Ordered by impact and proximity to release, not chronology.
 
@@ -8,9 +8,52 @@
 
 ## Recently Closed
 
+October 2026: MCP server hosted inside the app (loopback HTTP, opt-in, token in Keychain), editor freezes while an agent edits, MCP tools consolidated 43→37 with annotations, real global hotkeys (were stubs), crash-handler and atomic-write fixes, competitor analysis. Write-up in `TASK_COMPLETED/2610.md`.
 June 2026 (0.7.0 push): MCP automation server (42 tools), transcription + MCP integration settings (bundled/signed server), per-clip effects UI, live project refresh, import-only export + readable export errors, multi-track `delete_range`. Full write-up in `TASK_COMPLETED/2606.md` (§ 0.7.0).
 June 2026 (0.6.4 push): merge projects, video import with full clip editing (snap/trim/split/PiP/reorder), empty projects, timeline ruler + fit zoom + pinned labels, rename fix, mixed-resolution rendering, preview-toggle audit. Full write-ups in `TASK_COMPLETED/2606.md`.
 May 2026 (pre-publication push): ultrawide writer fix, mic overload, telemetry streaming, security audit, repo publication. Write-ups in `TASK_COMPLETED/2605.md`.
+
+---
+
+## Release plan — 0.7.x series `added: 2026-10-04`
+
+> Decided 2026-10-04. Base is **0.7.1**; we ship short increments (0.7.2, 0.7.3, ...) and move to **0.8** only when things are stable and complete. Mobile is on hold; the focus is the desktop app. The last published release is **v0.6.3 (June)**.
+>
+> **Build, sign, notarize and tag happen once, at the end of a batch, after validating everything together**, not per PR or per version. Until then we merge to `main` and test locally. Principle: ship what works and is verified, close the cheap gaps against competitors (see `RESEARCH/COMPETITOR_SMOOTH_RECORDER.md`), do not chase a different product (screenshots, 3D angles). Sizes are relative guesses (S/M/L), not estimates. PRs get the multi-agent simplify pass only when the code change is heavy.
+
+### 0.7.1 — what already exists, made reliable
+
+- [ ] **Version alignment** — `MARKETING_VERSION` is `0.7.0` in the Xcode project, `App/Info.plist` and the README say `0.8.0` (and `GENERATE_INFOPLIST_FILE = YES` means the plist is unused), `docs/README.md` and `APP_STORE_METADATA.md` say `0.7.0`. No `0.8.0` tag or release exists, so the unpublished `[0.8.0]` changelog section folds into 0.7.1. (S)
+- [ ] **CHANGELOG** — `[Unreleased]` is empty. Add as we go: in-app MCP server, agent-edit freeze, tool consolidation (**breaking tool names**, 43→37), real global hotkeys, crash-handler fix, atomic project writes. (S)
+- [ ] **Surface capture errors** — `SCStream` is created with `delegate: nil` and `StreamDelegate` is never passed in, so if the display disconnects, permission is revoked or the system stops the stream the app keeps showing "recording" and writes a truncated or empty file. Deliver `didStopWithError` through `recordingFailed`. (M)
+- [ ] **Flush edits on quit** — autosave is a 1 s debounce held by `[weak self]`; quitting or closing inside that second loses the edit, and `applicationWillTerminate` does not flush. (S)
+- [ ] **Helper signing** — sign `cameraman-mcp` with `--timestamp` and build it universal (arm64 only today); needed before notarization. (S)
+- [ ] **Manual validation** (nothing here has run on screen): global hotkeys fire with the app in the background (PR #53 has unit tests only); the agent-freeze notice shows and releases (#57); Claude Code connects over the in-app HTTP server (#55); one 30-60 minute recording and export (nothing has run past an hour). (S, waiting)
+- [ ] **At the end of the batch**: `make release`, signed with the installed Developer ID certificate, notarize, staple, open on a clean user. The notary profile `cameraman-notary` is **not** in this machine's keychain yet (`xcrun notarytool store-credentials cameraman-notary`).
+- [ ] **Public pieces** — privacy policy at a public URL (text in `docs/PRIVACY_POLICY.md`; GitHub Pages is not enabled and the landing is undecided), a minimal landing with the download link, and a decision on price and license (open source plus a signed build, amount open; the competitor is $9 one-time).
+
+### 0.7.2 — cheap gaps against competitors
+
+- [ ] **Keystroke overlay** (S-M) — confirmed not implemented; `keys.jsonl` is already captured. See Feature Exploration.
+- [ ] **Reframe presets 1:1 and 4:5** (S) — today there is 9:16. Keep the MCP preset list in sync.
+- [ ] **Self-timer** (S).
+
+### 0.7.3 — manual region blur
+
+- [ ] **Region blur** (M) — add `x, y, w, h` parameters to the existing `gaussianBlur` adjustment (time-ranged and whole-layer today) and an inspector control. Detection comes later.
+
+### 0.7.4 and after — the headline feature
+
+- [ ] **Cut by transcript** (L) — the transcript stores **segments only, no word-level timestamps**. Order: enable word timestamps in `WhisperKitTranscriber` and persist them; map a word range to `delete_range`; UI to delete words; filler-word and long-pause detection as a reviewable list, not blind deletion; an MCP tool so an agent can remove fillers.
+- [ ] **Smart Redact detection** (M, after region blur) — Vision text boxes plus regex (emails, keys, cards) that emit blur adjustments.
+
+### Not now
+
+Screenshots, scrolling capture, OCR copy-text, 3D zoom angles, AI-generated assets, LUTs, motion blur, frame stylization. The Mac App Store variant is a separate track: it needs the embedded helper excluded, no GitHub self-updater and PayPal links, and a sandbox test of the Accessibility-dependent cursor telemetry.
+
+### Decision needed
+
+- **Direct Visual Editing (Priority 0, below)** is flagged as the primary UX direction, but only its baseline shipped (overlay select/move/scale/rotate/snap). The rest is large. Proposal: keep it out of the 0.7.x series and treat it as the theme for 0.8.
 
 ---
 
@@ -59,19 +102,19 @@ May 2026 (pre-publication push): ultrawide writer fix, mic overload, telemetry s
 
 ### Priority 0 — Correctness and data safety
 
-- [ ] **Cross-process project revision and conflict protection** `added: 2026-07-13` — make `project.json` writes atomic and introduce a monotonic revision / compare-and-swap precondition. App and MCP must detect stale state instead of silently overwriting each other; refresh open editors when an external revision changes.
-- [ ] **Repair MCP AI suggestion paths and complete the result flow** `added: 2026-07-13` — make `AIService` use `ProjectStore.baseDirectory` / `CAMERAMAN_PROJECTS_DIR`; add `get_suggestions`, `apply_suggestions(ids)`, and `dismiss_suggestions`; include result metadata in completed jobs.
+- [ ] **Cross-process project revision and conflict protection** `updated: 2026-10-04` — `project.json` writes are now atomic (#52) and the in-app MCP server freezes the open editor and flushes it first (#57). Remaining: a monotonic revision / compare-and-swap in `ProjectLibrary.updateProject`, which also protects the stdio helper (a separate process that cannot signal the app).
+- [ ] **Finish the AI suggestion flow** `updated: 2026-10-04` — paths fixed and results readable (`get_job_status` returns `suggestions`, one file per job, #58). Remaining: `apply_suggestions(ids)` and `dismiss_suggestions`, and a way for the app UI to share the same per-job results.
 - [ ] **Enforce editing invariants through EngineKit** `added: 2026-07-13` — reject edits and moves on locked tracks; validate non-negative timeline positions, positive speed/duration, valid source windows, opacity/volume bounds, effect ranges, canvas positions, and overlay timing. The same validation must protect UI and MCP.
 - [ ] **Make asset staging collision-safe and transactional** `added: 2026-07-13` — use content-addressed or unique filenames instead of replacing an existing same-name asset; clean staged files when the following edit fails; validate file type and size before copying.
-- [ ] **Restore and expand the MCP test suite** `added: 2026-07-13` — update the stale 50→43 tool inventory test, then cover JSON-RPC lifecycle/errors, every mutating tool family, locks/validation, configured project directories, jobs, asset collisions, concurrent app/MCP revisions, and end-to-end edit→preview→export flows.
+- [ ] **Expand the MCP test suite** `updated: 2026-10-04` — inventory test fixed; 23 tests cover protocol, HTTP transport and security, catalog/dispatcher sync, annotations. Remaining: every mutating tool family, locks/validation, jobs, asset collisions, concurrent app/MCP edits, end-to-end edit→preview→export. Never execute tools against the real library in tests (a test once created a real project).
 
 ### Priority 1 — Agent-grade API
 
-- [ ] **MCP protocol conformance hardening** `added: 2026-07-13` — negotiate only supported protocol versions; validate JSON-RPC and request params; return protocol errors for malformed calls/unknown tools; enforce initialization state; add strict schemas with bounds and `additionalProperties: false`.
-- [ ] **Structured tool results and safety annotations** `added: 2026-07-13` — add `outputSchema`, `structuredContent`, stable IDs/revisions/warnings, and `readOnlyHint` / `destructiveHint` / `idempotentHint`. Preserve serialized text results for older clients.
+- [ ] **MCP protocol conformance hardening** `updated: 2026-10-04` — protocol-version negotiation done. Remaining: validate JSON-RPC and request params, protocol errors for malformed calls and unknown tools, enforce initialization state, strict schemas with `additionalProperties: false`.
+- [ ] **Structured tool results** `updated: 2026-10-04` — `readOnlyHint`/`destructiveHint` annotations done (#56). Remaining: `outputSchema`, `structuredContent`, stable IDs/revisions/warnings, keeping the serialized text for older clients.
 - [ ] **Transactional agent editing with dry-run and diff** `added: 2026-07-13` — support `begin_edit`, batched operations, `preview_diff`, `commit_edit`, and `rollback_edit`; report affected clips, duration changes, validation warnings, and one undoable commit.
 - [ ] **Checkpoints, undo, and recoverable deletion for agents** `added: 2026-07-13` — expose checkpoint/revert and move project deletion to Trash or a recoverable tombstone instead of immediate irreversible removal.
-- [ ] **Compact, queryable project context** `added: 2026-07-13` — add timeline summaries plus track/time-range filters and pagination so agents do not need the complete project, transcript, subtitles, and overlays for every edit.
+- [ ] **Compact, queryable project context** `updated: 2026-10-04` — `get_project` omits subtitle cues by default and reports `subtitleCount` (#58); real projects measure 430-900 tokens, so this only matters for long subtitled videos. Remaining: track/time-range filters and pagination.
 - [ ] **Visual feedback tools for agents** `added: 2026-07-13` — reuse `PreviewFrameExtractor` / `ThumbnailCache` to expose `render_frame`, contact sheets, thumbnails, and waveform summaries. Return resource links or image content so an agent can inspect the result before committing/exporting.
 - [ ] **Persistent and observable jobs** `added: 2026-07-13` — persist export/transcription/AI job state across server restarts; return output paths/results; add progress events where supported and structured audit logs with client, tool, project, revision, duration, and sanitized result/error.
 
@@ -164,7 +207,6 @@ May 2026 (pre-publication push): ultrawide writer fix, mic overload, telemetry s
 
 > Replacing stubs and skeleton implementations with real ones.
 
-- [ ] **Real Whisper.cpp integration** — `TranscriptionEngine` returns simulated text today. Integrate `whisper.cpp` (or `SwiftWhisper`) for true offline transcription. Depends on a consolidated `JobQueue`.
 - [ ] **Live recording preview** — the source selector currently shows static captures. Stream a lightweight ScreenCaptureKit feed during selection. Depends on the in-flight `EngineContext` DI refactor.
 
 ---
@@ -217,8 +259,8 @@ May 2026 (pre-publication push): ultrawide writer fix, mic overload, telemetry s
 - [ ] **Refactor `ZoomSectionController` + `ZoomPlanGenerator`** — their tests are the largest in the suite (49KB / 48KB), which usually signals the code under test is overdue for simplification.
 - [ ] **Evaluate `LoggingSystem`: actor → `nonisolated` with lock** — `os_log` is thread-safe by design; the actor wrapper adds `await` friction in every call site. Only worth doing if the `await` causes real friction.
 - [ ] **Frame-by-frame stylization** (experimental).
-- [ ] **Auto-cuts on silence** (PRD Phase 5).
-- [ ] **Chapters / titles from transcript** (PRD Phase 5).
+- [x] **Auto-cuts on silence** `done` — `suggest_silence_edits` + `AISuggestionsView` produce reviewable suggestions. Applying them in one click is covered by the cut-by-transcript work.
+- [x] **Chapters / titles from transcript** `done` — `suggest_chapters` + `AISuggestionsView`.
 
 ---
 
@@ -236,8 +278,7 @@ May 2026 (pre-publication push): ultrawide writer fix, mic overload, telemetry s
 
 ## Distribution / Gatekeeper
 
-- [ ] **Ad-hoc signing in `build-dmg.sh`** — `codesign --force --deep --sign - CameramanApp.app` before packaging. Does not bypass Gatekeeper on Tahoe but stabilizes the internal signature and avoids errors with embedded frameworks. Tester feedback recorded in `TASK_COMPLETED/2605.md`.
-- [ ] **Developer ID + notarization** — the only real fix for the Gatekeeper warning on macOS Tahoe. Requires the Apple Developer Program subscription, the `Developer ID Application` certificate, and a `xcrun notarytool submit` + `stapler staple` pipeline.
+- [ ] **Developer ID + notarization** `updated: 2026-10-04` — a `Developer ID Application` certificate is installed and `scripts/notarize-dmg.sh` exists (profile `cameraman-notary`, not verified). Remaining: sign the embedded `cameraman-mcp` with `--timestamp` and build it universal (arm64 only today), run the full `make release`, staple, and open the DMG on a clean user to confirm Gatekeeper.
 
 ---
 
