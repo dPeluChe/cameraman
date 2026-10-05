@@ -264,7 +264,7 @@ extension MCPTools {
                  properties: [
                     "projectId": str("Project UUID"),
                     "preset": strEnum("Output preset (default web_1080_h264)",
-                                      ["web_1080_h264", "high_1080_hevc", "portrait_1080_h264", "ultra_4k_hevc", "animated_gif"]),
+                                      presetIds),
                     "burnCaptions": bool("Burn captions into the video (default false; ignored for GIF)"),
                     "filename": str("Optional output filename")
                  ],

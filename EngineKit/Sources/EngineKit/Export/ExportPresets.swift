@@ -90,6 +90,42 @@ public struct ExportPreset: Equatable, Hashable, Sendable {
         )
     )
 
+    /// Square 1:1 1080p H.264 preset (feed posts)
+    public static let square1080h264 = ExportPreset(
+        id: "square_1080_h264",
+        name: "Square 1:1 1080p (H.264)",
+        output: OutputConfiguration(
+            width: 1080,
+            height: 1080,
+            fps: 60,
+            codec: "h264",
+            bitrateMbps: 8.0,
+            audioBitrateKbps: 192
+        ),
+        options: PresetOptions(
+            burnCaptions: false,
+            includeCursorHighlight: true
+        )
+    )
+
+    /// Portrait 4:5 1080p H.264 preset (feed posts that take the most vertical space)
+    public static let portrait4x5h264 = ExportPreset(
+        id: "portrait_4x5_1080_h264",
+        name: "Portrait 4:5 1080p (H.264)",
+        output: OutputConfiguration(
+            width: 1080,
+            height: 1350,
+            fps: 60,
+            codec: "h264",
+            bitrateMbps: 8.0,
+            audioBitrateKbps: 192
+        ),
+        options: PresetOptions(
+            burnCaptions: false,
+            includeCursorHighlight: true
+        )
+    )
+
     /// 4K HEVC preset (high quality, smaller file than H.264 at same quality)
     public static let ultra4kHevc = ExportPreset(
         id: "ultra_4k_hevc",
