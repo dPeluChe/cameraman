@@ -55,6 +55,11 @@ final class ExportEngineTests: XCTestCase {
         XCTAssertEqual(hevcPreset.output.codec, "hevc")
         XCTAssertEqual(hevcPreset.output.bitrateMbps, 12.0)
 
+        // Social aspect presets keep their exact ratios
+        XCTAssertEqual(ExportPreset.square1080h264.output.width, ExportPreset.square1080h264.output.height)
+        let four5 = ExportPreset.portrait4x5h264.output
+        XCTAssertEqual(Double(four5.width) / Double(four5.height), 4.0 / 5.0, accuracy: 0.0001)
+
         // Test portrait preset
         let portraitPreset = ExportPreset.portrait1080h264
         XCTAssertEqual(portraitPreset.id, "portrait_1080_h264")

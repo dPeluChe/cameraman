@@ -20,6 +20,8 @@ extension MCPTools {
         "web_1080_h264": .web1080h264,
         "high_1080_hevc": .high1080hevc,
         "portrait_1080_h264": .portrait1080h264,
+        "portrait_4x5_1080_h264": .portrait4x5h264,
+        "square_1080_h264": .square1080h264,
         "ultra_4k_hevc": .ultra4kHevc,
         "animated_gif": .animatedGIF
     ]

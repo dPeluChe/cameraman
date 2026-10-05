@@ -138,4 +138,14 @@ final class MCPCatalogTests: XCTestCase {
         XCTAssertEqual((full["subtitles"] as? [Any])?.count, 3)
         XCTAssertNil(full["subtitleCount"])
     }
+
+    /// The export preset enum comes from the same table the exporter uses, so a new preset cannot be
+    /// valid in the code but missing from the schema.
+    func testExportPresetEnumMatchesTheExporterTable() throws {
+        let export = try XCTUnwrap(MCPTools.catalog.first { $0["name"] as? String == "export_project" })
+        let props = try XCTUnwrap((export["inputSchema"] as? [String: Any])?["properties"] as? [String: Any])
+        let listed = try XCTUnwrap((props["preset"] as? [String: Any])?["enum"] as? [String])
+        XCTAssertEqual(Set(listed), Set(MCPTools.presetIds))
+        XCTAssertTrue(listed.contains("square_1080_h264") && listed.contains("portrait_4x5_1080_h264"))
+    }
 }

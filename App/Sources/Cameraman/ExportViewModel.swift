@@ -68,6 +68,8 @@ final class ExportViewModel: ObservableObject {
         .high1080hevc,
         .ultra4kHevc,
         .portrait1080h264,
+        .portrait4x5h264,
+        .square1080h264,
         .animatedGIF
     ]
 
