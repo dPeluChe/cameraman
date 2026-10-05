@@ -40,6 +40,7 @@ class RecordingControlViewModel: ObservableObject {
     private var timer: Timer?
     private var recordingSession: Recorder.RecordingSession?
     private var recordingIndicator: RecordingIndicatorWindow?
+    private var streamStopObserver: NSObjectProtocol?
 
     private func log(_ message: String) {
         if debugLoggingEnabled {
@@ -217,6 +218,7 @@ class RecordingControlViewModel: ObservableObject {
 
             statusText = "Recording..."
             isRecording = true
+            observeStreamStop()
 
             // Show recording indicator
             recordingIndicator = RecordingIndicatorWindow()
@@ -236,8 +238,28 @@ class RecordingControlViewModel: ObservableObject {
         }
     }
 
+    /// The system stopped the stream under us: keep what was captured and say why.
+    private func observeStreamStop() {
+        streamStopObserver = NotificationCenter.default.addObserver(
+            forName: CaptureEngine.streamStoppedNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            let reason = note.userInfo?["reason"] as? String ?? "unknown reason"
+            Task { @MainActor [weak self] in
+                guard let self, self.isRecording else { return }
+                await self.stopRecording()
+                if !self.statusText.hasPrefix("Error") {
+                    self.statusText = "Recording stopped (\(reason)). What was captured has been saved."
+                }
+            }
+        }
+    }
+
     func stopRecording() async {
         guard isRecording, let session = recordingSession else { return }
+        if let observer = streamStopObserver {
+            NotificationCenter.default.removeObserver(observer)
+            streamStopObserver = nil
+        }
 
         statusText = "Stopping recording..."
 
