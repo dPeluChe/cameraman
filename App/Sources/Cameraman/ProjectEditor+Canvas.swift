@@ -105,7 +105,10 @@ extension ProjectEditor {
     ) async -> Bool {
         let previousProject = project
         var updatedProject = project
-        do { try mutation(&updatedProject) } catch { return false }
+        do { try mutation(&updatedProject) } catch {
+            LogWarning(.editor, "[CANVAS] update rejected: \(error.localizedDescription)")
+            return false
+        }
         await setEditorProject(updatedProject)
         project = updatedProject
         recordUndo(previousProject)

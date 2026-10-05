@@ -40,7 +40,10 @@ extension OverlayEditorView {
         )
         Task {
             _ = await editor.addOverlay(projectId: editor.project.projectId, overlay: overlay)
-            await MainActor.run { selectedOverlayId = overlay.id }
+            await MainActor.run {
+                selectedOverlayId = overlay.id
+                onSeek?(OverlayFactory.revealTime(for: overlay))
+            }
         }
     }
 
@@ -52,7 +55,10 @@ extension OverlayEditorView {
         )
         Task {
             _ = await editor.addOverlay(projectId: editor.project.projectId, overlay: overlay)
-            await MainActor.run { selectedOverlayId = overlay.id }
+            await MainActor.run {
+                selectedOverlayId = overlay.id
+                onSeek?(OverlayFactory.revealTime(for: overlay))
+            }
         }
     }
 

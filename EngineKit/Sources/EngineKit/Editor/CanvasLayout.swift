@@ -173,10 +173,11 @@ public actor CanvasLayout {
             // Check if camera frame stays within bounds
             let maxX = camera.x + camera.w
             let maxY = camera.y + camera.h
-            guard maxX <= 1.0 else {
+            // Edge-snapped cameras sum to 1.0000000000000002; reject real overflow only.
+            guard maxX <= 1.0 + 1e-6 else {
                 throw LayoutError.invalidCameraPosition("camera frame exceeds canvas width (x + w = \(maxX))")
             }
-            guard maxY <= 1.0 else {
+            guard maxY <= 1.0 + 1e-6 else {
                 throw LayoutError.invalidCameraPosition("camera frame exceeds canvas height (y + h = \(maxY))")
             }
         }

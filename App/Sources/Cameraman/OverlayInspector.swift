@@ -22,11 +22,10 @@ extension OverlayEditorView {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Color")
                         .font(.caption)
-                    ColorPicker("", selection: Binding(
-                        get: { color(from: overlay.style.stroke) },
-                        set: { newColor in updateOverlay(style: overlay.style.with(stroke: hexColor(from: newColor))) }
+                    SimpleColorPicker(hex: Binding(
+                        get: { overlay.style.stroke },
+                        set: { updateOverlay(style: overlay.style.with(stroke: $0)) }
                     ))
-                    .labelsHidden()
                 }
 
                 // Stroke width
@@ -69,11 +68,10 @@ extension OverlayEditorView {
                             ))
                             .labelsHidden()
                             if let bg = overlay.style.bg {
-                                ColorPicker("", selection: Binding(
-                                    get: { color(from: bg) },
-                                    set: { newColor in updateOverlay(style: overlay.style.with(bg: hexColor(from: newColor))) }
+                                SimpleColorPicker(hex: Binding(
+                                    get: { bg },
+                                    set: { updateOverlay(style: overlay.style.with(bg: $0)) }
                                 ))
-                                .labelsHidden()
                             }
                         }
                     }

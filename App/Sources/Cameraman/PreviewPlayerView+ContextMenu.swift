@@ -96,6 +96,7 @@ extension PreviewPlayerView {
             _ = await editor.addOverlay(projectId: editor.project.projectId, overlay: overlay)
             await MainActor.run {
                 selectedOverlayId?.wrappedValue = overlay.id
+                viewModel.seek(to: OverlayFactory.revealTime(for: overlay))
                 NotificationCenter.default.post(
                     name: .selectEditorTool,
                     object: EditorTool.overlays.rawValue

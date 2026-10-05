@@ -17,7 +17,7 @@ final class CountdownWindow {
     private var continuation: CheckedContinuation<Bool, Never>?
 
     /// Counts down on screen. Returns false if the user cancelled.
-    func run(seconds: Int, on screen: NSScreen? = nil) async -> Bool {
+    func run(seconds: Int, on screen: NSScreen? = nil, onTick: ((Int) -> Void)? = nil) async -> Bool {
         guard seconds > 0 else { return true }
         let panel = CountdownPanel { [weak self] in self?.finish(completed: false) }
         self.panel = panel
@@ -29,6 +29,7 @@ final class CountdownWindow {
                 for remaining in stride(from: seconds, to: 0, by: -1) {
                     guard let self, self.continuation != nil else { return }
                     panel.update(remaining)
+                    onTick?(remaining)
                     try? await Task.sleep(for: .seconds(1))
                 }
                 self?.finish(completed: true)
