@@ -42,6 +42,14 @@ extension TimelineView {
                 rowLabel: "Overlays",
                 showsLabel: false
             )
+        } else if track.kind == .blur {
+            TimelineBlurTrackRow(
+                editor: editor,
+                regions: track.blurRegions,
+                layout: layout,
+                height: trackHeight,
+                onSeek: { playerViewModel.seek(to: $0) }
+            )
         } else {
             TimelineTrackRow(
                 track: track,
