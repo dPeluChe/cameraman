@@ -13,12 +13,13 @@ import EngineKit
 struct BlurRegionsView: View {
     @ObservedObject var editor: ProjectEditor
     @ObservedObject var playerViewModel: PreviewPlayerViewModel
+    @State private var lastError: String?
 
     private struct Region: Identifiable {
         let trackId: UUID
         let clip: Project.TimelineClip
         let adjustment: Project.Adjustment
-        var id: UUID { adjustment.id }
+        var id: String { "\(clip.id)/\(adjustment.id)" }
         var absoluteStart: TimeInterval { clip.timelineIn + (adjustment.start ?? 0) }
         var absoluteEnd: TimeInterval { clip.timelineIn + (adjustment.end ?? clip.duration) }
     }
@@ -33,6 +34,11 @@ struct BlurRegionsView: View {
             }
         }.sorted { $0.absoluteStart < $1.absoluteStart }
     }
+
+    /// Smallest region side, and so the furthest an origin can sit: at x = 1 there is no room left
+    /// for a width, which validation rejects.
+    private static let minSide = 0.02
+    private static var maxOrigin: Double { 1 - minSide }
 
     static func hasRegion(_ p: [String: Double]) -> Bool {
         ["x", "y", "w", "h"].allSatisfy { p[$0] != nil }
@@ -65,6 +71,13 @@ struct BlurRegionsView: View {
             .disabled(clipAtPlayhead == nil)
             .help(clipAtPlayhead == nil ? "Move the playhead onto the recording" : "Blur 5 seconds from the playhead")
 
+            if let lastError {
+                Text(lastError)
+                    .font(.caption2)
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             if regions.isEmpty {
                 Text("No blur regions.")
                     .font(.caption2)
@@ -95,17 +108,17 @@ struct BlurRegionsView: View {
                 .buttonStyle(.plain)
                 .help("Jump to the start of this blur")
                 Button {
-                    Task { _ = await editor.removeAdjustment(region.adjustment.id, fromClipId: region.clip.id, inTrackId: region.trackId) }
+                    run { await editor.removeAdjustment(region.adjustment.id, fromClipId: region.clip.id, inTrackId: region.trackId) }
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
             }
-            slider("X", region, key: "x", value: p["x"] ?? 0, range: 0...1)
-            slider("Y", region, key: "y", value: p["y"] ?? 0, range: 0...1)
-            slider("Width", region, key: "w", value: p["w"] ?? 0.4, range: 0.02...1)
-            slider("Height", region, key: "h", value: p["h"] ?? 0.1, range: 0.02...1)
+            slider("X", region, key: "x", value: p["x"] ?? 0, range: 0...Self.maxOrigin)
+            slider("Y", region, key: "y", value: p["y"] ?? 0, range: 0...Self.maxOrigin)
+            slider("Width", region, key: "w", value: p["w"] ?? 0.4, range: Self.minSide...1)
+            slider("Height", region, key: "h", value: p["h"] ?? 0.1, range: Self.minSide...1)
             slider("Strength", region, key: "radius", value: p["radius"] ?? 24, range: 4...60)
             HStack(spacing: 8) {
                 Text("Time").font(.caption2).foregroundStyle(.secondary).frame(width: 52, alignment: .leading)
@@ -130,51 +143,68 @@ struct BlurRegionsView: View {
 
     private func addRegion() {
         guard let target = clipAtPlayhead else { return }
-        let start = max(0, playerViewModel.currentTime - target.clip.timelineIn)
-        let end = min(target.clip.duration, start + 5)
+        let duration = target.clip.duration
+        let start = min(max(0, playerViewModel.currentTime - target.clip.timelineIn), duration - 0.1)
+        let end = min(duration, start + 5)
+        guard start >= 0, start < end else { return }
         // A wide, short band near the middle: the shape of a key or an email, easy to move from there.
         let adjustment = Project.Adjustment(
             kind: .gaussianBlur, target: .frame,
             parameters: ["radius": 24, "x": 0.3, "y": 0.44, "w": 0.4, "h": 0.12],
             start: start, end: end
         )
-        Task { _ = await editor.addAdjustment(adjustment, toClipId: target.clip.id, inTrackId: target.trackId) }
+        run { await editor.addAdjustment(adjustment, toClipId: target.clip.id, inTrackId: target.trackId) }
     }
 
     private func commit(_ region: Region, key: String, value: Double) {
         var params = region.adjustment.parameters
         params[key] = value
-        // Keep the region inside the frame: validation rejects x + w or y + h past 1.
-        if let x = params["x"], let w = params["w"] { params["w"] = min(w, 1 - x) }
-        if let y = params["y"], let h = params["h"] { params["h"] = min(h, 1 - y) }
-        let updated = Project.Adjustment(
-            id: region.adjustment.id, kind: region.adjustment.kind, target: region.adjustment.target,
-            parameters: params, enabled: region.adjustment.enabled,
-            start: region.adjustment.start, end: region.adjustment.end
-        )
-        Task { _ = await editor.updateAdjustment(updated, inClipId: region.clip.id, trackId: region.trackId) }
+        // Keep the region inside the frame (validation rejects x + w or y + h past 1). The sliders
+        // follow the stored value, so a clamp here shows up on them.
+        if let x = params["x"], let w = params["w"] { params["w"] = max(Self.minSide, min(w, 1 - x)) }
+        if let y = params["y"], let h = params["h"] { params["h"] = max(Self.minSide, min(h, 1 - y)) }
+        update(region, parameters: params, start: region.adjustment.start, end: region.adjustment.end)
     }
 
     private func timeBinding(_ region: Region, isStart: Bool, clipDuration: TimeInterval) -> Binding<Double> {
         Binding(
             get: { (isStart ? region.adjustment.start : region.adjustment.end) ?? (isStart ? 0 : clipDuration) },
             set: { newValue in
-                var start = region.adjustment.start ?? 0
-                var end = region.adjustment.end ?? clipDuration
-                if isStart { start = min(newValue, end - 0.1) } else { end = max(newValue, start + 0.1) }
-                let updated = Project.Adjustment(
-                    id: region.adjustment.id, kind: region.adjustment.kind, target: region.adjustment.target,
-                    parameters: region.adjustment.parameters, enabled: region.adjustment.enabled, start: start, end: end
-                )
-                Task { _ = await editor.updateAdjustment(updated, inClipId: region.clip.id, trackId: region.trackId) }
+                // Times live in the clip's timeline seconds and are checked against its current length,
+                // which shrinks if the clip is trimmed or sped up after the region was made.
+                var start = min(region.adjustment.start ?? 0, clipDuration - 0.1)
+                var end = min(region.adjustment.end ?? clipDuration, clipDuration)
+                if isStart { start = min(newValue, end - 0.1) } else { end = min(max(newValue, start + 0.1), clipDuration) }
+                update(region, parameters: region.adjustment.parameters, start: max(0, start), end: end)
             }
         )
+    }
+
+    private func update(_ region: Region, parameters: [String: Double], start: TimeInterval?, end: TimeInterval?) {
+        let updated = Project.Adjustment(
+            id: region.adjustment.id, kind: region.adjustment.kind, target: region.adjustment.target,
+            parameters: parameters, enabled: region.adjustment.enabled, start: start, end: end
+        )
+        run { await editor.updateAdjustment(updated, inClipId: region.clip.id, trackId: region.trackId) }
+    }
+
+    /// A rejected edit used to vanish silently; show why.
+    private func run(_ operation: @escaping () async -> EditorResult) {
+        Task {
+            if case .failure(let error) = await operation() {
+                lastError = error.localizedDescription
+                LogWarning(.editor, "[BLUR] edit rejected: \(error.localizedDescription)")
+            } else {
+                lastError = nil
+            }
+        }
     }
 
     private func selectTime(_ seconds: TimeInterval) { playerViewModel.seek(to: seconds) }
 
     static func timeLabel(_ seconds: TimeInterval) -> String {
-        let total = Int(max(0, seconds).rounded())
-        return String(format: "%d:%02d", total / 60, total % 60)
+        let clamped = max(0, seconds)
+        let minutes = Int(clamped) / 60
+        return String(format: "%d:%04.1f", minutes, clamped - Double(minutes * 60))
     }
 }

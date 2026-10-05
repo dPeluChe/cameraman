@@ -132,23 +132,31 @@ struct VideoClipEffectsView: View {
     }
 }
 
-/// Slider that edits locally and commits once on release (avoids an undo entry
-/// per drag tick).
+/// Slider that edits locally and commits once on release (avoids an undo entry per drag tick).
+/// It follows the stored value when that changes underneath it (undo, or a clamp applied on commit)
+/// and skips the commit when nothing moved, so a click does not add an empty undo step.
 struct AdjustmentSlider: View {
     @State private var value: Double
+    @State private var isDragging = false
+    let storedValue: Double
     let range: ClosedRange<Double>
     let onCommit: (Double) -> Void
 
     init(value: Double, range: ClosedRange<Double>, onCommit: @escaping (Double) -> Void) {
         _value = State(initialValue: value)
+        storedValue = value
         self.range = range
         self.onCommit = onCommit
     }
 
     var body: some View {
         Slider(value: $value, in: range) { editing in
-            if !editing { onCommit(value) }
+            isDragging = editing
+            if !editing, abs(value - storedValue) > 0.0001 { onCommit(value) }
         }
         .controlSize(.mini)
+        .onChange(of: storedValue) { newValue in
+            if !isDragging { value = newValue }
+        }
     }
 }
