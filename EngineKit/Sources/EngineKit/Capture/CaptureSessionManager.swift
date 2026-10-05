@@ -163,8 +163,9 @@ extension CaptureEngine {
         logger.debug("Creating SCStream...")
 
         // Retained here: SCStream does not keep its delegate alive.
+        let sessionId = currentSession?.id
         let delegate = StreamDelegate { [weak self] error in
-            Task { await self?.handleStreamStopped(error) }
+            Task { await self?.handleStreamStopped(error, sessionId: sessionId) }
         }
         self.streamDelegate = delegate
         let stream = SCStream(filter: filter, configuration: configuration, delegate: delegate)

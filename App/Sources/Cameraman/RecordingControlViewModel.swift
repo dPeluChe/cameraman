@@ -41,6 +41,12 @@ class RecordingControlViewModel: ObservableObject {
     private var recordingSession: Recorder.RecordingSession?
     private var recordingIndicator: RecordingIndicatorWindow?
     private var streamStopObserver: NSObjectProtocol?
+    /// The Stop button and the stream-stopped notice can race; only one may finalize.
+    private var isStopping = false
+
+    deinit {
+        if let observer = streamStopObserver { NotificationCenter.default.removeObserver(observer) }
+    }
 
     private func log(_ message: String) {
         if debugLoggingEnabled {
@@ -255,7 +261,9 @@ class RecordingControlViewModel: ObservableObject {
     }
 
     func stopRecording() async {
-        guard isRecording, let session = recordingSession else { return }
+        guard isRecording, !isStopping, let session = recordingSession else { return }
+        isStopping = true
+        defer { isStopping = false }
         if let observer = streamStopObserver {
             NotificationCenter.default.removeObserver(observer)
             streamStopObserver = nil

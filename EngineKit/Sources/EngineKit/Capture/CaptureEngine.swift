@@ -356,9 +356,10 @@ public actor CaptureEngine {
     /// not finalized here: the owner should call `stopRecording` to keep what was captured.
     public static let streamStoppedNotification = Notification.Name("EngineKit.CaptureEngine.streamStopped")
 
-    func handleStreamStopped(_ error: Error) {
-        // A stop we asked for marks the session stopped first, so only unexpected stops get here.
-        guard let session = currentSession, session.isRecording else { return }
+    func handleStreamStopped(_ error: Error, sessionId: UUID?) {
+        // A stop we asked for marks the session stopped first, so only unexpected stops get here;
+        // the id keeps a late callback from an older stream from stopping a newer recording.
+        guard let session = currentSession, session.isRecording, session.id == sessionId else { return }
         LogError(.capture, "Capture stream stopped unexpectedly: \(error.localizedDescription)")
         Self.postStreamStopped(error)
     }
@@ -382,6 +383,9 @@ public actor CaptureEngine {
 
         // Mark as stopped IMMEDIATELY to prevent double calls
         session.markStopped()
+        // However this ends (including a failed encoder), release the engine: otherwise the next
+        // startRecording throws recordingAlreadyInProgress until the app restarts.
+        defer { currentSession = nil }
         durationTimerTask?.cancel()
         durationTimerTask = nil
 
@@ -472,8 +476,6 @@ public actor CaptureEngine {
             sessionId: session.id,
             sessionIsRecording: session.isRecording
         )
-
-        currentSession = nil
 
         return result
     }
