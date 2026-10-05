@@ -76,6 +76,7 @@ extension ProjectEditor {
         await setEditorProject(updatedProject)
         recordUndo(previousProject)
         project = updatedProject
+        scheduleAutosave()
         return true
     }
 
@@ -109,6 +110,7 @@ extension ProjectEditor {
         await setEditorProject(updatedProject)
         recordUndo(previousProject)
         project = updatedProject
+        scheduleAutosave()
         return true
     }
 
@@ -128,6 +130,7 @@ extension ProjectEditor {
         await setEditorProject(updatedProject)
         recordUndo(previousProject)
         project = updatedProject
+        scheduleAutosave()
         return true
     }
 
@@ -180,6 +183,7 @@ extension ProjectEditor {
         await setEditorProject(updatedProject)
         recordUndo(previousProject)
         project = updatedProject
+        scheduleAutosave()
         return true
     }
 
@@ -198,6 +202,7 @@ extension ProjectEditor {
         await setEditorProject(updatedProject)
         recordUndo(previousProject)
         project = updatedProject
+        scheduleAutosave()
         return true
     }
 
@@ -217,6 +222,7 @@ extension ProjectEditor {
         await setEditorProject(updatedProject)
         recordUndo(previousProject)
         project = updatedProject
+        scheduleAutosave()
         return true
     }
 
@@ -253,6 +259,7 @@ extension ProjectEditor {
         await setEditorProject(updatedProject)
         recordUndo(previousProject)
         project = updatedProject
+        scheduleAutosave()
         return true
     }
 }
@@ -269,6 +276,7 @@ extension ProjectEditor {
         await setEditorProject(updatedProject)
         recordUndo(previousProject)
         project = updatedProject
+        scheduleAutosave()
     }
 
     func removeMediaItem(id: UUID) async {
@@ -280,6 +288,7 @@ extension ProjectEditor {
         await setEditorProject(updatedProject)
         recordUndo(previousProject)
         project = updatedProject
+        scheduleAutosave()
     }
 
     func updateMediaItem(
@@ -310,6 +319,7 @@ extension ProjectEditor {
         await setEditorProject(updatedProject)
         recordUndo(previousProject)
         project = updatedProject
+        scheduleAutosave()
     }
 }
 
