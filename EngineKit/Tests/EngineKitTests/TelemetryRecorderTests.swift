@@ -211,6 +211,14 @@ final class TelemetryRecorderTests: XCTestCase {
         XCTAssertNil(session.error)
     }
 
+    func testStartRecordingUsesReferenceStartAsTimeZero() async throws {
+        let videoStart = Date().addingTimeInterval(-1.5)
+        let config = TelemetryRecorder.Configuration(outputDirectory: tempDirectory, referenceStart: videoStart)
+        let session = try await recorder.startRecording(config: config)
+
+        XCTAssertEqual(session.startTime, videoStart)
+    }
+
     func testStartRecordingAlreadyRecording() async throws {
         let config = TelemetryRecorder.Configuration.default(outputDirectory: tempDirectory)
         _ = try await recorder.startRecording(config: config)

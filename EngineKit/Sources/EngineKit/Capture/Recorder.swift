@@ -106,6 +106,7 @@ public actor Recorder {
             outputURL: outputURL.appendingPathComponent("screen.mov")
         )
         session.setScreenSession(screenSession)
+        let videoStart = Date()
 
         // Start camera capture if configured
         if let cameraConfig = config.cameraConfig {
@@ -147,7 +148,8 @@ public actor Recorder {
                 let telemetryDir = outputURL.appendingPathComponent("telemetry")
                 try FileManager.default.createDirectory(at: telemetryDir, withIntermediateDirectories: true)
                 let telemetryConfig = TelemetryRecorder.Configuration(
-                    outputDirectory: telemetryDir
+                    outputDirectory: telemetryDir,
+                    referenceStart: videoStart
                 )
                 let recorder = TelemetryRecorder()
                 let telemetrySession = try await recorder.startRecording(config: telemetryConfig)

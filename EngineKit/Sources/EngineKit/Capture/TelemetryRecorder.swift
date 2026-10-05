@@ -51,7 +51,7 @@ public actor TelemetryRecorder {
 
         // Create session
         let session = RecordingSession(config: config)
-        session.markStarted(at: Date())
+        session.markStarted(at: config.referenceStart ?? Date())
         currentSession = session
 
         // Setup event monitoring on the main actor; AppKit global event monitors

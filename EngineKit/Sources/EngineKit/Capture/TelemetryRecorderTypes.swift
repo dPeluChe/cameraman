@@ -18,17 +18,23 @@ extension TelemetryRecorder {
         public let captureScroll: Bool
         /// Whether to capture display ID (for multi-monitor setups)
         public let captureDisplayID: Bool
+        /// Wall-clock moment that should count as t=0 (the first video frame). Telemetry usually
+        /// starts after screen, camera and mic are up; without this its t=0 lags the video and the
+        /// cursor plays ahead of the footage by that gap.
+        public let referenceStart: Date?
 
         public init(
             outputDirectory: URL,
             cursorMoveFrequency: Double = 60.0,
             captureScroll: Bool = false,
-            captureDisplayID: Bool = false
+            captureDisplayID: Bool = false,
+            referenceStart: Date? = nil
         ) {
             self.outputDirectory = outputDirectory
             self.cursorMoveFrequency = cursorMoveFrequency
             self.captureScroll = captureScroll
             self.captureDisplayID = captureDisplayID
+            self.referenceStart = referenceStart
         }
 
         /// Default configuration for single-monitor setup
