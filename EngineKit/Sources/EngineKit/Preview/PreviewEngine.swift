@@ -262,7 +262,6 @@ public actor PreviewEngine {
         // debounced tick — including for UI-only state that doesn't affect the composition.
         // Short-circuit when nothing actually changed to avoid cascading AVMutableVideoComposition rebuilds.
         if let existing = self.project, existing == project {
-            LogInfo(.preview, "[PREVIEW] updateProject skipped: project unchanged")
             return
         }
 

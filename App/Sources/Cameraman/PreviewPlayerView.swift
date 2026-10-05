@@ -128,6 +128,9 @@ struct PreviewPlayerView: View {
             guard let viewModel = viewModel,
                   viewModel.previewEngine != nil,
                   viewModel.project?.projectId == project.projectId else { return }
+            // `onReceive` re-subscribes on every body pass and @Published replays its current value on
+            // subscribe, so this closure also fires with the project the engine already has.
+            guard viewModel.project != project else { return }
             viewModel.refreshPreview(with: project)
         }
         .onDisappear {
