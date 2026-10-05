@@ -29,8 +29,11 @@ public actor CameraEngine {
     /// List all available camera devices
     /// - Returns: Array of CameraDevice
     public func listAvailableCameras() -> [CameraDevice] {
+        var types: [AVCaptureDevice.DeviceType] = [.builtInWideAngleCamera]
+        if #available(macOS 14.0, *) { types += [.external, .continuityCamera] } else { types.append(.externalUnknown) }
+        if #available(macOS 13.0, *) { types.append(.deskViewCamera) }
         let discoverySession = AVCaptureDevice.DiscoverySession(
-            deviceTypes: [.builtInWideAngleCamera, .externalUnknown],
+            deviceTypes: types,
             mediaType: .video,
             position: .unspecified
         )
@@ -84,13 +87,8 @@ public actor CameraEngine {
             }
             device = foundDevice
         } else {
-            // Use default front-facing camera
-            let discoverySession = AVCaptureDevice.DiscoverySession(
-                deviceTypes: [.builtInWideAngleCamera],
-                mediaType: .video,
-                position: .front
-            )
-            guard let defaultDevice = discoverySession.devices.first else {
+            // System default (covers Macs whose only camera is external)
+            guard let defaultDevice = AVCaptureDevice.default(for: .video) else {
                 throw CameraError.cameraNotAvailable
             }
             device = defaultDevice

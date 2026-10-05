@@ -17,6 +17,8 @@ extension Recorder {
         public let cameraConfig: CameraEngine.CameraConfiguration?
         /// Whether to capture microphone audio
         public let captureMicAudio: Bool
+        /// CoreAudio UID of the microphone to use (nil = system default)
+        public let micDeviceID: String?
         /// Whether to capture cursor/click telemetry (always true by default)
         public let captureTelemetry: Bool
         /// Audio processing configuration (noise gate, echo cancellation)
@@ -26,12 +28,14 @@ extension Recorder {
             screenConfig: CaptureEngine.CaptureConfiguration,
             cameraConfig: CameraEngine.CameraConfiguration? = nil,
             captureMicAudio: Bool = false,
+            micDeviceID: String? = nil,
             captureTelemetry: Bool = true,
             audioProcessing: AudioProcessingConfiguration = .default
         ) {
             self.screenConfig = screenConfig
             self.cameraConfig = cameraConfig
             self.captureMicAudio = captureMicAudio
+            self.micDeviceID = micDeviceID
             self.captureTelemetry = captureTelemetry
             self.audioProcessing = audioProcessing
         }

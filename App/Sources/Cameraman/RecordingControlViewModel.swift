@@ -9,6 +9,7 @@ import Foundation
 import Combine
 import AppKit
 import CoreVideo
+import AVFoundation
 import EngineKit
 
 /// View model for recording controls
@@ -24,6 +25,16 @@ class RecordingControlViewModel: ObservableObject {
     @Published var includeCamera = true
     @Published var includeMicrophone = true
     @Published var includeSystemAudio = true
+    /// Detected inputs. Selection is a device UID (nil = system default), remembered between launches
+    /// and ignored when that device is no longer plugged in.
+    @Published var cameras: [CameraEngine.CameraDevice] = []
+    @Published var microphones: [AudioInputDevice] = []
+    @Published var selectedCameraID: String? = UserDefaults.standard.string(forKey: "recording.cameraDeviceID") {
+        didSet { UserDefaults.standard.set(selectedCameraID, forKey: "recording.cameraDeviceID") }
+    }
+    @Published var selectedMicrophoneID: String? = UserDefaults.standard.string(forKey: "recording.micDeviceID") {
+        didSet { UserDefaults.standard.set(selectedMicrophoneID, forKey: "recording.micDeviceID") }
+    }
     @Published var hideSystemCursor = false
     @Published var lastRecordingURL: URL?
     @Published var recordingQuality: RecordingQuality = .native
@@ -49,9 +60,31 @@ class RecordingControlViewModel: ObservableObject {
     /// The Stop button and the stream-stopped notice can race; only one may finalize.
     private var isStopping = false
 
+    private var deviceObservers: [NSObjectProtocol] = []
+
+    init() {
+        refreshDevices()
+        let names: [Notification.Name] = [AVCaptureDevice.wasConnectedNotification, AVCaptureDevice.wasDisconnectedNotification]
+        deviceObservers = names.map { name in
+            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                Task { @MainActor in self?.refreshDevices() }
+            }
+        }
+    }
+
     deinit {
         if let observer = streamStopObserver { NotificationCenter.default.removeObserver(observer) }
+        deviceObservers.forEach { NotificationCenter.default.removeObserver($0) }
     }
+
+    func refreshDevices() {
+        microphones = AudioInputDevices.list()
+        Task { cameras = await CameraEngine.shared.listAvailableCameras() }
+    }
+
+    /// The saved device if it is still connected, otherwise nil so the system default is used.
+    private var activeCameraID: String? { cameras.contains { $0.id == selectedCameraID } ? selectedCameraID : nil }
+    private var activeMicrophoneID: String? { microphones.contains { $0.id == selectedMicrophoneID } ? selectedMicrophoneID : nil }
 
     private func log(_ message: String) {
         if debugLoggingEnabled {
@@ -196,7 +229,7 @@ class RecordingControlViewModel: ObservableObject {
             var cameraConfig: CameraEngine.CameraConfiguration?
             if includeCameraForSession {
                 cameraConfig = CameraEngine.CameraConfiguration(
-                    deviceID: nil, // Use default camera
+                    deviceID: activeCameraID,
                     resolutionPreset: .hd1080,
                     frameRate: 30,
                     codec: .h264,
@@ -208,7 +241,8 @@ class RecordingControlViewModel: ObservableObject {
             let config = Recorder.RecordingConfiguration(
                 screenConfig: screenConfig,
                 cameraConfig: cameraConfig,
-                captureMicAudio: includeMicrophoneForSession
+                captureMicAudio: includeMicrophoneForSession,
+                micDeviceID: activeMicrophoneID
             )
 
             // After permissions and setup, so system prompts never land during the countdown.
