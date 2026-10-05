@@ -332,9 +332,19 @@ public actor PreviewEngine {
     /// player playing.
     func install(_ videoComposition: AVVideoComposition, on item: AVPlayerItem, player: AVPlayer) async {
         nonisolated(unsafe) let unsafeComposition = videoComposition
-        await MainActor.run {
+        nonisolated(unsafe) let unsafePlayer = player
+        // Pausing around the seek is what pausing by hand does, and that is the case that works:
+        // a plain seek while playing left the already queued frames on screen.
+        let resumeRate: Float = await MainActor.run {
+            let rate = unsafePlayer.rate
             item.videoComposition = unsafeComposition
-            player.seek(to: player.currentTime(), toleranceBefore: .zero, toleranceAfter: .zero)
+            if rate != 0 { unsafePlayer.pause() }
+            return rate
+        }
+        let time = await MainActor.run { unsafePlayer.currentTime() }
+        await unsafePlayer.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
+        if resumeRate != 0 {
+            await MainActor.run { unsafePlayer.rate = resumeRate }
         }
     }
 
