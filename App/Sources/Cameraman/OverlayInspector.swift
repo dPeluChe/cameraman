@@ -53,6 +53,31 @@ extension OverlayEditorView {
                     ))
                     .labelsHidden()
                 }
+
+                if overlay.type == .rect {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Fill")
+                            .font(.caption)
+                        HStack(spacing: 8) {
+                            Toggle("", isOn: Binding(
+                                get: { overlay.style.bg != nil },
+                                set: { on in
+                                    var style = overlay.style
+                                    style.bg = on ? style.stroke : nil
+                                    updateOverlay(style: style)
+                                }
+                            ))
+                            .labelsHidden()
+                            if let bg = overlay.style.bg {
+                                ColorPicker("", selection: Binding(
+                                    get: { color(from: bg) },
+                                    set: { newColor in updateOverlay(style: overlay.style.with(bg: hexColor(from: newColor))) }
+                                ))
+                                .labelsHidden()
+                            }
+                        }
+                    }
+                }
             }
 
             // Text-specific controls

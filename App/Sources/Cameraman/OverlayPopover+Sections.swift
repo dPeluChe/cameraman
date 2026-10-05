@@ -161,6 +161,28 @@ extension OverlayPopoverContent {
                         .labelsHidden()
                     }
                 }
+                if overlay.type == .rect {
+                    HStack(spacing: 16) {
+                        smallLabeled("Fill") {
+                            Toggle("", isOn: Binding(
+                                get: { overlay.style.bg != nil },
+                                set: { on in mutate(overlay) { $0.style.bg = on ? $0.style.stroke : nil } }
+                            ))
+                            .toggleStyle(.switch)
+                            .controlSize(.mini)
+                            .labelsHidden()
+                        }
+                        if let bg = overlay.style.bg {
+                            smallLabeled("Fill color") {
+                                ColorPicker("", selection: Binding(
+                                    get: { Color(hex: bg) },
+                                    set: { newColor in mutate(overlay) { $0.style.bg = newColor.toHex() ?? "#FFFFFF" } }
+                                ))
+                                .labelsHidden()
+                            }
+                        }
+                    }
+                }
                 DraftSlider(
                     label: "Stroke",
                     range: 1...10,
