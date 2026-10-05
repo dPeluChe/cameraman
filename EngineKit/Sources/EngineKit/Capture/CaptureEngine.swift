@@ -351,6 +351,24 @@ public actor CaptureEngine {
         return session
     }
 
+    /// Posted when the system stops the capture stream mid-recording (display disconnected,
+    /// permission revoked, ...). `userInfo["reason"]` is a user-readable string. The recording is
+    /// not finalized here: the owner should call `stopRecording` to keep what was captured.
+    public static let streamStoppedNotification = Notification.Name("EngineKit.CaptureEngine.streamStopped")
+
+    func handleStreamStopped(_ error: Error, sessionId: UUID?) {
+        // A stop we asked for marks the session stopped first, so only unexpected stops get here;
+        // the id keeps a late callback from an older stream from stopping a newer recording.
+        guard let session = currentSession, session.isRecording, session.id == sessionId else { return }
+        LogError(.capture, "Capture stream stopped unexpectedly: \(error.localizedDescription)")
+        Self.postStreamStopped(error)
+    }
+
+    static func postStreamStopped(_ error: Error) {
+        NotificationCenter.default.post(name: streamStoppedNotification, object: nil,
+                                        userInfo: ["reason": error.localizedDescription])
+    }
+
     /// Stop the current recording session
     /// - Parameter session: The session to stop
     /// - Returns: RecordingResult with paths to recorded files
@@ -365,6 +383,9 @@ public actor CaptureEngine {
 
         // Mark as stopped IMMEDIATELY to prevent double calls
         session.markStopped()
+        // However this ends (including a failed encoder), release the engine: otherwise the next
+        // startRecording throws recordingAlreadyInProgress until the app restarts.
+        defer { currentSession = nil }
         durationTimerTask?.cancel()
         durationTimerTask = nil
 
@@ -455,8 +476,6 @@ public actor CaptureEngine {
             sessionId: session.id,
             sessionIsRecording: session.isRecording
         )
-
-        currentSession = nil
 
         return result
     }
