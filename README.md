@@ -8,7 +8,7 @@
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Landing](https://img.shields.io/badge/landing-cameraman.dev-blue.svg)](https://cameraman.dev)
 
-**Version**: 0.8.0 (beta) · **Platform**: macOS 13+ (Ventura)
+**Version**: 0.7.1 (beta) · **Platform**: macOS 13+ (Ventura)
 
 > **Landing page:** the marketing site lives in a separate repo —
 > [`dPeluChe/cameraman-landing`](https://github.com/dPeluChe/cameraman-landing)

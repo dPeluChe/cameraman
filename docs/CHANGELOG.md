@@ -11,9 +11,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.8.0] - 2026-09-16
+> Working toward **0.7.1** (the series is 0.7.x until things are stable and complete; 0.8 comes later). The section
+> below was drafted as 0.8.0 on 2026-09-16 and never published, so it is part of this release. Rename this header
+> to `[0.7.1] - <date>` when the batch is built, signed and notarized.
 
 ### Added
+- **Agents can edit inside the app (MCP over local HTTP)** — the MCP server now also runs inside Cameraman
+  (Preferences → Integrations → "Built-in server"), opt-in, loopback only, with a token kept in the Keychain.
+  It works in the sandboxed app, so the same build can ship outside and inside the Mac App Store. The `cameraman-mcp`
+  helper stays for clients that only speak stdio (Claude Desktop).
+- **The editor yields to the agent** — while an agent edits a project through the in-app server, that project's
+  editor freezes behind a notice, your unsaved work is saved first so the agent starts from it, and the editor reloads
+  once the agent goes quiet.
+- **`get_project` takes `include`** — subtitle cues are omitted by default (`subtitleCount` says if there are any).
+  Results of `suggest_silence_edits` / `suggest_chapters` are returned by `get_job_status`, one file per job.
 - **Mobile project bundle import (`.cameramanproject`)** — desktop Cameraman
   can now import bundles exported by Cameraman Mobile (`ProjectStore+MobileBundle.swift`).
   Reads the `manifest.json` descriptor and translation schema (`project.enginekit.json`),
@@ -59,6 +70,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (**42 → 43 tools**).
 
 ### Changed
+- **MCP tools consolidated, 43 → 37 (breaking names)** — `list_overlays` and `list_adjustments` are in `get_project`;
+  `search_projects` is `list_projects(query)`; `rename_project` + `set_tags` are `update_project`; `list_jobs` is
+  `get_job_status(projectId)`; `set_clip_audio_muted` is `edit_clip(audioMuted)`. Tools carry `readOnlyHint` /
+  `destructiveHint` annotations, and `edit_clip` / `set_track` no longer let a later success hide an earlier failure.
 - **Inspector redesigned as a tools grid** — the right panel's stacked
   disclosure rows are now a 3-column grid of tool tiles (icon + title).
   Tapping a tile expands its controls below that row; tiles show a count
@@ -86,6 +101,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the new landing repo.
 
 ### Fixed
+- **Global hotkeys never fired** — the Carbon calls were stubs that returned success; they now register for real, and
+  `Hotkey.shiftKey` has the correct Carbon value.
+- **App could hang on a crash** — removed signal handlers that were not async-signal-safe and prevented the system
+  crash report; `project.json` is written atomically so a crash mid-save cannot truncate a project.
+- `ProjectFilter(excludedTags:)` only filtered when `tags` was also set.
 - **Transcription language & text** — kept the spoken language (auto-detect was
   defaulting to English) and stripped raw Whisper special tokens (`<|…|>`) from
   captions; restored fine per-pause/sentence segments.
