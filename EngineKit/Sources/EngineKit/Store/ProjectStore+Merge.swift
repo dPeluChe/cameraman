@@ -65,44 +65,27 @@ extension ProjectStore {
         )
 
         // --- Time-based metadata from B shifted by A's duration ---
-        let shiftedChapters = second.chapters.map { ch in
-            Project.Chapter(
-                id: ch.id,
-                title: ch.title,
-                startTime: ch.startTime + offset,
-                endTime: ch.endTime + offset,
-                summary: ch.summary,
-                keywords: ch.keywords,
-                createdAt: ch.createdAt
-            )
-        }
-        let shiftedOverlays = second.overlays.map { overlay -> Project.Overlay in
-            var copy = overlay
-            copy.start += offset
-            copy.end += offset
-            return copy
-        }
-        let shiftedMediaItems = second.mediaItems.map { item -> Project.MediaItem in
-            var copy = item
-            copy.timelineIn += offset
-            return copy
-        }
+        second.rippleTimedItems(insertingAt: 0, width: offset)
 
-        let merged = Project(
+        var merged = Project(
             projectId: mergedId,
             name: name ?? "\(first.name) + \(second.name)",
             sources: nil,
             takes: first.takes + second.takes,
             timeline: mergedTimeline,
             canvas: first.canvas,
-            overlays: first.overlays + shiftedOverlays,
-            chapters: first.chapters + shiftedChapters,
+            overlays: first.overlays + second.overlays,
+            chapters: first.chapters + second.chapters,
             // Captions reference rendered SRT/VTT for a single timeline; merging them
             // isn't meaningful — regenerate via transcription on the merged project.
             captions: nil,
             tags: Array(Set(first.tags).union(second.tags)).sorted(),
-            mediaItems: first.mediaItems + shiftedMediaItems
+            mediaItems: first.mediaItems + second.mediaItems
         )
+
+        merged.subtitles = first.subtitles + second.subtitles
+        merged.manualZoomKeyframes = (first.manualZoomKeyframes ?? []) + (second.manualZoomKeyframes ?? [])
+        if merged.manualZoomKeyframes?.isEmpty == true { merged.manualZoomKeyframes = nil }
 
         try await saveProject(merged)
         logger.info("Merged projects into \(mergedId.uuidString) (offset \(offset)s, \(merged.takes.count) takes)")

@@ -1176,6 +1176,38 @@ final class EditorModelTests: XCTestCase {
 
     // MARK: - Split Propagation Tests
 
+    private func projectWithTimedItems() -> Project {
+        var project = createTestProject()
+        project.chapters = [Project.Chapter(title: "late", startTime: 20, endTime: 30)]
+        project.manualZoomKeyframes = [
+            ZoomPlanGenerator.ZoomKeyframe(timestamp: 25, zoomLevel: 2, focusX: 0.5, focusY: 0.5)
+        ]
+        return project
+    }
+
+    func testDeleteSegment_RipplesTimedItems() async {
+        let editor = EditorModel(project: projectWithTimedItems())
+        let result = await editor.delete(segmentId: "seg-1")
+        guard let updated = result.getProject() else { XCTFail("Delete failed: \(result)"); return }
+
+        XCTAssertEqual(updated.chapters[0].startTime, 10)
+        XCTAssertEqual(updated.manualZoomKeyframes?.first?.timestamp, 15)
+        XCTAssertEqual(updated.timeline.duration, 20)
+    }
+
+    func testTrimOut_RipplesTimedItemsBothWays() async {
+        let editor = EditorModel(project: projectWithTimedItems())
+        var result = await editor.trimOut(segmentId: "seg-1", newSourceOut: 6.0)
+        guard let shrunk = result.getProject() else { XCTFail("Trim failed: \(result)"); return }
+        XCTAssertEqual(shrunk.chapters[0].startTime, 16)
+        XCTAssertEqual(shrunk.manualZoomKeyframes?.first?.timestamp, 21)
+
+        result = await editor.trimOut(segmentId: "seg-1", newSourceOut: 10.0)
+        guard let grown = result.getProject() else { XCTFail("Trim failed: \(result)"); return }
+        XCTAssertEqual(grown.chapters[0].startTime, 20)
+        XCTAssertEqual(grown.manualZoomKeyframes?.first?.timestamp, 25)
+    }
+
     func testDeleteRange_RipplesChaptersKeyframesAndMedia() async {
         var project = createTestProject()
         project.chapters = [

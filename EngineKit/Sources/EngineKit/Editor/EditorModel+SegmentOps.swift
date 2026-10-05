@@ -63,7 +63,13 @@ extension EditorModel {
         let newDuration = (ref.sourceOut - ref.sourceIn) / clip.speed
 
         updateClipInProject(trackIndex: trackIndex, clipIndex: clipIndex, clip: clip)
-        adjustSubsequentClips(trackIndex: trackIndex, from: clipIndex + 1, by: -(oldDuration - newDuration))
+        // Trim is a ripple: shrinking removes the tail's span on every track, growing opens it.
+        let clipIn = clip.timelineIn
+        if newDuration < oldDuration {
+            _ = await deleteRange(from: clipIn + newDuration, to: clipIn + oldDuration)
+        } else if newDuration > oldDuration {
+            insertGap(at: clipIn + oldDuration, width: newDuration - oldDuration)
+        }
         recalculateTimelineDuration()
 
         return .success(projectRef)
@@ -136,8 +142,7 @@ extension EditorModel {
         let duration = clip.duration
 
         removeClipFromProject(trackIndex: trackIndex, clipIndex: clipIndex)
-        adjustSubsequentClips(trackIndex: trackIndex, from: clipIndex, by: -duration)
-        recalculateTimelineDuration()
+        _ = await deleteRange(from: clip.timelineIn, to: clip.timelineIn + duration)
 
         return .success(projectRef)
     }
