@@ -426,6 +426,10 @@ public actor EditorModel {
         }
     }
 
+    func rippleTimedItems(removing start: TimeInterval, to end: TimeInterval) {
+        project.rippleTimedItems(removing: start, to: end)
+    }
+
     func deleteClipsByIds(_ ids: [String], trackIndex: Int) {
         let idsToRemove = Set(ids)
         project.timeline.tracks[trackIndex].clips.removeAll { idsToRemove.contains($0.id) }

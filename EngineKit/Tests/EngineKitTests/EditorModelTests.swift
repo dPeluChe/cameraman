@@ -1176,6 +1176,36 @@ final class EditorModelTests: XCTestCase {
 
     // MARK: - Split Propagation Tests
 
+    func testDeleteRange_RipplesChaptersKeyframesAndMedia() async {
+        var project = createTestProject()
+        project.chapters = [
+            Project.Chapter(title: "before", startTime: 0, endTime: 8),
+            Project.Chapter(title: "spans", startTime: 8, endTime: 20),
+            Project.Chapter(title: "inside", startTime: 11, endTime: 14),
+            Project.Chapter(title: "after", startTime: 20, endTime: 30)
+        ]
+        project.manualZoomKeyframes = [
+            ZoomPlanGenerator.ZoomKeyframe(timestamp: 5, zoomLevel: 2, focusX: 0.5, focusY: 0.5),
+            ZoomPlanGenerator.ZoomKeyframe(timestamp: 12, zoomLevel: 2, focusX: 0.5, focusY: 0.5),
+            ZoomPlanGenerator.ZoomKeyframe(timestamp: 25, zoomLevel: 2, focusX: 0.5, focusY: 0.5)
+        ]
+        project.mediaItems = [
+            Project.MediaItem(type: .image, path: "a.png", name: "a", timelineIn: 22, duration: 3)
+        ]
+        let editor = EditorModel(project: project)
+
+        let result = await editor.deleteRange(from: 10, to: 15)
+        guard let updated = result.getProject() else { XCTFail("Delete failed: \(result)"); return }
+
+        XCTAssertEqual(updated.chapters.map(\.title), ["before", "spans", "after"])
+        XCTAssertEqual(updated.chapters[1].startTime, 8)
+        XCTAssertEqual(updated.chapters[1].endTime, 15)
+        XCTAssertEqual(updated.chapters[2].startTime, 15)
+        XCTAssertEqual(updated.manualZoomKeyframes?.map(\.timestamp), [5, 20])
+        XCTAssertEqual(updated.mediaItems[0].timelineIn, 17)
+        XCTAssertEqual(updated.mediaItems[0].duration, 3)
+    }
+
     func testSplit_KeepsAndSlicesClipEffects() async {
         var project = createTestProject()
         let idx = project.timeline.primaryTrackIndex!
