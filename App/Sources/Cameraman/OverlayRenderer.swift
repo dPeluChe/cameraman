@@ -86,7 +86,11 @@ extension OverlayEditorView {
 
         return RoundedRectangle(cornerRadius: 4, style: .continuous)
             .stroke(color(from: style.stroke), lineWidth: style.strokeWidth)
-            .background(style.bg.map { color(from: $0).opacity(0.3) })
+            .background {
+                if let bg = style.bg {
+                    RoundedRectangle(cornerRadius: 4, style: .continuous).fill(color(from: bg))
+                }
+            }
             .shadow(color: .black.opacity(0.33), radius: style.shadow ? 2 : 0)
     }
 
