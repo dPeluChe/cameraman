@@ -155,6 +155,7 @@ extension EditorModel {
         where !projectRef.timeline.tracks[trackIndex].isLocked {
             totalAffected += deleteRangeInTrack(trackIndex: trackIndex, startTime: startTime, endTime: endTime)
         }
+        rippleTimedItems(removing: startTime, to: endTime)
         recalculateTimelineDuration()
 
         return .successWithInfo(projectRef, .rangeDeleted(count: totalAffected))

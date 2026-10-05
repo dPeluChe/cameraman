@@ -22,9 +22,9 @@ extension Project {
         /// Chapter title (editable by user)
         public var title: String
         /// Chapter start time in seconds
-        public let startTime: TimeInterval
+        public var startTime: TimeInterval
         /// Chapter end time in seconds
-        public let endTime: TimeInterval
+        public var endTime: TimeInterval
         /// Optional chapter summary
         public var summary: String?
         /// Optional keywords for the chapter
