@@ -281,13 +281,11 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
 /// the warning — it's an SDK/compiler interaction that needs an Apple fix.
 /// Keeping the original form pending Swift 6 mode adoption.
 public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
-    // swiftlint:disable:next nonisolated_unsafe
-    nonisolated(unsafe) public let sourcePixelBufferAttributes: [String: Any]? = [
+    public let sourcePixelBufferAttributes: [String: any Sendable]? = [
         kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)
     ]
 
-    // swiftlint:disable:next nonisolated_unsafe
-    nonisolated(unsafe) public let requiredPixelBufferAttributesForRenderContext: [String: Any] = [
+    public let requiredPixelBufferAttributesForRenderContext: [String: any Sendable] = [
         kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)
     ]
 

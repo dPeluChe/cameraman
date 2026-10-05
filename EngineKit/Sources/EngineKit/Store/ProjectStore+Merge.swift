@@ -23,7 +23,7 @@ extension ProjectStore {
             throw EngineKitError.invalidConfiguration("Cannot merge a project with itself")
         }
 
-        var first = normalizedForMerge(try await loadProject(projectId: firstId))
+        let first = normalizedForMerge(try await loadProject(projectId: firstId))
         var second = normalizedForMerge(try await loadProject(projectId: secondId))
 
         let firstDir = try projectDirectoryURL(for: firstId)

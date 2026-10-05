@@ -17,7 +17,7 @@ let package = Package(
         // On-device transcription (CoreML / Apple Neural Engine). Used by
         // TranscriptionEngine via WhisperKitTranscriber, gated to Apple Silicon
         // at runtime. Pin/adjust the version to whatever your toolchain resolves.
-        .package(url: "https://github.com/argmaxinc/WhisperKit.git", from: "0.9.0"),
+        .package(url: "https://github.com/argmaxinc/WhisperKit.git", from: "1.1.0"),
     ],
     targets: [
         .target(
