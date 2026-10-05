@@ -176,6 +176,12 @@ struct ProjectEditorView: View {
             get: { viewModel.editor?.showAutosaveToast ?? false },
             set: { viewModel.editor?.showAutosaveToast = $0 }
         ), message: "Project saved")
+        .onDisappear {
+            // Leaving the editor (another project, window closed) releases it, and a queued autosave
+            // holds the editor weakly, so save what is pending now.
+            let editor = viewModel.editor
+            Task { await editor?.flushPendingAutosave() }
+        }
         .task {
             // Yield to avoid view update issues
             await Task.yield()
