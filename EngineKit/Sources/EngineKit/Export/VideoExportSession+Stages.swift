@@ -20,7 +20,7 @@ extension ExportEngine {
         logger.debug("Created renders directory: \(outputDirectory.path)")
 
         let timestamp = ISO8601DateFormatter().string(from: Date())
-        let outputFilename = options.outputFilename ?? "export_\(timestamp).mp4"
+        let outputFilename = options.resolvedFilename(fileExtension: "mp4", timestamp: timestamp)
         let outputURL = outputDirectory.appendingPathComponent(outputFilename)
 
         logger.info("Output file: \(outputFilename)")
