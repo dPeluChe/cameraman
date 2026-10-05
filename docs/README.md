@@ -22,7 +22,7 @@ El `index.html` en esta carpeta es el landing legacy de GitHub Pages (superseded
 | Archivo | Contenido |
 |---------|-----------|
 | [DEV_ONBOARDING.md](DEV_ONBOARDING.md) | **Empieza aquí** — arquitectura, setup, patrones clave |
-| [CHANGELOG.md](CHANGELOG.md) | Historial de versiones (current: v0.7.0) |
+| [CHANGELOG.md](CHANGELOG.md) | Historial de versiones (current: v0.7.1) |
 | [TASK_TODO.md](TASK_TODO.md) | Backlog de tareas pendientes |
 | [PRD.md](PRD.md) | Product requirements (referencia de diseño inicial) |
 | [TECH_SPEC.md](TECH_SPEC.md) | Tech spec inicial (referencia arquitectural) |
