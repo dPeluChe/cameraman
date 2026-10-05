@@ -21,6 +21,7 @@ internal class MicAudioRecorder {
     private var startTime: Date?
     private let audioProcessor: AudioProcessor?
     private let audioProcessingConfig: AudioProcessingConfiguration
+    private let deviceUID: String?
 
     /// Serial queue used to perform disk I/O off of the real-time audio tap
     /// thread. `installTap`'s callback runs on a high-priority audio thread
@@ -34,8 +35,9 @@ internal class MicAudioRecorder {
 
     private let logger = Logger(subsystem: "com.projectstudio.enginekit", category: "MicAudioRecorder")
 
-    init(outputURL: URL, audioProcessing: AudioProcessingConfiguration) {
+    init(outputURL: URL, audioProcessing: AudioProcessingConfiguration, deviceUID: String? = nil) {
         self.outputURL = outputURL
+        self.deviceUID = deviceUID
         self.audioProcessingConfig = audioProcessing
 
         if audioProcessing.noiseGateEnabled || audioProcessing.echoCancellationEnabled {
@@ -58,6 +60,7 @@ internal class MicAudioRecorder {
     private func attemptStart() async throws {
         let audioEngine = AVAudioEngine()
         self.audioEngine = audioEngine
+        AudioInputDevices.route(audioEngine, toDeviceUID: deviceUID)
 
         let inputNode = audioEngine.inputNode
         let recordingFormat = inputNode.outputFormat(forBus: 0)
@@ -70,6 +73,7 @@ internal class MicAudioRecorder {
 
             let retryEngine = AVAudioEngine()
             self.audioEngine = retryEngine
+            AudioInputDevices.route(retryEngine, toDeviceUID: deviceUID)
             let retryNode = retryEngine.inputNode
             let retryFormat = retryNode.outputFormat(forBus: 0)
 

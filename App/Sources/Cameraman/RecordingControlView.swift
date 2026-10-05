@@ -151,8 +151,10 @@ struct RecordingControlView: View {
 
             // Options
             VStack(spacing: 8) {
-                ToggleRow(icon: "video.fill", title: "Camera", isOn: $viewModel.includeCamera, offIcon: "video.slash.fill")
-                ToggleRow(icon: "mic.fill", title: "Microphone", isOn: $viewModel.includeMicrophone, offIcon: "mic.slash.fill")
+                ToggleRow(icon: "video.fill", title: "Camera", isOn: $viewModel.includeCamera, offIcon: "video.slash.fill",
+                          devices: viewModel.cameras.map { ($0.id, $0.name) }, selection: $viewModel.selectedCameraID)
+                ToggleRow(icon: "mic.fill", title: "Microphone", isOn: $viewModel.includeMicrophone, offIcon: "mic.slash.fill",
+                          devices: viewModel.microphones.map { ($0.id, $0.name) }, selection: $viewModel.selectedMicrophoneID)
                 ToggleRow(icon: "speaker.wave.2.fill", title: "System Audio", isOn: $viewModel.includeSystemAudio, offIcon: "speaker.slash.fill")
                 ToggleRow(icon: "cursorarrow.slash", title: "Hide Cursor", isOn: $viewModel.hideSystemCursor, offIcon: "cursorarrow")
                 Divider().opacity(0.3)
@@ -445,6 +447,13 @@ struct ToggleRow: View {
     let title: String
     @Binding var isOn: Bool
     var offIcon: String?
+    /// Optional input picker shown next to the switch when more than one device is available.
+    var devices: [(id: String, name: String)] = []
+    var selection: Binding<String?>?
+
+    private var selectedName: String {
+        devices.first { $0.id == selection?.wrappedValue }?.name ?? "Default"
+    }
 
     var body: some View {
         HStack {
@@ -457,6 +466,21 @@ struct ToggleRow: View {
                 .font(.system(size: 13))
 
             Spacer()
+
+            if isOn, devices.count > 1, let selection {
+                Menu {
+                    Button("System Default") { selection.wrappedValue = nil }
+                    Divider()
+                    ForEach(devices, id: \.id) { device in
+                        Button(device.name) { selection.wrappedValue = device.id }
+                    }
+                } label: {
+                    Text(selectedName).lineLimit(1).truncationMode(.middle).frame(maxWidth: 150, alignment: .trailing)
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .accessibilityLabel("\(title) input")
+            }
 
             Toggle("", isOn: $isOn)
                 .toggleStyle(.switch)

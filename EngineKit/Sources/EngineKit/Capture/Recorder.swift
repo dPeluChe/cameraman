@@ -128,7 +128,8 @@ public actor Recorder {
             do {
                 let micRecorder = MicAudioRecorder(
                     outputURL: outputURL.appendingPathComponent("mic_audio.m4a"),
-                    audioProcessing: config.audioProcessing
+                    audioProcessing: config.audioProcessing,
+                    deviceUID: config.micDeviceID
                 )
                 try await micRecorder.startRecording()
                 session.setMicAudioSession(micRecorder)
