@@ -19,9 +19,7 @@ enum TimelineTrackKind: String, CaseIterable, Identifiable, Hashable {
     case micAudio
     case additionalAudio
     case voiceover
-    case imageOverlay
-    case overlay
-    case blur
+    case elements
     case subtitle
     case videoClip
 
@@ -45,12 +43,8 @@ enum TimelineTrackKind: String, CaseIterable, Identifiable, Hashable {
             return "Music / Audio"
         case .voiceover:
             return "Voiceover"
-        case .imageOverlay:
-            return "Images"
-        case .overlay:
-            return "Overlays"
-        case .blur:
-            return "Blur"
+        case .elements:
+            return "Elements"
         case .subtitle:
             return "Subtitles"
         case .videoClip:
@@ -72,12 +66,8 @@ enum TimelineTrackKind: String, CaseIterable, Identifiable, Hashable {
             return Color.purple.opacity(0.85)
         case .voiceover:
             return Color.mint.opacity(0.85)
-        case .imageOverlay:
-            return Color.yellow.opacity(0.85)
-        case .overlay:
+        case .elements:
             return Color.cyan.opacity(0.85)
-        case .blur:
-            return Color.purple.opacity(0.85)
         case .subtitle:
             return Color.indigo.opacity(0.85)
         case .videoClip:
@@ -92,7 +82,7 @@ struct TimelineTrack: Identifiable {
     let segments: [Project.Timeline.Segment]
     let mediaItems: [Project.MediaItem]
     let overlays: [Project.Overlay]
-    let blurRegions: [BlurRegion]
+    let elements: [TimelineElement]
     /// Clips from a new-model timeline track (imported video rows)
     let timelineClips: [Project.TimelineClip]
     /// Backing Project.TimelineTrack id for new-model rows (nil for legacy kinds)
@@ -112,7 +102,7 @@ struct TimelineTrack: Identifiable {
         segments: [Project.Timeline.Segment],
         mediaItems: [Project.MediaItem] = [],
         overlays: [Project.Overlay] = [],
-        blurRegions: [BlurRegion] = [],
+        elements: [TimelineElement] = [],
         timelineClips: [Project.TimelineClip] = [],
         engineTrackId: UUID? = nil,
         engineMuted: Bool = false,
@@ -123,7 +113,7 @@ struct TimelineTrack: Identifiable {
         self.segments = segments
         self.mediaItems = mediaItems
         self.overlays = overlays
-        self.blurRegions = blurRegions
+        self.elements = elements
         self.timelineClips = timelineClips
         self.engineTrackId = engineTrackId
         self.engineMuted = engineMuted
@@ -147,37 +137,22 @@ enum TimelineTrackBuilder {
     /// TOP so users can see/manipulate them above the primary video tracks
     /// (same pattern as Final Cut / Premiere where overlay/effect tracks
     /// sit above the base video). Order top→bottom:
-    ///   1. overlay (shapes + images, single row with visual stacking)
-    ///   2. imageOverlay legacy (mediaItems with type=.image) — kept for back-compat
-    ///   3. screen
-    ///   4. camera (if available)
-    ///   5. systemAudio (if available)
-    ///   6. micAudio (if available)
-    ///   7. additionalAudio (imported music / voiceover)
+    ///   1. elements (overlays, still images, blur regions; packed by time)
+    ///   2. subtitles, imported video
+    ///   3. screen, camera, system audio, mic audio
+    ///   4. additionalAudio (imported music / voiceover)
     static func tracks(for project: Project) -> [TimelineTrack] {
         var tracks: [TimelineTrack] = []
 
-        // Shape + image overlay track (arrows, rects, lines, text, image)
-        if !project.overlays.isEmpty {
-            tracks.append(TimelineTrack(kind: .overlay, segments: [], overlays: project.overlays))
-        }
-
-        let blurRegions = project.blurRegions
-        if !blurRegions.isEmpty {
-            tracks.append(TimelineTrack(kind: .blur, segments: [], blurRegions: blurRegions))
+        // One lane for overlays, still images and blur regions (badge per kind, packed by time).
+        let elements = TimelineElement.all(in: project)
+        if !elements.isEmpty {
+            tracks.append(TimelineTrack(kind: .elements, segments: [], elements: elements))
         }
 
         // Subtitle track (auto-generated/edited text cues), shown as its own lane.
         if !project.subtitles.isEmpty {
             tracks.append(TimelineTrack(kind: .subtitle, segments: [], overlays: project.subtitles))
-        }
-
-        // Legacy image overlay tracks (mediaItems-based, predates the unified
-        // Project.Overlay.image type — kept for back-compat with existing
-        // projects that used the old import-as-mediaItem flow).
-        let imageItems = project.mediaItems.filter { $0.type == .image }
-        if !imageItems.isEmpty {
-            tracks.append(TimelineTrack(kind: .imageOverlay, segments: [], mediaItems: imageItems))
         }
 
         // Imported-video tracks (new model): one row per .video timeline track,
