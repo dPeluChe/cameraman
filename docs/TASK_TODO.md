@@ -15,32 +15,36 @@ May 2026 (pre-publication push): ultrawide writer fix, mic overload, telemetry s
 
 ---
 
-## Release gate — next release `added: 2026-10-04`
+## Release plan — 0.7.x series `added: 2026-10-04`
 
-> Proposal from the 2026-10-04 review; edit after discussion. The last published release is **v0.6.3 (June)**: four months of work are untagged. Principle: ship what works and is verified, close the cheap gaps against competitors (see `RESEARCH/COMPETITOR_SMOOTH_RECORDER.md`), and do not chase a different product (screenshots, 3D angles).
-> Sizes are relative guesses (S/M/L), not estimates.
+> Decided 2026-10-04. Base is **0.7.1**; we ship short increments (0.7.2, 0.7.3, ...) and move to **0.8** only when things are stable and complete. Mobile is on hold; the focus is the desktop app. The last published release is **v0.6.3 (June)**.
+>
+> **Build, sign, notarize and tag happen once, at the end of a batch, after validating everything together**, not per PR or per version. Until then we merge to `main` and test locally. Principle: ship what works and is verified, close the cheap gaps against competitors (see `RESEARCH/COMPETITOR_SMOOTH_RECORDER.md`), do not chase a different product (screenshots, 3D angles). Sizes are relative guesses (S/M/L), not estimates. PRs get the multi-agent simplify pass only when the code change is heavy.
 
-### Blockers (all must be true to tag)
+### 0.7.1 — what already exists, made reliable
 
-- [ ] **Version alignment** — `MARKETING_VERSION` is `0.7.0` in the Xcode project, `App/Info.plist` and the changelog say `0.8.0` (and `GENERATE_INFOPLIST_FILE = YES` means the plist is unused), so a built app reports the wrong version. Pick the release number, set it everywhere, bump the build number. (S)
-- [ ] **CHANGELOG `[Unreleased]` is empty** — add: in-app MCP server, agent-edit freeze, tool consolidation (**breaking tool names**, 43→37), real global hotkeys, crash-handler fix, atomic project writes. (S)
-- [ ] **Manual validation of what no test covers** — global hotkeys actually fire with the app in the background (PR #53 only has unit tests); the agent-freeze notice shows and releases in the editor (#57); Claude Code connects over the in-app HTTP server (#55). (S)
-- [ ] **Signed, notarized DMG** — see "Developer ID + notarization" under Distribution. Includes the helper signing and a Gatekeeper check on a clean user. (M)
-- [ ] **Privacy policy at a public URL** — text exists (`docs/PRIVACY_POLICY.md`), hosting does not. (S)
-- [ ] **Long recording sanity** — one 30-60 minute recording and export; nothing has been run past an hour (see Performance). (S, mostly waiting)
-- [ ] **Minimal landing** — download link, privacy URL, true version and price (repo `cameraman-landing`, unversioned WIP there). (M)
-- [ ] **Decide price and license** — open source plus a signed build, price open (the competitor is $9 one-time). Not code, but it blocks the landing copy.
+- [ ] **Version alignment** — `MARKETING_VERSION` is `0.7.0` in the Xcode project, `App/Info.plist` and the README say `0.8.0` (and `GENERATE_INFOPLIST_FILE = YES` means the plist is unused), `docs/README.md` and `APP_STORE_METADATA.md` say `0.7.0`. No `0.8.0` tag or release exists, so the unpublished `[0.8.0]` changelog section folds into 0.7.1. (S)
+- [ ] **CHANGELOG** — `[Unreleased]` is empty. Add as we go: in-app MCP server, agent-edit freeze, tool consolidation (**breaking tool names**, 43→37), real global hotkeys, crash-handler fix, atomic project writes. (S)
+- [ ] **Surface capture errors** — `SCStream` is created with `delegate: nil` and `StreamDelegate` is never passed in, so if the display disconnects, permission is revoked or the system stops the stream the app keeps showing "recording" and writes a truncated or empty file. Deliver `didStopWithError` through `recordingFailed`. (M)
+- [ ] **Flush edits on quit** — autosave is a 1 s debounce held by `[weak self]`; quitting or closing inside that second loses the edit, and `applicationWillTerminate` does not flush. (S)
+- [ ] **Helper signing** — sign `cameraman-mcp` with `--timestamp` and build it universal (arm64 only today); needed before notarization. (S)
+- [ ] **Manual validation** (nothing here has run on screen): global hotkeys fire with the app in the background (PR #53 has unit tests only); the agent-freeze notice shows and releases (#57); Claude Code connects over the in-app HTTP server (#55); one 30-60 minute recording and export (nothing has run past an hour). (S, waiting)
+- [ ] **At the end of the batch**: `make release`, signed with the installed Developer ID certificate, notarize, staple, open on a clean user. The notary profile `cameraman-notary` is **not** in this machine's keychain yet (`xcrun notarytool store-credentials cameraman-notary`).
+- [ ] **Public pieces** — privacy policy at a public URL (text in `docs/PRIVACY_POLICY.md`; GitHub Pages is not enabled and the landing is undecided), a minimal landing with the download link, and a decision on price and license (open source plus a signed build, amount open; the competitor is $9 one-time).
 
-### In scope for this release — small, verifiable, close a competitor gap
+### 0.7.2 — cheap gaps against competitors
 
 - [ ] **Keystroke overlay** (S-M) — confirmed not implemented; `keys.jsonl` is already captured. See Feature Exploration.
-- [ ] **Reframe presets 1:1 and 4:5** (S) — today there is 9:16. Keep the MCP preset list in sync (a test guards catalog/dispatcher, not presets).
-- [ ] **Manual region blur** (M) — add `x, y, w, h` parameters to the existing `gaussianBlur` adjustment (time-ranged, whole-layer today) and an inspector control. Detection comes later.
+- [ ] **Reframe presets 1:1 and 4:5** (S) — today there is 9:16. Keep the MCP preset list in sync.
 - [ ] **Self-timer** (S).
 
-### Next release — the headline feature
+### 0.7.3 — manual region blur
 
-- [ ] **Cut by transcript** (L) — prerequisite found on 2026-10-04: the transcript stores **segments only, no word-level timestamps**. Order of work: enable word timestamps in `WhisperKitTranscriber` and persist them; map a word range to `delete_range`; UI to delete words; filler-word and long-pause detection as a reviewable list (not blind deletion); an MCP tool so an agent can remove fillers.
+- [ ] **Region blur** (M) — add `x, y, w, h` parameters to the existing `gaussianBlur` adjustment (time-ranged and whole-layer today) and an inspector control. Detection comes later.
+
+### 0.7.4 and after — the headline feature
+
+- [ ] **Cut by transcript** (L) — the transcript stores **segments only, no word-level timestamps**. Order: enable word timestamps in `WhisperKitTranscriber` and persist them; map a word range to `delete_range`; UI to delete words; filler-word and long-pause detection as a reviewable list, not blind deletion; an MCP tool so an agent can remove fillers.
 - [ ] **Smart Redact detection** (M, after region blur) — Vision text boxes plus regex (emails, keys, cards) that emit blur adjustments.
 
 ### Not now
@@ -49,7 +53,7 @@ Screenshots, scrolling capture, OCR copy-text, 3D zoom angles, AI-generated asse
 
 ### Decision needed
 
-- **Direct Visual Editing (Priority 0, below)** is flagged as the primary UX direction, but only its baseline shipped (overlay select/move/scale/rotate/snap). The rest (unified layer, PiP, subtitle and blur regions, test matrix) is large. Proposal: leave it out of this release and keep it as the next-after-next theme, unless you want it to gate the release.
+- **Direct Visual Editing (Priority 0, below)** is flagged as the primary UX direction, but only its baseline shipped (overlay select/move/scale/rotate/snap). The rest is large. Proposal: keep it out of the 0.7.x series and treat it as the theme for 0.8.
 
 ---
 
