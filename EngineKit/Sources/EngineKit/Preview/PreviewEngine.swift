@@ -327,11 +327,10 @@ public actor PreviewEngine {
         self.videoCompositionConfig = videoComposition
         await MainActor.run {
             currentItem.videoComposition = videoComposition
-            // Force a frame re-render when paused — AVFoundation won't call the compositor
-            // for the current frame unless we seek after replacing the video composition.
-            if player.timeControlStatus != .playing {
-                player.seek(to: player.currentTime(), toleranceBefore: .zero, toleranceAfter: .zero)
-            }
+            // AVFoundation keeps using the instructions it already queued until we seek, paused or
+            // playing: without this a shape/layout edit made during playback only showed after pausing.
+            // A seek on a playing player keeps it playing.
+            player.seek(to: player.currentTime(), toleranceBefore: .zero, toleranceAfter: .zero)
         }
 
         // Also rebuild audio mix to pick up per-segment volume changes
