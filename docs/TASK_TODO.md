@@ -57,6 +57,10 @@ Screenshots, scrolling capture, OCR copy-text, 3D zoom angles, AI-generated asse
 
 ---
 
+## Timeline review findings `added: 2026-10-05`
+
+> Two read-through reviews (engine and UI) found 37 issues; the full ranked list with how each was verified is `RESEARCH/TIMELINE_REVIEW_2026-10.md` (IDs E1-E17, U1-U20). The timeline is a core strength, so these come before new features. Order: (1) engine data loss and wrong output: E1 segments setter drops effects, E2 split-at-playhead drops effects, E6/U4 undo and several edits never autosave, E5 ripple does not move overlays/subtitles/chapters/zoom keyframes, E4 speed change does not ripple, E10 volume above 1 blocks later trims; (2) preview correctness: U1 preview plays the old cut after a trim, U2 playhead jumps to 0 after an edit, U3 reload wipes undo; (3) selection and keyboard: U6, U7, U8, U5; (4) composition: E3 primary track ignores clip start times, E7, E8, E9, E12, E13; (5) performance and polish: U10, U11, U12, U9.
+
 ## Bugs & Stability
 
 > Real defects to clear before / during pre-release. None block App Store submission today, but each adds friction.
