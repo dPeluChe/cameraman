@@ -21,6 +21,7 @@ enum EditorTool: String, CaseIterable, Identifiable {
     case cursor
     case mediaItems
     case overlays
+    case blurRegions
     case subtitles
     case captionsAI
     case export
@@ -39,6 +40,7 @@ enum EditorTool: String, CaseIterable, Identifiable {
         case .cursor: return "Cursor"
         case .mediaItems: return "Media"
         case .overlays: return "Overlays"
+        case .blurRegions: return "Blur"
         case .subtitles: return "Subtitles"
         case .captionsAI: return "Captions & AI"
         case .export: return "Export"
@@ -57,6 +59,7 @@ enum EditorTool: String, CaseIterable, Identifiable {
         case .cursor: return "cursorarrow.motionlines"
         case .mediaItems: return "photo.on.rectangle.angled"
         case .overlays: return "pencil.and.outline"
+        case .blurRegions: return "eye.slash"
         case .subtitles: return "captions.bubble"
         case .captionsAI: return "sparkles"
         case .export: return "square.and.arrow.up"

@@ -112,7 +112,11 @@ struct RightPanel: View {
         if !editor.project.mediaItems.isEmpty {
             tools.append(.mediaItems)
         }
-        tools += [.overlays, .subtitles, .captionsAI, .export]
+        tools.append(.overlays)
+        if playerViewModel != nil {
+            tools.append(.blurRegions)
+        }
+        tools += [.subtitles, .captionsAI, .export]
         return tools
     }
 
@@ -157,6 +161,11 @@ struct RightPanel: View {
             return EditorToolStatus(count: count, isActive: count > 0)
         case .overlays:
             let count = project.overlays.count
+            return EditorToolStatus(count: count, isActive: count > 0)
+        case .blurRegions:
+            let count = project.timeline.tracks.flatMap(\.clips)
+                .flatMap { $0.adjustments ?? [] }
+                .filter { $0.kind == .gaussianBlur && BlurRegionsView.hasRegion($0.parameters) }.count
             return EditorToolStatus(count: count, isActive: count > 0)
         case .subtitles:
             let count = project.subtitles.count
@@ -232,6 +241,10 @@ struct RightPanel: View {
                 editor: editor,
                 selectedMediaItemId: selectedMediaItemId
             )
+        case .blurRegions:
+            if let pvm = playerViewModel {
+                BlurRegionsView(editor: editor, playerViewModel: pvm)
+            }
         case .overlays:
             OverlayEditorView(
                 editor: editor,
