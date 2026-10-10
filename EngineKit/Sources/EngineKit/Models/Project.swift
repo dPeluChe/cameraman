@@ -45,6 +45,9 @@ public struct Project: Codable, Equatable {
     public var mediaItems: [MediaItem]
     /// Synthetic cursor rendering settings (nil = disabled, legacy default).
     public var syntheticCursor: SyntheticCursorConfig?
+    /// Background removal/blur for the camera layer (`.off` = untouched). Applied at render time, never
+    /// to the source file, so turning it off restores the original footage.
+    public var cameraBackground: CameraBackground
     /// Manual zoom keyframes created by the user. Merged with auto-zoom
     /// keyframes at render time. Timestamps are in timeline time.
     public var manualZoomKeyframes: [ZoomPlanGenerator.ZoomKeyframe]?
@@ -63,7 +66,7 @@ public struct Project: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case schemaVersion, projectId, name, tags, createdAt, updatedAt
         case sources, takes, timeline, canvas, overlays, subtitles, subtitleStyle, captions, chapters, mediaItems
-        case syntheticCursor, manualZoomKeyframes
+        case syntheticCursor, manualZoomKeyframes, cameraBackground
     }
 
     public init(from decoder: Decoder) throws {
@@ -86,6 +89,7 @@ public struct Project: Codable, Equatable {
         mediaItems = try container.decodeIfPresent([MediaItem].self, forKey: .mediaItems) ?? []
         syntheticCursor = try container.decodeIfPresent(SyntheticCursorConfig.self, forKey: .syntheticCursor)
         manualZoomKeyframes = try container.decodeIfPresent([ZoomPlanGenerator.ZoomKeyframe].self, forKey: .manualZoomKeyframes)
+        cameraBackground = try container.decodeIfPresent(CameraBackground.self, forKey: .cameraBackground) ?? CameraBackground()
     }
 
     public init(
@@ -106,7 +110,8 @@ public struct Project: Codable, Equatable {
         updatedAt: Date = Date(),
         mediaItems: [MediaItem] = [],
         syntheticCursor: SyntheticCursorConfig? = nil,
-        manualZoomKeyframes: [ZoomPlanGenerator.ZoomKeyframe]? = nil
+        manualZoomKeyframes: [ZoomPlanGenerator.ZoomKeyframe]? = nil,
+        cameraBackground: CameraBackground = CameraBackground()
     ) {
         self.projectId = projectId
         self.name = name
@@ -126,6 +131,7 @@ public struct Project: Codable, Equatable {
         self.mediaItems = mediaItems
         self.syntheticCursor = syntheticCursor
         self.manualZoomKeyframes = manualZoomKeyframes
+        self.cameraBackground = cameraBackground
     }
 
     /// Copy of this project under a different id — used by duplicate and
@@ -153,7 +159,8 @@ public struct Project: Codable, Equatable {
             updatedAt: Date(),
             mediaItems: mediaItems,
             syntheticCursor: syntheticCursor,
-            manualZoomKeyframes: manualZoomKeyframes
+            manualZoomKeyframes: manualZoomKeyframes,
+            cameraBackground: cameraBackground
         )
     }
 }

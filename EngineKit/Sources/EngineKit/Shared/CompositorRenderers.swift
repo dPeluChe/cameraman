@@ -69,6 +69,34 @@ extension MaskedVideoCompositor {
         return mask
     }
 
+    // MARK: - Camera background
+
+    /// Keeps the person (white in `matte`) and replaces everything else per the mode.
+    func applyBackground(_ background: Project.CameraBackground, to image: CIImage, matte: CIImage) -> CIImage {
+        let replacement: CIImage
+        switch background.mode {
+        case .off:
+            return image
+        case .remove:
+            replacement = CIImage(color: .clear).cropped(to: image.extent)
+        case .color:
+            replacement = CIImage(color: CIColor(cgColor: cgColor(from: background.colorHex))).cropped(to: image.extent)
+        case .blur:
+            // Blur a quarter-size copy: the result is meant to be soft, and the cost falls with the pixel count.
+            let scale = 0.25
+            let small = image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+            replacement = small.clampedToExtent()
+                .applyingGaussianBlur(sigma: background.blurRadius * scale)
+                .cropped(to: small.extent)
+                .transformed(by: CGAffineTransform(scaleX: 1 / scale, y: 1 / scale))
+                .cropped(to: image.extent)
+        }
+        return image.applyingFilter("CIBlendWithMask", parameters: [
+            kCIInputBackgroundImageKey: replacement,
+            kCIInputMaskImageKey: matte
+        ])
+    }
+
     // MARK: - Mask Application
 
     func applyMask(
