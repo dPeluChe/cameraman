@@ -104,6 +104,59 @@ struct PiPConfigurationView: View {
         }
     }
 
+    /// Emoji rather than SF Symbols: the symbols for these only exist on newer macOS than we support.
+    private static let accessoryLabels: [Project.CameraAccessories.Kind: (title: String, icon: String)] = [
+        .glasses: ("Glasses", "👓"),
+        .sunglasses: ("Shades", "🕶"),
+        .partyHat: ("Party hat", "🎉"),
+        .crown: ("Crown", "👑")
+    ]
+
+    /// Props that follow the face (Vision landmarks). Render-time only, like the background.
+    @ViewBuilder
+    private var cameraAccessoriesSection: some View {
+        let current = editor.project.cameraAccessories
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Accessories")
+                .font(.subheadline)
+
+            LazyVGrid(columns: shapeColumns, alignment: .leading, spacing: 6) {
+                ForEach(Project.CameraAccessories.Kind.allCases, id: \.self) { kind in
+                    let on = current.kinds.contains(kind)
+                    let label = Self.accessoryLabels[kind] ?? (kind.rawValue, "🙂")
+                    Button {
+                        var updated = current
+                        updated.toggle(kind)
+                        Task { _ = await editor.setCameraAccessories(updated) }
+                    } label: {
+                        VStack(spacing: 2) {
+                            Text(label.icon).font(.system(size: 14))
+                            Text(label.title).font(.system(size: 8)).lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 32)
+                        .background(RoundedRectangle(cornerRadius: 5).fill(on ? Color.accentColor.opacity(0.2) : Color.primary.opacity(0.05)))
+                        .overlay(RoundedRectangle(cornerRadius: 5).stroke(on ? Color.accentColor : Color.primary.opacity(0.1), lineWidth: on ? 1.5 : 0.5))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if current.isActive {
+                HStack(spacing: 8) {
+                    Text("Size").font(.caption2).foregroundStyle(.secondary)
+                    AdjustmentSlider(value: current.scale, range: Project.CameraAccessories.scaleRange) { value in
+                        var updated = current
+                        updated.scale = value
+                        Task { _ = await editor.setCameraAccessories(updated) }
+                    }
+                }
+                Text("Follows your face. Nothing is drawn when no face is found.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
     var body: some View {
         if let camera = activeCamera {
             let format = editor.project.canvas.format
@@ -182,6 +235,8 @@ struct PiPConfigurationView: View {
                 }
 
                 cameraBackgroundSection
+
+                cameraAccessoriesSection
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Corner Radius")

@@ -213,6 +213,7 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
 
     let videoOverlays: [VideoOverlaySource]
     let cameraBackground: CameraBackgroundRender
+    let cameraAccessories: Project.CameraAccessories
 
     init(
         timeRange: CMTimeRange,
@@ -240,7 +241,8 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         videoOverlays: [VideoOverlaySource] = [],
         cursorPlan: CursorPlan? = nil,
         cursorConfig: Project.SyntheticCursorConfig? = nil,
-        cameraBackground: CameraBackgroundRender = .off
+        cameraBackground: CameraBackgroundRender = .off,
+        cameraAccessories: Project.CameraAccessories = Project.CameraAccessories()
     ) {
         self.timeRange = timeRange
         self.screenTrackID = screenTrackID
@@ -268,6 +270,7 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         self.cursorPlan = cursorPlan
         self.cursorConfig = cursorConfig
         self.cameraBackground = cameraBackground
+        self.cameraAccessories = cameraAccessories
         super.init()
 
         // An invalid screenTrackID means "no recording on the primary track"
@@ -310,6 +313,7 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
     let ciContext = CIContext(options: [.useSoftwareRenderer: false])
     let cacheLock = NSLock()
     let personSegmenter = PersonSegmenter()
+    let faceTracker = FaceTracker()
     /// Path masks are identical frame to frame; rendering one is a full-canvas bitmap fill and upload.
     var maskCache: [(path: CGPath, size: CGSize, mask: CIImage)] = []
 
@@ -483,12 +487,18 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
         var result = finalImage
         var rawCamera = CIImage(cvPixelBuffer: cameraBuffer)
         let background = instruction.cameraBackground
-        if background.settings.isActive {
+        let accessories = instruction.cameraAccessories
+        if background.settings.isActive || accessories.isActive {
             // Fallback key (software buffers only): the canvas can run faster than the camera, so bucket by 30 fps.
             let fallback = Int((request.compositionTime.seconds * 30).rounded(.down))
-            let frameKey = PersonSegmenter.frameKey(for: cameraBuffer, fallback: fallback)
-            if let matte = personSegmenter.mask(for: cameraBuffer, frameKey: frameKey, quality: background.quality) {
+            let frameKey = CameraFrame.key(for: cameraBuffer, fallback: fallback)
+            if background.settings.isActive,
+               let matte = personSegmenter.mask(for: cameraBuffer, frameKey: frameKey, quality: background.quality) {
                 rawCamera = applyBackground(background.settings, to: rawCamera, matte: matte)
+            }
+            // After the background, so a hat over a removed background stays visible.
+            if accessories.isActive, let anchors = faceTracker.anchors(for: cameraBuffer, frameKey: frameKey) {
+                rawCamera = AccessoryRenderer.apply(accessories, anchors: anchors, to: rawCamera)
             }
         }
 

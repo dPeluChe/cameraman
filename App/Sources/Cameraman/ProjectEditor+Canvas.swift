@@ -42,6 +42,12 @@ extension ProjectEditor {
         await applyCanvasUpdate { $0.cameraBackground = background }
     }
 
+    /// Glasses, hats and similar props anchored to the face in the camera layer.
+    @discardableResult
+    func setCameraAccessories(_ accessories: Project.CameraAccessories) async -> Bool {
+        await applyCanvasUpdate { $0.cameraAccessories = accessories }
+    }
+
     @discardableResult
     func setBackgroundType(_ type: CanvasLayout.BackgroundType) async -> Bool {
         let currentFitMode = CanvasLayout.ImageFitMode(
