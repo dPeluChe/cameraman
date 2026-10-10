@@ -90,7 +90,7 @@ Screenshots, scrolling capture, OCR copy-text, 3D zoom angles, AI-generated asse
 
 ## Camera accessories follow-ups `added: 2026-10-10`
 
-- [ ] Accessories as data records (`imagePath`, anchor eyes/headTop/mouth, art anchor/width, optional time range) with the four built-ins as presets, so users and agents can add props. The raw values (`glasses`, `sunglasses`, `partyHat`, `crown`) are persisted in project JSON, keep them as preset ids.
+- [x] Custom images (SVG/PNG/JPG) as accessories with face or frame anchors (`CustomAccessory`, 2026-10-10). Still open: optional time range per accessory, offsets in the UI, built-ins as data presets (keep raw values `glasses`, `sunglasses`, `partyHat`, `crown` as preset ids), MCP exposure.
 - [ ] One shared per-frame analysis (matte + landmarks in one Vision pass, later an analysis timeline cached per source) with smoothing: landmarks jitter a few pixels and a frame with no face makes the prop pop off. Random-access scrubbing needs smoothing computed offline, not per frame state.
 - [ ] `CameraEffects` model (background + accessories) in the persisted schema, and one MCP tool for it; today only the render side is unified (`CameraLayerRender`).
 - [ ] Move the camera effect sections out of the PiP-only panel so they are reachable in every layout; extract the shared chip style used by Shape and Accessories.

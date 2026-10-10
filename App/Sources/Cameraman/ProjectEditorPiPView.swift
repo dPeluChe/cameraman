@@ -143,7 +143,7 @@ struct PiPConfigurationView: View {
                 }
             }
 
-            if current.isActive {
+            if !current.kinds.isEmpty {
                 HStack(spacing: 8) {
                     Text("Size").font(.caption2).foregroundStyle(.secondary)
                     AdjustmentSlider(value: current.scale, range: Project.CameraAccessories.scaleRange) {
@@ -153,6 +153,85 @@ struct PiPConfigurationView: View {
                 Text("Follows your face. Nothing is drawn when no face is found.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+            }
+
+            Divider().opacity(0.3)
+            HStack {
+                Text("Your images").font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                Button("Add logo or image…") { addCustomAccessory() }
+                    .controlSize(.small)
+            }
+            ForEach(current.custom) { item in
+                customAccessoryRow(item)
+            }
+        }
+    }
+
+    private func customAccessoryRow(_ item: Project.CustomAccessory) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Text(item.name).font(.caption).lineLimit(1).truncationMode(.middle)
+                Spacer()
+                Picker("", selection: customBinding(item.id, \.anchor)) {
+                    ForEach(Project.CustomAccessory.Anchor.allCases, id: \.self) { anchor in
+                        Text(anchor.title).tag(anchor)
+                    }
+                }
+                .labelsHidden()
+                .frame(width: 120)
+                Button {
+                    var updated = editor.project.cameraAccessories
+                    updated.custom.removeAll { $0.id == item.id }
+                    accessoriesBinding(\.self).wrappedValue = updated
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help("Remove")
+            }
+            HStack(spacing: 8) {
+                Text("Size").font(.caption2).foregroundStyle(.secondary)
+                AdjustmentSlider(value: item.size, range: Project.CustomAccessory.sizeRange) {
+                    customBinding(item.id, \.size).wrappedValue = $0
+                }
+            }
+        }
+    }
+
+    /// Binding to one field of one custom image, committed through the editor.
+    private func customBinding<V>(_ id: UUID, _ keyPath: WritableKeyPath<Project.CustomAccessory, V>) -> Binding<V> {
+        Binding(
+            get: { editor.project.cameraAccessories.custom.first { $0.id == id }?[keyPath: keyPath] ?? Project.CustomAccessory(name: "", assetPath: "")[keyPath: keyPath] },
+            set: { value in
+                var updated = editor.project.cameraAccessories
+                guard let index = updated.custom.firstIndex(where: { $0.id == id }) else { return }
+                updated.custom[index][keyPath: keyPath] = value
+                // A new anchor brings that kind of anchor's natural size (a face sticker is bigger than a corner logo).
+                if keyPath == \Project.CustomAccessory.anchor, let anchor = value as? Project.CustomAccessory.Anchor {
+                    updated.custom[index].size = Project.CustomAccessory.defaultSize(for: anchor)
+                }
+                Task { _ = await editor.setCameraAccessories(updated) }
+            }
+        )
+    }
+
+    /// Pick an SVG/PNG/JPG, copy it into the project's assets (so the project keeps working without the
+    /// original file) and pin it to the bottom center.
+    private func addCustomAccessory() {
+        OverlayFactory.presentImagePicker(message: "Select a logo or image (SVG, PNG, JPG) for the camera") { path in
+            let source = URL(fileURLWithPath: path)
+            Task {
+                do {
+                    let directory = try await ProjectLibrary.shared.getProjectDirectory(projectId: editor.project.projectId)
+                    let relative = try ProjectLibrary.stageAsset(from: source, intoProjectDirectory: directory)
+                    var updated = editor.project.cameraAccessories
+                    updated.custom.append(Project.CustomAccessory(name: source.deletingPathExtension().lastPathComponent, assetPath: relative))
+                    _ = await editor.setCameraAccessories(updated)
+                } catch {
+                    LogWarning(.editor, "[ACCESSORIES] could not add image: \(error.localizedDescription)")
+                }
             }
         }
     }
@@ -602,6 +681,22 @@ private extension Project.CameraAccessories.Kind {
         case .sunglasses: return "🕶"
         case .partyHat: return "🎉"
         case .crown: return "👑"
+        }
+    }
+}
+
+private extension Project.CustomAccessory.Anchor {
+    var title: String {
+        switch self {
+        case .headTop: return "Above head"
+        case .eyes: return "On eyes"
+        case .topLeft: return "Top left"
+        case .topCenter: return "Top center"
+        case .topRight: return "Top right"
+        case .center: return "Center"
+        case .bottomLeft: return "Bottom left"
+        case .bottomCenter: return "Bottom center"
+        case .bottomRight: return "Bottom right"
         }
     }
 }

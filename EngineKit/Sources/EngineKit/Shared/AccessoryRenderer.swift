@@ -8,17 +8,114 @@
 //
 
 import Foundation
+import AppKit
 import CoreImage
 import CoreGraphics
 
 enum AccessoryRenderer {
-    /// Returns `image` with the accessories drawn over it, cropped to the original frame.
-    static func apply(_ accessories: Project.CameraAccessories, anchors: FaceAnchors, to image: CIImage) -> CIImage {
+    /// Returns `image` with the accessories drawn over it, cropped to the original frame. `anchors` is
+    /// nil when no face was found: face-anchored pieces are skipped, frame-pinned ones still draw.
+    /// `images` maps each custom accessory to its file on disk.
+    static func apply(_ accessories: Project.CameraAccessories, anchors: FaceAnchors?, images: [UUID: URL] = [:], to image: CIImage) -> CIImage {
         var result = image
-        for kind in accessories.kinds {
-            result = placed(kind, anchors: anchors, scale: accessories.scale).composited(over: result)
+        if let anchors {
+            for kind in accessories.kinds {
+                result = placed(kind, anchors: anchors, scale: accessories.scale).composited(over: result)
+            }
+        }
+        for item in accessories.custom {
+            guard let url = images[item.id], let drawn = custom(item, imageURL: url, anchors: anchors, frame: image.extent) else { continue }
+            result = drawn.composited(over: result)
         }
         return result.cropped(to: image.extent)
+    }
+
+    // MARK: - Custom images
+
+    /// Where an image sits: the point on the frame it is pinned to and which point of the image goes there
+    /// (0...1 in each axis, origin bottom-left).
+    private static func custom(_ item: Project.CustomAccessory, imageURL: URL, anchors: FaceAnchors?, frame: CGRect) -> CIImage? {
+        let width: CGFloat
+        var point: CGPoint
+        let pivot: CGPoint
+        var rotation: CGFloat = 0
+        switch item.anchor {
+        case .headTop, .eyes:
+            guard let anchors else { return nil }
+            width = anchors.faceBox.width * CGFloat(item.size)
+            rotation = anchors.roll
+            if item.anchor == .eyes {
+                point = anchors.eyeMidpoint
+                pivot = CGPoint(x: 0.5, y: 0.5)
+            } else {
+                let up = CGPoint(x: -sin(anchors.roll), y: cos(anchors.roll))
+                let toTop = max(0, anchors.faceBox.maxY - anchors.eyeMidpoint.y)
+                point = CGPoint(x: anchors.eyeMidpoint.x + up.x * toTop * 0.95, y: anchors.eyeMidpoint.y + up.y * toTop * 0.95)
+                pivot = CGPoint(x: 0.5, y: 0)
+            }
+        default:
+            width = frame.width * CGFloat(item.size)
+            let margin = 0.03 * min(frame.width, frame.height)
+            let (px, py): (CGFloat, CGFloat)
+            switch item.anchor {
+            case .topLeft: (px, py) = (0, 1)
+            case .topCenter: (px, py) = (0.5, 1)
+            case .topRight: (px, py) = (1, 1)
+            case .center: (px, py) = (0.5, 0.5)
+            case .bottomLeft: (px, py) = (0, 0)
+            case .bottomCenter: (px, py) = (0.5, 0)
+            default: (px, py) = (1, 0)
+            }
+            pivot = CGPoint(x: px, y: py)
+            // Inset from the edge the piece hangs on (+ at 0, - at 1, none when centered).
+            point = CGPoint(x: frame.minX + frame.width * px + margin * (1 - 2 * px),
+                            y: frame.minY + frame.height * py + margin * (1 - 2 * py))
+        }
+        point.x += CGFloat(item.offsetX) * frame.width
+        point.y += CGFloat(item.offsetY) * frame.height
+
+        guard width > 1, let art = rasterized(imageURL, width: width) else { return nil }
+        let scale = width / art.extent.width
+        var transform = CGAffineTransform(translationX: -pivot.x * art.extent.width, y: -pivot.y * art.extent.height)
+            .concatenating(CGAffineTransform(scaleX: scale, y: scale))
+        transform = transform.concatenating(CGAffineTransform(rotationAngle: rotation))
+            .concatenating(CGAffineTransform(translationX: point.x, y: point.y))
+        var drawn = art.transformed(by: transform)
+        if item.opacity < 0.999 {
+            drawn = drawn.applyingFilter("CIColorMatrix", parameters: ["inputAVector": CIVector(x: 0, y: 0, z: 0, w: CGFloat(max(0, item.opacity)))])
+        }
+        return drawn
+    }
+
+    private static let rasterLock = NSLock()
+    nonisolated(unsafe) private static var rasterCache: [(key: String, image: CIImage)] = []
+    private static let rasterCacheLimit = 12
+
+    /// The file drawn at about `width` pixels (bucketed, so a size slider does not rasterize per pixel).
+    /// SVGs are drawn into the bitmap at that size, so they stay sharp.
+    private static func rasterized(_ url: URL, width: CGFloat) -> CIImage? {
+        let bucket = min(2048, max(64, Int((width / 64).rounded(.up)) * 64))
+        let key = "\(url.path)|\(bucket)"
+        rasterLock.lock()
+        defer { rasterLock.unlock() }
+        if let hit = rasterCache.first(where: { $0.key == key }) { return hit.image }
+
+        guard let source = NSImage(contentsOf: url), source.size.width > 0, source.size.height > 0 else { return nil }
+        let height = max(1, Int((CGFloat(bucket) * source.size.height / source.size.width).rounded()))
+        guard let rep = NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: bucket, pixelsHigh: height, bitsPerSample: 8, samplesPerPixel: 4,
+            hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 32
+        ), let context = NSGraphicsContext(bitmapImageRep: rep) else { return nil }
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = context
+        source.draw(in: CGRect(x: 0, y: 0, width: bucket, height: height), from: .zero, operation: .sourceOver, fraction: 1)
+        NSGraphicsContext.restoreGraphicsState()
+        guard let cg = rep.cgImage else { return nil }
+
+        let image = CIImage(cgImage: cg)
+        if rasterCache.count >= rasterCacheLimit { rasterCache.removeFirst() }
+        rasterCache.append((key, image))
+        return image
     }
 
     // MARK: - Placement

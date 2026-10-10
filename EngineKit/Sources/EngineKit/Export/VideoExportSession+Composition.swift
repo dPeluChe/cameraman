@@ -14,7 +14,7 @@ import CoreGraphics
 extension ExportEngine {
     /// Stage 4: Produce the AVMutableVideoComposition used by the export session.
     func buildExportVideoComposition(
-        project: Project,
+        project originalProject: Project,
         preset: ExportPreset,
         options: ExportOptions,
         compositionResult: CompositionBuilder.Result,
@@ -22,6 +22,8 @@ extension ExportEngine {
         projectDirectory: URL
     ) async throws -> AVMutableVideoComposition {
         logger.debug("Setting up video composition with preset: \(preset.name)")
+        // The helpers below read the project directly; give custom accessories absolute paths once, here.
+        let project = originalProject.resolvingAccessoryPaths(in: projectDirectory)
 
         let composition = compositionResult.composition
         let videoTrack = compositionResult.videoTrack
@@ -122,7 +124,7 @@ extension ExportEngine {
         let cursorPlan = options.cursorPlan
         let cursorEnabled = project.syntheticCursor?.enabled == true && cursorPlan != nil
 
-        if maskShape != .none || !videoOverlays.isEmpty || project.hasVisualAdjustments || cursorEnabled {
+        if maskShape != .none || !videoOverlays.isEmpty || project.hasVisualAdjustments || project.hasCameraEffects || cursorEnabled {
             let maskedInstruction = MaskedVideoCompositionInstruction(
                 timeRange: CMTimeRangeMake(start: .zero, duration: composition.duration),
                 screenTrackID: videoTrack.trackID,
@@ -172,7 +174,7 @@ extension ExportEngine {
         let cursorPlan = options.cursorPlan
         let cursorEnabled = project.syntheticCursor?.enabled == true && cursorPlan != nil
         let forceCompositor = !videoOverlays.isEmpty || project.hasMixedScreenResolutions
-            || project.hasVisualAdjustments || cursorEnabled
+            || project.hasVisualAdjustments || project.hasCameraEffects || cursorEnabled
         // Empty primary track (no recording): never reference it as a source.
         let screenTrackID = videoTrack.segments.isEmpty ? kCMPersistentTrackID_Invalid : videoTrack.trackID
         let instruction = AVMutableVideoCompositionInstruction()
@@ -221,7 +223,7 @@ extension ExportEngine {
 
             let hasPerSegmentCamera = project.timeline.segments.contains { $0.cameraPosition != nil }
 
-            if hasPerSegmentCamera || defaultCamera.maskShape != .none {
+            if hasPerSegmentCamera || defaultCamera.maskShape != .none || project.hasCameraEffects {
                 let maskedInstructions = buildExportPerSegmentInstructions(
                     project: project,
                     composition: composition,
