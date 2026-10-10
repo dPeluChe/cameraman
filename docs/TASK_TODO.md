@@ -96,6 +96,14 @@ Screenshots, scrolling capture, OCR copy-text, 3D zoom angles, AI-generated asse
 - [ ] Move the camera effect sections out of the PiP-only panel so they are reachable in every layout; extract the shared chip style used by Shape and Accessories.
 - [ ] Measured and rejected: landmarks on a 640 px copy cost the same as full 1080p (15.2 ms vs 15.2 ms), so downscaling does not help. Remaining levers are every-2nd-frame sampling or a sequence handler.
 
+## Custom accessories follow-ups (PR #92 simplify) `added: 2026-10-10`
+
+- [ ] Decide before more accessory features land: frame-pinned logos as an image `Overlay` anchored to the camera rect (time ranges, fades, selection, Elements lane, MCP overlay tools for free) vs the camera-layer `CustomAccessory`. Face-following stickers stay camera-layer either way.
+- [ ] Resolve accessory asset paths in one place (export rewrites a Project copy, preview passes the directory); `CameraLayerRender.export` has a silently empty directory default.
+- [ ] One `needsCompositor` predicate shared by the preview and export builders instead of `hasCameraEffects` patched into five lists (and a test that both agree).
+- [ ] Mark the row in the UI when an accessory file is missing (today: one log line); share the bitmap draw with `OverlayImageRenderer.staticCGImage`.
+- [ ] Merge: second project's assets are copied by name and can collide with the first's; accessory names stay unique only within one project.
+
 ## Bugs & Stability
 
 > Real defects to clear before / during pre-release. None block App Store submission today, but each adds friction.

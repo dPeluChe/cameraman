@@ -17,7 +17,22 @@ extension Project {
             // Pinned to the camera frame, no face needed.
             case topLeft, topCenter, topRight, center, bottomLeft, bottomCenter, bottomRight
 
-            public var followsFace: Bool { self == .headTop || self == .eyes }
+            /// Where on the camera frame the image is pinned, as (x, y) in 0...1 from the bottom-left. Nil
+            /// for the face anchors, which follow the face instead.
+            public var framePivot: CGPoint? {
+                switch self {
+                case .headTop, .eyes: return nil
+                case .topLeft: return CGPoint(x: 0, y: 1)
+                case .topCenter: return CGPoint(x: 0.5, y: 1)
+                case .topRight: return CGPoint(x: 1, y: 1)
+                case .center: return CGPoint(x: 0.5, y: 0.5)
+                case .bottomLeft: return CGPoint(x: 0, y: 0)
+                case .bottomCenter: return CGPoint(x: 0.5, y: 0)
+                case .bottomRight: return CGPoint(x: 1, y: 0)
+                }
+            }
+
+            public var followsFace: Bool { framePivot == nil }
         }
 
         public var id: UUID
@@ -46,8 +61,14 @@ extension Project {
             self.opacity = opacity
         }
 
-        /// A fresh logo defaults: bottom center for a frame anchor, a face-sized sticker otherwise.
+        /// A face sticker is about face-sized; a corner logo is a smaller share of the frame.
         public static func defaultSize(for anchor: Anchor) -> Double { anchor.followsFace ? 0.9 : 0.3 }
+
+        /// Moving the image to another kind of anchor also resets its size to that anchor's natural one.
+        public mutating func setAnchor(_ newAnchor: Anchor) {
+            anchor = newAnchor
+            size = Self.defaultSize(for: newAnchor)
+        }
     }
 
     public struct CameraAccessories: Codable, Equatable, Sendable {
@@ -82,10 +103,13 @@ extension Project {
             custom = try container.decodeIfPresent([CustomAccessory].self, forKey: .custom) ?? []
         }
 
-        public var isActive: Bool { !kinds.isEmpty || !custom.isEmpty }
+        public var hasBuiltIns: Bool { !kinds.isEmpty }
+
+        /// Anything to draw at all.
+        public var isActive: Bool { hasBuiltIns || !custom.isEmpty }
 
         /// Whether any piece needs a face found in the frame (frame-pinned logos do not).
-        public var needsFace: Bool { !kinds.isEmpty || custom.contains { $0.anchor.followsFace } }
+        public var needsFace: Bool { hasBuiltIns || custom.contains { $0.anchor.followsFace } }
 
         public mutating func toggle(_ kind: Kind) {
             if let index = kinds.firstIndex(of: kind) { kinds.remove(at: index) } else { kinds.append(kind) }

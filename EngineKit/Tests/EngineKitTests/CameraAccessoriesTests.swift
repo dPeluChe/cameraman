@@ -88,15 +88,7 @@ final class CameraAccessoriesTests: XCTestCase {
         XCTAssertTrue(found.faceBox.contains(found.leftEye) && found.faceBox.contains(found.rightEye))
 
         if let out = ProcessInfo.processInfo.environment["CAMERA_ACC_OUT"], !out.isEmpty {
-            let dir = directory
-            let svg = dir.appendingPathComponent("logo.svg")
-            try """
-            <svg xmlns="http://www.w3.org/2000/svg" width="400" height="120" viewBox="0 0 400 120">
-              <rect width="400" height="120" rx="24" fill="#1C1C1E"/>
-              <circle cx="60" cy="60" r="34" fill="#34C759"/>
-              <text x="120" y="76" font-family="Helvetica" font-size="48" font-weight="bold" fill="#FFFFFF">Cameraman</text>
-            </svg>
-            """.write(to: svg, atomically: true, encoding: .utf8)
+            let svg = try writeSVG(in: makeDirectory())
             let logo = Project.CustomAccessory(name: "logo", assetPath: "x", anchor: .bottomCenter, size: 0.3)
             let drawn = AccessoryRenderer.apply(.init(kinds: [.sunglasses, .partyHat], custom: [logo]), anchors: found, images: [logo.id: svg], to: image)
             let rep = NSBitmapImageRep(ciImage: drawn)
@@ -106,17 +98,18 @@ final class CameraAccessoriesTests: XCTestCase {
 
     // MARK: - Custom images (logo, stickers)
 
-    private var directory: URL {
+    private func makeDirectory() -> URL {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("accessory-tests-\(UUID().uuidString)")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }
 
-    private func writeSVG(in dir: URL) throws -> URL {
-        let url = dir.appendingPathComponent("logo.svg")
+    /// A red 2:1 SVG.
+    private func writeSVG(in dir: URL, name: String = "logo.svg", color: String = "#FF0000") throws -> URL {
+        let url = dir.appendingPathComponent(name)
         try """
         <svg xmlns="http://www.w3.org/2000/svg" width="200" height="100" viewBox="0 0 200 100">
-          <rect width="200" height="100" fill="#FF0000"/>
+          <rect width="200" height="100" fill="\(color)"/>
         </svg>
         """.write(to: url, atomically: true, encoding: .utf8)
         return url
@@ -140,7 +133,7 @@ final class CameraAccessoriesTests: XCTestCase {
     }
 
     func testSVGLogoPinnedToTheBottomCenterWithoutAFace() throws {
-        let url = try writeSVG(in: directory)
+        let url = try writeSVG(in: makeDirectory())
         let item = Project.CustomAccessory(name: "logo", assetPath: "assets/logo.svg", anchor: .bottomCenter, size: 0.25)
         let bounds = try XCTUnwrap(customBounds(item, url: url, anchors: nil))
         XCTAssertEqual(bounds.width, 200, accuracy: 6)          // 25% of the 800 px frame
@@ -151,7 +144,7 @@ final class CameraAccessoriesTests: XCTestCase {
     }
 
     func testFrameCornersAndOffset() throws {
-        let url = try writeSVG(in: directory)
+        let url = try writeSVG(in: makeDirectory())
         let topLeft = try XCTUnwrap(customBounds(.init(name: "a", assetPath: "x", anchor: .topLeft, size: 0.2), url: url, anchors: nil))
         XCTAssertLessThan(topLeft.minX, 40)
         XCTAssertGreaterThan(topLeft.maxY, frame.height - 40)
@@ -160,7 +153,7 @@ final class CameraAccessoriesTests: XCTestCase {
     }
 
     func testFaceAnchoredPiecesNeedAFace() throws {
-        let url = try writeSVG(in: directory)
+        let url = try writeSVG(in: makeDirectory())
         let hat = Project.CustomAccessory(name: "hat", assetPath: "x", anchor: .headTop, size: 0.9)
         XCTAssertNil(customBounds(hat, url: url, anchors: nil))
         let bounds = try XCTUnwrap(customBounds(hat, url: url, anchors: anchors()))
@@ -169,14 +162,13 @@ final class CameraAccessoriesTests: XCTestCase {
     }
 
     func testOpacityFadesTheImage() throws {
-        let url = try writeSVG(in: directory)
-        var item = Project.CustomAccessory(name: "logo", assetPath: "x", anchor: .center, size: 0.2, opacity: 0.4)
+        let url = try writeSVG(in: makeDirectory())
+        let item = Project.CustomAccessory(name: "logo", assetPath: "x", anchor: .center, size: 0.2, opacity: 0.4)
         let blank = CIImage(color: .clear).cropped(to: frame)
         let result = AccessoryRenderer.apply(.init(custom: [item]), anchors: nil, images: [item.id: url], to: blank)
         var rgba = [UInt8](repeating: 0, count: 4)
         context.render(result, toBitmap: &rgba, rowBytes: 4, bounds: CGRect(x: 400, y: 300, width: 1, height: 1), format: .RGBA8, colorSpace: nil)
         XCTAssertEqual(Double(rgba[3]), 0.4 * 255, accuracy: 12)
-        item.opacity = 1
     }
 
     func testNeedsFaceOnlyForFacePieces() {
@@ -208,5 +200,30 @@ final class CameraAccessoriesTests: XCTestCase {
         XCTAssertTrue(project.hasCameraEffects)
         let resolved = project.resolvingAccessoryPaths(in: URL(fileURLWithPath: "/tmp/proj"))
         XCTAssertEqual(resolved.cameraAccessories.custom[0].assetPath, "/tmp/proj/assets/logo.svg")
+    }
+
+    func testAnchorChangeResetsSizeAndFramePivots() {
+        var item = Project.CustomAccessory(name: "logo", assetPath: "x", anchor: .bottomCenter, size: 0.3)
+        item.setAnchor(.headTop)
+        XCTAssertEqual(item.size, 0.9)
+        item.setAnchor(.topRight)
+        XCTAssertEqual(item.size, 0.3)
+        XCTAssertEqual(Project.CustomAccessory.Anchor.topRight.framePivot, CGPoint(x: 1, y: 1))
+        XCTAssertNil(Project.CustomAccessory.Anchor.eyes.framePivot)
+    }
+
+    func testStagingKeepsADifferentFileWithTheSameName() throws {
+        let project = makeDirectory()
+        let first = try writeSVG(in: makeDirectory(), color: "#FF0000")
+        let second = try writeSVG(in: makeDirectory(), color: "#0000FF")
+
+        let a = try ProjectLibrary.stageAsset(from: first, intoProjectDirectory: project, keepExisting: true)
+        let b = try ProjectLibrary.stageAsset(from: second, intoProjectDirectory: project, keepExisting: true)
+        let again = try ProjectLibrary.stageAsset(from: first, intoProjectDirectory: project, keepExisting: true)
+
+        XCTAssertEqual(a, "assets/logo.svg")
+        XCTAssertNotEqual(a, b)                  // a different logo with the same name gets its own file
+        XCTAssertEqual(a, again)                 // the same file again reuses the existing copy
+        XCTAssertTrue(try String(contentsOf: project.appendingPathComponent(a)).contains("#FF0000"))
     }
 }
