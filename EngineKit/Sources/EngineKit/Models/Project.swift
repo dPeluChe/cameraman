@@ -48,6 +48,8 @@ public struct Project: Codable, Equatable {
     /// Background removal/blur for the camera layer (`.off` = untouched). Applied at render time, never
     /// to the source file, so turning it off restores the original footage.
     public var cameraBackground: CameraBackground
+    /// Props anchored to the face in the camera layer. Render-time only, like the background.
+    public var cameraAccessories: CameraAccessories
     /// Manual zoom keyframes created by the user. Merged with auto-zoom
     /// keyframes at render time. Timestamps are in timeline time.
     public var manualZoomKeyframes: [ZoomPlanGenerator.ZoomKeyframe]?
@@ -66,7 +68,7 @@ public struct Project: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case schemaVersion, projectId, name, tags, createdAt, updatedAt
         case sources, takes, timeline, canvas, overlays, subtitles, subtitleStyle, captions, chapters, mediaItems
-        case syntheticCursor, manualZoomKeyframes, cameraBackground
+        case syntheticCursor, manualZoomKeyframes, cameraBackground, cameraAccessories
     }
 
     public init(from decoder: Decoder) throws {
@@ -90,6 +92,7 @@ public struct Project: Codable, Equatable {
         syntheticCursor = try container.decodeIfPresent(SyntheticCursorConfig.self, forKey: .syntheticCursor)
         manualZoomKeyframes = try container.decodeIfPresent([ZoomPlanGenerator.ZoomKeyframe].self, forKey: .manualZoomKeyframes)
         cameraBackground = try container.decodeIfPresent(CameraBackground.self, forKey: .cameraBackground) ?? CameraBackground()
+        cameraAccessories = try container.decodeIfPresent(CameraAccessories.self, forKey: .cameraAccessories) ?? CameraAccessories()
     }
 
     public init(
@@ -111,7 +114,8 @@ public struct Project: Codable, Equatable {
         mediaItems: [MediaItem] = [],
         syntheticCursor: SyntheticCursorConfig? = nil,
         manualZoomKeyframes: [ZoomPlanGenerator.ZoomKeyframe]? = nil,
-        cameraBackground: CameraBackground = CameraBackground()
+        cameraBackground: CameraBackground = CameraBackground(),
+        cameraAccessories: CameraAccessories = CameraAccessories()
     ) {
         self.projectId = projectId
         self.name = name
@@ -132,6 +136,7 @@ public struct Project: Codable, Equatable {
         self.syntheticCursor = syntheticCursor
         self.manualZoomKeyframes = manualZoomKeyframes
         self.cameraBackground = cameraBackground
+        self.cameraAccessories = cameraAccessories
     }
 
     /// Copy of this project under a different id — used by duplicate and
@@ -160,7 +165,8 @@ public struct Project: Codable, Equatable {
             mediaItems: mediaItems,
             syntheticCursor: syntheticCursor,
             manualZoomKeyframes: manualZoomKeyframes,
-            cameraBackground: cameraBackground
+            cameraBackground: cameraBackground,
+            cameraAccessories: cameraAccessories
         )
     }
 }

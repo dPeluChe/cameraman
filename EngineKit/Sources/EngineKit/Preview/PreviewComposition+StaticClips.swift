@@ -134,7 +134,7 @@ extension PreviewEngine {
             videoOverlays: videoOverlays,
             cursorPlan: self.cursorPlan,
             cursorConfig: project.syntheticCursor,
-            cameraBackground: .preview(project.cameraBackground)
+            cameraLayer: .preview(project)
         )
     }
 }

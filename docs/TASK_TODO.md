@@ -88,6 +88,14 @@ Screenshots, scrolling capture, OCR copy-text, 3D zoom angles, AI-generated asse
 - [ ] A selected overlay still shows at zero opacity at its exact start while paused; an edit-mode rule (show fade-in at full opacity while selected) would also cover selecting existing overlays.
 - [ ] Subtitle editor still uses the raw system `ColorPicker`.
 
+## Camera accessories follow-ups `added: 2026-10-10`
+
+- [ ] Accessories as data records (`imagePath`, anchor eyes/headTop/mouth, art anchor/width, optional time range) with the four built-ins as presets, so users and agents can add props. The raw values (`glasses`, `sunglasses`, `partyHat`, `crown`) are persisted in project JSON, keep them as preset ids.
+- [ ] One shared per-frame analysis (matte + landmarks in one Vision pass, later an analysis timeline cached per source) with smoothing: landmarks jitter a few pixels and a frame with no face makes the prop pop off. Random-access scrubbing needs smoothing computed offline, not per frame state.
+- [ ] `CameraEffects` model (background + accessories) in the persisted schema, and one MCP tool for it; today only the render side is unified (`CameraLayerRender`).
+- [ ] Move the camera effect sections out of the PiP-only panel so they are reachable in every layout; extract the shared chip style used by Shape and Accessories.
+- [ ] Measured and rejected: landmarks on a 640 px copy cost the same as full 1080p (15.2 ms vs 15.2 ms), so downscaling does not help. Remaining levers are every-2nd-frame sampling or a sequence handler.
+
 ## Bugs & Stability
 
 > Real defects to clear before / during pre-release. None block App Store submission today, but each adds friction.

@@ -69,6 +69,17 @@ struct PiPConfigurationView: View {
         )
     }
 
+    private func accessoriesBinding<V>(_ keyPath: WritableKeyPath<Project.CameraAccessories, V>) -> Binding<V> {
+        Binding(
+            get: { editor.project.cameraAccessories[keyPath: keyPath] },
+            set: { value in
+                var updated = editor.project.cameraAccessories
+                updated[keyPath: keyPath] = value
+                Task { _ = await editor.setCameraAccessories(updated) }
+            }
+        )
+    }
+
     @ViewBuilder
     private var cameraBackgroundSection: some View {
         let current = editor.project.cameraBackground
@@ -98,6 +109,48 @@ struct PiPConfigurationView: View {
             }
             if current.isActive {
                 Text("Keeps the person and replaces the rest. The original recording is untouched.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    /// Props that follow the face (Vision landmarks). Render-time only, like the background.
+    @ViewBuilder
+    private var cameraAccessoriesSection: some View {
+        let current = editor.project.cameraAccessories
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Accessories")
+                .font(.subheadline)
+
+            LazyVGrid(columns: shapeColumns, alignment: .leading, spacing: 6) {
+                ForEach(Project.CameraAccessories.Kind.allCases, id: \.self) { kind in
+                    let on = current.kinds.contains(kind)
+                    Button {
+                        var updated = current
+                        updated.toggle(kind)
+                        accessoriesBinding(\.self).wrappedValue = updated
+                    } label: {
+                        VStack(spacing: 2) {
+                            Text(kind.icon).font(.system(size: 14))
+                            Text(kind.title).font(.system(size: 8)).lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 32)
+                        .background(RoundedRectangle(cornerRadius: 5).fill(on ? Color.accentColor.opacity(0.2) : Color.primary.opacity(0.05)))
+                        .overlay(RoundedRectangle(cornerRadius: 5).stroke(on ? Color.accentColor : Color.primary.opacity(0.1), lineWidth: on ? 1.5 : 0.5))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if current.isActive {
+                HStack(spacing: 8) {
+                    Text("Size").font(.caption2).foregroundStyle(.secondary)
+                    AdjustmentSlider(value: current.scale, range: Project.CameraAccessories.scaleRange) {
+                        accessoriesBinding(\.scale).wrappedValue = $0
+                    }
+                }
+                Text("Follows your face. Nothing is drawn when no face is found.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
@@ -182,6 +235,8 @@ struct PiPConfigurationView: View {
                 }
 
                 cameraBackgroundSection
+
+                cameraAccessoriesSection
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Corner Radius")
@@ -525,6 +580,28 @@ struct CameraPreviewShape: Shape {
         case .capsule:
             let radius = min(rect.width, rect.height) / 2
             return Path(roundedRect: rect, cornerRadius: radius)
+        }
+    }
+}
+
+/// Labels for the accessory buttons. Emoji rather than SF Symbols: the symbols for these only exist on
+/// newer macOS than we support.
+private extension Project.CameraAccessories.Kind {
+    var title: String {
+        switch self {
+        case .glasses: return "Glasses"
+        case .sunglasses: return "Shades"
+        case .partyHat: return "Party hat"
+        case .crown: return "Crown"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .glasses: return "👓"
+        case .sunglasses: return "🕶"
+        case .partyHat: return "🎉"
+        case .crown: return "👑"
         }
     }
 }

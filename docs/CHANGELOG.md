@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > to `[0.7.1] - <date>` when the batch is built, signed and notarized.
 
 ### Added
+- **Camera accessories** — Accessories in the Camera panel: glasses, shades, party hat and crown that follow your face
+  (Vision landmarks, tilt included), with a size slider. Drawn at render time like the background, so the recording
+  is untouched; nothing is drawn when no face is found. About 14 ms per 1080p frame on an M1 Max.
 - **Camera background** — in the Camera panel, Background: Off / Blur / Color / Remove. Vision finds the person on
   device and keeps them; the rest is blurred, replaced by a color or cut out (the canvas shows through). Applied at
   render time, so the original recording is untouched and Off restores it. Balanced quality in the preview, accurate
