@@ -149,6 +149,21 @@ final class ProjectStoreMergeTests: XCTestCase {
         XCTAssertEqual(merged.manualZoomKeyframes?.first?.timestamp ?? 0, 13, accuracy: 0.001)
     }
 
+    func testMerge_keepsTheFirstProjectsCameraEffects() async throws {
+        let idA = try await makeProject(name: "A", duration: 10, screenFile: "aaaa_screen.mov")
+        let idB = try await makeProject(name: "B", duration: 5, screenFile: "bbbb_screen.mov")
+        var a = try await sut.loadProject(projectId: idA)
+        a.cameraBackground = .init(mode: .blur, blurRadius: 30)
+        a.cameraAccessories = .init(kinds: [.crown], custom: [.init(name: "logo", assetPath: "assets/logo.svg")])
+        try await sut.saveProject(a)
+
+        let merged = try await sut.loadProject(projectId: try await sut.mergeProjects(idA, idB))
+
+        XCTAssertEqual(merged.cameraBackground.mode, .blur)
+        XCTAssertEqual(merged.cameraAccessories.kinds, [.crown])
+        XCTAssertEqual(merged.cameraAccessories.custom.count, 1)
+    }
+
     func testMerge_copiesSourceFilesFromBothProjects() async throws {
         let idA = try await makeProject(name: "A", duration: 10, screenFile: "aaaa_screen.mov")
         let idB = try await makeProject(name: "B", duration: 5, screenFile: "bbbb_screen.mov")

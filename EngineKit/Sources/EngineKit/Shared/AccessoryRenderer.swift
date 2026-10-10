@@ -8,17 +8,137 @@
 //
 
 import Foundation
+import AppKit
 import CoreImage
 import CoreGraphics
 
 enum AccessoryRenderer {
-    /// Returns `image` with the accessories drawn over it, cropped to the original frame.
-    static func apply(_ accessories: Project.CameraAccessories, anchors: FaceAnchors, to image: CIImage) -> CIImage {
+    /// Returns `image` with the accessories drawn over it, cropped to the original frame. `anchors` is
+    /// nil when no face was found: face-anchored pieces are skipped, frame-pinned ones still draw.
+    /// `images` maps each custom accessory to its file on disk.
+    static func apply(_ accessories: Project.CameraAccessories, anchors: FaceAnchors?, images: [UUID: URL] = [:], to image: CIImage) -> CIImage {
         var result = image
-        for kind in accessories.kinds {
-            result = placed(kind, anchors: anchors, scale: accessories.scale).composited(over: result)
+        if let anchors {
+            for kind in accessories.kinds {
+                result = placed(kind, anchors: anchors, scale: accessories.scale).composited(over: result)
+            }
+        }
+        for item in accessories.custom {
+            guard let url = images[item.id], let drawn = custom(item, imageURL: url, anchors: anchors, frame: image.extent) else { continue }
+            result = drawn.composited(over: result)
         }
         return result.cropped(to: image.extent)
+    }
+
+    // MARK: - Custom images
+
+    /// Where a custom image goes: the point it is pinned to, which point of the image sits there
+    /// (0...1, origin bottom-left), its width on screen and its rotation.
+    private struct CustomPlacement {
+        let point: CGPoint
+        let pivot: CGPoint
+        let width: CGFloat
+        let rotation: CGFloat
+    }
+
+    private static func placement(of item: Project.CustomAccessory, anchors: FaceAnchors?, frame: CGRect) -> CustomPlacement? {
+        if let pivot = item.anchor.framePivot {
+            // Inset from the edge the piece hangs on (+ at 0, - at 1, none when centered).
+            let margin = 0.03 * min(frame.width, frame.height)
+            return CustomPlacement(
+                point: CGPoint(x: frame.minX + frame.width * pivot.x + margin * (1 - 2 * pivot.x),
+                               y: frame.minY + frame.height * pivot.y + margin * (1 - 2 * pivot.y)),
+                pivot: pivot, width: frame.width * CGFloat(item.size), rotation: 0)
+        }
+        guard let anchors else { return nil }
+        let width = anchors.faceBox.width * CGFloat(item.size)
+        if item.anchor == .eyes {
+            return CustomPlacement(point: anchors.eyeMidpoint, pivot: CGPoint(x: 0.5, y: 0.5), width: width, rotation: anchors.roll)
+        }
+        return CustomPlacement(point: headTop(anchors, fraction: 0.95), pivot: CGPoint(x: 0.5, y: 0), width: width, rotation: anchors.roll)
+    }
+
+    /// A point `fraction` of the way from the eyes to the top of the head, along the head's tilt.
+    private static func headTop(_ anchors: FaceAnchors, fraction: CGFloat) -> CGPoint {
+        let up = CGPoint(x: -sin(anchors.roll), y: cos(anchors.roll))
+        let toTop = max(0, anchors.faceBox.maxY - anchors.eyeMidpoint.y) * fraction
+        return CGPoint(x: anchors.eyeMidpoint.x + up.x * toTop, y: anchors.eyeMidpoint.y + up.y * toTop)
+    }
+
+    private static func custom(_ item: Project.CustomAccessory, imageURL: URL, anchors: FaceAnchors?, frame: CGRect) -> CIImage? {
+        guard var place = placement(of: item, anchors: anchors, frame: frame), place.width > 1,
+              let art = rasterized(imageURL, width: place.width) else { return nil }
+        place = CustomPlacement(
+            point: CGPoint(x: place.point.x + CGFloat(item.offsetX) * frame.width, y: place.point.y + CGFloat(item.offsetY) * frame.height),
+            pivot: place.pivot, width: place.width, rotation: place.rotation)
+
+        let scale = place.width / art.extent.width
+        let transform = CGAffineTransform(translationX: -place.pivot.x * art.extent.width, y: -place.pivot.y * art.extent.height)
+            .concatenating(CGAffineTransform(scaleX: scale, y: scale))
+            .concatenating(CGAffineTransform(rotationAngle: place.rotation))
+            .concatenating(CGAffineTransform(translationX: place.point.x, y: place.point.y))
+        var drawn = art.transformed(by: transform)
+        if item.opacity < 0.999 {
+            drawn = drawn.applyingFilter("CIColorMatrix", parameters: ["inputAVector": CIVector(x: 0, y: 0, z: 0, w: CGFloat(max(0, item.opacity)))])
+        }
+        return drawn
+    }
+
+    nonisolated(unsafe) private static var warned: Set<String> = []
+
+    /// Without this a missing or unreadable file just draws nothing, with no hint why.
+    private static func warnOnce(missing url: URL) {
+        rasterLock.lock()
+        let first = warned.insert(url.path).inserted
+        rasterLock.unlock()
+        if first { LogWarning(.preview, "[ACCESSORIES] cannot load \(url.path); nothing is drawn for it") }
+    }
+
+    private static let rasterLock = NSLock()
+    nonisolated(unsafe) private static var rasterCache: [(key: String, image: CIImage)] = []
+    private static let rasterCacheLimit = 12
+
+    /// Pixel widths grow by 25% steps from 64, so a size slider re-rasterizes a few times, not per pixel.
+    private static func bucket(for width: CGFloat) -> Int {
+        let steps = ceil(log(max(width, 64) / 64) / log(1.25))
+        return min(2048, Int((64 * pow(1.25, steps)).rounded()))
+    }
+
+    /// The file drawn at about `width` pixels. SVGs are drawn into the bitmap at that size, so they stay
+    /// sharp. Decoding and drawing run outside the lock; two workers racing on a miss both draw, which is harmless.
+    private static func rasterized(_ url: URL, width: CGFloat) -> CIImage? {
+        let pixels = bucket(for: width)
+        let key = "\(url.path)|\(pixels)"
+        rasterLock.lock()
+        if let index = rasterCache.firstIndex(where: { $0.key == key }) {
+            let hit = rasterCache.remove(at: index)       // move to the end: most recently used
+            rasterCache.append(hit)
+            rasterLock.unlock()
+            return hit.image
+        }
+        rasterLock.unlock()
+
+        guard let source = NSImage(contentsOf: url), source.size.width > 0, source.size.height > 0 else {
+            warnOnce(missing: url)
+            return nil
+        }
+        let height = max(1, Int((CGFloat(pixels) * source.size.height / source.size.width).rounded()))
+        guard let rep = NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: pixels, pixelsHigh: height, bitsPerSample: 8, samplesPerPixel: 4,
+            hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 32
+        ), let context = NSGraphicsContext(bitmapImageRep: rep) else { return nil }
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = context
+        source.draw(in: CGRect(x: 0, y: 0, width: pixels, height: height), from: .zero, operation: .sourceOver, fraction: 1)
+        NSGraphicsContext.restoreGraphicsState()
+        guard let cg = rep.cgImage else { return nil }
+
+        let image = CIImage(cgImage: cg)
+        rasterLock.lock()
+        if rasterCache.count >= rasterCacheLimit { rasterCache.removeFirst() }
+        rasterCache.append((key, image))
+        rasterLock.unlock()
+        return image
     }
 
     // MARK: - Placement
@@ -34,19 +154,17 @@ enum AccessoryRenderer {
 
     private static func placement(for kind: Project.CameraAccessories.Kind, anchors: FaceAnchors) -> Placement {
         let eyes = anchors.eyeMidpoint
-        let up = CGPoint(x: -sin(anchors.roll), y: cos(anchors.roll))
-        let toTop = max(0, anchors.faceBox.maxY - eyes.y)
         switch kind {
         case .glasses, .sunglasses:
             // The art has its eye centers 300 px apart.
             return Placement(artAnchor: CGPoint(x: 300, y: 120), artWidth: 300, faceAnchor: eyes, faceWidth: anchors.eyeDistance)
         case .partyHat:
             return Placement(artAnchor: CGPoint(x: 200, y: 40), artWidth: 340,
-                             faceAnchor: CGPoint(x: eyes.x + up.x * toTop * 0.95, y: eyes.y + up.y * toTop * 0.95),
+                             faceAnchor: headTop(anchors, fraction: 0.95),
                              faceWidth: anchors.faceBox.width * 0.9)
         case .crown:
             return Placement(artAnchor: CGPoint(x: 230, y: 20), artWidth: 420,
-                             faceAnchor: CGPoint(x: eyes.x + up.x * toTop * 0.88, y: eyes.y + up.y * toTop * 0.88),
+                             faceAnchor: headTop(anchors, fraction: 0.88),
                              faceWidth: anchors.faceBox.width * 1.0)
         }
     }

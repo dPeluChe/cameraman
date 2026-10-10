@@ -123,13 +123,32 @@ public struct CameraBackgroundRender {
 public struct CameraLayerRender {
     let background: CameraBackgroundRender
     let accessories: Project.CameraAccessories
+    /// Custom accessory id to its file on disk (their stored paths are relative to the project).
+    let accessoryImages: [UUID: URL]
 
-    static let off = CameraLayerRender(background: .off, accessories: Project.CameraAccessories())
-    static func preview(_ project: Project) -> Self {
-        .init(background: .preview(project.cameraBackground), accessories: project.cameraAccessories)
+    static let off = CameraLayerRender(background: .off, accessories: Project.CameraAccessories(), accessoryImages: [:])
+
+    static func preview(_ project: Project, projectDirectory: URL?) -> Self {
+        .init(background: .preview(project.cameraBackground), accessories: project.cameraAccessories,
+              accessoryImages: images(of: project.cameraAccessories, in: projectDirectory))
     }
-    static func export(_ project: Project) -> Self {
-        .init(background: .export(project.cameraBackground), accessories: project.cameraAccessories)
+
+    /// Export resolves the accessory paths up front (`Project.resolvingAccessoryPaths`), so no directory here.
+    static func export(_ project: Project, projectDirectory: URL? = nil) -> Self {
+        .init(background: .export(project.cameraBackground), accessories: project.cameraAccessories,
+              accessoryImages: images(of: project.cameraAccessories, in: projectDirectory))
+    }
+
+    private static func images(of accessories: Project.CameraAccessories, in directory: URL?) -> [UUID: URL] {
+        var urls: [UUID: URL] = [:]
+        for item in accessories.custom {
+            if item.assetPath.hasPrefix("/") {
+                urls[item.id] = URL(fileURLWithPath: item.assetPath)
+            } else if let directory {
+                urls[item.id] = directory.appendingPathComponent(item.assetPath)
+            }
+        }
+        return urls
     }
 }
 
@@ -508,9 +527,11 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
                let matte = personSegmenter.mask(for: cameraBuffer, frameKey: frameKey, quality: background.quality) {
                 rawCamera = applyBackground(background.settings, to: rawCamera, matte: matte)
             }
-            // After the background, so a hat over a removed background stays visible.
-            if accessories.isActive, let anchors = faceTracker.anchors(for: cameraBuffer, frameKey: frameKey) {
-                rawCamera = AccessoryRenderer.apply(accessories, anchors: anchors, to: rawCamera)
+            // After the background, so a hat over a removed background stays visible. Face detection only
+            // runs when something needs a face: a logo pinned to the frame does not.
+            if accessories.isActive {
+                let anchors = accessories.needsFace ? faceTracker.anchors(for: cameraBuffer, frameKey: frameKey) : nil
+                rawCamera = AccessoryRenderer.apply(accessories, anchors: anchors, images: instruction.cameraLayer.accessoryImages, to: rawCamera)
             }
         }
 

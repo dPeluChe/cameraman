@@ -107,12 +107,13 @@ enum OverlayFactory {
     /// Standard open panel for picking an overlay image. Calls `onPick` on the
     /// main actor with the selected file path.
     @MainActor
-    static func presentImagePicker(onPick: @escaping @MainActor (String) -> Void) {
+    static func presentImagePicker(message: String = "Select an image, SVG, or GIF to add as overlay",
+                                   onPick: @escaping @MainActor (String) -> Void) {
         let panel = NSOpenPanel()
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
-        panel.message = "Select an image, SVG, or GIF to add as overlay"
+        panel.message = message
         // .image as content type covers PNG, JPEG, HEIC, GIF and many more.
         // SVG (public.svg-image) isn't a child of .image on macOS so add it
         // explicitly.

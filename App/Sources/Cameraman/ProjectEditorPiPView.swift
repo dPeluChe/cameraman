@@ -69,15 +69,11 @@ struct PiPConfigurationView: View {
         )
     }
 
-    private func accessoriesBinding<V>(_ keyPath: WritableKeyPath<Project.CameraAccessories, V>) -> Binding<V> {
-        Binding(
-            get: { editor.project.cameraAccessories[keyPath: keyPath] },
-            set: { value in
-                var updated = editor.project.cameraAccessories
-                updated[keyPath: keyPath] = value
-                Task { _ = await editor.setCameraAccessories(updated) }
-            }
-        )
+    /// Copy the accessories, change them, commit through the editor.
+    private func updateAccessories(_ change: (inout Project.CameraAccessories) -> Void) {
+        var updated = editor.project.cameraAccessories
+        change(&updated)
+        Task { _ = await editor.setCameraAccessories(updated) }
     }
 
     @ViewBuilder
@@ -127,9 +123,7 @@ struct PiPConfigurationView: View {
                 ForEach(Project.CameraAccessories.Kind.allCases, id: \.self) { kind in
                     let on = current.kinds.contains(kind)
                     Button {
-                        var updated = current
-                        updated.toggle(kind)
-                        accessoriesBinding(\.self).wrappedValue = updated
+                        updateAccessories { $0.toggle(kind) }
                     } label: {
                         VStack(spacing: 2) {
                             Text(kind.icon).font(.system(size: 14))
@@ -143,16 +137,88 @@ struct PiPConfigurationView: View {
                 }
             }
 
-            if current.isActive {
+            if current.hasBuiltIns {
                 HStack(spacing: 8) {
                     Text("Size").font(.caption2).foregroundStyle(.secondary)
-                    AdjustmentSlider(value: current.scale, range: Project.CameraAccessories.scaleRange) {
-                        accessoriesBinding(\.scale).wrappedValue = $0
+                    AdjustmentSlider(value: current.scale, range: Project.CameraAccessories.scaleRange) { value in
+                        updateAccessories { $0.scale = value }
                     }
                 }
                 Text("Follows your face. Nothing is drawn when no face is found.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+            }
+
+            Divider().opacity(0.3)
+            HStack {
+                Text("Your images").font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                Button("Add logo or image…") { addCustomAccessory() }
+                    .controlSize(.small)
+            }
+            ForEach(current.custom) { item in
+                customAccessoryRow(item)
+            }
+        }
+    }
+
+    private func customAccessoryRow(_ item: Project.CustomAccessory) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Text(item.name).font(.caption).lineLimit(1).truncationMode(.middle)
+                Spacer()
+                Picker("", selection: Binding(
+                    get: { item.anchor },
+                    set: { anchor in updateCustom(item.id) { $0.setAnchor(anchor) } }
+                )) {
+                    ForEach(Project.CustomAccessory.Anchor.allCases, id: \.self) { anchor in
+                        Text(anchor.title).tag(anchor)
+                    }
+                }
+                .labelsHidden()
+                .frame(width: 120)
+                Button {
+                    updateAccessories { $0.custom.removeAll { $0.id == item.id } }
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help("Remove")
+            }
+            HStack(spacing: 8) {
+                Text("Size").font(.caption2).foregroundStyle(.secondary)
+                AdjustmentSlider(value: item.size, range: Project.CustomAccessory.sizeRange) { value in
+                    updateCustom(item.id) { $0.size = value }
+                }
+            }
+        }
+    }
+
+    private func updateCustom(_ id: UUID, _ change: @escaping (inout Project.CustomAccessory) -> Void) {
+        updateAccessories { accessories in
+            guard let index = accessories.custom.firstIndex(where: { $0.id == id }) else { return }
+            change(&accessories.custom[index])
+        }
+    }
+
+    /// Pick an SVG/PNG/JPG, copy it into the project's assets (so the project keeps working without the
+    /// original file) and pin it to the bottom center.
+    private func addCustomAccessory() {
+        OverlayFactory.presentImagePicker(message: "Select a logo or image (SVG, PNG, JPG) for the camera") { path in
+            let source = URL(fileURLWithPath: path)
+            Task {
+                do {
+                    let directory = try await ProjectLibrary.shared.getProjectDirectory(projectId: editor.project.projectId)
+                    // The panel grant can be scoped; hold it while copying, as the drag-and-drop import does.
+                    let scoped = source.startAccessingSecurityScopedResource()
+                    defer { if scoped { source.stopAccessingSecurityScopedResource() } }
+                    let relative = try ProjectLibrary.stageAsset(from: source, intoProjectDirectory: directory, keepExisting: true)
+                    let item = Project.CustomAccessory(name: source.deletingPathExtension().lastPathComponent, assetPath: relative)
+                    updateAccessories { $0.custom.append(item) }
+                } catch {
+                    LogWarning(.editor, "[ACCESSORIES] could not add image: \(error.localizedDescription)")
+                }
             }
         }
     }
@@ -602,6 +668,22 @@ private extension Project.CameraAccessories.Kind {
         case .sunglasses: return "🕶"
         case .partyHat: return "🎉"
         case .crown: return "👑"
+        }
+    }
+}
+
+private extension Project.CustomAccessory.Anchor {
+    var title: String {
+        switch self {
+        case .headTop: return "Above head"
+        case .eyes: return "On eyes"
+        case .topLeft: return "Top left"
+        case .topCenter: return "Top center"
+        case .topRight: return "Top right"
+        case .center: return "Center"
+        case .bottomLeft: return "Bottom left"
+        case .bottomCenter: return "Bottom center"
+        case .bottomRight: return "Bottom right"
         }
     }
 }

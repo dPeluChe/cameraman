@@ -314,14 +314,21 @@ public actor ProjectLibrary {
     /// project-relative path ("assets/<name>"). Shared by drag-drop import and
     /// the MCP server. Pure filesystem work, hence `nonisolated static`; callers
     /// in a sandbox are responsible for security-scoped access on `sourceURL`.
-    public nonisolated static func stageAsset(from sourceURL: URL, intoProjectDirectory projectDir: URL) throws -> String {
+    public nonisolated static func stageAsset(from sourceURL: URL, intoProjectDirectory projectDir: URL, keepExisting: Bool = false) throws -> String {
         let fm = FileManager.default
         guard fm.fileExists(atPath: sourceURL.path) else {
             throw EngineKitError.invalidConfiguration("File not found: \(sourceURL.path). Pass an absolute path to an existing file.")
         }
         let assets = projectDir.appendingPathComponent("assets", isDirectory: true)
         try fm.createDirectory(at: assets, withIntermediateDirectories: true)
-        let name = sourceURL.lastPathComponent
+        var name = sourceURL.lastPathComponent
+        // `keepExisting`: a different file with the same name must not overwrite one already in use.
+        if keepExisting, fm.fileExists(atPath: assets.appendingPathComponent(name).path),
+           !fm.contentsEqual(atPath: assets.appendingPathComponent(name).path, andPath: sourceURL.path) {
+            let base = (name as NSString).deletingPathExtension
+            let ext = (name as NSString).pathExtension
+            name = "\(base)-\(UUID().uuidString.prefix(6))" + (ext.isEmpty ? "" : ".\(ext)")
+        }
         let dest = assets.appendingPathComponent(name)
         if dest.path != sourceURL.path {
             if fm.fileExists(atPath: dest.path) { try fm.removeItem(at: dest) }

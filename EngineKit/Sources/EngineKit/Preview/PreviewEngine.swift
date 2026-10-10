@@ -22,6 +22,7 @@ public actor PreviewEngine {
 
     /// Project directory path (for proxy generation)
     var projectDirectory: String?
+    var projectDirectoryURL: URL? { projectDirectory.map { URL(fileURLWithPath: $0) } }
 
     /// AVPlayer for video playback (exposed for AVPlayerLayer integration)
     public var player: AVPlayer?

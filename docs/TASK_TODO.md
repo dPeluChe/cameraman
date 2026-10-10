@@ -90,11 +90,19 @@ Screenshots, scrolling capture, OCR copy-text, 3D zoom angles, AI-generated asse
 
 ## Camera accessories follow-ups `added: 2026-10-10`
 
-- [ ] Accessories as data records (`imagePath`, anchor eyes/headTop/mouth, art anchor/width, optional time range) with the four built-ins as presets, so users and agents can add props. The raw values (`glasses`, `sunglasses`, `partyHat`, `crown`) are persisted in project JSON, keep them as preset ids.
+- [x] Custom images (SVG/PNG/JPG) as accessories with face or frame anchors (`CustomAccessory`, 2026-10-10). Still open: optional time range per accessory, offsets in the UI, built-ins as data presets (keep raw values `glasses`, `sunglasses`, `partyHat`, `crown` as preset ids), MCP exposure.
 - [ ] One shared per-frame analysis (matte + landmarks in one Vision pass, later an analysis timeline cached per source) with smoothing: landmarks jitter a few pixels and a frame with no face makes the prop pop off. Random-access scrubbing needs smoothing computed offline, not per frame state.
 - [ ] `CameraEffects` model (background + accessories) in the persisted schema, and one MCP tool for it; today only the render side is unified (`CameraLayerRender`).
 - [ ] Move the camera effect sections out of the PiP-only panel so they are reachable in every layout; extract the shared chip style used by Shape and Accessories.
 - [ ] Measured and rejected: landmarks on a 640 px copy cost the same as full 1080p (15.2 ms vs 15.2 ms), so downscaling does not help. Remaining levers are every-2nd-frame sampling or a sequence handler.
+
+## Custom accessories follow-ups (PR #92 simplify) `added: 2026-10-10`
+
+- [ ] Decide before more accessory features land: frame-pinned logos as an image `Overlay` anchored to the camera rect (time ranges, fades, selection, Elements lane, MCP overlay tools for free) vs the camera-layer `CustomAccessory`. Face-following stickers stay camera-layer either way.
+- [ ] Resolve accessory asset paths in one place (export rewrites a Project copy, preview passes the directory); `CameraLayerRender.export` has a silently empty directory default.
+- [ ] One `needsCompositor` predicate shared by the preview and export builders instead of `hasCameraEffects` patched into five lists (and a test that both agree).
+- [ ] Mark the row in the UI when an accessory file is missing (today: one log line); share the bitmap draw with `OverlayImageRenderer.staticCGImage`.
+- [ ] Merge: second project's assets are copied by name and can collide with the first's; accessory names stay unique only within one project.
 
 ## Bugs & Stability
 

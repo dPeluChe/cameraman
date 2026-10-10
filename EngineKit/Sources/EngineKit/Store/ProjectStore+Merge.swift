@@ -80,7 +80,9 @@ extension ProjectStore {
             // isn't meaningful — regenerate via transcription on the merged project.
             captions: nil,
             tags: Array(Set(first.tags).union(second.tags)).sorted(),
-            mediaItems: first.mediaItems + second.mediaItems
+            mediaItems: first.mediaItems + second.mediaItems,
+            cameraBackground: first.cameraBackground,
+            cameraAccessories: first.cameraAccessories
         )
 
         merged.subtitles = first.subtitles + second.subtitles

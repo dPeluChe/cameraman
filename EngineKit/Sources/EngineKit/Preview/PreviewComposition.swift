@@ -32,7 +32,7 @@ extension PreviewEngine {
         let needsCompositor = !project.overlays.isEmpty
             || (!subtitlesHidden && !project.subtitles.isEmpty)
             || !videoOverlays.isEmpty
-            || project.hasMixedScreenResolutions || project.hasVisualAdjustments
+            || project.hasMixedScreenResolutions || project.hasVisualAdjustments || project.hasCameraEffects
             || (project.syntheticCursor?.enabled == true && cursorPlan != nil)
 
         let renderSize = CoreFoundation.CGSize(
@@ -112,7 +112,7 @@ extension PreviewEngine {
                     videoOverlays: videoOverlays,
                     cursorPlan: self.cursorPlan,
                     cursorConfig: project.syntheticCursor,
-                    cameraLayer: .preview(project)
+                    cameraLayer: .preview(project, projectDirectory: projectDirectoryURL)
                 )
                 videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
                 videoComposition.instructions = [maskedInstruction]
@@ -191,7 +191,7 @@ extension PreviewEngine {
                     videoOverlays: videoOverlays,
                     cursorPlan: self.cursorPlan,
                     cursorConfig: project.syntheticCursor,
-                    cameraLayer: .preview(project)
+                    cameraLayer: .preview(project, projectDirectory: projectDirectoryURL)
                 )
                 videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
                 videoComposition.instructions = [maskedInstruction]
@@ -225,7 +225,7 @@ extension PreviewEngine {
                     return false
                 }
 
-                if hasPerClipCamera || defaultCamera.maskShape != .none {
+                if hasPerClipCamera || defaultCamera.maskShape != .none || project.hasCameraEffects {
                     // Use custom compositor with per-clip instructions
                     var maskedInstructions: [MaskedVideoCompositionInstruction] = []
                     let totalDuration = composition.duration
@@ -283,7 +283,7 @@ extension PreviewEngine {
                             videoOverlays: videoOverlays,
                             cursorPlan: self.cursorPlan,
                             cursorConfig: project.syntheticCursor,
-                            cameraLayer: .preview(project)
+                            cameraLayer: .preview(project, projectDirectory: projectDirectoryURL)
                         ))
                     }
 
@@ -331,7 +331,7 @@ extension PreviewEngine {
                         videoOverlays: videoOverlays,
                         cursorPlan: self.cursorPlan,
                         cursorConfig: project.syntheticCursor,
-                        cameraLayer: .preview(project)
+                        cameraLayer: .preview(project, projectDirectory: projectDirectoryURL)
                     )
                     videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
                     videoComposition.instructions = [maskedInstruction]
@@ -368,7 +368,7 @@ extension PreviewEngine {
                         videoOverlays: videoOverlays,
                         cursorPlan: self.cursorPlan,
                         cursorConfig: project.syntheticCursor,
-                        cameraLayer: .preview(project)
+                        cameraLayer: .preview(project, projectDirectory: projectDirectoryURL)
                     )
                     videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
                     videoComposition.instructions = [maskedInstruction]

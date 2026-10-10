@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > to `[0.7.1] - <date>` when the batch is built, signed and notarized.
 
 ### Added
+- **Logo / image on the camera** — Accessories → Add logo or image…: an SVG, PNG or JPG pinned to the camera frame
+  (corners, top, center, bottom) or to the face (above the head, on the eyes), with a size slider. Copied into the
+  project's assets; frame-pinned images need no face. Fixed along the way: a camera background or accessory was
+  ignored when nothing else forced the custom compositor (no overlays, plain rectangle shape).
 - **Camera accessories** — Accessories in the Camera panel: glasses, shades, party hat and crown that follow your face
   (Vision landmarks, tilt included), with a size slider. Drawn at render time like the background, so the recording
   is untouched; nothing is drawn when no face is found. About 14 ms per 1080p frame on an M1 Max.
