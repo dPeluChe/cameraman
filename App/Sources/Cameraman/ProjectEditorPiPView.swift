@@ -56,6 +56,59 @@ struct PiPConfigurationView: View {
         }
     }
 
+    /// Person cut-out for the camera layer. The source recording is never modified: this only changes
+    /// how the camera is drawn, so "Off" gives the original back.
+    @ViewBuilder
+    private var cameraBackgroundSection: some View {
+        let current = editor.project.cameraBackground ?? Project.CameraBackground()
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Background")
+                .font(.subheadline)
+
+            Picker("", selection: Binding(
+                get: { current.mode },
+                set: { mode in
+                    var updated = current
+                    updated.mode = mode
+                    Task { _ = await editor.setCameraBackground(updated) }
+                }
+            )) {
+                Text("Off").tag(Project.CameraBackground.Mode.off)
+                Text("Blur").tag(Project.CameraBackground.Mode.blur)
+                Text("Color").tag(Project.CameraBackground.Mode.color)
+                Text("Remove").tag(Project.CameraBackground.Mode.remove)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+
+            if current.mode == .blur {
+                HStack(spacing: 8) {
+                    Text("Strength").font(.caption2).foregroundStyle(.secondary)
+                    AdjustmentSlider(value: current.blurRadius, range: Project.CameraBackground.blurRange) { value in
+                        var updated = current
+                        updated.blurRadius = value
+                        Task { _ = await editor.setCameraBackground(updated) }
+                    }
+                }
+            }
+            if current.mode == .color {
+                SimpleColorPicker(hex: Binding(
+                    get: { current.colorHex },
+                    set: { hex in
+                        var updated = current
+                        updated.colorHex = hex
+                        Task { _ = await editor.setCameraBackground(updated) }
+                    }
+                ))
+            }
+            if current.isActive {
+                Text("Keeps the person and replaces the rest. The original recording is untouched.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
     var body: some View {
         if let camera = activeCamera {
             let format = editor.project.canvas.format
@@ -132,6 +185,8 @@ struct PiPConfigurationView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
+
+                cameraBackgroundSection
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Corner Radius")

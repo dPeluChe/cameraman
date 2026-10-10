@@ -133,7 +133,8 @@ extension PreviewEngine {
             zoomPlan: self.zoomPlan,
             videoOverlays: videoOverlays,
             cursorPlan: self.cursorPlan,
-            cursorConfig: project.syntheticCursor
+            cursorConfig: project.syntheticCursor,
+            cameraBackground: project.cameraBackground
         )
     }
 }

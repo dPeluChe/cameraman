@@ -198,6 +198,8 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
     }
 
     let videoOverlays: [VideoOverlaySource]
+    let cameraBackground: Project.CameraBackground?
+    let backgroundQuality: PersonSegmenter.Quality
 
     init(
         timeRange: CMTimeRange,
@@ -224,7 +226,9 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         zoomPlan: ZoomPlanGenerator.ZoomPlan? = nil,
         videoOverlays: [VideoOverlaySource] = [],
         cursorPlan: CursorPlan? = nil,
-        cursorConfig: Project.SyntheticCursorConfig? = nil
+        cursorConfig: Project.SyntheticCursorConfig? = nil,
+        cameraBackground: Project.CameraBackground? = nil,
+        backgroundQuality: PersonSegmenter.Quality = .balanced
     ) {
         self.timeRange = timeRange
         self.screenTrackID = screenTrackID
@@ -251,6 +255,8 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         self.videoOverlays = videoOverlays
         self.cursorPlan = cursorPlan
         self.cursorConfig = cursorConfig
+        self.cameraBackground = cameraBackground
+        self.backgroundQuality = backgroundQuality
         super.init()
 
         // An invalid screenTrackID means "no recording on the primary track"
@@ -292,6 +298,7 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
     private var renderContext: AVVideoCompositionRenderContext?
     let ciContext = CIContext(options: [.useSoftwareRenderer: false])
     let cacheLock = NSLock()
+    let personSegmenter = PersonSegmenter()
     /// Path masks are identical frame to frame; rendering one is a full-canvas bitmap fill and upload.
     var maskCache: [(path: CGPath, size: CGSize, mask: CIImage)] = []
 
@@ -463,7 +470,14 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
         }
 
         var result = finalImage
-        let rawCamera = CIImage(cvPixelBuffer: cameraBuffer)
+        var rawCamera = CIImage(cvPixelBuffer: cameraBuffer)
+        if let background = instruction.cameraBackground, background.isActive {
+            // The canvas can run faster than the camera: one matte per camera frame (30 fps buckets).
+            let frameKey = Int((request.compositionTime.seconds * 30).rounded(.down))
+            if let matte = personSegmenter.mask(for: cameraBuffer, frameKey: frameKey, quality: instruction.backgroundQuality) {
+                rawCamera = applyBackground(background, to: rawCamera, matte: matte)
+            }
+        }
 
         // Same mixed-resolution guard as the screen layer: the static transform
         // was computed for one camera resolution; if this frame lands outside its

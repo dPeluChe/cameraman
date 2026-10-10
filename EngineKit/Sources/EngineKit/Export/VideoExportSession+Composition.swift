@@ -139,7 +139,8 @@ extension ExportEngine {
                 zoomPlan: options.applyZoom ? options.zoomPlan : nil,
                 videoOverlays: videoOverlays,
                 cursorPlan: cursorPlan,
-                cursorConfig: project.syntheticCursor
+                cursorConfig: project.syntheticCursor,
+                cameraBackground: project.cameraBackground, backgroundQuality: .accurate
             )
             videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
             videoComposition.instructions = [maskedInstruction]
@@ -322,7 +323,8 @@ extension ExportEngine {
             zoomPlan: options.applyZoom ? options.zoomPlan : nil,
             videoOverlays: videoOverlays,
             cursorPlan: cursorPlan,
-            cursorConfig: project.syntheticCursor
+            cursorConfig: project.syntheticCursor,
+            cameraBackground: project.cameraBackground, backgroundQuality: .accurate
         )
         videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
         videoComposition.instructions = [maskedInstruction]
@@ -391,7 +393,8 @@ extension ExportEngine {
                 zoomPlan: zoomPlan,
                 videoOverlays: videoOverlays,
                 cursorPlan: cursorPlan,
-                cursorConfig: project.syntheticCursor
+                cursorConfig: project.syntheticCursor,
+                cameraBackground: project.cameraBackground, backgroundQuality: .accurate
             ))
         }
 
@@ -510,7 +513,8 @@ extension ExportEngine {
             zoomPlan: zoomPlan,
             videoOverlays: videoOverlays,
             cursorPlan: cursorPlan,
-            cursorConfig: project.syntheticCursor
+            cursorConfig: project.syntheticCursor,
+            cameraBackground: project.cameraBackground, backgroundQuality: .accurate
         )
     }
 }
