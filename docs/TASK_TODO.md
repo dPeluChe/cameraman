@@ -75,6 +75,7 @@ Screenshots, scrolling capture, OCR copy-text, 3D zoom angles, AI-generated asse
 - [ ] MCP: expose `cameraBackground` (set_layout or a new tool + catalog test) so agents can use it.
 - [ ] Per-segment override (like `cameraPosition`) or model it as an `AdjustmentKind` on the camera target to get time ranges, validation and MCP for free (altitude review).
 - [ ] Persist the matte per source (computed once, reused by export and scrubbing) instead of the 8-frame in-memory cache; also enables person-over-screen effects.
+- [ ] Idea: accessories on the person (glasses, hat, ears) anchored with Vision face landmarks (`VNDetectFaceLandmarksRequest`: eyes, nose, face rect, roll/yaw/pitch), reusing the image overlay renderer; needs per-frame tracking and smoothing.
 - [ ] Image background; measure on other Macs and cluttered backgrounds (spike used one indoor clip on an M1 Max).
 - [ ] Skip segmentation when the camera layer is off canvas; negative-cache failed frames.
 
