@@ -128,6 +128,9 @@ struct PreviewPlayerView: View {
             guard let viewModel = viewModel,
                   viewModel.previewEngine != nil,
                   viewModel.project?.projectId == project.projectId else { return }
+            // `onReceive` re-subscribes on every body pass and @Published replays its current value on
+            // subscribe, so this closure also fires with the project the engine already has.
+            guard viewModel.project != project else { return }
             viewModel.refreshPreview(with: project)
         }
         .onDisappear {
@@ -180,10 +183,7 @@ struct PreviewPlayerView: View {
             timelineDuration: editor.project.timeline.duration,
             position: position
         )
-        Task {
-            _ = await editor.addOverlay(projectId: editor.project.projectId, overlay: overlay)
-            await MainActor.run { selectedOverlayId?.wrappedValue = overlay.id }
-        }
+        OverlayFactory.add(overlay, to: editor, select: { selectedOverlayId?.wrappedValue = $0 }, seek: { viewModel.seek(to: $0) })
     }
 }
 

@@ -211,6 +211,27 @@ class RecordingControlViewModel: ObservableObject {
             try FileManager.default.createDirectory(at: outputURL, withIntermediateDirectories: true)
             log("Output directory: \(outputURL.path)")
 
+            // The display being recorded, not wherever the app window happens to be: countdown and REC go there.
+            let recordedScreen = selectedDisplaySource.flatMap { NSScreen.screen(withDisplayID: $0.id) }
+
+            // After permissions and setup, so system prompts never land during the countdown.
+            if countdownSeconds > 0 {
+                isCountingDown = true
+                statusText = "Starting in \(countdownSeconds)…"
+                let go = await CountdownWindow().run(seconds: countdownSeconds, on: recordedScreen) { [weak self] remaining in
+                    self?.statusText = "Starting in \(remaining)…"
+                }
+                isCountingDown = false
+                guard go else { statusText = "Cancelled"; return }
+                // Let the countdown window leave the screen before capture begins.
+                try? await Task.sleep(for: .milliseconds(250))
+            }
+
+            // Show the REC indicator before capture starts so it can be excluded from the recording.
+            let indicator = RecordingIndicatorWindow()
+            indicator.show(on: recordedScreen)
+            recordingIndicator = indicator
+
             // Recreate config with current system audio + quality + area settings
             let screenConfig = CaptureEngine.CaptureConfiguration(
                 sourceType: config.sourceType,
@@ -222,7 +243,8 @@ class RecordingControlViewModel: ObservableObject {
                 pixelFormat: config.pixelFormat,
                 quality: recordingQuality,
                 captureRect: selectedArea,
-                hideSystemCursor: hideSystemCursor
+                hideSystemCursor: hideSystemCursor,
+                excludedWindowIDs: indicator.windowNumbers
             )
 
             // Create camera configuration if needed
@@ -245,19 +267,6 @@ class RecordingControlViewModel: ObservableObject {
                 micDeviceID: activeMicrophoneID
             )
 
-            // After permissions and setup, so system prompts never land during the countdown.
-            if countdownSeconds > 0 {
-                isCountingDown = true
-                statusText = "Starting in \(countdownSeconds)…"
-                // Show it on the display being recorded, not wherever the app window happens to be.
-                let recordedScreen = selectedDisplaySource.flatMap { UInt32($0.id) }.flatMap(NSScreen.screen(forDisplayID:))
-                let go = await CountdownWindow().run(seconds: countdownSeconds, on: recordedScreen)
-                isCountingDown = false
-                guard go else { statusText = "Cancelled"; return }
-                // Let the countdown window leave the screen before capture begins.
-                try? await Task.sleep(for: .milliseconds(250))
-            }
-
             // Start recording
             log("Calling Recorder.shared.startRecording...")
             let recorder = Recorder.shared
@@ -278,9 +287,6 @@ class RecordingControlViewModel: ObservableObject {
             isRecording = true
             observeStreamStop()
 
-            // Show recording indicator
-            recordingIndicator = RecordingIndicatorWindow()
-            recordingIndicator?.show()
             if debugLoggingEnabled { LogDebug(.capture, "Recording indicator shown") }
 
         } catch {
@@ -289,6 +295,8 @@ class RecordingControlViewModel: ObservableObject {
             if debugLoggingEnabled { dump(error) }
 
             // Clean up state
+            recordingIndicator?.hide()
+            recordingIndicator = nil
             isRecording = false
             recordingSession = nil
             timer?.invalidate()

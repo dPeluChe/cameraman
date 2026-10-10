@@ -52,6 +52,9 @@ final class PreviewPlayerViewModel: ObservableObject {
 
     private static let fallbackAspectRatio: Double = 16.0 / 9.0
     private var timeObserver: Any?
+    /// Each refresh loads telemetry first, which takes a variable time; without this an older refresh
+    /// can finish last and put a stale project (old camera shape, old cursor state) back on the engine.
+    private var refreshGeneration = 0
     private var endObserver: NSObjectProtocol?
     private var cancellables = Set<AnyCancellable>()
     private var projectDirectory: URL?
@@ -186,12 +189,16 @@ final class PreviewPlayerViewModel: ObservableObject {
         self.project = project
         aspectRatio = Self.aspectRatio(for: project)
         updateDuration(project.timeline.duration)
+        refreshGeneration += 1
+        let generation = refreshGeneration
 
         Task {
             do {
                 // Reload cursor plan in case the project's syntheticCursor setting
                 // changed or the project directory/telemetry is new.
                 let cursorPlan = await CursorPlanLoader.loadCursorPlan(for: project, projectDirectory: projectDirectory)
+                // A newer edit arrived while the plan loaded: let that refresh apply instead.
+                guard generation == self.refreshGeneration else { return }
                 await MainActor.run { self.originalCursorPlan = cursorPlan }
 
                 // Set the engine's zoom and cursor plans BEFORE updateProject so the
@@ -200,6 +207,7 @@ final class PreviewPlayerViewModel: ObservableObject {
                 let effectiveCursorPlan = computeEffectiveCursorPlan()
                 await engine.stageZoomPlan(effectiveZoomPlan)
                 await engine.stageCursorPlan(effectiveCursorPlan)
+                guard generation == self.refreshGeneration else { return }
                 try await engine.updateProject(project)
                 let player = await engine.player
 

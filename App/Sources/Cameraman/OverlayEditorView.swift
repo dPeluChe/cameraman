@@ -16,8 +16,12 @@ struct OverlayEditorView: View {
     @ObservedObject var editor: ProjectEditor
     @Binding var playheadTime: TimeInterval
     @Binding var selectedOverlayId: UUID?
+    /// Moves the playhead so a newly added overlay is visible while paused.
+    var onSeek: ((TimeInterval) -> Void)?
 
     @State var selectedTool: OverlayTool = .arrow
+    /// The style inspector is tall; collapse it to make room for adding another element.
+    @State private var inspectorExpanded = true
 
     let availableTools: [OverlayTool] = [.arrow, .rect, .line, .text, .image]
 
@@ -46,6 +50,12 @@ struct OverlayEditorView: View {
                             Text("\(String(format: "%.2f", overlay.start))s - \(String(format: "%.2f", overlay.end))s")
                                 .font(.system(size: 9, design: .monospaced))
                                 .foregroundStyle(.tertiary)
+                            if selectedOverlayId == overlay.id {
+                                Image(systemName: inspectorExpanded ? "chevron.up" : "chevron.down")
+                                    .font(.system(size: 9, weight: .semibold))
+                                    .foregroundStyle(.secondary)
+                                    .help(inspectorExpanded ? "Collapse the style inspector" : "Expand the style inspector")
+                            }
                         }
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
@@ -55,6 +65,7 @@ struct OverlayEditorView: View {
                         )
                         .contentShape(Rectangle())
                         .onTapGesture {
+                            inspectorExpanded = selectedOverlayId == overlay.id ? !inspectorExpanded : true
                             selectedOverlayId = overlay.id
                         }
                     }
@@ -62,7 +73,8 @@ struct OverlayEditorView: View {
             }
 
             // Style inspector (when overlay is selected)
-            if let overlayId = selectedOverlayId,
+            if inspectorExpanded,
+               let overlayId = selectedOverlayId,
                let overlay = editor.project.overlays.first(where: { $0.id == overlayId }) {
                 Divider()
                 styleInspector(for: overlay)

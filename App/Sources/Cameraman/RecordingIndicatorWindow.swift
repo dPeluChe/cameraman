@@ -14,8 +14,12 @@ class RecordingIndicatorWindow: NSObject {
     private var blinkTimer: Timer?
     private var isVisible = true
 
-    func show() {
-        guard let mainScreen = NSScreen.main else { return }
+    /// CGWindowID, so the capture filter can leave the indicator out of the recording.
+    var windowNumbers: [UInt32] { window.map { [UInt32($0.windowNumber)] } ?? [] }
+
+    /// Shows the indicator in the corner of `screen` (the display being recorded), or the main screen.
+    func show(on screen: NSScreen? = nil) {
+        guard let mainScreen = screen ?? NSScreen.main else { return }
 
         // Create a small window in the top-right corner
         let windowWidth: CGFloat = 100

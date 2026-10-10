@@ -39,6 +39,8 @@ public actor CaptureEngine {
         /// Hide the system cursor in the capture stream. Use when synthetic
         /// cursor rendering is enabled so the real cursor doesn't double up.
         public let hideSystemCursor: Bool
+        /// CGWindowIDs (NSWindow.windowNumber) to leave out of a display capture, e.g. the REC indicator.
+        public let excludedWindowIDs: [UInt32]
 
         public enum SourceType {
             case display
@@ -56,7 +58,8 @@ public actor CaptureEngine {
             pixelFormat: OSType = kCVPixelFormatType_32BGRA,
             quality: RecordingQuality = .native,
             captureRect: CGRect? = nil,
-            hideSystemCursor: Bool = false
+            hideSystemCursor: Bool = false,
+            excludedWindowIDs: [UInt32] = []
         ) {
             self.sourceType = sourceType
             self.display = display
@@ -68,6 +71,7 @@ public actor CaptureEngine {
             self.quality = quality
             self.captureRect = captureRect
             self.hideSystemCursor = hideSystemCursor
+            self.excludedWindowIDs = excludedWindowIDs
         }
     }
 

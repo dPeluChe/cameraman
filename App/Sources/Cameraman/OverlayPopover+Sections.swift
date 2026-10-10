@@ -143,13 +143,10 @@ extension OverlayPopoverContent {
             popoverSection("Style") {
                 HStack(spacing: 16) {
                     smallLabeled("Color") {
-                        ColorPicker("", selection: Binding(
-                            get: { Color(hex: overlay.style.stroke) },
-                            set: { newColor in
-                                mutate(overlay) { $0.style.stroke = newColor.toHex() ?? "#FFFFFF" }
-                            }
+                        SimpleColorPicker(hex: Binding(
+                            get: { overlay.style.stroke },
+                            set: { hex in mutate(overlay) { $0.style.stroke = hex } }
                         ))
-                        .labelsHidden()
                     }
                     smallLabeled("Shadow") {
                         Toggle("", isOn: Binding(
@@ -174,11 +171,10 @@ extension OverlayPopoverContent {
                         }
                         if let bg = overlay.style.bg {
                             smallLabeled("Fill color") {
-                                ColorPicker("", selection: Binding(
-                                    get: { Color(hex: bg) },
-                                    set: { newColor in mutate(overlay) { $0.style.bg = newColor.toHex() ?? "#FFFFFF" } }
+                                SimpleColorPicker(hex: Binding(
+                                    get: { bg },
+                                    set: { hex in mutate(overlay) { $0.style.bg = hex } }
                                 ))
-                                .labelsHidden()
                             }
                         }
                     }
@@ -213,13 +209,10 @@ extension OverlayPopoverContent {
 
                 HStack(spacing: 16) {
                     smallLabeled("Color") {
-                        ColorPicker("", selection: Binding(
-                            get: { Color(hex: overlay.style.color ?? "#FFFFFF") },
-                            set: { newColor in
-                                mutate(overlay) { $0.style.color = newColor.toHex() ?? "#FFFFFF" }
-                            }
+                        SimpleColorPicker(hex: Binding(
+                            get: { overlay.style.color ?? "#FFFFFF" },
+                            set: { hex in mutate(overlay) { $0.style.color = hex } }
                         ))
-                        .labelsHidden()
                     }
                     smallLabeled("Shadow") {
                         Toggle("", isOn: Binding(

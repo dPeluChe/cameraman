@@ -106,7 +106,8 @@ extension CaptureEngine {
             }
 
             logger.debug("Selected SCDisplay: id=\(scDisplay.displayID)")
-            contentFilter = SCContentFilter(display: scDisplay, excludingWindows: [])
+            let excluded = shareableContent.windows.filter { config.excludedWindowIDs.contains($0.windowID) }
+            contentFilter = SCContentFilter(display: scDisplay, excludingWindows: excluded)
 
         case .window:
             let windows = try await sourceSelector.listWindows()

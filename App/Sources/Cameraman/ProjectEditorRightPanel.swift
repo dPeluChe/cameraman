@@ -252,7 +252,8 @@ struct RightPanel: View {
                     get: { playerViewModel?.currentTime ?? 0 },
                     set: { _ in }
                 ),
-                selectedOverlayId: selectedOverlayId
+                selectedOverlayId: selectedOverlayId,
+                onSeek: { playerViewModel?.seek(to: $0) }
             )
         case .subtitles:
             SubtitleEditorView(

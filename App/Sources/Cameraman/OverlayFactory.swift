@@ -13,6 +13,25 @@ import EngineKit
 import UniformTypeIdentifiers
 
 enum OverlayFactory {
+    /// Where to park the playhead after adding an overlay. At its exact start a fade-in is still
+    /// at zero opacity, so a paused preview showed nothing until play.
+    @MainActor
+    static func add(_ overlay: Project.Overlay, to editor: ProjectEditor,
+                    select: @escaping (UUID) -> Void, seek: ((TimeInterval) -> Void)?,
+                    then: (() -> Void)? = nil) {
+        Task {
+            _ = await editor.addOverlay(projectId: editor.project.projectId, overlay: overlay)
+            select(overlay.id)
+            seek?(revealTime(for: overlay))
+            then?()
+        }
+    }
+
+    static func revealTime(for overlay: Project.Overlay) -> TimeInterval {
+        let fadeIn = overlay.animation?.fadeInDuration ?? 0
+        return overlay.start + min(fadeIn + 0.05, (overlay.end - overlay.start) * 0.3)
+    }
+
     /// Default overlay window — user can drag the timeline clip to extend.
     private static let defaultDuration: TimeInterval = 2.0
 
