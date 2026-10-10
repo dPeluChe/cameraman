@@ -82,8 +82,13 @@ extension MaskedVideoCompositor {
         case .color:
             replacement = CIImage(color: CIColor(cgColor: cgColor(from: background.colorHex))).cropped(to: image.extent)
         case .blur:
-            replacement = image.clampedToExtent()
-                .applyingGaussianBlur(sigma: background.blurRadius)
+            // Blur a quarter-size copy: the result is meant to be soft, and the cost falls with the pixel count.
+            let scale = 0.25
+            let small = image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+            replacement = small.clampedToExtent()
+                .applyingGaussianBlur(sigma: background.blurRadius * scale)
+                .cropped(to: small.extent)
+                .transformed(by: CGAffineTransform(scaleX: 1 / scale, y: 1 / scale))
                 .cropped(to: image.extent)
         }
         return image.applyingFilter("CIBlendWithMask", parameters: [

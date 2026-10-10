@@ -104,6 +104,20 @@ public struct OverlayConfig: Codable, Sendable {
     }
 }
 
+// MARK: - Camera background render settings
+
+/// What the compositor needs to draw the camera background: the user's settings plus how hard to
+/// work for it. Preview favors speed, export favors edges; going through the two factories means a
+/// new build site cannot forget the export quality.
+public struct CameraBackgroundRender {
+    let settings: Project.CameraBackground
+    let quality: PersonSegmenter.Quality
+
+    static let off = CameraBackgroundRender(settings: Project.CameraBackground(), quality: .balanced)
+    static func preview(_ settings: Project.CameraBackground) -> Self { .init(settings: settings, quality: .balanced) }
+    static func export(_ settings: Project.CameraBackground) -> Self { .init(settings: settings, quality: .accurate) }
+}
+
 // MARK: - Custom Instruction
 
 /// Custom instruction that carries layout info for the compositor
@@ -198,8 +212,7 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
     }
 
     let videoOverlays: [VideoOverlaySource]
-    let cameraBackground: Project.CameraBackground?
-    let backgroundQuality: PersonSegmenter.Quality
+    let cameraBackground: CameraBackgroundRender
 
     init(
         timeRange: CMTimeRange,
@@ -227,8 +240,7 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         videoOverlays: [VideoOverlaySource] = [],
         cursorPlan: CursorPlan? = nil,
         cursorConfig: Project.SyntheticCursorConfig? = nil,
-        cameraBackground: Project.CameraBackground? = nil,
-        backgroundQuality: PersonSegmenter.Quality = .balanced
+        cameraBackground: CameraBackgroundRender = .off
     ) {
         self.timeRange = timeRange
         self.screenTrackID = screenTrackID
@@ -256,7 +268,6 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         self.cursorPlan = cursorPlan
         self.cursorConfig = cursorConfig
         self.cameraBackground = cameraBackground
-        self.backgroundQuality = backgroundQuality
         super.init()
 
         // An invalid screenTrackID means "no recording on the primary track"
@@ -471,11 +482,13 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
 
         var result = finalImage
         var rawCamera = CIImage(cvPixelBuffer: cameraBuffer)
-        if let background = instruction.cameraBackground, background.isActive {
-            // The canvas can run faster than the camera: one matte per camera frame (30 fps buckets).
-            let frameKey = Int((request.compositionTime.seconds * 30).rounded(.down))
-            if let matte = personSegmenter.mask(for: cameraBuffer, frameKey: frameKey, quality: instruction.backgroundQuality) {
-                rawCamera = applyBackground(background, to: rawCamera, matte: matte)
+        let background = instruction.cameraBackground
+        if background.settings.isActive {
+            // Fallback key (software buffers only): the canvas can run faster than the camera, so bucket by 30 fps.
+            let fallback = Int((request.compositionTime.seconds * 30).rounded(.down))
+            let frameKey = PersonSegmenter.frameKey(for: cameraBuffer, fallback: fallback)
+            if let matte = personSegmenter.mask(for: cameraBuffer, frameKey: frameKey, quality: background.quality) {
+                rawCamera = applyBackground(background.settings, to: rawCamera, matte: matte)
             }
         }
 

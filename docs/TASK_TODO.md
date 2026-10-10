@@ -70,6 +70,14 @@ Screenshots, scrolling capture, OCR copy-text, 3D zoom angles, AI-generated asse
 - [ ] Perf (see `PERF_MEMORY_AUDIT_2026-10.md`): playhead out of `TimelineView`, 1-byte masks, pause that really pauses.
 - [ ] Synthetic cursor: existing recordings keep the old offset (no stored value); new ones anchor to the video start. Verify on a fresh recording.
 
+## Camera background follow-ups `added: 2026-10-09`
+
+- [ ] MCP: expose `cameraBackground` (set_layout or a new tool + catalog test) so agents can use it.
+- [ ] Per-segment override (like `cameraPosition`) or model it as an `AdjustmentKind` on the camera target to get time ranges, validation and MCP for free (altitude review).
+- [ ] Persist the matte per source (computed once, reused by export and scrubbing) instead of the 8-frame in-memory cache; also enables person-over-screen effects.
+- [ ] Image background; measure on other Macs and cluttered backgrounds (spike used one indoor clip on an M1 Max).
+- [ ] Skip segmentation when the camera layer is off canvas; negative-cache failed frames.
+
 ## Bugs & Stability
 
 > Real defects to clear before / during pre-release. None block App Store submission today, but each adds friction.

@@ -45,9 +45,9 @@ public struct Project: Codable, Equatable {
     public var mediaItems: [MediaItem]
     /// Synthetic cursor rendering settings (nil = disabled, legacy default).
     public var syntheticCursor: SyntheticCursorConfig?
-    /// Background removal/blur for the camera layer (nil = untouched). Applied at render time, never
+    /// Background removal/blur for the camera layer (`.off` = untouched). Applied at render time, never
     /// to the source file, so turning it off restores the original footage.
-    public var cameraBackground: CameraBackground?
+    public var cameraBackground: CameraBackground
     /// Manual zoom keyframes created by the user. Merged with auto-zoom
     /// keyframes at render time. Timestamps are in timeline time.
     public var manualZoomKeyframes: [ZoomPlanGenerator.ZoomKeyframe]?
@@ -89,7 +89,7 @@ public struct Project: Codable, Equatable {
         mediaItems = try container.decodeIfPresent([MediaItem].self, forKey: .mediaItems) ?? []
         syntheticCursor = try container.decodeIfPresent(SyntheticCursorConfig.self, forKey: .syntheticCursor)
         manualZoomKeyframes = try container.decodeIfPresent([ZoomPlanGenerator.ZoomKeyframe].self, forKey: .manualZoomKeyframes)
-        cameraBackground = try container.decodeIfPresent(CameraBackground.self, forKey: .cameraBackground)
+        cameraBackground = try container.decodeIfPresent(CameraBackground.self, forKey: .cameraBackground) ?? CameraBackground()
     }
 
     public init(
@@ -111,7 +111,7 @@ public struct Project: Codable, Equatable {
         mediaItems: [MediaItem] = [],
         syntheticCursor: SyntheticCursorConfig? = nil,
         manualZoomKeyframes: [ZoomPlanGenerator.ZoomKeyframe]? = nil,
-        cameraBackground: CameraBackground? = nil
+        cameraBackground: CameraBackground = CameraBackground()
     ) {
         self.projectId = projectId
         self.name = name

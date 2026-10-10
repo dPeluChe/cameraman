@@ -35,10 +35,11 @@ extension ProjectEditor {
         }
     }
 
-    /// Background removal/blur for the camera layer; nil or `.off` restores the untouched footage.
+    /// Background removal/blur for the camera layer; `.off` restores the untouched footage and keeps
+    /// the blur strength and color for when it is switched back on.
     @discardableResult
-    func setCameraBackground(_ background: Project.CameraBackground?) async -> Bool {
-        await applyCanvasUpdate { $0.cameraBackground = (background?.isActive == true) ? background : nil }
+    func setCameraBackground(_ background: Project.CameraBackground) async -> Bool {
+        await applyCanvasUpdate { $0.cameraBackground = background }
     }
 
     @discardableResult

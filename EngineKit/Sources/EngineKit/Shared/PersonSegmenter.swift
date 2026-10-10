@@ -9,6 +9,7 @@
 import Foundation
 import CoreImage
 import CoreVideo
+import IOSurface
 import Vision
 
 final class PersonSegmenter: @unchecked Sendable {
@@ -22,19 +23,56 @@ final class PersonSegmenter: @unchecked Sendable {
         }
     }
 
-    private let lock = NSLock()
-    private var cache: [(key: Int, quality: Quality, mask: CIImage)] = []
+    private struct Key: Hashable {
+        let frame: Int
+        let accurate: Bool
+    }
+
+    /// Guards the cache and the in-flight set only. Vision itself runs outside it: each call has its
+    /// own request and handler, so parallel render workers segment different frames in parallel.
+    private let condition = NSCondition()
+    private var cache: [(key: Key, mask: CIImage)] = []
+    private var inFlight: Set<Key> = []
     private static let cacheLimit = 8
 
-    /// Matte scaled to the frame, white where the person is. `frameKey` identifies the camera frame
-    /// (any value that is equal for repeated requests of the same frame). Nil if Vision fails.
+    /// Identity of the camera frame itself. The IOSurface id plus its seed changes whenever a pooled
+    /// buffer is refilled; software buffers fall back to `fallback` (e.g. a composition-time bucket).
+    static func frameKey(for buffer: CVPixelBuffer, fallback: Int) -> Int {
+        guard let surface = CVPixelBufferGetIOSurface(buffer)?.takeUnretainedValue() else { return fallback }
+        var hasher = Hasher()
+        hasher.combine(IOSurfaceGetID(surface))
+        hasher.combine(IOSurfaceGetSeed(surface))
+        return hasher.finalize()
+    }
+
+    /// Matte scaled to the frame, white where the person is. Nil if Vision fails.
     func mask(for buffer: CVPixelBuffer, frameKey: Int, quality: Quality) -> CIImage? {
-        // One Vision request at a time: the handler is stateful and the compositor may render in parallel.
-        lock.lock()
-        defer { lock.unlock() }
+        let key = Key(frame: frameKey, accurate: quality == .accurate)
 
-        if let hit = cache.first(where: { $0.key == frameKey && $0.quality == quality }) { return hit.mask }
+        condition.lock()
+        // Another worker is already segmenting this frame: wait for it instead of repeating the work.
+        while inFlight.contains(key) { condition.wait() }
+        if let hit = cache.first(where: { $0.key == key }) {
+            condition.unlock()
+            return hit.mask
+        }
+        inFlight.insert(key)
+        condition.unlock()
 
+        let mask = Self.segment(buffer, quality: quality)
+
+        condition.lock()
+        inFlight.remove(key)
+        if let mask {
+            if cache.count >= Self.cacheLimit { cache.removeFirst() }
+            cache.append((key, mask))
+        }
+        condition.broadcast()
+        condition.unlock()
+        return mask
+    }
+
+    private static func segment(_ buffer: CVPixelBuffer, quality: Quality) -> CIImage? {
         let request = VNGeneratePersonSegmentationRequest()
         request.qualityLevel = quality.level
         request.outputPixelFormat = kCVPixelFormatType_OneComponent8
@@ -47,15 +85,7 @@ final class PersonSegmenter: @unchecked Sendable {
 
         let frame = CGRect(x: 0, y: 0, width: CVPixelBufferGetWidth(buffer), height: CVPixelBufferGetHeight(buffer))
         let raw = CIImage(cvPixelBuffer: matte)
-        // A touch of blur softens the stair-stepped edge without eating into hair.
-        let scaled = raw
-            .transformed(by: CGAffineTransform(scaleX: frame.width / raw.extent.width, y: frame.height / raw.extent.height))
-            .clampedToExtent()
-            .applyingGaussianBlur(sigma: 1.2)
-            .cropped(to: frame)
-
-        if cache.count >= Self.cacheLimit { cache.removeFirst() }
-        cache.append((frameKey, quality, scaled))
-        return scaled
+        // The matte comes back small; the bilinear upscale already softens the edge.
+        return raw.transformed(by: CGAffineTransform(scaleX: frame.width / raw.extent.width, y: frame.height / raw.extent.height))
     }
 }
