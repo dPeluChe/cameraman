@@ -118,6 +118,21 @@ public struct CameraBackgroundRender {
     static func export(_ settings: Project.CameraBackground) -> Self { .init(settings: settings, quality: .accurate) }
 }
 
+/// Everything the compositor draws on the camera layer beyond the picture itself. One value per
+/// instruction, so the next camera effect is a field here and not a parameter at every build site.
+public struct CameraLayerRender {
+    let background: CameraBackgroundRender
+    let accessories: Project.CameraAccessories
+
+    static let off = CameraLayerRender(background: .off, accessories: Project.CameraAccessories())
+    static func preview(_ project: Project) -> Self {
+        .init(background: .preview(project.cameraBackground), accessories: project.cameraAccessories)
+    }
+    static func export(_ project: Project) -> Self {
+        .init(background: .export(project.cameraBackground), accessories: project.cameraAccessories)
+    }
+}
+
 // MARK: - Custom Instruction
 
 /// Custom instruction that carries layout info for the compositor
@@ -212,8 +227,7 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
     }
 
     let videoOverlays: [VideoOverlaySource]
-    let cameraBackground: CameraBackgroundRender
-    let cameraAccessories: Project.CameraAccessories
+    let cameraLayer: CameraLayerRender
 
     init(
         timeRange: CMTimeRange,
@@ -241,8 +255,7 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         videoOverlays: [VideoOverlaySource] = [],
         cursorPlan: CursorPlan? = nil,
         cursorConfig: Project.SyntheticCursorConfig? = nil,
-        cameraBackground: CameraBackgroundRender = .off,
-        cameraAccessories: Project.CameraAccessories = Project.CameraAccessories()
+        cameraLayer: CameraLayerRender = .off
     ) {
         self.timeRange = timeRange
         self.screenTrackID = screenTrackID
@@ -269,8 +282,7 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         self.videoOverlays = videoOverlays
         self.cursorPlan = cursorPlan
         self.cursorConfig = cursorConfig
-        self.cameraBackground = cameraBackground
-        self.cameraAccessories = cameraAccessories
+        self.cameraLayer = cameraLayer
         super.init()
 
         // An invalid screenTrackID means "no recording on the primary track"
@@ -486,8 +498,8 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
 
         var result = finalImage
         var rawCamera = CIImage(cvPixelBuffer: cameraBuffer)
-        let background = instruction.cameraBackground
-        let accessories = instruction.cameraAccessories
+        let background = instruction.cameraLayer.background
+        let accessories = instruction.cameraLayer.accessories
         if background.settings.isActive || accessories.isActive {
             // Fallback key (software buffers only): the canvas can run faster than the camera, so bucket by 30 fps.
             let fallback = Int((request.compositionTime.seconds * 30).rounded(.down))

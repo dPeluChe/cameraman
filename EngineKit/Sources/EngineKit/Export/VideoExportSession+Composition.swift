@@ -140,8 +140,7 @@ extension ExportEngine {
                 videoOverlays: videoOverlays,
                 cursorPlan: cursorPlan,
                 cursorConfig: project.syntheticCursor,
-                cameraBackground: .export(project.cameraBackground),
-                cameraAccessories: project.cameraAccessories
+                cameraLayer: .export(project)
             )
             videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
             videoComposition.instructions = [maskedInstruction]
@@ -325,8 +324,7 @@ extension ExportEngine {
             videoOverlays: videoOverlays,
             cursorPlan: cursorPlan,
             cursorConfig: project.syntheticCursor,
-            cameraBackground: .export(project.cameraBackground),
-            cameraAccessories: project.cameraAccessories
+            cameraLayer: .export(project)
         )
         videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
         videoComposition.instructions = [maskedInstruction]
@@ -396,8 +394,7 @@ extension ExportEngine {
                 videoOverlays: videoOverlays,
                 cursorPlan: cursorPlan,
                 cursorConfig: project.syntheticCursor,
-                cameraBackground: .export(project.cameraBackground),
-                cameraAccessories: project.cameraAccessories
+                cameraLayer: .export(project)
             ))
         }
 
@@ -517,8 +514,7 @@ extension ExportEngine {
             videoOverlays: videoOverlays,
             cursorPlan: cursorPlan,
             cursorConfig: project.syntheticCursor,
-            cameraBackground: .export(project.cameraBackground),
-            cameraAccessories: project.cameraAccessories
+            cameraLayer: .export(project)
         )
     }
 }

@@ -63,16 +63,13 @@ enum AccessoryRenderer {
 
     // MARK: - Art
 
-    private static let artLock = NSLock()
-    nonisolated(unsafe) private static var artCache: [Project.CameraAccessories.Kind: CIImage] = [:]
+    /// Drawn on first use; a `static let` is initialized once and thread-safe.
+    private static let arts: [Project.CameraAccessories.Kind: CIImage] = Dictionary(
+        uniqueKeysWithValues: Project.CameraAccessories.Kind.allCases.map { ($0, draw($0)) }
+    )
 
     private static func art(for kind: Project.CameraAccessories.Kind) -> CIImage {
-        artLock.lock()
-        defer { artLock.unlock() }
-        if let cached = artCache[kind] { return cached }
-        let image = draw(kind)
-        artCache[kind] = image
-        return image
+        arts[kind] ?? CIImage.empty()
     }
 
     private static func draw(_ kind: Project.CameraAccessories.Kind) -> CIImage {
