@@ -78,6 +78,15 @@ Screenshots, scrolling capture, OCR copy-text, 3D zoom angles, AI-generated asse
 - [ ] Image background; measure on other Macs and cluttered backgrounds (spike used one indoor clip on an M1 Max).
 - [ ] Skip segmentation when the camera layer is off canvas; negative-cache failed frames.
 
+## Preview refresh follow-ups (round 1 simplify) `added: 2026-10-09`
+
+- [ ] Move the `editor.$project` subscription out of `PreviewPlayerView.body` into the view model (one subscription, `dropFirst().removeDuplicates().debounce`), then drop the `viewModel.project != project` guard. `onReceive` re-subscribes on every body pass and replays the current value.
+- [ ] Pause/seek/resume on every composition swap hitches playing previews; the principled fix is for the compositor to read mutable state (lock-protected config box) at render time so layout/shape edits need no AVFoundation invalidation.
+- [ ] Serialize refresh in one cancel-and-replace task (or in the engine); `refreshGeneration` covers the view model path only (Voiceover and OverlayInteractionLayer call `refreshPreview` too).
+- [ ] REC indicator: screen from the capture source for window/app modes (today only display sources pick the recorded screen); apply `excludedWindowIDs` in one filter helper.
+- [ ] A selected overlay still shows at zero opacity at its exact start while paused; an edit-mode rule (show fade-in at full opacity while selected) would also cover selecting existing overlays.
+- [ ] Subtitle editor still uses the raw system `ColorPicker`.
+
 ## Bugs & Stability
 
 > Real defects to clear before / during pre-release. None block App Store submission today, but each adds friction.

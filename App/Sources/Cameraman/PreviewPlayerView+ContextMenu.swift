@@ -92,17 +92,12 @@ extension PreviewPlayerView {
             at: viewModel.currentTime,
             timelineDuration: editor.project.timeline.duration
         )
-        Task {
-            _ = await editor.addOverlay(projectId: editor.project.projectId, overlay: overlay)
-            await MainActor.run {
-                selectedOverlayId?.wrappedValue = overlay.id
-                viewModel.seek(to: OverlayFactory.revealTime(for: overlay))
-                NotificationCenter.default.post(
-                    name: .selectEditorTool,
-                    object: EditorTool.overlays.rawValue
-                )
-            }
-        }
+        OverlayFactory.add(
+            overlay, to: editor,
+            select: { selectedOverlayId?.wrappedValue = $0 },
+            seek: { viewModel.seek(to: $0) },
+            then: { NotificationCenter.default.post(name: .selectEditorTool, object: EditorTool.overlays.rawValue) }
+        )
     }
 
     @MainActor

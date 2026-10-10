@@ -105,10 +105,3 @@ private final class ClickView: NSView {
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
     override func mouseDown(with event: NSEvent) { onClick() }
 }
-
-extension NSScreen {
-    /// The screen showing this CGDisplayID (the one being recorded), if it is still attached.
-    static func screen(forDisplayID id: CGDirectDisplayID) -> NSScreen? {
-        screens.first { ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value == id }
-    }
-}

@@ -183,13 +183,7 @@ struct PreviewPlayerView: View {
             timelineDuration: editor.project.timeline.duration,
             position: position
         )
-        Task {
-            _ = await editor.addOverlay(projectId: editor.project.projectId, overlay: overlay)
-            await MainActor.run {
-                selectedOverlayId?.wrappedValue = overlay.id
-                viewModel.seek(to: OverlayFactory.revealTime(for: overlay))
-            }
-        }
+        OverlayFactory.add(overlay, to: editor, select: { selectedOverlayId?.wrappedValue = $0 }, seek: { viewModel.seek(to: $0) })
     }
 }
 

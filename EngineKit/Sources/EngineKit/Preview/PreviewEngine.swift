@@ -261,11 +261,8 @@ public actor PreviewEngine {
         // PreviewPlayerView observes editor.objectWillChange and calls this on every
         // debounced tick — including for UI-only state that doesn't affect the composition.
         // Short-circuit when nothing actually changed to avoid cascading AVMutableVideoComposition rebuilds.
-        if let existing = self.project, existing == project {
-            return
-        }
+        guard self.project != project else { return }
 
-        let changedSections = self.project.map { Self.changedSections(from: $0, to: project) } ?? []
         let oldFormat = self.project?.canvas.format
         let oldClipCount = self.project?.timeline.primaryTrack?.clips.count
         // Overlay (.video/.audio) tracks live inside the AVComposition and the
@@ -277,9 +274,6 @@ public actor PreviewEngine {
         let needsFullRebuild = oldFormat != project.canvas.format
             || oldClipCount != project.timeline.primaryTrack?.clips.count
             || oldOverlayTracks != project.timeline.tracks.filter { $0.type != .primary }
-
-        let camera = project.canvas.layout.camera
-        LogInfo(.preview, "[PREVIEW] updateProject fullRebuild=\(needsFullRebuild) changed=\(changedSections) cameraShape=\(camera?.maskShape.rawValue ?? "none") cameraRect=\(camera.map { "\($0.x),\($0.y),\($0.w),\($0.h)" } ?? "-")")
 
         if needsFullRebuild {
             // Full rebuild needed (different tracks or render size)
@@ -310,42 +304,27 @@ public actor PreviewEngine {
         try await rebuildVideoComposition()
     }
 
-    /// Names of the top-level project sections that differ, for the refresh diagnostics.
-    static func changedSections(from old: Project, to new: Project) -> [String] {
-        var changed: [String] = []
-        if old.canvas != new.canvas { changed.append("canvas") }
-        if old.timeline != new.timeline { changed.append("timeline") }
-        if old.overlays != new.overlays { changed.append("overlays") }
-        if old.subtitles != new.subtitles { changed.append("subtitles") }
-        if old.chapters != new.chapters { changed.append("chapters") }
-        if old.mediaItems != new.mediaItems { changed.append("mediaItems") }
-        if old.manualZoomKeyframes != new.manualZoomKeyframes { changed.append("zoomKeyframes") }
-        if old.syntheticCursor != new.syntheticCursor { changed.append("syntheticCursor") }
-        if old.takes != new.takes { changed.append("takes") }
-        if old.updatedAt != new.updatedAt { changed.append("updatedAt") }
-        return changed
-    }
-
     /// Swaps the composition on the item and forces a re-render. AVFoundation keeps using the
     /// instructions it already queued until we seek, paused or playing: without the seek a
     /// shape/layout edit made during playback only showed after pausing. A seek keeps a playing
     /// player playing.
     func install(_ videoComposition: AVVideoComposition, on item: AVPlayerItem, player: AVPlayer) async {
-        nonisolated(unsafe) let unsafeComposition = videoComposition
+        nonisolated(unsafe) let composition = videoComposition
+        nonisolated(unsafe) let unsafeItem = item
         nonisolated(unsafe) let unsafePlayer = player
-        // Pausing around the seek is what pausing by hand does, and that is the case that works:
-        // a plain seek while playing left the already queued frames on screen.
-        let resumeRate: Float = await MainActor.run {
-            let rate = unsafePlayer.rate
-            item.videoComposition = unsafeComposition
-            if rate != 0 { unsafePlayer.pause() }
-            return rate
-        }
-        let time = await MainActor.run { unsafePlayer.currentTime() }
-        await unsafePlayer.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
-        if resumeRate != 0 {
-            await MainActor.run { unsafePlayer.rate = resumeRate }
-        }
+        await Self.swap(composition, on: unsafeItem, player: unsafePlayer)
+    }
+
+    /// Pausing around the seek is what pausing by hand does, and that is the case that works: a plain
+    /// seek while playing left the already queued frames on screen.
+    @MainActor
+    private static func swap(_ videoComposition: AVVideoComposition, on item: AVPlayerItem, player: AVPlayer) async {
+        let resumeRate = player.rate
+        item.videoComposition = videoComposition
+        if resumeRate != 0 { player.pause() }
+        await player.seek(to: player.currentTime(), toleranceBefore: .zero, toleranceAfter: .zero)
+        // Do not override a pause or play the user made while the seek was running.
+        if resumeRate != 0, player.rate == 0 { player.rate = resumeRate }
     }
 
     /// Rebuild only the videoComposition without recreating tracks/player

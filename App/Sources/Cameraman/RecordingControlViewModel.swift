@@ -212,7 +212,7 @@ class RecordingControlViewModel: ObservableObject {
             log("Output directory: \(outputURL.path)")
 
             // The display being recorded, not wherever the app window happens to be: countdown and REC go there.
-            let recordedScreen = selectedDisplaySource.flatMap { UInt32($0.id) }.flatMap(NSScreen.screen(forDisplayID:))
+            let recordedScreen = selectedDisplaySource.flatMap { NSScreen.screen(withDisplayID: $0.id) }
 
             // After permissions and setup, so system prompts never land during the countdown.
             if countdownSeconds > 0 {
@@ -244,7 +244,7 @@ class RecordingControlViewModel: ObservableObject {
                 quality: recordingQuality,
                 captureRect: selectedArea,
                 hideSystemCursor: hideSystemCursor,
-                excludedWindowIDs: indicator.windowNumber.map { [$0] } ?? []
+                excludedWindowIDs: indicator.windowNumbers
             )
 
             // Create camera configuration if needed

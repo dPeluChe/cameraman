@@ -65,12 +65,8 @@ struct OverlayEditorView: View {
                         )
                         .contentShape(Rectangle())
                         .onTapGesture {
-                            if selectedOverlayId == overlay.id {
-                                inspectorExpanded.toggle()
-                            } else {
-                                selectedOverlayId = overlay.id
-                                inspectorExpanded = true
-                            }
+                            inspectorExpanded = selectedOverlayId == overlay.id ? !inspectorExpanded : true
+                            selectedOverlayId = overlay.id
                         }
                     }
                 }

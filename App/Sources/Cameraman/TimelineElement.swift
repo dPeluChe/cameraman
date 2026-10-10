@@ -178,8 +178,7 @@ struct TimelineElementsRow: View {
         case .overlay(let o):
             selectedOverlayId = o.id
             popoverOverlayId = o.id
-            // Land just past the fade-in so the overlay is visible when the popover opens.
-            seekTarget = o.start + min((o.animation?.fadeInDuration ?? 0) + 0.05, (o.end - o.start) * 0.3)
+            seekTarget = OverlayFactory.revealTime(for: o)
         case .image(let m):
             selectedMediaItemId = m.id
         case .blur(let r):

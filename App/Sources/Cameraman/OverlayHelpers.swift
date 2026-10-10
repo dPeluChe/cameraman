@@ -38,13 +38,7 @@ extension OverlayEditorView {
             at: playheadTime,
             timelineDuration: editor.project.timeline.duration
         )
-        Task {
-            _ = await editor.addOverlay(projectId: editor.project.projectId, overlay: overlay)
-            await MainActor.run {
-                selectedOverlayId = overlay.id
-                onSeek?(OverlayFactory.revealTime(for: overlay))
-            }
-        }
+        OverlayFactory.add(overlay, to: editor, select: { selectedOverlayId = $0 }, seek: onSeek)
     }
 
     func addOverlayAtPlayhead(type: Project.Overlay.OverlayType) {
@@ -53,13 +47,7 @@ extension OverlayEditorView {
             at: playheadTime,
             timelineDuration: editor.project.timeline.duration
         )
-        Task {
-            _ = await editor.addOverlay(projectId: editor.project.projectId, overlay: overlay)
-            await MainActor.run {
-                selectedOverlayId = overlay.id
-                onSeek?(OverlayFactory.revealTime(for: overlay))
-            }
-        }
+        OverlayFactory.add(overlay, to: editor, select: { selectedOverlayId = $0 }, seek: onSeek)
     }
 
     func deleteSelectedOverlay() {
@@ -335,11 +323,4 @@ extension OverlayEditorView {
         return (r, g, b, a)
     }
 
-    func hexColor(from color: Color) -> String {
-        let c = NSColor(color).usingColorSpace(.sRGB) ?? NSColor(color)
-        return String(format: "#%02X%02X%02X",
-                      Int(c.redComponent * 255),
-                      Int(c.greenComponent * 255),
-                      Int(c.blueComponent * 255))
-    }
 }
