@@ -111,7 +111,8 @@ extension PreviewEngine {
                     zoomPlan: self.zoomPlan,
                     videoOverlays: videoOverlays,
                     cursorPlan: self.cursorPlan,
-                    cursorConfig: project.syntheticCursor
+                    cursorConfig: project.syntheticCursor,
+                    cameraBackground: .preview(project.cameraBackground)
                 )
                 videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
                 videoComposition.instructions = [maskedInstruction]
@@ -189,7 +190,8 @@ extension PreviewEngine {
                     zoomPlan: self.zoomPlan,
                     videoOverlays: videoOverlays,
                     cursorPlan: self.cursorPlan,
-                    cursorConfig: project.syntheticCursor
+                    cursorConfig: project.syntheticCursor,
+                    cameraBackground: .preview(project.cameraBackground)
                 )
                 videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
                 videoComposition.instructions = [maskedInstruction]
@@ -280,7 +282,8 @@ extension PreviewEngine {
                             zoomPlan: self.zoomPlan,
                             videoOverlays: videoOverlays,
                             cursorPlan: self.cursorPlan,
-                            cursorConfig: project.syntheticCursor
+                            cursorConfig: project.syntheticCursor,
+                            cameraBackground: .preview(project.cameraBackground)
                         ))
                     }
 
@@ -327,7 +330,8 @@ extension PreviewEngine {
                         zoomPlan: self.zoomPlan,
                         videoOverlays: videoOverlays,
                         cursorPlan: self.cursorPlan,
-                        cursorConfig: project.syntheticCursor
+                        cursorConfig: project.syntheticCursor,
+                        cameraBackground: .preview(project.cameraBackground)
                     )
                     videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
                     videoComposition.instructions = [maskedInstruction]
@@ -363,7 +367,8 @@ extension PreviewEngine {
                         zoomPlan: self.zoomPlan,
                         videoOverlays: videoOverlays,
                         cursorPlan: self.cursorPlan,
-                        cursorConfig: project.syntheticCursor
+                        cursorConfig: project.syntheticCursor,
+                        cameraBackground: .preview(project.cameraBackground)
                     )
                     videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
                     videoComposition.instructions = [maskedInstruction]

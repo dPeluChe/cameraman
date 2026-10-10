@@ -104,6 +104,20 @@ public struct OverlayConfig: Codable, Sendable {
     }
 }
 
+// MARK: - Camera background render settings
+
+/// What the compositor needs to draw the camera background: the user's settings plus how hard to
+/// work for it. Preview favors speed, export favors edges; going through the two factories means a
+/// new build site cannot forget the export quality.
+public struct CameraBackgroundRender {
+    let settings: Project.CameraBackground
+    let quality: PersonSegmenter.Quality
+
+    static let off = CameraBackgroundRender(settings: Project.CameraBackground(), quality: .balanced)
+    static func preview(_ settings: Project.CameraBackground) -> Self { .init(settings: settings, quality: .balanced) }
+    static func export(_ settings: Project.CameraBackground) -> Self { .init(settings: settings, quality: .accurate) }
+}
+
 // MARK: - Custom Instruction
 
 /// Custom instruction that carries layout info for the compositor
@@ -198,6 +212,7 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
     }
 
     let videoOverlays: [VideoOverlaySource]
+    let cameraBackground: CameraBackgroundRender
 
     init(
         timeRange: CMTimeRange,
@@ -224,7 +239,8 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         zoomPlan: ZoomPlanGenerator.ZoomPlan? = nil,
         videoOverlays: [VideoOverlaySource] = [],
         cursorPlan: CursorPlan? = nil,
-        cursorConfig: Project.SyntheticCursorConfig? = nil
+        cursorConfig: Project.SyntheticCursorConfig? = nil,
+        cameraBackground: CameraBackgroundRender = .off
     ) {
         self.timeRange = timeRange
         self.screenTrackID = screenTrackID
@@ -251,6 +267,7 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         self.videoOverlays = videoOverlays
         self.cursorPlan = cursorPlan
         self.cursorConfig = cursorConfig
+        self.cameraBackground = cameraBackground
         super.init()
 
         // An invalid screenTrackID means "no recording on the primary track"
@@ -292,6 +309,7 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
     private var renderContext: AVVideoCompositionRenderContext?
     let ciContext = CIContext(options: [.useSoftwareRenderer: false])
     let cacheLock = NSLock()
+    let personSegmenter = PersonSegmenter()
     /// Path masks are identical frame to frame; rendering one is a full-canvas bitmap fill and upload.
     var maskCache: [(path: CGPath, size: CGSize, mask: CIImage)] = []
 
@@ -463,7 +481,16 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
         }
 
         var result = finalImage
-        let rawCamera = CIImage(cvPixelBuffer: cameraBuffer)
+        var rawCamera = CIImage(cvPixelBuffer: cameraBuffer)
+        let background = instruction.cameraBackground
+        if background.settings.isActive {
+            // Fallback key (software buffers only): the canvas can run faster than the camera, so bucket by 30 fps.
+            let fallback = Int((request.compositionTime.seconds * 30).rounded(.down))
+            let frameKey = PersonSegmenter.frameKey(for: cameraBuffer, fallback: fallback)
+            if let matte = personSegmenter.mask(for: cameraBuffer, frameKey: frameKey, quality: background.quality) {
+                rawCamera = applyBackground(background.settings, to: rawCamera, matte: matte)
+            }
+        }
 
         // Same mixed-resolution guard as the screen layer: the static transform
         // was computed for one camera resolution; if this frame lands outside its
