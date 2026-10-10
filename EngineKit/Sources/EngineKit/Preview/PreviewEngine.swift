@@ -309,10 +309,7 @@ public actor PreviewEngine {
     /// shape/layout edit made during playback only showed after pausing. A seek keeps a playing
     /// player playing.
     func install(_ videoComposition: AVVideoComposition, on item: AVPlayerItem, player: AVPlayer) async {
-        nonisolated(unsafe) let composition = videoComposition
-        nonisolated(unsafe) let unsafeItem = item
-        nonisolated(unsafe) let unsafePlayer = player
-        await Self.swap(composition, on: unsafeItem, player: unsafePlayer)
+        await Self.swap(videoComposition, on: item, player: player)
     }
 
     /// Pausing around the seek is what pausing by hand does, and that is the case that works: a plain
