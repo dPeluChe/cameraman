@@ -31,6 +31,18 @@ final class LiveAnnotationController: ObservableObject {
             }
         }
 
+        /// The shape this tool draws; nil for tools that do not leave a shape (mouse, laser) or draw on click (text).
+        var shapeKind: LiveAnnotation.Kind? {
+            switch self {
+            case .pen: return .pen
+            case .arrow: return .arrow
+            case .rect: return .rect
+            case .ellipse: return .ellipse
+            case .blur: return .blur
+            case .pointer, .laser, .text: return nil
+            }
+        }
+
         var title: String {
             switch self {
             case .pointer: return "Mouse (click through)"
@@ -58,7 +70,9 @@ final class LiveAnnotationController: ObservableObject {
     }
     @Published var colorHex = palette[0]
     @Published var lineWidth = widths[1]
-    @Published private(set) var log = LiveAnnotationLog()
+    @Published private(set) var log = LiveAnnotationLog() {
+        didSet { canvasView?.refresh() }
+    }
 
     private var canvasPanel: NSPanel?
     private var canvasView: LiveAnnotationCanvasView?
@@ -85,7 +99,6 @@ final class LiveAnnotationController: ObservableObject {
         panel.ignoresMouseEvents = true
         panel.acceptsMouseMovedEvents = true
         panel.contentView = canvas
-        panel.setFrame(screen.frame, display: true)
         panel.orderFrontRegardless()
         canvasPanel = panel
         canvasView = canvas
@@ -108,33 +121,25 @@ final class LiveAnnotationController: ObservableObject {
     func resumeClock() { clock.resume() }
 
     /// Closes the windows and returns everything that was drawn.
+    @discardableResult
     func finish() -> LiveAnnotationLog {
+        tool = .pointer
         canvasView?.stopLaser()
         log.clear(at: elapsed)
+        let result = log
         canvasPanel?.orderOut(nil)
         toolbarPanel?.orderOut(nil)
         canvasPanel = nil
         canvasView = nil
         toolbarPanel = nil
-        tool = .pointer
-        return log
+        return result
     }
 
     // MARK: Editing
 
-    func commit(_ annotation: LiveAnnotation) {
-        if log.add(annotation) { canvasView?.refresh() }
-    }
-
-    func undo() {
-        guard log.undo(at: elapsed) else { return }
-        canvasView?.refresh()
-    }
-
-    func clear() {
-        log.clear(at: elapsed)
-        canvasView?.refresh()
-    }
+    func commit(_ annotation: LiveAnnotation) { log.add(annotation) }
+    func undo() { log.undo(at: elapsed) }
+    func clear() { log.clear(at: elapsed) }
 }
 
 /// Borderless transparent panel. The canvas can take key presses (Esc, ⌘Z, typing); the toolbar

@@ -43,20 +43,22 @@ struct LiveAnnotationToolbar: View {
             .buttonStyle(.plain)
             .help("Line width")
             divider
-            Button { controller.undo() } label: { Image(systemName: "arrow.uturn.backward").frame(width: 28, height: 28) }
-                .buttonStyle(.plain)
-                .disabled(!controller.canUndo)
-                .help("Undo (⌘Z)")
-            Button { controller.clear() } label: { Image(systemName: "trash").frame(width: 28, height: 28) }
-                .buttonStyle(.plain)
-                .disabled(!controller.canUndo)
-                .help("Clear all")
+            iconButton("arrow.uturn.backward", help: "Undo (⌘Z)") { controller.undo() }
+            iconButton("trash", help: "Clear all") { controller.clear() }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.primary.opacity(0.12)))
         .padding(4)
+    }
+
+    private func iconButton(_ systemName: String, help: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) { Image(systemName: systemName).frame(width: 28, height: 28) }
+            .buttonStyle(.plain)
+            .disabled(!controller.canUndo)
+            .help(help)
+            .accessibilityLabel(help)
     }
 
     private var divider: some View {

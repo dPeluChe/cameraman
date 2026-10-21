@@ -313,13 +313,17 @@ class RecordingControlViewModel: ObservableObject {
             // Clean up state
             recordingIndicator?.hide()
             recordingIndicator = nil
-            _ = annotations?.finish()
-            annotations = nil
+            endAnnotations()
             isRecording = false
             recordingSession = nil
             timer?.invalidate()
             timer = nil
         }
+    }
+
+    private func endAnnotations() {
+        annotations?.finish()
+        annotations = nil
     }
 
     /// The system stopped the stream under us: keep what was captured and say why.
@@ -396,8 +400,7 @@ class RecordingControlViewModel: ObservableObject {
         elapsedTime = "00:00"
         recordingSession = nil
 
-        _ = annotations?.finish()
-        annotations = nil
+        endAnnotations()
 
         // Hide recording indicator
         recordingIndicator?.hide()

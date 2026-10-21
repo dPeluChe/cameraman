@@ -13,7 +13,6 @@ final class LiveAnnotationRendererTests: XCTestCase {
             samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
         let ctx = try XCTUnwrap(NSGraphicsContext(bitmapImageRep: rep))
         NSGraphicsContext.saveGraphicsState()
-        NSGraphicsContext.current = ctx
         ctx.cgContext.translateBy(x: 0, y: size.height)
         ctx.cgContext.scaleBy(x: 1, y: -1)
         NSGraphicsContext.current = NSGraphicsContext(cgContext: ctx.cgContext, flipped: true)

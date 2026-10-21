@@ -10,7 +10,7 @@ import Foundation
 import CoreGraphics
 
 public struct LiveAnnotation: Codable, Equatable, Identifiable, Sendable {
-    public enum Kind: String, Codable, Sendable, CaseIterable {
+    public enum Kind: String, Codable, Sendable {
         case arrow, rect, ellipse, pen, text, blur
     }
 
@@ -58,6 +58,13 @@ public struct LiveAnnotation: Codable, Equatable, Identifiable, Sendable {
         }
     }
 
+    /// Text size in points for a text annotation drawn with this stroke width.
+    public var textPointSize: Double { Self.textPointSize(forLineWidth: lineWidth) }
+    public static func textPointSize(forLineWidth width: Double) -> Double { 14 + width * 5 }
+
+    /// Ends the shape at `time`, never before it started.
+    public mutating func end(at time: TimeInterval) { end = max(time, start) }
+
     static let minExtent = 0.004
 }
 
@@ -83,13 +90,11 @@ public struct LiveAnnotationLog: Codable, Equatable, Sendable {
     @discardableResult
     public mutating func undo(at time: TimeInterval) -> Bool {
         guard let index = items.lastIndex(where: { $0.end == nil }) else { return false }
-        items[index].end = max(time, items[index].start)
+        items[index].end(at: time)
         return true
     }
 
     public mutating func clear(at time: TimeInterval) {
-        for index in items.indices where items[index].end == nil {
-            items[index].end = max(time, items[index].start)
-        }
+        for index in items.indices where items[index].end == nil { items[index].end(at: time) }
     }
 }

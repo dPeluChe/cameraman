@@ -15,6 +15,7 @@ final class LiveAnnotationCanvasView: NSView {
     weak var controller: LiveAnnotationController?
 
     private var draft: LiveAnnotation?
+    private var visible: [LiveAnnotation] = []
     private var laserTrail: [(point: CGPoint, time: TimeInterval)] = []
     private var laserTimer: Timer?
     private var blurViews: [UUID: NSVisualEffectView] = [:]
@@ -32,7 +33,7 @@ final class LiveAnnotationCanvasView: NSView {
     }
 
     override func updateTrackingAreas() {
-        trackingAreas.forEach(removeTrackingArea)
+        guard trackingAreas.isEmpty else { return }
         addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseMoved, .activeAlways, .inVisibleRect], owner: self))
     }
 
@@ -40,7 +41,8 @@ final class LiveAnnotationCanvasView: NSView {
 
     /// Rebuild what is shown from the controller's log (committed shapes and blur panes).
     func refresh() {
-        let blurs = (controller?.log.visible ?? []).filter { $0.kind == .blur }
+        visible = controller?.log.visible ?? []
+        let blurs = visible.filter { $0.kind == .blur }
         let live = Set(blurs.map(\.id))
         for id in blurViews.keys where !live.contains(id) {
             blurViews.removeValue(forKey: id)?.removeFromSuperview()
@@ -50,16 +52,11 @@ final class LiveAnnotationCanvasView: NSView {
             view.material = .hudWindow
             view.blendingMode = .behindWindow
             view.state = .active
-            view.frame = frame(of: blur)
+            view.frame = LiveAnnotationRenderer.frame(of: blur, in: bounds.size)
             addSubview(view, positioned: .below, relativeTo: textField)
             blurViews[blur.id] = view
         }
-        window?.invalidateCursorRects(for: self)
         needsDisplay = true
-    }
-
-    private func frame(of annotation: LiveAnnotation) -> CGRect {
-        LiveAnnotationRenderer.rect(annotation.points.map { CGPoint(x: $0.x * bounds.width, y: $0.y * bounds.height) })
     }
 
     private func normalized(_ p: CGPoint) -> CGPoint {
@@ -69,11 +66,12 @@ final class LiveAnnotationCanvasView: NSView {
     // MARK: Drawing
 
     override func draw(_ dirtyRect: NSRect) {
-        guard let controller else { return }
-        for annotation in controller.log.visible { LiveAnnotationRenderer.draw(annotation, in: bounds.size) }
+        for annotation in visible where LiveAnnotationRenderer.dirtyFrame(of: annotation, in: bounds.size).intersects(dirtyRect) {
+            LiveAnnotationRenderer.draw(annotation, in: bounds.size)
+        }
         if let draft {
             if draft.kind == .blur {
-                let rect = frame(of: draft)
+                let rect = LiveAnnotationRenderer.frame(of: draft, in: bounds.size)
                 NSColor.white.withAlphaComponent(0.15).setFill()
                 rect.fill()
                 let outline = NSBezierPath(rect: rect)
@@ -92,7 +90,6 @@ final class LiveAnnotationCanvasView: NSView {
         let color = LiveAnnotationRenderer.color(controller?.colorHex ?? "#FF3B30")
         for (index, sample) in laserTrail.enumerated() {
             let age = (now - sample.time) / Self.laserLife
-            guard age < 1 else { continue }
             let isHead = index == laserTrail.count - 1
             let radius = isHead ? 11.0 : 8.0 * (1 - age) + 2
             color.withAlphaComponent(isHead ? 0.9 : 0.55 * (1 - age)).setFill()
@@ -115,15 +112,8 @@ final class LiveAnnotationCanvasView: NSView {
         case .pointer: break
         case .laser: addLaserPoint(p)
         case .text: beginText(at: p)
-        case .pen, .arrow, .rect, .ellipse, .blur:
-            let kind: LiveAnnotation.Kind
-            switch controller.tool {
-            case .pen: kind = .pen
-            case .arrow: kind = .arrow
-            case .rect: kind = .rect
-            case .ellipse: kind = .ellipse
-            default: kind = .blur
-            }
+        default:
+            guard let kind = controller.tool.shapeKind else { return }
             draft = LiveAnnotation(kind: kind, points: [normalized(p)], colorHex: controller.colorHex,
                                    lineWidth: controller.lineWidth, start: controller.elapsed)
         }
@@ -139,15 +129,15 @@ final class LiveAnnotationCanvasView: NSView {
         } else {
             draft.points = [draft.points[0], point]
         }
+        setNeedsDisplay(LiveAnnotationRenderer.dirtyFrame(of: self.draft ?? draft, in: bounds.size).union(LiveAnnotationRenderer.dirtyFrame(of: draft, in: bounds.size)))
         self.draft = draft
-        needsDisplay = true
     }
 
     override func mouseUp(with event: NSEvent) {
         guard let draft else { return }
         self.draft = nil
         controller?.commit(draft)
-        needsDisplay = true
+        setNeedsDisplay(LiveAnnotationRenderer.dirtyFrame(of: draft, in: bounds.size))
     }
 
     override func keyDown(with event: NSEvent) {
@@ -164,10 +154,15 @@ final class LiveAnnotationCanvasView: NSView {
     // MARK: Laser
 
     private func addLaserPoint(_ p: CGPoint) {
+        let before = laserBounds()
         let now = ProcessInfo.processInfo.systemUptime
-        laserTrail.append((p, now))
-        laserTrail.removeAll { now - $0.time > Self.laserLife }
-        needsDisplay = true
+        // Mouse events arrive faster than the eye can tell apart: keep the trail sparse.
+        if let last = laserTrail.last, hypot(last.point.x - p.x, last.point.y - p.y) < 4 {
+            laserTrail[laserTrail.count - 1] = (p, now)
+        } else {
+            laserTrail.append((p, now))
+        }
+        setNeedsDisplay(before.union(laserBounds()))
         guard laserTimer == nil else { return }
         laserTimer = Timer.scheduledTimer(withTimeInterval: 1 / 60, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tickLaser() }
@@ -175,26 +170,32 @@ final class LiveAnnotationCanvasView: NSView {
     }
 
     private func tickLaser() {
+        let before = laserBounds()
         let now = ProcessInfo.processInfo.systemUptime
         laserTrail.removeAll { now - $0.time > Self.laserLife }
-        needsDisplay = true
-        if laserTrail.isEmpty {
-            laserTimer?.invalidate()
-            laserTimer = nil
-        }
+        setNeedsDisplay(before)
+        if laserTrail.isEmpty { stopLaser() }
+    }
+
+    private func laserBounds() -> CGRect {
+        guard let first = laserTrail.first else { return .null }
+        let box = laserTrail.reduce(CGRect(origin: first.point, size: .zero)) { $0.union(CGRect(origin: $1.point, size: .zero)) }
+        return box.insetBy(dx: -16, dy: -16)
     }
 
     func stopLaser() {
+        let before = laserBounds()
         laserTimer?.invalidate()
         laserTimer = nil
         laserTrail.removeAll()
+        if !before.isNull { setNeedsDisplay(before) }
     }
 
     // MARK: Text
 
     private func beginText(at p: CGPoint) {
         guard let controller else { return }
-        let size = LiveAnnotationRenderer.textSize(for: controller.lineWidth)
+        let size = CGFloat(LiveAnnotation.textPointSize(forLineWidth: controller.lineWidth))
         let field = NSTextField(frame: CGRect(x: p.x, y: p.y, width: 320, height: size + 10))
         field.font = .systemFont(ofSize: size, weight: .bold)
         field.textColor = LiveAnnotationRenderer.color(controller.colorHex)
@@ -203,15 +204,13 @@ final class LiveAnnotationCanvasView: NSView {
         field.focusRingType = .none
         field.placeholderString = "Texto"
         field.target = self
-        field.action = #selector(textEntered)
+        field.action = #selector(commitText)
         addSubview(field)
         textField = field
         window?.makeFirstResponder(field)
     }
 
-    @objc private func textEntered() { commitText() }
-
-    private func commitText() {
+    @objc private func commitText() {
         guard let field = textField, let controller else { return }
         textField = nil
         let text = field.stringValue
