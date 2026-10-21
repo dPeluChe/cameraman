@@ -15,7 +15,6 @@ DerivedData/
 # Testing
 *.gcno
 *.gcda
-.ralphy/progress.txt
 
 # Distribution artifacts
 /dist/
