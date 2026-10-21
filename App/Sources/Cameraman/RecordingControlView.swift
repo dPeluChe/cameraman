@@ -157,6 +157,9 @@ struct RecordingControlView: View {
                           devices: viewModel.microphones.map { ($0.id, $0.name) }, selection: $viewModel.selectedMicrophoneID)
                 ToggleRow(icon: "speaker.wave.2.fill", title: "System Audio", isOn: $viewModel.includeSystemAudio, offIcon: "speaker.slash.fill")
                 ToggleRow(icon: "cursorarrow.slash", title: "Hide Cursor", isOn: $viewModel.hideSystemCursor, offIcon: "cursorarrow")
+                if viewModel.supportsLiveAnnotations {
+                    ToggleRow(icon: "pencil.and.scribble", title: "Draw on screen", isOn: $viewModel.liveAnnotations, offIcon: "pencil.slash")
+                }
                 Divider().opacity(0.3)
                 ToggleRow(icon: "text.justify.leading", title: "Teleprompter", isOn: $showTeleprompter, offIcon: "text.justify.leading")
                 Divider().opacity(0.3)

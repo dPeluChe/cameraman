@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > to `[0.7.1] - <date>` when the batch is built, signed and notarized.
 
 ### Added
+- **Draw on screen while recording** — new "Draw on screen" switch in the recording window (display capture). A
+  floating palette (not in the video) gives mouse (click-through), laser pointer, pen, arrow, rectangle, ellipse,
+  text and blur-area tools, five colors, three widths, undo (⌘Z) and clear; Esc goes back to the mouse. The drawing
+  is real on-screen content, so the video records exactly what you see. Window and app capture are not supported:
+  they never include other windows. What was drawn is kept as a timed log for editing it afterwards.
 - **Logo / image on the camera** — Accessories → Add logo or image…: an SVG, PNG or JPG pinned to the camera frame
   (corners, top, center, bottom) or to the face (above the head, on the eyes), with a size slider. Copied into the
   project's assets; frame-pinned images need no face. Fixed along the way: a camera background or accessory was
