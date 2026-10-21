@@ -36,6 +36,12 @@ class RecordingControlViewModel: ObservableObject {
         didSet { UserDefaults.standard.set(selectedMicrophoneID, forKey: "recording.micDeviceID") }
     }
     @Published var hideSystemCursor = false
+    /// Draw-on-screen tools during the recording. Only for display capture: window and app capture
+    /// never include other windows, so the drawing would not reach the video.
+    @Published var liveAnnotations: Bool = UserDefaults.standard.bool(forKey: "recording.liveAnnotations") {
+        didSet { UserDefaults.standard.set(liveAnnotations, forKey: "recording.liveAnnotations") }
+    }
+    var supportsLiveAnnotations: Bool { selectedConfig?.sourceType == .display }
     @Published var lastRecordingURL: URL?
     @Published var recordingQuality: RecordingQuality = .native
     /// Self-timer before recording starts; 0 = off. Remembered between launches.
@@ -56,6 +62,7 @@ class RecordingControlViewModel: ObservableObject {
     private var timer: Timer?
     private var recordingSession: Recorder.RecordingSession?
     private var recordingIndicator: RecordingIndicatorWindow?
+    private var annotations: LiveAnnotationController?
     private var streamStopObserver: NSObjectProtocol?
     /// The Stop button and the stream-stopped notice can race; only one may finalize.
     private var isStopping = false
@@ -232,6 +239,14 @@ class RecordingControlViewModel: ObservableObject {
             indicator.show(on: recordedScreen)
             recordingIndicator = indicator
 
+            var excludedWindowIDs = indicator.windowNumbers
+            if liveAnnotations, supportsLiveAnnotations, let recordedScreen {
+                let controller = LiveAnnotationController()
+                controller.show(on: recordedScreen)
+                excludedWindowIDs += controller.excludedWindowIDs
+                annotations = controller
+            }
+
             // Recreate config with current system audio + quality + area settings
             let screenConfig = CaptureEngine.CaptureConfiguration(
                 sourceType: config.sourceType,
@@ -244,7 +259,7 @@ class RecordingControlViewModel: ObservableObject {
                 quality: recordingQuality,
                 captureRect: selectedArea,
                 hideSystemCursor: hideSystemCursor,
-                excludedWindowIDs: indicator.windowNumbers
+                excludedWindowIDs: excludedWindowIDs
             )
 
             // Create camera configuration if needed
@@ -275,6 +290,7 @@ class RecordingControlViewModel: ObservableObject {
                 outputURL: outputURL
             )
             log("Recorder started successfully. Session: \(String(describing: recordingSession))")
+            annotations?.startClock(at: recordingSession?.startTime ?? Date())
 
             // Start timer
             timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
@@ -297,6 +313,8 @@ class RecordingControlViewModel: ObservableObject {
             // Clean up state
             recordingIndicator?.hide()
             recordingIndicator = nil
+            _ = annotations?.finish()
+            annotations = nil
             isRecording = false
             recordingSession = nil
             timer?.invalidate()
@@ -378,6 +396,9 @@ class RecordingControlViewModel: ObservableObject {
         elapsedTime = "00:00"
         recordingSession = nil
 
+        _ = annotations?.finish()
+        annotations = nil
+
         // Hide recording indicator
         recordingIndicator?.hide()
         recordingIndicator = nil
@@ -394,12 +415,14 @@ class RecordingControlViewModel: ObservableObject {
                 statusText = "Resuming..."
                 try await recorder.resumeRecording(session: session)
                 isPaused = false
+                annotations?.resumeClock()
                 statusText = "Recording..."
                 LogInfo(.capture, "Recording resumed")
             } else {
                 statusText = "Pausing..."
                 try await recorder.pauseRecording(session: session)
                 isPaused = true
+                annotations?.pauseClock()
                 statusText = "Paused"
                 LogInfo(.capture, "Recording paused")
             }

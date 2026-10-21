@@ -70,6 +70,13 @@ Screenshots, scrolling capture, OCR copy-text, 3D zoom angles, AI-generated asse
 - [ ] Perf (see `PERF_MEMORY_AUDIT_2026-10.md`): playhead out of `TimelineView`, 1-byte masks, pause that really pauses.
 - [ ] Synthetic cursor: existing recordings keep the old offset (no stored value); new ones anchor to the video start. Verify on a fresh recording.
 
+## Live annotations follow-ups `added: 2026-10-21`
+- [ ] Editable in post: record the log next to the recording and turn it into project overlays and blur regions (arrow, rect, ellipse, text, blur); pen and laser have no overlay type yet.
+- [ ] Verify on a real recording that the blur-behind view is captured by ScreenCaptureKit (WindowServer composites it; checked only by reasoning, not on a capture).
+- [ ] Window / app capture: the canvas is not in a single-window filter. Could record the log only and render it in post.
+- [ ] Global hotkeys to switch tool and toggle the canvas without clicking the palette.
+- [ ] Multi-display: the canvas covers only the recorded display.
+
 ## Camera background follow-ups `added: 2026-10-09`
 
 - [ ] MCP: expose `cameraBackground` (set_layout or a new tool + catalog test) so agents can use it.
