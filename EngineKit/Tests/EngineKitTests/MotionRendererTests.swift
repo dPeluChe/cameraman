@@ -136,6 +136,63 @@ final class MotionRendererTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
     }
 
+    func testColorsSurviveTheVideo() async throws {
+        let html = """
+        <html><body style="margin:0;background:rgb(51,102,153)">
+        <script>window.__hf = { duration: 0.3, seek() {} };</script></body></html>
+        """
+        let url = tempURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        _ = try await MotionRenderer.render(html: html, to: url, options: MotionRenderOptions(width: 100, height: 100, fps: 10))
+        let color = pixel(try frame(of: url, at: 0.1), x: 50, y: 50)
+        XCTAssertEqual(Int(color.r), 51, accuracy: 3)
+        XCTAssertEqual(Int(color.g), 102, accuracy: 3)
+        XCTAssertEqual(Int(color.b), 153, accuracy: 3)
+    }
+
+    func testNonFiniteDurationIsRejected() async throws {
+        let url = tempURL()
+        for value in ["Infinity", "NaN", "1e300"] {
+            let html = "<html><body><script>window.__hf = { duration: \(value), seek() {} };</script></body></html>"
+            do {
+                _ = try await MotionRenderer.render(html: html, to: url, options: MotionRenderOptions(width: 100, height: 100, fps: 10))
+                XCTFail("\(value) must not render")
+            } catch let error as MotionError {
+                guard case .invalidOptions = error else { return XCTFail("\(error)") }
+            }
+        }
+    }
+
+    func testStuckPageTimesOut() async throws {
+        for seek in ["return new Promise(() => {});", "while (true) {}"] {
+            let html = "<html><body><script>window.__hf = { duration: 1, seek() { \(seek) } };</script></body></html>"
+            let url = tempURL()
+            let options = MotionRenderOptions(width: 100, height: 100, fps: 10, stepTimeout: 0.5)
+            do {
+                _ = try await MotionRenderer.render(html: html, to: url, options: options)
+                XCTFail("a page that never answers must fail")
+            } catch let error as MotionError {
+                guard case .pageFailed(let reason) = error else { return XCTFail("\(error)") }
+                XCTAssertTrue(reason.contains("timed out"), reason)
+            }
+            XCTAssertFalse(FileManager.default.fileExists(atPath: url.path), "no partial file")
+        }
+    }
+
+    func testCancelStopsAtAStuckPage() async throws {
+        let html = "<html><body><script>window.__hf = { duration: 1, seek() { return new Promise(() => {}); } };</script></body></html>"
+        let url = tempURL()
+        let options = MotionRenderOptions(width: 100, height: 100, fps: 10, stepTimeout: 60)
+        let render = Task { try await MotionRenderer.render(html: html, to: url, options: options) }
+        try await Task.sleep(nanoseconds: 500_000_000)
+        render.cancel()
+        let started = Date()
+        let result = await render.result
+        XCTAssertLessThan(Date().timeIntervalSince(started), 5, "cancel must not wait for the step timeout")
+        guard case .failure(let error) = result, error is CancellationError else { return XCTFail("\(result)") }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
+    }
+
     func testOddSizeIsRejected() async throws {
         do {
             _ = try await MotionRenderer.render(html: squareHTML, to: tempURL(), options: MotionRenderOptions(width: 101, height: 100))

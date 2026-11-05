@@ -53,6 +53,8 @@ ending exactly at `duration`. Text is HTML-escaped, colors are validated, `stat`
 
 ## Limits
 
+- Each step (load, seek, paint) has 15 s (`stepTimeout`); a stuck page fails the render and its web process goes with it.
+- A duration that is not finite, or past 3600 frames, is rejected.
 - Only the in-app MCP server renders (it needs a window server). The standalone `cameraman-mcp` does not list
   `add_motion`. Clients must connect to the in-app server (Preferences → Integrations).
 - `MotionRenderer` is `@MainActor` and uses WebKit: an exception to "engine code is UI-free".
