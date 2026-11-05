@@ -58,4 +58,25 @@ final class MotionTemplatesTests: XCTestCase {
         XCTAssertEqual(MotionTemplate.safeColor("#34c759"), "#34c759")
         XCTAssertEqual(MotionTemplate.safeColor("34c759"), "#0A84FF", "CSS needs the #")
     }
+
+    func testHugeBarValueDoesNotTrap() throws {
+        let html = try MotionTemplate.barChart.html(.init(title: "x", labels: ["a"], values: [1e300]))
+        XCTAssertTrue(html.contains("class=\"num\""))
+    }
+
+    func testStatCommasMeanThousandsOnly() throws {
+        let thousands = try XCTUnwrap(MotionTemplate.parseStat("1,250 users"))
+        XCTAssertEqual(thousands.target, 1250)
+        XCTAssertTrue(thousands.grouped)
+        XCTAssertEqual(thousands.suffix, " users")
+        let decimalComma = try XCTUnwrap(MotionTemplate.parseStat("1,5M"))
+        XCTAssertEqual(decimalComma.target, 1)
+        XCTAssertEqual(decimalComma.suffix, ",5M")
+        XCTAssertFalse(decimalComma.grouped)
+    }
+
+    func testJSStringCannotOpenOrCloseMarkup() {
+        let literal = MotionTemplate.jsString("<!-- <script> </script>")
+        XCTAssertFalse(literal.contains("<"))
+    }
 }

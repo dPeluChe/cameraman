@@ -17,12 +17,16 @@ public struct MotionRenderOptions: Sendable {
     public var fps: Int
     /// Overrides the duration the page reports. Seconds.
     public var duration: TimeInterval?
+    /// Longest wait for the page to load, seek or paint one frame. Seconds.
+    public var stepTimeout: TimeInterval
 
-    public init(width: Int = 1920, height: Int = 1080, fps: Int = 30, duration: TimeInterval? = nil) {
+    public init(width: Int = 1920, height: Int = 1080, fps: Int = 30, duration: TimeInterval? = nil,
+                stepTimeout: TimeInterval = 15) {
         self.width = width
         self.height = height
         self.fps = fps
         self.duration = duration
+        self.stepTimeout = stepTimeout
     }
 }
 
@@ -54,9 +58,13 @@ public final class MotionRenderer {
     private let webView: WKWebView
     private let window: NSWindow
     private let loader = PageLoader()
+    private let stepTimeout: TimeInterval
 
-    private init(width: Int, height: Int) {
+    private init(width: Int, height: Int, stepTimeout: TimeInterval) {
+        self.stepTimeout = stepTimeout
         let configuration = WKWebViewConfiguration()
+        // Pages must not see what an earlier render left in cookies or storage.
+        configuration.websiteDataStore = .nonPersistent()
         webView = WKWebView(frame: CGRect(x: 0, y: 0, width: width, height: height), configuration: configuration)
         // Transparent page: the video keeps the alpha the page leaves.
         webView.setValue(false, forKey: "drawsBackground")
@@ -80,7 +88,10 @@ public final class MotionRenderer {
             throw MotionError.invalidOptions("width and height must be positive and even")
         }
         guard (1...120).contains(options.fps) else { throw MotionError.invalidOptions("fps must be 1-120") }
-        let renderer = MotionRenderer(width: options.width, height: options.height)
+        // MCP renders run while the agent's app is in front; App Nap would throttle the page.
+        let activity = ProcessInfo.processInfo.beginActivity(options: .userInitiated, reason: "Rendering a motion graphic")
+        defer { ProcessInfo.processInfo.endActivity(activity) }
+        let renderer = MotionRenderer(width: options.width, height: options.height, stepTimeout: options.stepTimeout)
         defer { renderer.close() }
         return try await renderer.render(html: html, to: url, options: options)
     }
@@ -92,28 +103,32 @@ public final class MotionRenderer {
     }
 
     private func render(html: String, to url: URL, options: MotionRenderOptions) async throws -> MotionRenderResult {
-        try await loader.wait { webView.loadHTMLString(html, baseURL: nil) }
+        try await load(html)
         let reported = try await prepareSeekContract()
         let duration = options.duration ?? reported
-        let frameCount = Int((duration * Double(options.fps)).rounded())
-        guard duration > 0, frameCount > 0 else {
-            throw MotionError.invalidOptions("the animation has no duration. Define window.__hf = { duration, seek(t) }, or use finite CSS/WAAPI animations or a GSAP timeline in window.__timelines")
+        let exactFrames = duration * Double(options.fps)
+        guard duration.isFinite, duration > 0, exactFrames.rounded() > 0 else {
+            throw MotionError.invalidOptions("the animation has no finite duration. Define window.__hf = { duration, seek(t) }, or use finite CSS/WAAPI animations or a GSAP timeline in window.__timelines")
         }
-        guard frameCount <= Self.maxFrames else { throw MotionError.invalidOptions("longer than \(Self.maxFrames / options.fps)s at \(options.fps) fps") }
+        guard exactFrames.rounded() <= Double(Self.maxFrames) else {
+            throw MotionError.invalidOptions("longer than \(Self.maxFrames / options.fps)s at \(options.fps) fps")
+        }
+        let frameCount = Int(exactFrames.rounded())
 
         try? FileManager.default.removeItem(at: url)
         let sink = try FrameSink(url: url, width: options.width, height: options.height, fps: options.fps)
         do {
             for index in 0..<frameCount {
+                try Task.checkCancellation()
                 // Quantized to the frame grid so preview and render ask for the same instants.
                 let time = Double(index) / Double(options.fps)
-                try await webView.callAsyncJavaScript("await window.__hf.seek(t);", arguments: ["t": time], contentWorld: .page)
+                _ = try await run("await window.__hf.seek(t); return 0;", arguments: ["t": time], step: "seek(\(time))")
                 let image = try await snapshot(width: options.width, height: options.height, index: index)
                 try await sink.append(image, index: index)
             }
             try await sink.finish()
         } catch {
-            sink.cancel()
+            await sink.cancel()
             try? FileManager.default.removeItem(at: url)
             throw error
         }
@@ -122,12 +137,34 @@ public final class MotionRenderer {
 
     // MARK: Page
 
+    // Callback APIs on purpose: WebKit's async wrappers ignore cancellation and keep the view alive
+    // while they wait, so a stuck page could not time out and its web process would outlive the render.
+
+    private func load(_ html: String) async throws {
+        try await Deadline<Void>().run(seconds: stepTimeout, step: "loading the page") { done in
+            loader.onFinish = { error in
+                done(error.map { .failure(MotionError.pageFailed($0.localizedDescription)) } ?? .success(()))
+            }
+            webView.loadHTMLString(html, baseURL: nil)
+        }
+    }
+
+    /// Runs `script`, which must return a value: WebKit's Swift overlay traps on an empty result.
+    private func run(_ script: String, arguments: [String: Any] = [:], step: String) async throws -> Double? {
+        try await Deadline<Double?>().run(seconds: stepTimeout, step: step) { done in
+            webView.callAsyncJavaScript(script, arguments: arguments, in: nil, in: .page) { result in
+                done(result.map { ($0 as? NSNumber)?.doubleValue })
+            }
+        }
+    }
+
     /// Installs the fallback adapters, waits for fonts and returns the page's duration.
     private func prepareSeekContract() async throws -> TimeInterval {
-        _ = try? await webView.callAsyncJavaScript("await document.fonts.ready;", contentWorld: .page)
-        _ = try await webView.callAsyncJavaScript(MotionAdapter.script, contentWorld: .page)
-        let value = try await webView.callAsyncJavaScript("return Number(window.__hf.duration);", contentWorld: .page)
-        return (value as? NSNumber)?.doubleValue ?? 0
+        _ = try? await run("await document.fonts.ready; return 0;", step: "loading fonts")
+        _ = try await run(MotionAdapter.script + "\nreturn 0;", step: "installing the seek contract")
+        // Not a JSON number when NaN or infinite, which comes back as an empty result.
+        let duration = try await run("const d = Number(window.__hf.duration); return isFinite(d) ? d : 0;", step: "reading the duration")
+        return duration ?? 0
     }
 
     private func snapshot(width: Int, height: Int, index: Int) async throws -> CGImage {
@@ -136,47 +173,62 @@ public final class MotionRenderer {
         // Points, not pixels: on a retina screen the full width would come back at 2x and be downscaled.
         configuration.snapshotWidth = NSNumber(value: Double(width) / window.backingScaleFactor)
         configuration.afterScreenUpdates = true
-        let image = try await webView.takeSnapshot(configuration: configuration)
-        guard let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { throw MotionError.frameFailed(index) }
-        return cg
+        return try await Deadline<CGImage>().run(seconds: stepTimeout, step: "painting frame \(index)") { done in
+            webView.takeSnapshot(with: configuration) { image, _ in
+                let cg = image?.cgImage(forProposedRect: nil, context: nil, hints: nil)
+                done(cg.map { .success($0) } ?? .failure(MotionError.frameFailed(index)))
+            }
+        }
     }
 }
 
-// MARK: - Navigation
+// MARK: - Waiting on the page
 
+/// Bridges one WebKit callback to async, giving up after `seconds`.
 @MainActor
-private final class PageLoader: NSObject, WKNavigationDelegate {
-    private var continuation: CheckedContinuation<Void, Error>?
+private final class Deadline<Value: Sendable> {
+    private var continuation: CheckedContinuation<Value, Error>?
+    private var timer: Task<Void, Error>?
 
-    func wait(_ start: () -> Void) async throws {
-        try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
-            continuation = c
-            start()
+    func run(seconds: TimeInterval, step: String,
+             start: (@escaping @MainActor (Result<Value, Error>) -> Void) -> Void) async throws -> Value {
+        try await withCheckedThrowingContinuation { continuation in
+            self.continuation = continuation
+            timer = Task { [weak self] in
+                try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                self?.settle(.failure(MotionError.pageFailed("timed out after \(seconds)s \(step)")))
+            }
+            start { [self] in settle($0) }
         }
     }
 
-    private func finish(_ error: Error?) {
-        guard let c = continuation else { return }
+    private func settle(_ result: Result<Value, Error>) {
+        timer?.cancel()
+        continuation?.resume(with: result)
         continuation = nil
-        if let error { c.resume(throwing: MotionError.pageFailed(error.localizedDescription)) } else { c.resume() }
     }
+}
 
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { finish(nil) }
-    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { finish(error) }
-    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { finish(error) }
+@MainActor
+private final class PageLoader: NSObject, WKNavigationDelegate {
+    var onFinish: ((Error?) -> Void)?
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { onFinish?(nil) }
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { onFinish?(error) }
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { onFinish?(error) }
 }
 
 // MARK: - Encoding
 
-/// Appends frames to a HEVC-with-alpha movie.
-@MainActor
-private final class FrameSink {
+/// Appends frames to a HEVC-with-alpha movie, off the main actor so the editor stays responsive.
+private actor FrameSink {
     private let writer: AVAssetWriter
     private let input: AVAssetWriterInput
     private let adaptor: AVAssetWriterInputPixelBufferAdaptor
     private let width: Int
     private let height: Int
     private let fps: Int
+    private let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
 
     init(url: URL, width: Int, height: Int, fps: Int) throws {
         self.width = width
@@ -187,6 +239,12 @@ private final class FrameSink {
             AVVideoCodecKey: AVVideoCodecType.hevcWithAlpha,
             AVVideoWidthKey: width,
             AVVideoHeightKey: height,
+            // Untagged video is read with a guessed matrix and the colors shift.
+            AVVideoColorPropertiesKey: [
+                AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
+                AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
+                AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2,
+            ],
         ])
         input.expectsMediaDataInRealTime = false
         adaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: input, sourcePixelBufferAttributes: [
@@ -206,15 +264,17 @@ private final class FrameSink {
             if writer.status == .failed { throw MotionError.writerFailed(writer.error?.localizedDescription ?? "unknown") }
         }
         guard let pool = adaptor.pixelBufferPool else { throw MotionError.writerFailed("no pixel buffer pool") }
-        var buffer: CVPixelBuffer?
-        CVPixelBufferPoolCreatePixelBuffer(nil, pool, &buffer)
-        guard let buffer else { throw MotionError.frameFailed(index) }
+        var created: CVPixelBuffer?
+        guard CVPixelBufferPoolCreatePixelBuffer(nil, pool, &created) == kCVReturnSuccess, let buffer = created else {
+            throw MotionError.frameFailed(index)
+        }
+        CVBufferSetAttachment(buffer, kCVImageBufferCGColorSpaceKey, colorSpace, .shouldPropagate)
 
         CVPixelBufferLockBaseAddress(buffer, [])
         defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
         guard let context = CGContext(
             data: CVPixelBufferGetBaseAddress(buffer), width: width, height: height, bitsPerComponent: 8,
-            bytesPerRow: CVPixelBufferGetBytesPerRow(buffer), space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bytesPerRow: CVPixelBufferGetBytesPerRow(buffer), space: colorSpace,
             bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue)
         else { throw MotionError.frameFailed(index) }
         context.clear(CGRect(x: 0, y: 0, width: width, height: height))

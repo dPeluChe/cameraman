@@ -158,11 +158,12 @@ public enum MotionTemplate: String, CaseIterable, Sendable {
         """, body: """
         <div class="center"><div id="num"></div>\(line("label", c.title))</div>
         """, script: """
-        const stat = { prefix: \(jsString(stat.prefix)), suffix: \(jsString(stat.suffix)), target: \(stat.target), decimals: \(stat.decimals) };
+        const stat = { prefix: \(jsString(stat.prefix)), suffix: \(jsString(stat.suffix)), target: \(stat.target), decimals: \(stat.decimals), grouped: \(stat.grouped) };
         const num = document.getElementById('num');
+        const digits = new Intl.NumberFormat('en-US', { minimumFractionDigits: stat.decimals, maximumFractionDigits: stat.decimals, useGrouping: stat.grouped });
         const show = (t) => {
           const k = Math.min(1, t / 1.4), eased = 1 - Math.pow(1 - k, 3);
-          num.textContent = stat.prefix + (stat.target * eased).toFixed(stat.decimals) + stat.suffix;
+          num.textContent = stat.prefix + digits.format(stat.target * eased) + stat.suffix;
         };
         show(0);
         window.__hf = { duration: \(duration), seek(t) {
@@ -174,16 +175,18 @@ public enum MotionTemplate: String, CaseIterable, Sendable {
 
     // MARK: Helpers
 
-    struct Stat { let prefix: String; let suffix: String; let target: Double; let decimals: Int }
+    struct Stat { let prefix: String; let suffix: String; let target: Double; let decimals: Int; let grouped: Bool }
 
-    /// "$1.2M" -> prefix "$", 1.2, suffix "M".
+    /// "$1.2M" -> prefix "$", 1.2, suffix "M". Commas count only as thousands: "1,5M" is 1 + ",5M".
     static func parseStat(_ raw: String) -> Stat? {
         let text = raw.trimmingCharacters(in: .whitespaces)
-        guard let match = text.range(of: #"-?\d[\d,]*(\.\d+)?"#, options: .regularExpression) else { return nil }
-        let number = String(text[match]).replacingOccurrences(of: ",", with: "")
+        guard let match = text.range(of: #"-?(\d{1,3}(,\d{3})+|\d+)(\.\d+)?"#, options: .regularExpression) else { return nil }
+        let matched = String(text[match])
+        let number = matched.replacingOccurrences(of: ",", with: "")
         guard let value = Double(number), value.isFinite, abs(value) < 1e15 else { return nil }
         let decimals = number.split(separator: ".").dropFirst().first.map(\.count) ?? 0
-        return Stat(prefix: String(text[..<match.lowerBound]), suffix: String(text[match.upperBound...]), target: value, decimals: min(decimals, 4))
+        return Stat(prefix: String(text[..<match.lowerBound]), suffix: String(text[match.upperBound...]), target: value,
+                    decimals: min(decimals, 4), grouped: matched.contains(","))
     }
 
     /// Goes straight into CSS, so anything that is not a #RRGGBB(AA) value falls back to the default.
@@ -201,10 +204,10 @@ public enum MotionTemplate: String, CaseIterable, Sendable {
         let data = (try? JSONSerialization.data(withJSONObject: [text])) ?? Data("[\"\"]".utf8)
         let array = String(decoding: data, as: UTF8.self)
         let literal = String(array.dropFirst().dropLast())
-        return literal.replacingOccurrences(of: "</", with: "<\\/")
+        return literal.replacingOccurrences(of: "<", with: "\\u003c")
     }
 
     private static func format(_ value: Double) -> String {
-        value == value.rounded() ? String(Int(value)) : String(format: "%.1f", value)
+        String(format: value == value.rounded() ? "%.0f" : "%.1f", value)
     }
 }
