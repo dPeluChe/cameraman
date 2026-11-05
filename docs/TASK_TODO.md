@@ -72,6 +72,7 @@ Screenshots, scrolling capture, OCR copy-text, 3D zoom angles, AI-generated asse
 
 ## Motion graphics follow-ups `added: 2026-11-05`
 - [ ] **Look at it in the app.** Tests prove render → import → export blends with alpha; the editor preview uses the same builder but was not checked by eye. Add a motion with `add_motion` on a real recording and scrub it.
+- [ ] **Intermittent stale frame.** `testExplicitHfContractWins` failed once on 2026-11-05 (alpha 255 at t=0.4, as if the seek never painted) on a busy machine, then passed 12/12 alone and 10/10 with its class. Suspect `afterScreenUpdates` under load. If a render shows a frozen motion, retry the test under CPU load; waiting on `requestAnimationFrame` could stall a backgrounded render, so it needs a fallback timer.
 - [ ] **Editable motions.** A baked clip cannot change its text. Keep the template + content on the clip (`ClipContent.motion`) and re-render on edit, or an inspector panel per template.
 - [ ] **Agent loop** — a `get_motion_catalog` / `preview_motion` (one frame as an image) so the agent can check custom HTML before committing; today a wrong layout is only seen after the render.
 - [ ] **Vendored runtime** — offline GSAP/Lottie bundle served from `assetsDirectory`, so custom pages need no network and stay deterministic.

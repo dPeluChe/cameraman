@@ -59,9 +59,13 @@ final class MotionTemplatesTests: XCTestCase {
         XCTAssertEqual(MotionTemplate.safeColor("34c759"), "#0A84FF", "CSS needs the #")
     }
 
-    func testHugeBarValueDoesNotTrap() throws {
-        let html = try MotionTemplate.barChart.html(.init(title: "x", labels: ["a"], values: [1e300]))
-        XCTAssertTrue(html.contains("class=\"num\""))
+    func testHugeBarValueIsRejected() {
+        XCTAssertThrowsError(try MotionTemplate.barChart.html(.init(title: "x", labels: ["a"], values: [1e300])))
+    }
+
+    func testLargestBarValueStaysAPlainNumber() throws {
+        let html = try MotionTemplate.barChart.html(.init(title: "x", labels: ["a"], values: [9e14]))
+        XCTAssertTrue(html.contains("900000000000000"))
     }
 
     func testStatCommasMeanThousandsOnly() throws {

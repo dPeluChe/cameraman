@@ -57,8 +57,8 @@ public enum MotionTemplate: String, CaseIterable, Sendable {
         case .barChart:
             try Self.require(!content.values.isEmpty && content.labels.count == content.values.count,
                              "labels and values with the same length")
-            try Self.require(content.values.count <= 12 && content.values.allSatisfy { $0.isFinite && $0 >= 0 },
-                             "up to 12 non-negative values")
+            try Self.require(content.values.count <= 12 && content.values.allSatisfy { $0.isFinite && $0 >= 0 && $0 < 1e15 },
+                             "up to 12 non-negative values under 1e15")
             return Self.barChart(content, accent: accent, duration: seconds)
         }
     }

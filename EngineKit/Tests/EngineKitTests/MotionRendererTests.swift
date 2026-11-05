@@ -179,6 +179,20 @@ final class MotionRendererTests: XCTestCase {
         }
     }
 
+    func testCancelStopsAtAStuckPage() async throws {
+        let html = "<html><body><script>window.__hf = { duration: 1, seek() { return new Promise(() => {}); } };</script></body></html>"
+        let url = tempURL()
+        let options = MotionRenderOptions(width: 100, height: 100, fps: 10, stepTimeout: 60)
+        let render = Task { try await MotionRenderer.render(html: html, to: url, options: options) }
+        try await Task.sleep(nanoseconds: 500_000_000)
+        render.cancel()
+        let started = Date()
+        let result = await render.result
+        XCTAssertLessThan(Date().timeIntervalSince(started), 5, "cancel must not wait for the step timeout")
+        guard case .failure(let error) = result, error is CancellationError else { return XCTFail("\(result)") }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
+    }
+
     func testOddSizeIsRejected() async throws {
         do {
             _ = try await MotionRenderer.render(html: squareHTML, to: tempURL(), options: MotionRenderOptions(width: 101, height: 100))
