@@ -46,11 +46,13 @@ public actor EditorModel {
         path: String,
         duration: TimeInterval,
         at timelineIn: TimeInterval,
-        trackName: String = ""
+        trackName: String = "",
+        position: Project.MediaPosition? = nil
     ) async -> EditorResult {
         let clip = Project.TimelineClip(
             timelineIn: timelineIn,
-            content: .video(Project.VideoClipRef(path: path, sourceOut: duration))
+            content: .video(Project.VideoClipRef(path: path, sourceOut: duration)),
+            position: position
         )
         if let error = EditorValidation.validateClip(clip) {
             return .failure(error)

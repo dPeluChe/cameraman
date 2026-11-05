@@ -70,6 +70,16 @@ Screenshots, scrolling capture, OCR copy-text, 3D zoom angles, AI-generated asse
 - [ ] Perf (see `PERF_MEMORY_AUDIT_2026-10.md`): playhead out of `TimelineView`, 1-byte masks, pause that really pauses.
 - [ ] Synthetic cursor: existing recordings keep the old offset (no stored value); new ones anchor to the video start. Verify on a fresh recording.
 
+## Motion graphics follow-ups `added: 2026-11-05`
+- [ ] **Look at it in the app.** Tests prove render → import → export blends with alpha; the editor preview uses the same builder but was not checked by eye. Add a motion with `add_motion` on a real recording and scrub it.
+- [ ] **Editable motions.** A baked clip cannot change its text. Keep the template + content on the clip (`ClipContent.motion`) and re-render on edit, or an inspector panel per template.
+- [ ] **Agent loop** — a `get_motion_catalog` / `preview_motion` (one frame as an image) so the agent can check custom HTML before committing; today a wrong layout is only seen after the render.
+- [ ] **Vendored runtime** — offline GSAP/Lottie bundle served from `assetsDirectory`, so custom pages need no network and stay deterministic.
+- [ ] **Camera moves / zoom from the transcript** — the same loop for `set_canvas_layout` and zoom keyframes (they exist; no tool drives them from captions yet).
+- [ ] **More templates** — callout/arrow pointing at a screen region, quote, checklist, progress bar, line chart, emoji reactions.
+- [ ] **Standalone CLI** can't render (no window server); a headless path would need `NSApplication` + a runloop in `cameraman-mcp`.
+- [ ] Render off the main actor's critical path (it awaits per frame but snapshots on main); long motions block UI work between frames.
+
 ## Live annotations follow-ups `added: 2026-10-21`
 - [ ] **Editable in post — evaluated 2026-10-21, not built.** The live tool bakes the drawing into the video; `LiveAnnotationLog` already records every shape with start/end times, so the data exists. Why it is not a quick conversion: project overlays scale one base box uniformly (`OverlayBaseSize` × `transform.scale`), so a drawn rectangle of any proportion, an ellipse or a pen stroke cannot be expressed; only text and fixed-ratio arrows map. Blur maps to a region `gaussianBlur` adjustment on the screen clip (exists). Path that works: a new `OverlayType.annotation` carrying `shape` + normalized `points` in `Style`, drawn by `LiveAnnotationRenderer`-style CG code in `OverlayRenderer`, `PreviewRenderer` and the export path (three renderers plus `OverlayBaseSize`, icons and names), and on a recording with the log present exclude the canvas from capture (`excludedWindowIDs`) and create one overlay per shape (blur → adjustment) in `ProjectLibrary.createProject`. Pause time is already handled by `RecordingClock`. Estimate: one PR of the size of the Elements-lane work; the editing UX (select, delete, retime, recolor) then comes from the existing Elements lane. Decide first whether baked-by-default stays and editable is a switch.
 - [ ] Verify on a real recording that the blur-behind view is captured by ScreenCaptureKit (WindowServer composites it; checked only by reasoning, not on a capture).

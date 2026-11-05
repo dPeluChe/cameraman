@@ -6,12 +6,13 @@
 //
 
 import Foundation
+import EngineKit
 
 extension MCPTools {
 
     /// Tool definitions returned by `tools/list`.
     static let catalog: [[String: Any]] =
-        projectTools + clipTools + trackTools + deliveryTools + canvasTools + overlayTools
+        projectTools + clipTools + motionTools + trackTools + deliveryTools + canvasTools + overlayTools
 
     // MARK: - Projects / management
 
@@ -394,6 +395,33 @@ extension MCPTools {
                  "Delete an overlay by id.",
                  properties: ["projectId": str("Project UUID"), "overlayId": str("Overlay UUID")],
                  required: ["projectId", "overlayId"])
+        ]
+    }
+
+    // MARK: - Motion graphics
+
+    private static var motionTools: [[String: Any]] {
+        [
+            tool("add_motion",
+                 "Render a motion graphic to a transparent video and add it over the footage as a new clip on its own track, at timeline time `at`. Use it to reinforce what is said (read get_captions for the words and their times): a name card when someone is introduced, a stat when a number is quoted, a chart when values are compared. Pick a `template`, or pass `html` for anything custom. Templates: lower_third (title, subtitle), title (title, subtitle), stat (value like 42, 42% or $1.2M counts up; title is the caption), bar_chart (title, labels[] + values[] of equal length, up to 12); all take color (#RRGGBB) and duration (default 4s; they animate in, hold, animate out). Custom html is rendered at the canvas size with a TRANSPARENT page background, so leave html/body background unset. It must be seekable and deterministic: define window.__hf = { duration: seconds, seek(t) { ...set the whole scene for time t... } }, or use only finite CSS animations / WAAPI / a GSAP timeline in window.__timelines (they are driven automatically), no Date.now, no unseeded Math.random, no network. Size text in vh/vw so it fits any canvas. Rendering takes a few seconds. Needs the app's in-app MCP server. Move, retime or remove the result with edit_clip / delete_clip.",
+                 properties: [
+                    "projectId": str("Project UUID"),
+                    "at": num("Timeline start time in seconds"),
+                    "template": strEnum("Built-in motion", MotionTemplate.allCases.map(\.rawValue)),
+                    "title": str("Template text: main line / chart title / stat caption"),
+                    "subtitle": str("Template text: second line"),
+                    "value": str("stat: the number, optionally with prefix/suffix (42, 42%, $1.2M)"),
+                    "labels": array("bar_chart: one label per bar"),
+                    "values": ["type": "array", "description": "bar_chart: one non-negative number per bar", "items": ["type": "number"]],
+                    "color": str("Accent color #RRGGBB (default #0A84FF)"),
+                    "html": str("Custom page instead of a template (see the contract above)"),
+                    "duration": num("Seconds (0.5-120). Template length; for custom html, overrides the page's own duration"),
+                    "x": num("Optional placement: left edge as a 0-1 fraction of the canvas"),
+                    "y": num("Optional placement: top edge, 0-1"),
+                    "w": num("Optional placement: width, 0-1 (give x, y, w and h together; omit all for full screen)"),
+                    "h": num("Optional placement: height, 0-1")
+                 ],
+                 required: ["projectId", "at"])
         ]
     }
 
