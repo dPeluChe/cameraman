@@ -29,8 +29,18 @@ final class MCPTools {
     /// flush unsaved work first; the agent then starts from what the user last wrote.
     private let onProjectWillChange: (@Sendable (UUID) async -> Void)?
 
-    init(onProjectChanged: (@Sendable (UUID) -> Void)? = nil,
+    /// What `tools/list` advertises: add_motion only where it can run.
+    var listedCatalog: [[String: Any]] {
+        supportsMotion ? Self.catalog : Self.catalog.filter { $0["name"] as? String != "add_motion" }
+    }
+
+    /// True when the host has a window server to render motion graphics (the app, not the CLI).
+    let supportsMotion: Bool
+
+    init(supportsMotion: Bool = false,
+         onProjectChanged: (@Sendable (UUID) -> Void)? = nil,
          onProjectWillChange: (@Sendable (UUID) async -> Void)? = nil) {
+        self.supportsMotion = supportsMotion
         self.onProjectChanged = onProjectChanged
         self.onProjectWillChange = onProjectWillChange
     }
@@ -51,6 +61,7 @@ final class MCPTools {
         case "delete_project":       return try await deleteProject(arguments)
         // Clips
         case "add_clip":             return try await addClip(arguments)
+        case "add_motion":           return try await addMotion(arguments)
         case "split_clip":           return try await splitClip(arguments)
         case "delete_clip":          return try await deleteClip(arguments)
         case "edit_clip":            return try await editClip(arguments)

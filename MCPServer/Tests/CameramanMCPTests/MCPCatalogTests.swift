@@ -17,7 +17,7 @@ final class MCPCatalogTests: XCTestCase {
         let expected: Set<String> = [
             "list_projects", "get_project",
             "create_empty_project", "start_recording", "stop_recording",
-            "add_clip", "edit_clip", "split_clip", "delete_clip",
+            "add_clip", "add_motion", "edit_clip", "split_clip", "delete_clip",
             "add_track", "set_track", "move_video_track",
             "add_overlay", "update_overlay", "delete_overlay",
             "add_adjustment", "update_adjustment", "remove_adjustment",

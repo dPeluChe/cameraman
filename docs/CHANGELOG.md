@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > to `[0.7.1] - <date>` when the batch is built, signed and notarized.
 
 ### Added
+- **Motion graphics from the agent** — new MCP tool `add_motion` (in-app server): a name card, title, counting stat
+  or bar chart, or any custom HTML animation, rendered to a transparent video and placed over the footage as a clip
+  on its own track, at the time the transcript says it belongs. Pages are seeked frame by frame, so the render is
+  deterministic (see `docs/FEATURES/MOTION.md`). A 4 s 1080p motion renders in about 2 s.
 - **Draw on screen while recording** — new "Draw on screen" switch in the recording window (display capture). A
   floating palette (not in the video) gives mouse (click-through), laser pointer, pen, arrow, rectangle, ellipse,
   text and blur-area tools, five colors, three widths, undo (⌘Z) and clear; Esc goes back to the mouse. The drawing

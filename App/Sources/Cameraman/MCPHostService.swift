@@ -70,6 +70,7 @@ final class MCPHostService: ObservableObject {
     /// unsaved work first, and reloads once the agent goes quiet.
     private static func makeServer() -> MCPServer {
         MCPServer(
+            supportsMotion: true,
             onProjectChanged: { id in Task { @MainActor in AgentActivityCenter.shared.agentDidEdit(id) } },
             onProjectWillChange: { id in await AgentActivityCenter.shared.agentWillEdit(id) }
         )

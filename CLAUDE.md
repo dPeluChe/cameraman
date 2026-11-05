@@ -93,6 +93,10 @@ Transcription/  - On-device STT via WhisperKit (CoreML/ANE, Apple Silicon only;
 Intelligence/   - AI service interface (AIService actor)
                 - Local analysis: silence detection, chapter suggestion
 
+Motion/         - Code-built animations to transparent video: MotionRenderer (WKWebView seek → HEVC alpha),
+                  MotionAdapter (seek contract for CSS/GSAP pages), MotionTemplates (lower third, stat, bar chart, title);
+                  @MainActor + WebKit, an exception to "UI-free". See docs/FEATURES/MOTION.md
+
 Shared/         - AudioMixBuilder (per-track volume/mute for preview + export, incl. video-clip audio)
                 - CompositionBuilder+VideoOverlayTracks (imported video rows: frames + embedded audio)
                 - CompositionBuilder (AVComposition from multi-track timeline)
