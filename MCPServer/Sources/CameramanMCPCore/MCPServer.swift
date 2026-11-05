@@ -107,7 +107,7 @@ public actor MCPServer {
             return isNotification ? nil : Self.result([:], id: replyId)
 
         case "tools/list":
-            return Self.result(["tools": MCPTools.catalog], id: replyId)
+            return Self.result(["tools": tools.listedCatalog], id: replyId)
 
         case "tools/call":
             let name = params["name"] as? String ?? ""

@@ -13,26 +13,9 @@ final class MotionRendererTests: XCTestCase {
     </style></head><body><div id="box"></div></body></html>
     """
 
-    private func tempURL(_ name: String = "motion.mov") -> URL {
-        FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString)-\(name)")
-    }
-
-    private func frame(of url: URL, at seconds: Double) throws -> CGImage {
-        let generator = AVAssetImageGenerator(asset: AVURLAsset(url: url))
-        generator.requestedTimeToleranceBefore = .zero
-        generator.requestedTimeToleranceAfter = .zero
-        return try generator.copyCGImage(at: CMTime(seconds: seconds, preferredTimescale: 600), actualTime: nil)
-    }
-
-    /// RGBA of the pixel at (x, y), top-left origin, premultiplied alpha as stored.
-    private func pixel(_ image: CGImage, x: Int, y: Int) -> (r: UInt8, g: UInt8, b: UInt8, a: UInt8) {
-        var data = [UInt8](repeating: 0, count: 4)
-        let context = CGContext(data: &data, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
-                                space: CGColorSpace(name: CGColorSpace.sRGB)!,
-                                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
-        context.draw(image, in: CGRect(x: -x, y: -(image.height - 1 - y), width: image.width, height: image.height))
-        return (data[0], data[1], data[2], data[3])
-    }
+    private func tempURL(_ name: String = "motion.mov") -> URL { MotionTestSupport.tempURL(name) }
+    private func frame(of url: URL, at seconds: Double) throws -> CGImage { try MotionTestSupport.frame(of: url, at: seconds) }
+    private func pixel(_ image: CGImage, x: Int, y: Int) -> (r: UInt8, g: UInt8, b: UInt8, a: UInt8) { MotionTestSupport.pixel(image, x: x, y: y) }
 
     func testRendersTransparentVideoThatMoves() async throws {
         let url = tempURL()
@@ -51,6 +34,7 @@ final class MotionRendererTests: XCTestCase {
 
         let first = try frame(of: url, at: 0)
         let last = try frame(of: url, at: 0.9)
+        XCTAssertEqual(first.width, 200, "frames are rendered at the asked pixel size, not at the screen's scale")
         // The empty corner stays transparent; the square is opaque red where it is.
         XCTAssertEqual(pixel(first, x: 190, y: 5).a, 0, "background must keep its alpha")
         let atStart = pixel(first, x: 20, y: 60)

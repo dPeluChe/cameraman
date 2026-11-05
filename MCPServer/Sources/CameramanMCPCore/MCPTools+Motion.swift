@@ -41,16 +41,16 @@ extension MCPTools {
                 labels: args.optStrArray("labels") ?? [],
                 values: (args["values"] as? [Any])?.compactMap { ($0 as? Double) ?? ($0 as? Int).map(Double.init) } ?? [],
                 colorHex: args.optStr("color") ?? "#0A84FF")
-            do { html = try template.html(content, duration: requested ?? MotionTemplate.defaultDuration).get() }
-            catch { throw MCPToolError(error.localizedDescription) }
+            html = try template.html(content, duration: requested ?? MotionTemplate.defaultDuration)
         }
 
         var position: Project.MediaPosition?
-        if args["x"] != nil || args["y"] != nil || args["w"] != nil || args["h"] != nil {
-            guard let w = args.optNum("w"), let h = args.optNum("h") else {
-                throw MCPToolError("To place the motion pass x, y, w and h (0-1 fractions of the canvas), or none for full screen.")
+        let placement = ["x", "y", "w", "h"].map { args.optNum($0) }
+        if placement.contains(where: { $0 != nil }) {
+            guard let x = placement[0], let y = placement[1], let w = placement[2], let h = placement[3] else {
+                throw MCPToolError("To place the motion pass x, y, w and h together (0-1 fractions of the canvas), or none for full screen.")
             }
-            position = Project.MediaPosition(x: args.optNum("x") ?? 0, y: args.optNum("y") ?? 0, w: w, h: h)
+            position = Project.MediaPosition(x: x, y: y, w: w, h: h)
         }
 
         let project = try await loadProject(args)
@@ -62,14 +62,9 @@ extension MCPTools {
 
         // Rendered before the edit starts, so the open editor is not held while this runs.
         let size = Self.motionSize(for: project.canvas.format)
-        let rendered: MotionRenderResult
-        do {
-            rendered = try await MotionRenderer.render(
-                html: html, to: file,
-                options: MotionRenderOptions(width: size.width, height: size.height, fps: 30, duration: overrideDuration))
-        } catch {
-            throw MCPToolError(error.localizedDescription)
-        }
+        let rendered = try await MotionRenderer.render(
+            html: html, to: file,
+            options: MotionRenderOptions(width: size.width, height: size.height, fps: 30, duration: overrideDuration))
 
         do {
             let updated = try await mutate(args) {

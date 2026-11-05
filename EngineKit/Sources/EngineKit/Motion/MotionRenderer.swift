@@ -17,20 +17,16 @@ public struct MotionRenderOptions: Sendable {
     public var fps: Int
     /// Overrides the duration the page reports. Seconds.
     public var duration: TimeInterval?
-    /// Where relative URLs in the page (fonts, images, vendored scripts) resolve and may be read from.
-    public var assetsDirectory: URL?
 
-    public init(width: Int = 1920, height: Int = 1080, fps: Int = 30, duration: TimeInterval? = nil, assetsDirectory: URL? = nil) {
+    public init(width: Int = 1920, height: Int = 1080, fps: Int = 30, duration: TimeInterval? = nil) {
         self.width = width
         self.height = height
         self.fps = fps
         self.duration = duration
-        self.assetsDirectory = assetsDirectory
     }
 }
 
 public struct MotionRenderResult: Sendable {
-    public let url: URL
     public let frameCount: Int
     public let duration: TimeInterval
 }
@@ -38,7 +34,6 @@ public struct MotionRenderResult: Sendable {
 public enum MotionError: LocalizedError {
     case invalidOptions(String)
     case pageFailed(String)
-    case notSeekable
     case frameFailed(Int)
     case writerFailed(String)
 
@@ -46,8 +41,6 @@ public enum MotionError: LocalizedError {
         switch self {
         case .invalidOptions(let reason): return "Invalid motion options: \(reason)"
         case .pageFailed(let reason): return "The motion page failed to load: \(reason)"
-        case .notSeekable:
-            return "The page is not seekable. Define window.__hf = { duration, seek(t) }, a GSAP timeline in window.__timelines, or use CSS/WAAPI animations with a finite duration."
         case .frameFailed(let index): return "Could not capture frame \(index)."
         case .writerFailed(let reason): return "Could not write the video: \(reason)"
         }
@@ -56,13 +49,13 @@ public enum MotionError: LocalizedError {
 
 @MainActor
 public final class MotionRenderer {
-    public static let maxFrames = 60 * 60
+    private static let maxFrames = 60 * 60
 
     private let webView: WKWebView
     private let window: NSWindow
     private let loader = PageLoader()
 
-    public init(width: Int, height: Int) {
+    private init(width: Int, height: Int) {
         let configuration = WKWebViewConfiguration()
         webView = WKWebView(frame: CGRect(x: 0, y: 0, width: width, height: height), configuration: configuration)
         // Transparent page: the video keeps the alpha the page leaves.
@@ -79,31 +72,33 @@ public final class MotionRenderer {
         window.orderFrontRegardless()
     }
 
-    deinit {
-        MainActor.assumeIsolated { window.orderOut(nil) }
-    }
-
     /// Renders `html` to a HEVC-with-alpha .mov at `url`.
     public static func render(
-        html: String, to url: URL, options: MotionRenderOptions = MotionRenderOptions(),
-        progress: (@MainActor (Double) -> Void)? = nil
+        html: String, to url: URL, options: MotionRenderOptions = MotionRenderOptions()
     ) async throws -> MotionRenderResult {
         guard options.width > 0, options.height > 0, options.width % 2 == 0, options.height % 2 == 0 else {
             throw MotionError.invalidOptions("width and height must be positive and even")
         }
         guard (1...120).contains(options.fps) else { throw MotionError.invalidOptions("fps must be 1-120") }
         let renderer = MotionRenderer(width: options.width, height: options.height)
-        return try await renderer.render(html: html, to: url, options: options, progress: progress)
+        defer { renderer.close() }
+        return try await renderer.render(html: html, to: url, options: options)
     }
 
-    private func render(
-        html: String, to url: URL, options: MotionRenderOptions, progress: (@MainActor (Double) -> Void)?
-    ) async throws -> MotionRenderResult {
-        try await load(html: html, assetsDirectory: options.assetsDirectory)
+    private func close() {
+        webView.stopLoading()
+        window.contentView = nil
+        window.orderOut(nil)
+    }
+
+    private func render(html: String, to url: URL, options: MotionRenderOptions) async throws -> MotionRenderResult {
+        try await loader.wait { webView.loadHTMLString(html, baseURL: nil) }
         let reported = try await prepareSeekContract()
         let duration = options.duration ?? reported
         let frameCount = Int((duration * Double(options.fps)).rounded())
-        guard duration > 0, frameCount > 0 else { throw MotionError.invalidOptions("the animation has no duration") }
+        guard duration > 0, frameCount > 0 else {
+            throw MotionError.invalidOptions("the animation has no duration. Define window.__hf = { duration, seek(t) }, or use finite CSS/WAAPI animations or a GSAP timeline in window.__timelines")
+        }
         guard frameCount <= Self.maxFrames else { throw MotionError.invalidOptions("longer than \(Self.maxFrames / options.fps)s at \(options.fps) fps") }
 
         try? FileManager.default.removeItem(at: url)
@@ -115,7 +110,6 @@ public final class MotionRenderer {
                 try await webView.callAsyncJavaScript("await window.__hf.seek(t);", arguments: ["t": time], contentWorld: .page)
                 let image = try await snapshot(width: options.width, height: options.height, index: index)
                 try await sink.append(image, index: index)
-                progress?(Double(index + 1) / Double(frameCount))
             }
             try await sink.finish()
         } catch {
@@ -123,38 +117,24 @@ public final class MotionRenderer {
             try? FileManager.default.removeItem(at: url)
             throw error
         }
-        return MotionRenderResult(url: url, frameCount: frameCount, duration: Double(frameCount) / Double(options.fps))
+        return MotionRenderResult(frameCount: frameCount, duration: Double(frameCount) / Double(options.fps))
     }
 
     // MARK: Page
-
-    private func load(html: String, assetsDirectory: URL?) async throws {
-        if let assetsDirectory {
-            // loadHTMLString cannot read local files; a real file URL can.
-            let file = assetsDirectory.appendingPathComponent(".motion-\(UUID().uuidString).html")
-            try html.write(to: file, atomically: true, encoding: .utf8)
-            defer { try? FileManager.default.removeItem(at: file) }
-            try await loader.wait { webView.loadFileURL(file, allowingReadAccessTo: assetsDirectory) }
-        } else {
-            try await loader.wait { webView.loadHTMLString(html, baseURL: nil) }
-        }
-    }
 
     /// Installs the fallback adapters, waits for fonts and returns the page's duration.
     private func prepareSeekContract() async throws -> TimeInterval {
         _ = try? await webView.callAsyncJavaScript("await document.fonts.ready;", contentWorld: .page)
         _ = try await webView.callAsyncJavaScript(MotionAdapter.script, contentWorld: .page)
-        let value = try await webView.callAsyncJavaScript(
-            "return (window.__hf && typeof window.__hf.seek === 'function') ? Number(window.__hf.duration) : -1;",
-            contentWorld: .page)
-        guard let seconds = (value as? NSNumber)?.doubleValue, seconds >= 0 else { throw MotionError.notSeekable }
-        return seconds
+        let value = try await webView.callAsyncJavaScript("return Number(window.__hf.duration);", contentWorld: .page)
+        return (value as? NSNumber)?.doubleValue ?? 0
     }
 
     private func snapshot(width: Int, height: Int, index: Int) async throws -> CGImage {
         let configuration = WKSnapshotConfiguration()
         configuration.rect = CGRect(x: 0, y: 0, width: width, height: height)
-        configuration.snapshotWidth = NSNumber(value: width)
+        // Points, not pixels: on a retina screen the full width would come back at 2x and be downscaled.
+        configuration.snapshotWidth = NSNumber(value: Double(width) / window.backingScaleFactor)
         configuration.afterScreenUpdates = true
         let image = try await webView.takeSnapshot(configuration: configuration)
         guard let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { throw MotionError.frameFailed(index) }

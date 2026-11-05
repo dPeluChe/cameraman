@@ -29,6 +29,11 @@ final class MCPTools {
     /// flush unsaved work first; the agent then starts from what the user last wrote.
     private let onProjectWillChange: (@Sendable (UUID) async -> Void)?
 
+    /// What `tools/list` advertises: add_motion only where it can run.
+    var listedCatalog: [[String: Any]] {
+        supportsMotion ? Self.catalog : Self.catalog.filter { $0["name"] as? String != "add_motion" }
+    }
+
     /// True when the host has a window server to render motion graphics (the app, not the CLI).
     let supportsMotion: Bool
 

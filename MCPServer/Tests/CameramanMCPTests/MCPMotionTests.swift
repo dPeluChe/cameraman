@@ -34,13 +34,12 @@ final class MCPMotionTests: XCTestCase {
         return (id, directory)
     }
 
-    func testCatalogListsAddMotionWithItsTemplates() throws {
+    func testAddMotionIsAdvertisedOnlyWhereItCanRun() throws {
+        let names = { (tools: MCPTools) in Set(tools.listedCatalog.compactMap { $0["name"] as? String }) }
+        XCTAssertFalse(names(MCPTools()).contains("add_motion"), "the CLI cannot render, so it must not offer the tool")
+        XCTAssertTrue(names(MCPTools(supportsMotion: true)).contains("add_motion"))
         let tool = try XCTUnwrap(MCPTools.catalog.first { $0["name"] as? String == "add_motion" })
-        let schema = try XCTUnwrap(tool["inputSchema"] as? [String: Any])
-        XCTAssertEqual(schema["required"] as? [String], ["projectId", "at"])
-        let properties = try XCTUnwrap(schema["properties"] as? [String: Any])
-        let template = try XCTUnwrap(properties["template"] as? [String: Any])
-        XCTAssertEqual(Set(template["enum"] as? [String] ?? []), Set(MotionTemplate.allCases.map(\.rawValue)))
+        XCTAssertEqual((tool["inputSchema"] as? [String: Any])?["required"] as? [String], ["projectId", "at"])
     }
 
     func testStandaloneServerExplainsItCannotRender() async {
@@ -79,6 +78,7 @@ final class MCPMotionTests: XCTestCase {
         let bad: [[String: Any]] = [
             ["template": "confetti"],
             ["template": "bar_chart", "labels": ["a"], "values": [1, 2]],
+            ["template": "title", "title": "x", "x": 0.1, "y": 0.1, "w": 0.5],
             ["template": "title", "title": "x", "x": 0.1],
             ["template": "title", "title": "x", "html": "<html></html>"],
             ["html": "<html><body>static</body></html>"],
@@ -89,7 +89,10 @@ final class MCPMotionTests: XCTestCase {
             do {
                 _ = try await tools.execute(name: "add_motion", arguments: args)
                 XCTFail("should reject \(extra)")
-            } catch is MCPToolError {}
+            } catch {
+                let message = (error as? MCPToolError)?.message ?? error.localizedDescription
+                XCTAssertFalse(message.isEmpty, "rejection of \(extra) must explain itself")
+            }
         }
         let assets = (try? FileManager.default.contentsOfDirectory(atPath: directory.appendingPathComponent("assets").path)) ?? []
         XCTAssertTrue(assets.isEmpty, "failed renders must not leave files: \(assets)")
