@@ -41,8 +41,10 @@ extension MCPTools {
         let volume = args.optNum("volume")
         let locked = args.optBool("locked")
         let belowCamera = args.optBool("belowCamera")
-        guard muted != nil || volume != nil || locked != nil || belowCamera != nil else {
-            throw MCPToolError("Pass at least one of: muted, volume, locked, belowCamera.")
+        let ducking = args.optNum("ducking")
+        if let ducking, !(0...1).contains(ducking) { throw MCPToolError("'ducking' must be between 0 and 1.") }
+        guard muted != nil || volume != nil || locked != nil || belowCamera != nil || ducking != nil else {
+            throw MCPToolError("Pass at least one of: muted, volume, locked, belowCamera, ducking.")
         }
         let project = try await mutate(args) { editor in
             var steps: [() async -> EditorResult] = []
@@ -50,6 +52,7 @@ extension MCPTools {
             if let volume { steps.append { await editor.setTrackVolume(trackId: trackId, volume: volume) } }
             if let locked { steps.append { await editor.setTrackLocked(trackId: trackId, locked: locked) } }
             if let belowCamera { steps.append { await editor.setTrackBelowCamera(trackId: trackId, belowCamera: belowCamera) } }
+            if let ducking { steps.append { await editor.setTrackDucking(trackId: trackId, level: ducking) } }
             return await self.runSteps(steps) ?? .failure(.trackNotFound(trackId.uuidString))
         }
         return try summary("Updated track \(trackId)", project)

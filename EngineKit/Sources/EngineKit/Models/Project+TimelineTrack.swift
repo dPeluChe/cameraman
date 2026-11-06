@@ -47,6 +47,8 @@ extension Project {
         public var opacity: Double
         /// Video tracks: draw under the camera instead of over it. Motion graphics default to this.
         public var belowCamera: Bool?
+        /// Audio tracks: how far its clips drop while someone speaks, as a multiplier (nil = they don't).
+        public var duckingLevel: Double?
 
         public init(
             id: UUID = UUID(),

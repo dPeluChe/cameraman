@@ -255,7 +255,8 @@ extension MCPTools {
                     "muted": bool("true to mute/hide the track"),
                     "volume": num("Track volume 0.0–1.0"),
                     "locked": bool("true to lock (locked tracks reject edits)"),
-                    "belowCamera": bool("Video tracks: true draws under the camera, false over it. Motion tracks start under it")
+                    "belowCamera": bool("Video tracks: true draws under the camera, false over it. Motion tracks start under it"),
+                    "ducking": num("Audio tracks: multiplier for its clips while someone speaks, 0-1. 1 turns it off. Needs a transcript")
                  ],
                  required: ["projectId", "trackId"])
         ]
@@ -463,7 +464,7 @@ extension MCPTools {
     private static var musicTools: [[String: Any]] {
         [
             tool("add_music",
-                 "Compose instrumental background music and add it as an audio clip on the Music track at `at` (default 0). It is rendered on this Mac: no vocals, no licensing, same score and seed give the same sound. Without `duration` it runs to the end of the timeline. Read get_captions to choose the mood. Pass a `style`, optionally with key, bpm, intensity and seed; another seed gives another piece. Or pass `code`: the body of a function (m, options) written with the score kit, documented in docs/FEATURES/MUSIC.md: m.tempo(bpm), m.key('A minor'), m.bars(fn), m.steps(t, count, beats, fn), m.triad(degree, octave, size), m.voiced(chord), m.bus({gain, pan, lowpass, highpass, reverb, delay}), m.active(t, level), and the instruments m.pad, m.strings, m.keys, m.pluck, m.bass, m.bell, m.kick, m.snare, m.hat, m.shaker, m.impact, m.riser, m.vinyl. Reuse a style with Score.styles.lofi(m, options) and add to it. Takes a few seconds. Change it with update_music, its level with edit_clip volume.",
+                 "Compose instrumental background music and add it as an audio clip on the Music track at `at` (default 0). It is rendered on this Mac: no vocals, no licensing, same score and seed give the same sound. Without `duration` it runs to the end of the timeline. Read get_captions to choose the mood. Pass a `style`, optionally with key, bpm, intensity and seed; another seed gives another piece. Or pass `code`: the body of a function (m, options) written with the score kit, documented in docs/FEATURES/MUSIC.md: m.tempo(bpm), m.key('A minor'), m.bars(fn), m.steps(t, count, beats, fn), m.triad(degree, octave, size), m.voiced(chord), m.bus({gain, pan, lowpass, highpass, reverb, delay}), m.active(t, level), and the instruments m.pad, m.strings, m.keys, m.pluck, m.bass, m.bell, m.kick, m.snare, m.hat, m.shaker, m.impact, m.riser, m.vinyl. Reuse a style with Score.styles.lofi(m, options) and add to it. It drops under speech in preview and export while the project has a transcript (run transcribe_project); the reply's speechDucking says if it does, and set_track ducking changes it. Takes a few seconds. Change it with update_music, its level with edit_clip volume.",
                  properties: [
                     "projectId": str("Project UUID"),
                     "at": num("Timeline start in seconds (default 0)"),
@@ -474,7 +475,8 @@ extension MCPTools {
                     "bpm": num("Tempo, 40-200"),
                     "intensity": num("How much plays at once, 0-1 (default 0.5)"),
                     "seed": num("Variation number (default 1)"),
-                    "volume": num("Clip volume, 0-2 (default 0.25, a bed under a voice)")
+                    "volume": num("Clip volume, 0-1 (default 0.25, a bed under a voice)"),
+                    "ducking": num("Multiplier under speech, 0-1 (default 0.5). 1 turns it off. Applies to a new Music track")
                  ],
                  required: ["projectId"]),
 

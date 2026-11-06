@@ -45,6 +45,8 @@ public struct CompositionBuilder {
         public let videoOverlayTracks: [VideoOverlayTrackInfo]
         /// Embedded audio extracted from imported video clips on .video tracks
         public let videoClipAudioTracks: [(track: AVMutableCompositionTrack, clip: Project.TimelineClip)]
+        /// How clips on ducked tracks follow speech, by clip id.
+        public let ducking: [String: AudioDucking.Envelope]
     }
 
     /// Info about a non-recording clip that the compositor needs to render
@@ -191,7 +193,8 @@ public struct CompositionBuilder {
             audioClipTracks: audioClipTracks,
             staticClips: staticClips + overlayStaticClips,
             videoOverlayTracks: videoOverlayTracks,
-            videoClipAudioTracks: videoClipAudioTracks
+            videoClipAudioTracks: videoClipAudioTracks,
+            ducking: AudioDucking.envelopes(for: project, directory: resolver.projectDirectory)
         )
     }
 

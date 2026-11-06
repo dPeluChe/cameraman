@@ -152,6 +152,16 @@ public actor EditorModel {
     }
 
     /// Draw a video track under or over the camera
+    /// `level` 1 or nil turns ducking off.
+    public func setTrackDucking(trackId: UUID, level: Double?) -> EditorResult {
+        guard let index = project.timeline.tracks.firstIndex(where: { $0.id == trackId }) else {
+            return .failure(.trackNotFound(trackId.uuidString))
+        }
+        project.timeline.tracks[index].duckingLevel = level == 1 ? nil : level
+        project.updatedAt = Date()
+        return .success(project)
+    }
+
     public func setTrackBelowCamera(trackId: UUID, belowCamera: Bool) -> EditorResult {
         guard let index = project.timeline.tracks.firstIndex(where: { $0.id == trackId }) else {
             return .failure(.trackNotFound(trackId.uuidString))

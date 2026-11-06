@@ -362,6 +362,7 @@ final class MCPTools {
                 }
             ]
             if track.belowCamera == true { entry["belowCamera"] = true }
+            if let ducking = track.duckingLevel { entry["ducking"] = ducking }
             return entry
         }
         let payload: [String: Any] = [

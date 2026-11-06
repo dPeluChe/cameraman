@@ -72,7 +72,6 @@ Screenshots, scrolling capture, OCR copy-text, 3D zoom angles, AI-generated asse
 
 ## Background music follow-ups `added: 2026-11-06`
 - [ ] **Listen to every style** on speakers and headphones; levels are measured, the sound is not validated.
-- [ ] **Ducking**: lower music under speech in preview and export.
 - [ ] **Longer than 10 minutes** without stacking clips, by looping or chaining renders.
 - [ ] **External engines** as another source for the same tool, if code-built music falls short: `docs/FEATURES/MUSIC.md`.
 

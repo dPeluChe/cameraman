@@ -62,7 +62,15 @@ Start from a style and add to it: `Score.styles.lofi(m, options); m.impact(12);`
 Every instrument takes `vel` and `bus`. Keep pitches around octave 4, not 2-3: most laptop speakers lose what is
 below 120 Hz. Output is levelled to the same loudness, so `volume` on the clip means the same for every score.
 
+## Ducking
+
+A Music track drops under speech, to half its volume by default. `duckingLevel` on the track is the only thing stored:
+`AudioDucking` turns the transcript into a volume envelope each time a composition is built, so preview and export
+agree and it follows cuts, splits and moves. Pauses under 1.2 s stay low so the music does not pump between phrases.
+Without a transcript nothing drops; `add_music` says so in `speechDucking`. Speech is read from the recording clips on
+the primary track, so it needs `transcribe_project` on the recording, and imported video with speech does not count.
+
 ## Limits
 
-No vocals. No ducking yet: lower the clip's `volume` to sit under a voice. WKWebView needs a window server, so like
+No vocals. WKWebView needs a window server, so like
 motion graphics this runs only when the app hosts the MCP server.
