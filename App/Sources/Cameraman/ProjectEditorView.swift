@@ -94,6 +94,9 @@ final class ProjectEditorViewModel: ObservableObject {
         if let (project, dir) = result {
             await Task.yield()
             self.editor?.cancelPendingAutosave()
+            if self.editor == nil {
+                Task.detached(priority: .utility) { MotionAssets.removeUnused(in: project, directory: dir) }
+            }
             let id = projectId
             let newEditor = ProjectEditor(project: project) {
                 AgentActivityCenter.shared.activeProjects.contains(id)

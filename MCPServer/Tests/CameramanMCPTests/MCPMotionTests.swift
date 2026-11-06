@@ -137,6 +137,71 @@ final class MCPMotionTests: XCTestCase {
         } catch is MCPToolError {}
     }
 
+    func testUpdateKeepsTimeAndPlacementAndChangesOnlyWhatWasPassed() async throws {
+        let tools = MCPTools(supportsMotion: true)
+        let (id, directory) = try await makeProject(tools)
+        let reply = try await tools.execute(name: "add_motion", arguments: [
+            "projectId": id.uuidString, "at": 1.0, "template": "lower_third", "title": "Ana", "subtitle": "CTO",
+            "duration": 2.0, "x": 0.0, "y": 0.6, "w": 0.5, "h": 0.3,
+        ])
+        let added = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(reply.utf8)) as? [String: Any])
+        let target: [String: Any] = ["projectId": id.uuidString, "trackId": try XCTUnwrap(added["trackId"]), "clipId": try XCTUnwrap(added["clipId"])]
+
+        _ = try await tools.execute(name: "update_motion", arguments: target.merging(["title": "Ana Ruiz", "duration": 3.0]) { $1 })
+
+        let project = try await ProjectLibrary.shared.getProject(projectId: id)
+        let clip = try XCTUnwrap(project.timeline.tracks.first { $0.name == "Motion" }?.clips.first)
+        XCTAssertEqual(clip.timelineIn, 1.0)
+        XCTAssertEqual(clip.timelineOut, 4.0, accuracy: 0.05)
+        XCTAssertEqual(clip.position, Project.MediaPosition(x: 0, y: 0.6, w: 0.5, h: 0.3))
+        guard case .video(let ref) = clip.content else { return XCTFail("expected a video clip") }
+        let source = try XCTUnwrap(MotionSource.load(for: directory.appendingPathComponent(ref.path)))
+        XCTAssertEqual(source.title, "Ana Ruiz")
+        XCTAssertEqual(source.subtitle, "CTO", "what was not passed is kept")
+        XCTAssertEqual(source.template, "lower_third")
+    }
+
+    func testUpdateCannotRunIntoTheNextClip() async throws {
+        let tools = MCPTools(supportsMotion: true)
+        let (id, _) = try await makeProject(tools)
+        func add(at: Double) async throws -> [String: Any] {
+            let reply = try await tools.execute(name: "add_motion", arguments: [
+                "projectId": id.uuidString, "at": at, "template": "title", "title": "Hola", "duration": 2.0,
+            ])
+            return try XCTUnwrap(JSONSerialization.jsonObject(with: Data(reply.utf8)) as? [String: Any])
+        }
+        let first = try await add(at: 0)
+        _ = try await add(at: 2.5)
+        do {
+            _ = try await tools.execute(name: "update_motion", arguments: [
+                "projectId": id.uuidString, "trackId": try XCTUnwrap(first["trackId"]), "clipId": try XCTUnwrap(first["clipId"]), "duration": 4.0,
+            ])
+            XCTFail("it would overlap")
+        } catch let error as MCPToolError {
+            XCTAssertTrue(error.message.contains("next clip"), error.message)
+        }
+    }
+
+    func testUnusedMotionsGoOnlyWhenOldEnough() async throws {
+        let tools = MCPTools(supportsMotion: true)
+        let (id, directory) = try await makeProject(tools)
+        _ = try await tools.execute(name: "add_motion", arguments: [
+            "projectId": id.uuidString, "at": 0, "template": "title", "title": "Hola", "duration": 2.0,
+        ])
+        let assets = directory.appendingPathComponent("assets")
+        let unused = assets.appendingPathComponent("motion-0a1b2c3d.mov")
+        try Data().write(to: unused)
+        try Data().write(to: MotionSource.sidecar(of: unused))
+        try Data().write(to: assets.appendingPathComponent("motion-intro.mov"))
+        let project = try await ProjectLibrary.shared.getProject(projectId: id)
+
+        XCTAssertEqual(MotionAssets.removeUnused(in: project, directory: directory), 0, "it may still be rendering")
+        XCTAssertEqual(MotionAssets.removeUnused(in: project, directory: directory, now: Date().addingTimeInterval(7200)), 1)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: unused.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: MotionSource.sidecar(of: unused).path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: assets.appendingPathComponent("motion-intro.mov").path), "an import, not a render")
+    }
+
     func testRejectsBadInputWithoutLeavingFiles() async throws {
         let tools = MCPTools(supportsMotion: true)
         let (id, directory) = try await makeProject(tools)
