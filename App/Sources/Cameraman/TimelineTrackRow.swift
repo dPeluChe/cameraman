@@ -130,7 +130,7 @@ struct TimelineTrackRow: View {
                     Image(systemName: clipIconName(clip))
                         .font(.system(size: 7))
                         .foregroundStyle(.white.opacity(0.7))
-                    Text(clipDisplayName(clip))
+                    Text(track.clipNames[clip.id] ?? "")
                         .font(.system(size: 8))
                         .foregroundStyle(.white)
                         .lineLimit(1)
@@ -172,7 +172,7 @@ struct TimelineTrackRow: View {
                     Divider()
                     Button("Remove Clip", role: .destructive) { onVideoClipAction(clip, .remove) }
                 }
-                .help("\(clipDisplayName(clip)) — \(String(format: "%.1fs", clip.duration)). Drag to move, edges to trim, click to position.")
+                .help("\(track.clipNames[clip.id] ?? "") — \(String(format: "%.1fs", clip.duration)). Drag to move, edges to trim, click to position.")
             }
 
             ForEach(track.segments) { segment in
@@ -303,17 +303,6 @@ struct TimelineTrackRow: View {
                         onVideoClipTrimmed(clip, edge, value.translation.width)
                     }
             )
-    }
-
-    /// File name for an imported video/audio clip chip (e.g. "assets/broll.mp4" -> "broll.mp4")
-    private func clipDisplayName(_ clip: Project.TimelineClip) -> String {
-        switch clip.content {
-        case .video(let ref): return (ref.path as NSString).lastPathComponent
-        case .audio(let ref): return (ref.path as NSString).lastPathComponent
-        case .image(let ref): return (ref.path as NSString).lastPathComponent
-        case .color: return "Color"
-        case .recording: return "Recording"
-        }
     }
 
     private func clipIconName(_ clip: Project.TimelineClip) -> String {

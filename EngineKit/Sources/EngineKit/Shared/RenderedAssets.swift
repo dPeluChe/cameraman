@@ -11,6 +11,7 @@ import Foundation
 /// What a rendered file was made from, stored beside it so it can be changed and rendered again.
 public protocol RenderSource: Codable {
     static var kind: RenderedAssets.Kind { get }
+    static var trackName: String { get }
 }
 
 extension RenderSource {

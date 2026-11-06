@@ -9,6 +9,7 @@ import Foundation
 
 public struct MotionSource: RenderSource, Equatable, Sendable {
     public static let kind = RenderedAssets.Kind.motion
+    public static let trackName = "Motion"
 
     public var template: String?
     public var html: String?

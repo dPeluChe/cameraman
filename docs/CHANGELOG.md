@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Music tool in the editor** — pick a style and generate background music without leaving the app, then change the style or intensity, try another variation, fit it to the video, and set its volume and how far it drops under your voice. Music an agent added can be edited here too.
+- **Motions and music are named on the timeline** — several motions read Motion 1, Motion 2 in timeline order instead of a file name, and music does the same. Rows sharing a name get a letter: Motion A, Motion B.
 - **Background music from code** — new MCP tools `add_music` and `update_music` compose instrumental music on the Mac and place it on a Music track. Six styles (ambient, lofi, corporate, tech, cinematic, acoustic), or a custom score written with the built-in kit. No vocals, no network, and the same seed gives the same piece. It drops under speech in preview and export, following the transcript and your cuts; `set_track` `ducking` changes how much. See `docs/FEATURES/MUSIC.md`.
 - **Move and resize a video clip on the preview** — select a clip or motion on the timeline, drag it on the preview and pull its corner to resize. The outline hugs what the clip draws, not its transparent frame, and that part stays on canvas. Over MCP, `edit_clip` takes `x`, `y`, `w`, `h`.
 - **Sharper motions** — rendered up to 1440p instead of 1080p, so they stay crisp on wide canvases.
@@ -138,6 +139,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the new landing repo.
 
 ### Fixed
+- **Another variation sounds different** — each one moves the tempo and swaps a quiet melodic figure (bell, pluck, keys or none, with its own pattern and pace) instead of only reshuffling chords.
+- **Softer ambient style** — the pad sits an octave higher on rounder tones, removing most of the low droning and beating. Pieces already placed keep their sound until regenerated.
 - **Project pictures in the library** — recordings never got one, so the list only showed the placeholder. Every project with footage now gets a frame from its first clip, including the ones you already have.
 - **Preview stopped after an edit** — adding or changing a clip during playback left the video stuck until you pressed pause and play. It now carries on from the same moment and speed.
 - **Exports from agents kept no mix** — `export_project` ignored clip volumes and left the microphone at its raw level, in separate audio tracks. It now writes one mixed track.

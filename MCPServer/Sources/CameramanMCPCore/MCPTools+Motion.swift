@@ -27,8 +27,8 @@ extension MCPTools {
             let path = RenderedAssets.projectPath(of: file)
             var added: EditorResultInfo?
             let updated = try await mutate(args) { editor in
-                let track = await editor.freeTrack(.video, named: Self.motionTrackName, from: at, to: at + rendered.duration)
-                let result = await editor.importVideoClip(path: path, duration: rendered.duration, at: at, trackName: Self.motionTrackName,
+                let track = await editor.freeTrack(.video, named: MotionSource.trackName, from: at, to: at + rendered.duration)
+                let result = await editor.importVideoClip(path: path, duration: rendered.duration, at: at, trackName: MotionSource.trackName,
                                                           position: position, belowCamera: true, onTrack: track)
                 if case .successWithInfo(_, let info) = result { added = info }
                 return result
@@ -119,7 +119,6 @@ extension MCPTools {
         return ["visibleArea": Self.area(shape.visibleArea(at: position ?? Project.MediaPosition(), canvas: canvas))]
     }
 
-    static let motionTrackName = "Motion"
 
     /// The canvas size capped at 1440p, even sides: lower looks soft on wide captures.
     static func motionSize(for format: Project.Canvas.Format) -> (width: Int, height: Int) {
