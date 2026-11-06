@@ -232,7 +232,7 @@ final class PreviewPlayerViewModel: ObservableObject {
                 // A newer edit arrived while the plan loaded: let that refresh apply instead.
                 guard generation == self.refreshGeneration else { return }
                 await MainActor.run { self.originalCursorPlan = cursorPlan }
-                LogInfo(.preview, "[REFRESH] cursor plan \(started.duration(to: .now))")
+                LogDebug(.preview, "[REFRESH] cursor plan \(started.duration(to: .now))")
 
                 // Set the engine's zoom and cursor plans BEFORE updateProject so the
                 // rebuild bakes them in a single pass.
@@ -241,9 +241,9 @@ final class PreviewPlayerViewModel: ObservableObject {
                 await engine.stageZoomPlan(effectiveZoomPlan)
                 await engine.stageCursorPlan(effectiveCursorPlan)
                 guard generation == self.refreshGeneration else { return }
-                LogInfo(.preview, "[REFRESH] plans staged \(started.duration(to: .now))")
+                LogDebug(.preview, "[REFRESH] plans staged \(started.duration(to: .now))")
                 try await engine.updateProject(project)
-                LogInfo(.preview, "[REFRESH] done \(started.duration(to: .now))")
+                LogDebug(.preview, "[REFRESH] done \(started.duration(to: .now))")
                 let player = await engine.player
 
                 // MainActor.run NOT redundant — see comment in load(...).

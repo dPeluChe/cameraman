@@ -368,9 +368,6 @@ private class CameraSampleBufferDelegate: NSObject, AVCaptureVideoDataOutputSamp
 
         if success {
             frameCount += 1
-            if frameCount % 30 == 1 {
-                logger.debug("Camera frames written: \(self.frameCount)")
-            }
         } else if frameCount < 5 {
             logger.error("Camera append failed at frame \(self.frameCount), writer status: \(self.assetWriter.status.rawValue), error: \(self.assetWriter.error?.localizedDescription ?? "none")")
         }

@@ -325,7 +325,7 @@ public actor PreviewEngine {
         let finished = await player.seek(to: player.currentTime(), toleranceBefore: .zero, toleranceAfter: .zero)
         // Do not override a pause or play the user made while the seek was running.
         if resumeRate != 0, player.rate == 0 { player.rate = resumeRate }
-        LogInfo(.preview, "[SWAP] assign \(assigned) total \(started.duration(to: .now)) seekFinished=\(finished) resumeRate=\(resumeRate) nowRate=\(player.rate)")
+        LogDebug(.preview, "[SWAP] assign \(assigned) total \(started.duration(to: .now)) seekFinished=\(finished) resumeRate=\(resumeRate) nowRate=\(player.rate)")
     }
 
     /// Rebuild only the videoComposition without recreating tracks/player

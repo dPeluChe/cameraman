@@ -348,20 +348,13 @@ extension CaptureEngine {
         switch mediaType {
         case kCMMediaType_Video:
             videoFrameCount += 1
-            if videoFrameCount % 60 == 1 { // Log every 60 frames (~1 second at 60fps)
-                logger.debug("Video frames received: \(self.videoFrameCount)")
-            }
 
             // Stop trying to append once the writer has failed — otherwise we flood logs
             // with thousands of identical failures for a recording that's already lost.
             if session.videoWriterFailed { return }
 
-            guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
-                if videoFrameCount < 10 {
-                    logger.warning("No pixel buffer in video sample at frame \(self.videoFrameCount)")
-                }
-                return
-            }
+            // ScreenCaptureKit also delivers status-only samples (idle screen) with no image.
+            guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
 
             let presentationTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
 
@@ -396,9 +389,6 @@ extension CaptureEngine {
 
         case kCMMediaType_Audio:
             audioFrameCount += 1
-            if audioFrameCount % 100 == 1 {
-                logger.debug("Audio frames received: \(self.audioFrameCount)")
-            }
 
             let presentationTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
 
