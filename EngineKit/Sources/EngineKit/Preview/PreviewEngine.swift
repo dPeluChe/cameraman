@@ -346,6 +346,11 @@ public actor PreviewEngine {
         self.videoCompositionConfig = videoComposition
         await install(videoComposition, on: currentItem, player: player)
 
+        // A new transcript or a trim moves the speech without a full rebuild.
+        if compositionResult != nil, let directory = projectDirectoryURL {
+            compositionResult?.ducking = AudioDucking.envelopes(for: project, directory: directory)
+        }
+
         // Also rebuild audio mix to pick up per-segment volume changes
         if let compositionResult = compositionResult {
             let audioMix = AudioMixBuilder.buildAudioMix(

@@ -30,6 +30,13 @@ extension ProjectStore {
         }
 
         try copyTree(from: projectDir, to: bundleURL, skipping: Self.regenerable)
+        // Ducking and subtitles read it, and re-transcribing takes minutes. audio.wav stays behind.
+        let transcript = TranscriptionEngine.Transcript.relativePath
+        if fileManager.fileExists(atPath: projectDir.appendingPathComponent(transcript).path) {
+            let copy = bundleURL.appendingPathComponent(transcript)
+            try fileManager.createDirectory(at: copy.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try fileManager.copyItem(at: projectDir.appendingPathComponent(transcript), to: copy)
+        }
         logger.info("Exported project bundle to \(bundleURL.path)")
         return bundleURL
     }

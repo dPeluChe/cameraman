@@ -160,16 +160,13 @@ extension ExportEngine {
         // Always assign videoComposition (carries compositor, render size, per-segment instructions).
         exportSession.videoComposition = videoComposition
 
-        // Per-track mute/volume mix.
-        if let audioMuteState = options.audioMuteState {
-            let audioMix = AudioMixBuilder.buildAudioMix(
-                compositionResult: compositionResult,
-                muteState: audioMuteState,
-                segments: project.timeline.segments,
-                audioAdjustments: project.audioAdjustmentSpecs
-            )
-            exportSession.audioMix = audioMix
-        }
+        // Clip volumes and ducking live in the mix.
+        exportSession.audioMix = AudioMixBuilder.buildAudioMix(
+            compositionResult: compositionResult,
+            muteState: options.audioMuteState,
+            segments: project.timeline.segments,
+            audioAdjustments: project.audioAdjustmentSpecs
+        )
 
         logger.debug("Export session configured successfully")
         return exportSession

@@ -12,6 +12,7 @@ public struct MusicSource: RenderSource, Equatable, Sendable {
     public static let trackName = "Music"
     /// A bed under a voice. Scores are levelled alike, so this suits all of them.
     public static let defaultVolume = 0.25
+    public static let defaultDucking = 0.5
 
     public var score: MusicScore
     public var options: MusicRenderOptions

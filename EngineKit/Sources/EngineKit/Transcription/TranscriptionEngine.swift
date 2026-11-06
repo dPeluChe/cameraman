@@ -364,6 +364,13 @@ public extension TranscriptionEngine {
 /// Transcript model
 public extension TranscriptionEngine {
     struct Transcript: Codable, Equatable {
+        public static let relativePath = "transcript/transcript.json"
+
+        public static func load(fromProject directory: URL) throws -> Transcript {
+            let data = try Data(contentsOf: directory.appendingPathComponent(relativePath))
+            return try JSONDecoder().decode(Transcript.self, from: data)
+        }
+
         public let language: String
         public let duration: TimeInterval
         public let segments: [Segment]

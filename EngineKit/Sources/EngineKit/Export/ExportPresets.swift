@@ -195,7 +195,7 @@ public struct ExportOptions: Equatable, Sendable {
     /// `nil` means no synthetic cursor regardless of project settings.
     public let cursorPlan: CursorPlan?
     /// Audio mute state for per-track mute/volume during export
-    public let audioMuteState: AudioMixBuilder.TrackMuteState?
+    public let audioMuteState: AudioMixBuilder.TrackMuteState
     /// Video mute state for hiding screen/camera during export
     public let videoMuteState: VideoMuteState?
     /// Scales the preset's target bitrate: 0.6 = smaller file, 1.5 = higher quality
@@ -211,7 +211,7 @@ public struct ExportOptions: Equatable, Sendable {
         applyZoom: Bool = true,
         zoomPlan: ZoomPlanGenerator.ZoomPlan? = nil,
         cursorPlan: CursorPlan? = nil,
-        audioMuteState: AudioMixBuilder.TrackMuteState? = nil,
+        audioMuteState: AudioMixBuilder.TrackMuteState = .init(),
         videoMuteState: VideoMuteState? = nil,
         qualityMultiplier: Double = 1.0,
         includeCameramanWatermark: Bool = false

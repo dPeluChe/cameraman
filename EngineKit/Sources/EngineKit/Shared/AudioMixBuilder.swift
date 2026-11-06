@@ -80,8 +80,8 @@ public struct AudioMixBuilder {
         // Audio clips from timeline tracks
         for audioClip in compositionResult.audioClipTracks {
             let params = AVMutableAudioMixInputParameters(track: audioClip.track)
-            let clipVolume = audioClip.clip.volume ?? 1.0
-            params.setVolume(Float(clipVolume), at: .zero)
+            let clipVolume = Float(audioClip.clip.volume ?? 1.0)
+            apply(compositionResult.ducking[audioClip.clip.id], volume: clipVolume, to: params)
             applyPitch(to: params, specs: audioAdjustments.filter { $0.lane == .clip(audioClip.clip.id) })
             parameters.append(params)
         }
@@ -99,6 +99,16 @@ public struct AudioMixBuilder {
         let mix = AVMutableAudioMix()
         mix.inputParameters = parameters
         return mix
+    }
+
+    static func apply(_ envelope: AudioDucking.Envelope?, volume: Float, to params: AVMutableAudioMixInputParameters) {
+        params.setVolume(volume * (envelope?.initial ?? 1), at: .zero)
+        for ramp in envelope?.ramps ?? [] {
+            let start = CMTime(seconds: ramp.start, preferredTimescale: 600)
+            let end = CMTime(seconds: ramp.end, preferredTimescale: 600)
+            params.setVolumeRamp(fromStartVolume: volume * ramp.from, toEndVolume: volume * ramp.to,
+                                 timeRange: CMTimeRangeFromTimeToTime(start: start, end: end))
+        }
     }
 
     /// Apply per-segment volume ramps to audio mix parameters

@@ -7,6 +7,7 @@
 //  test touches it and every test checks it landed in the scratch directory.
 //
 
+import AVFoundation
 import ImageIO
 import XCTest
 @testable import CameramanMCPCore
@@ -287,6 +288,55 @@ final class MCPMotionTests: XCTestCase {
         let project = try await ProjectLibrary.shared.getProject(projectId: id)
         let clip = try XCTUnwrap(project.timeline.tracks.first { $0.name == "Music" }?.clips.first)
         XCTAssertEqual(clip.duration, 2, accuracy: 0.05)
+    }
+
+    func testANewMusicTrackDucksAndAVolumeTheEditorRefusesIsCaught() async throws {
+        let tools = MCPTools(supportsRendering: true)
+        let (id, _) = try await makeProject(tools)
+        do {
+            _ = try await tools.execute(name: "add_music", arguments: ["projectId": id.uuidString, "style": "ambient", "duration": 2.0, "volume": 1.5])
+            XCTFail("over 1")
+        } catch let error as MCPToolError { XCTAssertTrue(error.message.contains("volume"), error.message) }
+
+        let reply = try await tools.execute(name: "add_music", arguments: ["projectId": id.uuidString, "style": "ambient", "duration": 2.0])
+        let added = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(reply.utf8)) as? [String: Any])
+        XCTAssertEqual(added["speechDucking"] as? Bool, false, "no transcript yet")
+        var project = try await ProjectLibrary.shared.getProject(projectId: id)
+        let track = try XCTUnwrap(project.timeline.tracks.first { $0.name == "Music" })
+        XCTAssertEqual(track.duckingLevel, 0.5)
+
+        _ = try await tools.execute(name: "set_track", arguments: ["projectId": id.uuidString, "trackId": track.id.uuidString, "ducking": 1])
+        project = try await ProjectLibrary.shared.getProject(projectId: id)
+        XCTAssertNil(project.timeline.tracks.first { $0.id == track.id }?.duckingLevel, "1 turns it off")
+    }
+
+    func testAnExportWithNoMuteStateKeepsTheMusicVolume() async throws {
+        let tools = MCPTools(supportsRendering: true)
+        let (id, directory) = try await makeProject(tools)
+        _ = try await tools.execute(name: "add_motion", arguments: ["projectId": id.uuidString, "at": 0.0, "template": "title", "title": "x", "duration": 3.0])
+        _ = try await tools.execute(name: "add_music", arguments: ["projectId": id.uuidString, "style": "lofi", "duration": 3.0, "volume": 0.1, "seed": 3])
+        let reply = try await tools.execute(name: "export_project", arguments: ["projectId": id.uuidString, "filename": "mix.mp4"])
+        let job = try XCTUnwrap((try JSONSerialization.jsonObject(with: Data(reply.utf8)) as? [String: Any])?["jobId"] as? String)
+        for _ in 0..<120 {
+            let status = try await tools.execute(name: "get_job_status", arguments: ["jobId": job])
+            if status.contains("\"success\"") { break }
+            XCTAssertFalse(status.contains("\"failed\""), status)
+            try await Task.sleep(nanoseconds: 500_000_000)
+        }
+
+        let assets = directory.appendingPathComponent("assets")
+        let music = try XCTUnwrap(try FileManager.default.contentsOfDirectory(at: assets, includingPropertiesForKeys: nil).first { $0.pathExtension == "m4a" })
+        let source = try audioPeak(of: music)
+        let exported = try audioPeak(of: directory.appendingPathComponent("renders/mix.mp4"))
+        XCTAssertGreaterThan(exported, 0)
+        XCTAssertEqual(exported / source, 0.1, accuracy: 0.03, "the mix is what applies the clip volume")
+    }
+
+    private func audioPeak(of url: URL) throws -> Float {
+        let file = try AVAudioFile(forReading: url)
+        let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length)))
+        try file.read(into: buffer)
+        return UnsafeBufferPointer(start: buffer.floatChannelData?[0], count: Int(buffer.frameLength)).reduce(0) { max($0, abs($1)) }
     }
 
     func testUnusedMusicGoesLikeUnusedMotions() async throws {

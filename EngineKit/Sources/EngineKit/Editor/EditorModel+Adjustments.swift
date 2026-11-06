@@ -144,7 +144,8 @@ extension EditorModel {
         sourceIn: TimeInterval = 0,
         trackName: String = "",
         volume: Double? = nil,
-        onTrack existingTrack: UUID? = nil
+        onTrack existingTrack: UUID? = nil,
+        duckingOnNewTrack ducking: Double? = nil
     ) async -> EditorResult {
         let clip = Project.TimelineClip(
             timelineIn: timelineIn,
@@ -155,6 +156,7 @@ extension EditorModel {
             return .failure(error)
         }
         let trackId = existingTrack ?? projectRef.timeline.addTrack(type: .audio, name: trackName)
+        if let ducking, existingTrack == nil { _ = setTrackDucking(trackId: trackId, level: ducking) }
         return await addClip(clip, toTrackId: trackId)
     }
 

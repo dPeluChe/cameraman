@@ -15,7 +15,9 @@ extension MCPTools {
         let at = args.optNum("at") ?? 0
         guard at >= 0 else { throw MCPToolError("'at' must be 0 or later.") }
         let volume = args.optNum("volume") ?? MusicSource.defaultVolume
-        guard (0...2).contains(volume) else { throw MCPToolError("'volume' must be between 0 and 2.") }
+        guard (0...1).contains(volume) else { throw MCPToolError("'volume' must be between 0 and 1.") }
+        let ducking = args.optNum("ducking") ?? MusicSource.defaultDucking
+        if let error = EditorValidation.validateUnitValue(ducking, field: "ducking") { throw MCPToolError(error.localizedDescription) }
         let project = try await loadProject(args)
         let remaining = project.timeline.duration - at
         guard let length = args.optNum("duration") ?? (remaining > 0 ? min(remaining, MusicRenderer.maxDuration) : nil) else {
@@ -30,11 +32,15 @@ extension MCPTools {
             let updated = try await mutate(args) { editor in
                 let track = await editor.freeTrack(.audio, named: MusicSource.trackName, from: at, to: at + seconds)
                 let result = await editor.addAudioClip(path: "assets/\(file.lastPathComponent)", duration: seconds, at: at,
-                                                       trackName: MusicSource.trackName, volume: volume, onTrack: track)
+                                                       trackName: MusicSource.trackName, volume: volume, onTrack: track,
+                                                       duckingOnNewTrack: ducking)
                 if case .successWithInfo(_, let info) = result { added = info }
                 return result
             }
-            return try summary("Added music (\(String(format: "%.1f", seconds))s) at \(at)s", updated, extra: Self.clipIds(added))
+            var extra = Self.clipIds(added)
+            let envelopes = AudioDucking.envelopes(for: updated, directory: directory)
+            extra["speechDucking"] = (extra["clipId"] as? String).map { envelopes[$0] != nil } ?? false
+            return try summary("Added music (\(String(format: "%.1f", seconds))s) at \(at)s", updated, extra: extra)
         }
     }
 

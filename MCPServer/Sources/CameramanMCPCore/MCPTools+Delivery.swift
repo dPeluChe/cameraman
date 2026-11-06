@@ -159,7 +159,7 @@ extension MCPTools {
         switch format {
         case "srt": relativePath = "transcript/captions.srt"
         case "vtt": relativePath = "transcript/captions.vtt"
-        case "json", "transcript": relativePath = "transcript/transcript.json"
+        case "json", "transcript": relativePath = TranscriptionEngine.Transcript.relativePath
         default: throw MCPToolError("Unknown format '\(format)'. Use srt, vtt or json.")
         }
         let dir = try await ProjectLibrary.shared.getProjectDirectory(projectId: projectId)
@@ -176,9 +176,7 @@ extension MCPTools {
     func addSubtitles(_ args: [String: Any]) async throws -> String {
         let projectId = try args.uuid("projectId")
         let dir = try await ProjectLibrary.shared.getProjectDirectory(projectId: projectId)
-        let url = dir.appendingPathComponent("transcript/transcript.json")
-        guard let data = try? Data(contentsOf: url),
-              let transcript = try? JSONDecoder().decode(TranscriptionEngine.Transcript.self, from: data) else {
+        guard let transcript = try? TranscriptionEngine.Transcript.load(fromProject: dir) else {
             throw MCPToolError("No transcript found. Run transcribe_project and wait for the job to finish first.")
         }
         var project = try await loadForEdit(args)

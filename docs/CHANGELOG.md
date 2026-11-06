@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > to `[0.7.1] - <date>` when the batch is built, signed and notarized.
 
 ### Added
-- **Background music from code** — new MCP tools `add_music` and `update_music` compose instrumental music on the Mac and place it on a Music track. Six styles (ambient, lofi, corporate, tech, cinematic, acoustic), or a custom score written with the built-in kit. No vocals, no network, and the same seed gives the same piece. See `docs/FEATURES/MUSIC.md`.
+- **Background music from code** — new MCP tools `add_music` and `update_music` compose instrumental music on the Mac and place it on a Music track. Six styles (ambient, lofi, corporate, tech, cinematic, acoustic), or a custom score written with the built-in kit. No vocals, no network, and the same seed gives the same piece. It drops under speech in preview and export, following the transcript and your cuts; `set_track` `ducking` changes how much. See `docs/FEATURES/MUSIC.md`.
 - **Move and resize a video clip on the preview** — select a clip or motion on the timeline, drag it on the preview and pull its corner to resize. The outline hugs what the clip draws, not its transparent frame, and that part stays on canvas. Over MCP, `edit_clip` takes `x`, `y`, `w`, `h`.
 - **Sharper motions** — rendered up to 1440p instead of 1080p, so they stay crisp on wide canvases.
 - **Motions can be changed after adding them** — new MCP tool `update_motion` re-renders one with new text, color or duration and keeps its time and placement. What each motion was made from is saved beside its video. Motions no clip uses are removed the next time the project opens; files younger than an hour stay.
@@ -137,6 +137,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the new landing repo.
 
 ### Fixed
+- **Exports from agents kept no mix** — `export_project` ignored clip volumes and left the microphone at its raw level, in separate audio tracks. It now writes one mixed track.
 - **Camera edits show while playing** — shape, effects and accessories update the preview right away instead of waiting for the player to stop.
 - **Side-by-Side is now two columns** — the screen shrinks into the column opposite the camera in preview and export, instead of the camera sitting on top of it.
 - **Esc no longer stops a recording** — it leaves the drawing tool and returns to the mouse, keeping what you drew. Stop moved to Shift+Cmd+Esc, and Cameraman no longer takes Esc from other apps. **Changed shortcut.**
