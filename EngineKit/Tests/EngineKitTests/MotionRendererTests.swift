@@ -17,6 +17,19 @@ final class MotionRendererTests: XCTestCase {
     private func frame(of url: URL, at seconds: Double) throws -> CGImage { try MotionTestSupport.frame(of: url, at: seconds) }
     private func pixel(_ image: CGImage, x: Int, y: Int) -> (r: UInt8, g: UInt8, b: UInt8, a: UInt8) { MotionTestSupport.pixel(image, x: x, y: y) }
 
+    func testContentShapeFollowsTheOpaqueAreaOverTime() async throws {
+        let url = tempURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+        _ = try await MotionRenderer.render(html: squareHTML, to: url, options: MotionRenderOptions(width: 200, height: 100, fps: 10))
+
+        let measured = await VideoContentShape.measure(url: url)
+        let shape = try XCTUnwrap(measured)
+        XCTAssertEqual(shape.naturalSize, CGSize(width: 200, height: 100))
+        XCTAssertEqual(shape.bounds.minY, 0.4, accuracy: 0.03)
+        XCTAssertEqual(shape.bounds.maxY, 0.8, accuracy: 0.03)
+        XCTAssertGreaterThan(shape.bounds.width, 0.6, "the box slides across most of the frame")
+    }
+
     func testRendersTransparentVideoThatMoves() async throws {
         let url = tempURL()
         defer { try? FileManager.default.removeItem(at: url) }
