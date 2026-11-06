@@ -45,7 +45,10 @@ struct TimelineView: View {
     @State var dragStartTime: TimeInterval?
     @State var isTrimming = false
     @State var showImportPanel = false
-    @State var selectedVideoClip: SelectedVideoClip?
+    var selectedVideoClip: SelectedVideoClip? {
+        get { editor.selectedClip }
+        nonmutating set { editor.selectedClip = newValue }
+    }
     @State var showVideoClipEffects = false
     @State var importNotice: String?
     @State var zoomSuggestions: [ZoomSuggestion] = []

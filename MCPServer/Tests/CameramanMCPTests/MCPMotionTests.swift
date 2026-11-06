@@ -56,6 +56,12 @@ final class MCPMotionTests: XCTestCase {
         XCTAssertEqual((tool["inputSchema"] as? [String: Any])?["required"] as? [String], ["projectId", "at"])
     }
 
+    func testPlacementNeedsAllFourValues() throws {
+        XCTAssertNil(try MCPTools.placement([:]))
+        XCTAssertEqual(try MCPTools.placement(["x": -0.2, "y": 0, "w": 1, "h": 1])?.x, -0.2)
+        XCTAssertThrowsError(try MCPTools.placement(["x": 0.1]))
+    }
+
     func testStandaloneServerExplainsItCannotRender() async {
         let tools = MCPTools()
         do {

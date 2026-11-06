@@ -148,6 +148,10 @@ extension MCPTools {
                     "speed": num("Playback speed multiplier, greater than 0 (e.g. 0.5, 2.0)"),
                     "volume": num("Clip volume 0.0–1.0"),
                     "opacity": num("Clip opacity 0.0–1.0 (video)"),
+                    "x": num("Canvas placement, left edge from -1 to 1. Pass x, y, w and h together. A clip with no placement fills the canvas (0, 0, 1, 1); a negative x or y slides it off canvas"),
+                    "y": num("Canvas placement, top edge from -1 to 1"),
+                    "w": num("Canvas placement, width up to 1"),
+                    "h": num("Canvas placement, height up to 1"),
                     "sourceIn": num("New source in-point (seconds)"),
                     "sourceOut": num("New source out-point (seconds), must be greater than sourceIn"),
                     "audioMuted": bool("Mute or unmute the clip's own audio (recording clips)")

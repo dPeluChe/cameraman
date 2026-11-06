@@ -51,6 +51,10 @@ struct PreviewPlayerView: View {
 
                     BlurRegionCanvasEditor(editor: editor, playerViewModel: viewModel)
 
+                    if let selected = editor.selectedClip {
+                        ClipPlacementLayer(editor: editor, playerViewModel: viewModel, selected: selected)
+                    }
+
                     if viewModel.showCursor || viewModel.showClicks || viewModel.showKeystrokes {
                         GeometryReader { geometry in
                             TelemetryOverlayView(
