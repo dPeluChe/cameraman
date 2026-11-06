@@ -20,6 +20,35 @@ final class ClipPlacementTests: XCTestCase {
         XCTAssertEqual(wide.resized(toWidth: 0).h, Position.minimumClipSize, accuracy: 0.0001)
     }
 
+    func testTheVisiblePartStaysOnCanvasAndAnchored() {
+        let card = CGRect(x: 0.5, y: 0.6, width: 0.4, height: 0.3)
+        let frame = Position(x: 0, y: 0, w: 1, h: 1)
+        XCTAssertEqual(frame.moved(dx: 5, dy: 0, keeping: card).x, 1 - Position.minimumVisible - 0.5, accuracy: 0.0001)
+        XCTAssertEqual(frame.moved(dx: -5, dy: 0, keeping: card).x, Position.minimumVisible - 0.9, accuracy: 0.0001)
+
+        let half = frame.resized(toWidth: 0.5, anchor: card.origin)
+        XCTAssertEqual(half.x + card.minX * half.w, card.minX, accuracy: 0.0001)
+        XCTAssertEqual(half.y + card.minY * half.h, card.minY, accuracy: 0.0001)
+    }
+
+    func testContentBoundsIgnoreTransparentPixels() throws {
+        let context = try XCTUnwrap(CGContext(
+            data: nil, width: 100, height: 50, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        context.setFillColor(red: 1, green: 1, blue: 1, alpha: 1)
+        context.fill(CGRect(x: 60, y: 5, width: 30, height: 20)) // bottom-up: 25...45 from the top
+        let bounds = try XCTUnwrap(VideoContentShape.opaqueBounds(of: try XCTUnwrap(context.makeImage())))
+        XCTAssertEqual(bounds.minX, 0.6, accuracy: 0.001)
+        XCTAssertEqual(bounds.minY, 0.5, accuracy: 0.001)
+        XCTAssertEqual(bounds.width, 0.3, accuracy: 0.001)
+        XCTAssertEqual(bounds.height, 0.4, accuracy: 0.001)
+
+        let empty = try XCTUnwrap(CGContext(
+            data: nil, width: 10, height: 10, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)?.makeImage())
+        XCTAssertNil(VideoContentShape.opaqueBounds(of: empty))
+    }
+
     func testValidationAllowsOffCanvasClipsOnly() {
         func error(_ position: Position) -> EditorError? {
             EditorValidation.validateClip(Project.TimelineClip(

@@ -52,7 +52,7 @@ struct PreviewPlayerView: View {
                     BlurRegionCanvasEditor(editor: editor, playerViewModel: viewModel)
 
                     if let selected = editor.selectedClip {
-                        ClipPlacementLayer(editor: editor, playerViewModel: viewModel, selected: selected)
+                        ClipPlacementLayer(editor: editor, playerViewModel: viewModel, selected: selected, projectDirectory: projectDirectory)
                     }
 
                     if viewModel.showCursor || viewModel.showClicks || viewModel.showKeystrokes {

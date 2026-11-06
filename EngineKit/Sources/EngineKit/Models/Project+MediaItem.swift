@@ -143,16 +143,21 @@ extension Project {
 
         /// Clips may slide partly off canvas (the compositor crops), so a full-frame
         /// motion can still shift the card drawn inside it.
-        public func moved(dx: Double, dy: Double) -> MediaPosition {
+        /// - Parameter content: visible part of the clip, as fractions of this rect; it stays on canvas.
+        public func moved(dx: Double, dy: Double,
+                          keeping content: CGRect = CGRect(x: 0, y: 0, width: 1, height: 1)) -> MediaPosition {
             let visible = Self.minimumVisible
-            return MediaPosition(x: min(max(x + dx, visible - w), 1 - visible),
-                                 y: min(max(y + dy, visible - h), 1 - visible), w: w, h: h)
+            return MediaPosition(x: min(max(x + dx, visible - content.maxX * w), 1 - visible - content.minX * w),
+                                 y: min(max(y + dy, visible - content.maxY * h), 1 - visible - content.minY * h),
+                                 w: w, h: h)
         }
 
-        /// New width from the top-left corner, keeping the aspect ratio.
-        public func resized(toWidth width: Double) -> MediaPosition {
+        /// New width keeping the aspect ratio.
+        /// - Parameter anchor: point that stays put, as a fraction of this rect.
+        public func resized(toWidth width: Double, anchor: CGPoint = .zero) -> MediaPosition {
             let scale = min(max(width / w, Self.minimumClipSize / min(w, h)), 1 / max(w, h))
-            return MediaPosition(x: x, y: y, w: w * scale, h: h * scale)
+            return MediaPosition(x: x + anchor.x * w * (1 - scale), y: y + anchor.y * h * (1 - scale),
+                                 w: w * scale, h: h * scale)
         }
     }
 }
