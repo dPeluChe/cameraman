@@ -132,9 +132,6 @@ extension ProjectStore {
 
         try await saveProject(project)
 
-        let thumbnailURL = projectDirectory.appendingPathComponent("thumbnail.jpg")
-        generateThumbnail(from: screenPath, to: thumbnailURL)
-
         return projectId
     }
 
@@ -276,21 +273,5 @@ extension ProjectStore {
 
         try await saveProject(project)
         return take
-    }
-
-    // MARK: - Thumbnail
-
-    func generateThumbnail(from videoURL: URL, to outputURL: URL) {
-        let asset = AVURLAsset(url: videoURL)
-        let generator = AVAssetImageGenerator(asset: asset)
-        generator.appliesPreferredTrackTransform = true
-        generator.maximumSize = CGSize(width: 320, height: 180)
-
-        guard let cgImage = try? generator.copyCGImage(at: .zero, actualTime: nil),
-              let dest = CGImageDestinationCreateWithURL(outputURL as CFURL, "public.jpeg" as CFString, 1, nil)
-        else { return }
-
-        CGImageDestinationAddImage(dest, cgImage, [kCGImageDestinationLossyCompressionQuality: 0.7] as CFDictionary)
-        CGImageDestinationFinalize(dest)
     }
 }

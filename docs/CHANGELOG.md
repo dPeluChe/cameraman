@@ -138,6 +138,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the new landing repo.
 
 ### Fixed
+- **Project pictures in the library** — recordings never got one, so the list only showed the placeholder. Every project with footage now gets a frame from its first clip, including the ones you already have.
 - **Preview stopped after an edit** — adding or changing a clip during playback left the video stuck until you pressed pause and play. It now carries on from the same moment and speed.
 - **Exports from agents kept no mix** — `export_project` ignored clip volumes and left the microphone at its raw level, in separate audio tracks. It now writes one mixed track.
 - **Camera edits show while playing** — shape, effects and accessories update the preview right away instead of waiting for the player to stop.

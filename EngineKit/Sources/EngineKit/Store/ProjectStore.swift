@@ -205,7 +205,7 @@ public actor ProjectStore {
     /// List all projects sorted by update date
     /// - Returns: Array of ProjectSummary
     /// Cache of project summaries keyed by project.json URL, with file modification date for invalidation
-    private var summaryCache: [URL: (modDate: Date, summary: ProjectSummary)] = [:]
+    var summaryCache: [URL: (modDate: Date, summary: ProjectSummary)] = [:]
 
     public func listProjects() async throws -> [ProjectSummary] {
         let directories = try fileManager.contentsOfDirectory(
@@ -240,7 +240,7 @@ public actor ProjectStore {
                 decoder.dateDecodingStrategy = .iso8601
                 let project = try decoder.decode(Project.self, from: data)
 
-                let thumbPath = directory.appendingPathComponent("thumbnail.jpg")
+                let thumbPath = directory.appendingPathComponent(Self.thumbnailName)
                 let thumbnailPath = fileManager.fileExists(atPath: thumbPath.path) ? thumbPath.path : nil
 
                 let summary = ProjectSummary(
