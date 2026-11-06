@@ -25,72 +25,86 @@ private extension MusicStyle {
     }
 }
 
+/// Outlives the panel and the editor: collapsing the tool keeps a render, and an agent reload swaps the editor under it.
 @MainActor
-private final class MusicPanelModel: ObservableObject {
+final class MusicPanelModel: ObservableObject {
     @Published private(set) var isRendering = false
-    @Published var errorMessage: String?
+    @Published private(set) var errorMessage: String?
 
-    /// Renders outside the edit, then drops the file if the edit is refused.
-    func compose(_ source: MusicSource, in directory: URL, place: (RenderedMusic) async -> EditorResult) async {
-        guard !isRendering else { return }
+    private let editor: () -> ProjectEditor?
+    private let directory: () -> URL?
+
+    init(editor: @escaping () -> ProjectEditor?, directory: @escaping () -> URL?) {
+        self.editor = editor
+        self.directory = directory
+    }
+
+    var projectDirectory: URL? { directory() }
+
+    /// Renders outside the edit, then drops the file if the edit is refused or the project closed.
+    func compose(_ source: MusicSource, place: @escaping (ProjectEditor, RenderedMusic) async -> EditorResult) async {
+        guard !isRendering, let directory = directory() else { return }
         isRendering = true
         errorMessage = nil
         defer { isRendering = false }
         do {
             let music = try await MusicRenderer.renderAsset(source, in: directory)
-            if case .failure(let error) = await place(music) {
-                RenderedAssets.remove(music.file)
-                errorMessage = error.localizedDescription
-            }
+            guard let editor = editor() else { return RenderedAssets.remove(music.file) }
+            let result = await place(editor, music)
+            if case .failure = result { RenderedAssets.remove(music.file) }
+            report(result)
         } catch {
             errorMessage = error.localizedDescription
         }
     }
+
+    func report(_ result: EditorResult) {
+        if case .failure(let error) = result {
+            errorMessage = error.localizedDescription
+        } else {
+            errorMessage = nil
+        }
+    }
+
+    func report(_ message: String) { errorMessage = message }
 }
 
 struct MusicControlsView: View {
     @ObservedObject var editor: ProjectEditor
+    @ObservedObject var model: MusicPanelModel
     @Binding var showTranscriptionModal: Bool
 
-    @StateObject private var model = MusicPanelModel()
-    @State private var directory: URL?
     @State private var source: MusicSource?
     @State private var hasTranscript = false
+    /// Settings for the next piece; an existing piece answers from its source.
     @State private var style = MusicStyle.lofi
     @State private var intensity = 0.5
 
-    private typealias Piece = (track: Project.TimelineTrack, clip: Project.TimelineClip)
     private let tileColumns = Array(repeating: GridItem(.flexible(), spacing: Spacing.xs), count: 3)
+    private let sliderLabelWidth: CGFloat = 96
 
-    private var pieces: [Piece] {
-        editor.project.timeline.audioTracks.flatMap { track in
-            track.clips.filter { RenderedAssets.renderedPath(of: $0, as: .music) != nil }.map { (track, $0) }
-        }
-    }
-
-    /// The piece selected on the timeline, or the first one.
-    private var current: Piece? {
-        pieces.first { $0.clip.id == editor.selectedClip?.clip.id } ?? pieces.first
+    private var current: Project.Timeline.MusicPiece? {
+        let pieces = editor.project.timeline.musicPieces
+        return pieces.first { $0.clip.id == editor.selectedClip?.clip.id } ?? pieces.first
     }
 
     private var reloadKey: String {
-        let path = current.flatMap { RenderedAssets.renderedPath(of: $0.clip, as: .music) } ?? ""
-        return "\(path)|\(showTranscriptionModal)"
+        "\(ObjectIdentifier(editor).hashValue)|\(current.flatMap { RenderedAssets.renderedPath(of: $0.clip, as: .music) } ?? "")"
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             styleGrid
-            labeledSlider("Intensity", value: intensity) { value in
-                intensity = value
-                if current != nil { change { $0.options.intensity = value } }
+            slider("Intensity", value: source?.options.intensity ?? intensity) { value in
+                if current == nil { intensity = value } else { change { $0.options.intensity = value } }
             }
+            .disabled(current != nil && source == nil)
+
             if let current {
                 pieceControls(current)
             } else {
-                Button { generate() } label: { Text("Generate Music").frame(maxWidth: .infinity) }
+                Button { generate() } label: { PanelActionLabel("Generate Music", icon: "music.note") }
                     .buttonStyle(.borderedProminent)
-                    .disabled(model.isRendering || directory == nil)
             }
             if model.isRendering {
                 HStack(spacing: Spacing.xs) {
@@ -102,84 +116,69 @@ struct MusicControlsView: View {
                 Text(message).font(.caption).foregroundStyle(.red)
             }
         }
-        .task(id: reloadKey) { await reload() }
+        .disabled(model.isRendering)
+        .task(id: reloadKey) { reload() }
+        .onChangeCompat(of: showTranscriptionModal) { isOpen in
+            if !isOpen { reload() }
+        }
     }
 
     private var styleGrid: some View {
         LazyVGrid(columns: tileColumns, spacing: Spacing.xs) {
             ForEach(MusicStyle.allCases, id: \.self) { tile in
-                Button {
-                    style = tile
-                    if current != nil { change { $0.score = .style(tile) } }
-                } label: {
-                    VStack(spacing: 4) {
-                        Image(systemName: tile.icon)
-                        Text(tile.title).font(.caption2).lineLimit(1)
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 44)
-                    .background(isCurrent(tile) ? Color.accentColor.opacity(0.2) : Color.clear)
-                    .contentShape(Rectangle())
-                    .overlay(RoundedRectangle(cornerRadius: Radius.small)
-                        .stroke(isCurrent(tile) ? Color.accentColor : Color.secondary.opacity(0.3)))
-                }
-                .buttonStyle(.plain)
-                .disabled(model.isRendering)
+                FormatButton(title: tile.title, icon: tile.icon, isSelected: isCurrent(tile)) { pick(tile) }
             }
         }
     }
 
     private func isCurrent(_ tile: MusicStyle) -> Bool {
-        if case .code? = source?.score, current != nil { return false }
-        return tile == style
+        (source?.score ?? .style(style)) == .style(tile)
     }
 
     @ViewBuilder
-    private func pieceControls(_ piece: Piece) -> some View {
+    private func pieceControls(_ piece: Project.Timeline.MusicPiece) -> some View {
         Divider()
         VStack(alignment: .leading, spacing: 2) {
             Text(pieceTitle).font(.subheadline)
-            Text("\(clock(piece.clip.timelineIn)) – \(clock(piece.clip.timelineOut))")
+            Text("\(PreviewPlayerViewModel.formatTime(piece.clip.timelineIn)) – \(PreviewPlayerViewModel.formatTime(piece.clip.timelineOut))")
                 .font(.caption).foregroundStyle(.secondary)
-            if pieces.count > 1 {
-                Text("\(pieces.count) pieces. Select one on the timeline to edit it.")
+            if editor.project.timeline.musicPieces.count > 1 {
+                Text("Select another piece on the timeline to edit it.")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
-        Button { change { $0.options.seed += 1 } } label: { Text("Another Variation").frame(maxWidth: .infinity) }
-            .disabled(model.isRendering)
+        Button { change { $0.options.seed += 1 } } label: { PanelActionLabel("Another Variation", icon: "shuffle") }
+            .disabled(source == nil)
 
-        labeledSlider("Volume", value: piece.clip.volume ?? 1) { volume in
-            Task { await report(editor.updateClip(clipId: piece.clip.id, inTrackId: piece.track.id, volume: volume)) }
+        slider("Volume", value: piece.clip.volume ?? 1) { volume in
+            Task { await model.report(editor.updateClip(clipId: piece.clip.id, inTrackId: piece.track.id, volume: volume)) }
         }
-        duckingControl(piece.track)
-
-        HStack {
-            Button("Fit to Video") { fit(piece) }
-                .disabled(model.isRendering || !canFit(piece))
-            Spacer()
-            Button("Remove", role: .destructive) {
-                Task { await report(editor.removeClip(clipId: piece.clip.id, fromTrackId: piece.track.id)) }
-            }
-            .disabled(model.isRendering)
+        slider("Lower under voice", value: 1 - (piece.track.duckingLevel ?? 1)) { amount in
+            Task { await model.report(editor.setTrackDucking(trackId: piece.track.id, level: 1 - amount)) }
         }
-    }
-
-    @ViewBuilder
-    private func duckingControl(_ track: Project.TimelineTrack) -> some View {
-        labeledSlider("Lower under voice", value: 1 - (track.duckingLevel ?? 1)) { amount in
-            Task { await report(editor.setTrackDucking(trackId: track.id, level: 1 - amount)) }
-        }
-        if !hasTranscript, track.duckingLevel != nil {
+        if !hasTranscript, piece.track.duckingLevel != nil {
             HStack {
                 Text("Needs a transcript to work.").font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Button("Transcribe…") { showTranscriptionModal = true }.controlSize(.small)
             }
         }
+
+        HStack {
+            Button("Fit to Video") {
+                if let length = fitLength(piece) { change { $0.options.duration = length } }
+            }
+            .disabled(source == nil || fitLength(piece) == nil)
+            Spacer()
+            Button("Remove", role: .destructive) {
+                Task { await model.report(editor.removeClip(clipId: piece.clip.id, fromTrackId: piece.track.id)) }
+            }
+        }
     }
 
-    private func labeledSlider(_ title: String, value: Double, commit: @escaping (Double) -> Void) -> some View {
-        CommitSlider(title: title, value: value, isDisabled: model.isRendering, commit: commit)
+    private func slider(_ title: String, value: Double, commit: @escaping (Double) -> Void) -> DraftSlider {
+        DraftSlider(label: title, range: 0...1, step: nil, current: value, labelWidth: sliderLabelWidth,
+                    display: { "\(Int($0 * 100))%" }, commit: commit)
     }
 
     private var pieceTitle: String {
@@ -190,86 +189,49 @@ struct MusicControlsView: View {
         }
     }
 
-    private func clock(_ time: TimeInterval) -> String {
-        String(format: "%d:%02d", Int(time) / 60, Int(time) % 60)
+    private func fitLength(_ piece: Project.Timeline.MusicPiece) -> TimeInterval? {
+        guard let length = MusicSource.fittedDuration(from: piece.clip.timelineIn, in: editor.project.timeline),
+              abs(length - piece.clip.duration) > 0.1 else { return nil }
+        return length
     }
 
-    private func canFit(_ piece: Piece) -> Bool {
-        guard let length = MusicSource.fittedDuration(from: piece.clip.timelineIn, in: editor.project.timeline) else { return false }
-        return abs(length - piece.clip.duration) > 0.1
-    }
-
-    private func report(_ result: EditorResult) {
-        if case .failure(let error) = result { model.errorMessage = error.localizedDescription }
-    }
-
-    private func reload() async {
-        let id = editor.project.projectId
-        guard let found = try? await ProjectLibrary.shared.getProjectDirectory(projectId: id) else { return }
-        directory = found
-        hasTranscript = (try? TranscriptionEngine.Transcript.load(fromProject: found)) != nil
-        source = current.flatMap { MusicSource.load(of: $0.clip, in: found) }
-        guard let source else { return }
-        intensity = source.options.intensity
-        if case .style(let saved) = source.score { style = saved }
+    private func reload() {
+        guard let directory = model.projectDirectory else { return }
+        let transcript = directory.appendingPathComponent(TranscriptionEngine.Transcript.relativePath)
+        hasTranscript = FileManager.default.fileExists(atPath: transcript.path)
+        source = current.flatMap { MusicSource.load(of: $0.clip, in: directory) }
     }
 
     private func generate() {
-        guard let directory else { return }
         guard let duration = MusicSource.fittedDuration(from: 0, in: editor.project.timeline) else {
-            model.errorMessage = "Add a video first: the music follows its length."
-            return
+            return model.report("Add a video first: the music follows its length.")
         }
         let options = MusicRenderOptions(duration: duration, seed: Int.random(in: 1...9999), intensity: intensity)
-        Task {
-            await model.compose(MusicSource(score: .style(style), options: options), in: directory) { music in
-                await editor.addMusic(music, at: 0)
-            }
-        }
+        let source = MusicSource(score: .style(style), options: options)
+        Task { await model.compose(source) { editor, music in await editor.addMusic(music, at: 0) } }
     }
 
-    /// Renders the current piece again with `edit` applied, keeping its place on the timeline.
+    private func pick(_ tile: MusicStyle) {
+        guard let piece = current else { return style = tile }
+        guard !isCurrent(tile) else { return }
+        // A style is enough to start over when the sidecar is gone.
+        var next = source ?? MusicSource(score: .style(tile), options: MusicRenderOptions(duration: piece.clip.duration, intensity: intensity))
+        next.score = .style(tile)
+        replace(piece, with: next)
+    }
+
     private func change(_ edit: (inout MusicSource) -> Void) {
-        guard let directory, let piece = current else { return }
-        var next = source ?? MusicSource(score: .style(style), options: MusicRenderOptions(duration: piece.clip.duration, intensity: intensity))
+        guard var next = source, let piece = current else { return }
         edit(&next)
-        let source = next
+        replace(piece, with: next)
+    }
+
+    private func replace(_ piece: Project.Timeline.MusicPiece, with source: MusicSource) {
+        let clipId = piece.clip.id, trackId = piece.track.id
         Task {
-            await model.compose(source, in: directory) { music in
-                await editor.replaceMusic(clipId: piece.clip.id, inTrackId: piece.track.id, with: music)
+            await model.compose(source) { editor, music in
+                await editor.replaceMusic(clipId: clipId, inTrackId: trackId, with: music)
             }
-        }
-    }
-
-    private func fit(_ piece: Piece) {
-        guard let length = MusicSource.fittedDuration(from: piece.clip.timelineIn, in: editor.project.timeline) else { return }
-        change { $0.options.duration = length }
-    }
-}
-
-/// Commits on release, so a drag is one undo step and one render.
-private struct CommitSlider: View {
-    let title: String
-    let value: Double
-    let isDisabled: Bool
-    let commit: (Double) -> Void
-
-    @State private var draft: Double?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack {
-                Text(title).font(.caption)
-                Spacer()
-                Text("\(Int((draft ?? value) * 100))%").font(.caption).foregroundStyle(.secondary).monospacedDigit()
-            }
-            Slider(value: Binding(get: { draft ?? value }, set: { draft = $0 }), in: 0...1) { editing in
-                guard !editing, let draft else { return }
-                self.draft = nil
-                if abs(draft - value) > 0.001 { commit(draft) }
-            }
-            .controlSize(.small)
-            .disabled(isDisabled)
         }
     }
 }

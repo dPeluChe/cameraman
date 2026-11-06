@@ -20,6 +20,7 @@ struct DraftSlider: View {
     /// Live value when the slider is idle. While dragging, the slider reads
     /// from local draft state to avoid rubber-banding if `current` lags.
     let current: Double
+    var labelWidth: CGFloat = 52
     /// Formats `current` (or the draft while dragging) for the right-side
     /// label. Caller controls units (%, s, °, pt, etc).
     let display: (Double) -> String
@@ -35,7 +36,7 @@ struct DraftSlider: View {
             Text(label)
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
-                .frame(width: 52, alignment: .leading)
+                .frame(width: labelWidth, alignment: .leading)
 
             Group {
                 if let step {
@@ -70,9 +71,9 @@ struct DraftSlider: View {
     }
 
     private func handleEditingChanged(_ editing: Bool) {
-        if !editing, let val = draft {
-            commit(val)
-            draft = nil
-        }
+        guard !editing, let val = draft else { return }
+        draft = nil
+        // A click without a move still ends an edit, and a commit can cost a render.
+        if abs(val - current) > 0.001 { commit(val) }
     }
 }

@@ -15,6 +15,18 @@ public struct RenderedMusic: Sendable {
     var path: String { RenderedAssets.projectPath(of: file) }
 }
 
+extension Project.TimelineClip {
+    public var isGeneratedMusic: Bool { RenderedAssets.renderedPath(of: self, as: .music) != nil }
+}
+
+extension Project.Timeline {
+    public typealias MusicPiece = (track: Project.TimelineTrack, clip: Project.TimelineClip)
+
+    public var musicPieces: [MusicPiece] {
+        audioTracks.flatMap { track in track.clips.filter(\.isGeneratedMusic).map { (track, $0) } }
+    }
+}
+
 extension MusicRenderer {
     /// Renders into the project's assets with its source beside it.
     public static func renderAsset(_ source: MusicSource, in directory: URL) async throws -> RenderedMusic {

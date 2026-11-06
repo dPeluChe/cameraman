@@ -25,6 +25,10 @@ final class ProjectEditorViewModel: ObservableObject {
     @Published private(set) var agentIsEditing = false
 
     let playerViewModel = PreviewPlayerViewModel()
+    private(set) lazy var musicPanel = MusicPanelModel(
+        editor: { [weak self] in self?.editor },
+        directory: { [weak self] in self?.projectDirectory }
+    )
 
     private let projectId: ProjectId
     private let library: ProjectLibrary
@@ -160,6 +164,7 @@ struct ProjectEditorView: View {
                         selectedMediaItemId: viewModel.selectedMediaItemId,
                         selectedOverlayId: $viewModel.selectedOverlayId,
                         playerViewModel: viewModel.playerViewModel,
+                        musicPanel: viewModel.musicPanel,
                         showExportModal: $showExportModal,
                         showTranscriptionModal: $showTranscriptionModal,
                         showAISuggestionsModal: $showAISuggestionsModal

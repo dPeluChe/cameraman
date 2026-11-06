@@ -45,6 +45,16 @@ final class MusicPlacementTests: XCTestCase {
         XCTAssertEqual(MusicSource.fittedDuration(from: 0, in: Project.Timeline(duration: 2000, tracks: [])), MusicRenderer.maxDuration)
     }
 
+    func testPiecesAreOnlyGeneratedMusic() {
+        let generated = Project.TimelineClip(timelineIn: 0, content: .audio(Project.AudioClipRef(path: music.path, duration: 10)))
+        let imported = Project.TimelineClip(timelineIn: 0, content: .audio(Project.AudioClipRef(path: "assets/music-intro.m4a", duration: 10)))
+        let timeline = Project.Timeline(duration: 10, tracks: [
+            Project.TimelineTrack(name: "Music", type: .audio, clips: [generated]),
+            Project.TimelineTrack(name: "Voiceover", type: .audio, clips: [imported]),
+        ])
+        XCTAssertEqual(timeline.musicPieces.map(\.clip.id), [generated.id])
+    }
+
     func testABadDuckingIsRefused() async {
         let editor = EditorModel(project: project)
         let result = await editor.addMusic(music, at: 0, ducking: 1.5)
