@@ -33,6 +33,12 @@ final class MusicPlacementTests: XCTestCase {
         XCTAssertEqual(count, 2)
     }
 
+    func testABadDuckingIsRefused() async {
+        let editor = EditorModel(project: project)
+        let result = await editor.addMusic(music, at: 0, ducking: 1.5)
+        XCTAssertNil(result.getProject())
+    }
+
     func testReplacingKeepsTheClipAndItsVolume() async throws {
         let editor = EditorModel(project: project)
         _ = await editor.addMusic(music, at: 3, volume: 0.4)

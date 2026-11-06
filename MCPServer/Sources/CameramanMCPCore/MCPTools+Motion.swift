@@ -24,7 +24,7 @@ extension MCPTools {
         let (file, rendered) = try await renderMotion(source, project, directory)
 
         return try await RenderedAssets.removing(file) {
-            let path = "assets/\(file.lastPathComponent)"
+            let path = RenderedAssets.projectPath(of: file)
             var added: EditorResultInfo?
             let updated = try await mutate(args) { editor in
                 let track = await editor.freeTrack(.video, named: Self.motionTrackName, from: at, to: at + rendered.duration)
@@ -52,11 +52,8 @@ extension MCPTools {
         let (file, rendered) = try await renderMotion(source, project, directory)
 
         return try await RenderedAssets.removing(file) {
-            let content = Project.ClipContent.video(Project.VideoClipRef(path: "assets/\(file.lastPathComponent)", sourceOut: rendered.duration))
-            let updated = try await mutate(args) {
-                await $0.replaceClipContent(clipId: clip.id, inTrackId: track.id, content: content,
-                                            ending: clip.timelineIn + rendered.duration / clip.speed)
-            }
+            let content = Project.ClipContent.video(Project.VideoClipRef(path: RenderedAssets.projectPath(of: file), sourceOut: rendered.duration))
+            let updated = try await mutate(args) { await $0.replaceClipContent(clipId: clip.id, inTrackId: track.id, content: content) }
             // The old video stays for undo; RenderedAssets removes it when the project next opens.
             let extra = await visibleArea(of: file, at: clip.position, in: updated)
             return try summary("Updated motion \(clip.id)", updated, extra: extra)

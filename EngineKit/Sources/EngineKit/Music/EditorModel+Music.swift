@@ -12,7 +12,7 @@ public struct RenderedMusic: Sendable {
     public let file: URL
     public let seconds: TimeInterval
 
-    var path: String { "assets/\(file.lastPathComponent)" }
+    var path: String { RenderedAssets.projectPath(of: file) }
 }
 
 extension MusicRenderer {
@@ -36,6 +36,7 @@ extension EditorModel {
     /// Puts music on a free Music track, or a new one that ducks by `ducking`.
     public func addMusic(_ music: RenderedMusic, at start: TimeInterval, volume: Double = MusicSource.defaultVolume,
                          ducking: Double = MusicSource.defaultDucking) async -> EditorResult {
+        if let error = EditorValidation.validateUnitValue(ducking, field: "ducking") { return .failure(error) }
         let track = freeTrack(.audio, named: MusicSource.trackName, from: start, to: start + music.seconds)
         return await addAudioClip(path: music.path, duration: music.seconds, at: start, trackName: MusicSource.trackName,
                                   volume: volume, onTrack: track, duckingOnNewTrack: ducking)
@@ -43,11 +44,7 @@ extension EditorModel {
 
     /// Swaps a clip's music in place. The old file stays for undo; RenderedAssets removes it when the project next opens.
     public func replaceMusic(clipId: String, inTrackId trackId: UUID, with music: RenderedMusic) async -> EditorResult {
-        guard let clip = projectRef.timeline.tracks.first(where: { $0.id == trackId })?.clips.first(where: { $0.id == clipId }) else {
-            return .failure(.clipNotFound(clipId: clipId, trackId: trackId.uuidString))
-        }
-        let content = Project.ClipContent.audio(Project.AudioClipRef(path: music.path, duration: music.seconds))
-        return await replaceClipContent(clipId: clipId, inTrackId: trackId, content: content,
-                                        ending: clip.timelineIn + music.seconds / clip.speed)
+        await replaceClipContent(clipId: clipId, inTrackId: trackId,
+                                 content: .audio(Project.AudioClipRef(path: music.path, duration: music.seconds)))
     }
 }
