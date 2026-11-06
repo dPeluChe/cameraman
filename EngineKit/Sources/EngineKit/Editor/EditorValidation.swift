@@ -14,7 +14,7 @@ public enum EditorValidation {
         if let opacity = clip.opacity, !isUnitValue(opacity) {
             return invalid("opacity must be finite and between 0 and 1")
         }
-        if let position = clip.position, let error = validateClipPosition(position) {
+        if let position = clip.position, let error = validatePosition(position, allowOffCanvas: true) {
             return error
         }
 
@@ -204,25 +204,19 @@ public enum EditorValidation {
         return nil
     }
 
-    private static func validatePosition(_ position: Project.MediaPosition) -> EditorError? {
+    private static func validatePosition(_ position: Project.MediaPosition, allowOffCanvas: Bool = false) -> EditorError? {
         let values = [position.x, position.y, position.w, position.h]
-        guard values.allSatisfy(\.isFinite),
-              position.x >= 0, position.y >= 0,
-              position.w > 0, position.h > 0,
-              position.x + position.w <= 1,
-              position.y + position.h <= 1 else {
-            return invalid("position must define a finite rectangle inside the normalized canvas")
+        guard values.allSatisfy(\.isFinite), position.w > 0, position.h > 0 else {
+            return invalid("position must define a finite rectangle")
         }
-        return nil
-    }
-
-    private static func validateClipPosition(_ position: Project.MediaPosition) -> EditorError? {
-        let values = [position.x, position.y, position.w, position.h]
-        guard values.allSatisfy(\.isFinite),
-              abs(position.x) <= 1, abs(position.y) <= 1,
-              position.w > 0, position.h > 0,
-              position.w <= 1, position.h <= 1 else {
-            return invalid("position needs w and h up to 1, and x and y between -1 and 1")
+        if allowOffCanvas {
+            guard abs(position.x) <= 1, abs(position.y) <= 1, position.w <= 1, position.h <= 1 else {
+                return invalid("position needs w and h up to 1, and x and y between -1 and 1")
+            }
+        } else {
+            guard position.x >= 0, position.y >= 0, position.x + position.w <= 1, position.y + position.h <= 1 else {
+                return invalid("position must define a finite rectangle inside the normalized canvas")
+            }
         }
         return nil
     }

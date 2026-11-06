@@ -68,6 +68,12 @@ extension MCPTools {
             throw MCPToolError("Pass at least one change: timelineIn, toTrackId, speed, volume, opacity, x/y/w/h, sourceIn, sourceOut, audioMuted.")
         }
 
+        if position != nil {
+            guard case .video = try await resolveClip(args).clip.content else {
+                throw MCPToolError("x, y, w and h apply to video clips only.")
+            }
+        }
+
         // Trim recomputes the clip's content from its current source window.
         var newContent: Project.ClipContent?
         if sourceIn != nil || sourceOut != nil {

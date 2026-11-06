@@ -11,17 +11,9 @@ import EngineKit
 
 extension TimelineView {
 
-    /// Fresh copy of the selected clip from the live project (selection holds a snapshot).
-    private var liveSelectedVideoClip: Project.TimelineClip? {
-        guard let selected = selectedVideoClip,
-              let track = editor.project.timeline.tracks.first(where: { $0.id == selected.trackId })
-        else { return nil }
-        return track.clips.first { $0.id == selected.clip.id }
-    }
-
     @ViewBuilder
     var videoClipInspector: some View {
-        if let selected = selectedVideoClip, let clip = liveSelectedVideoClip {
+        if let selected = selectedVideoClip, let clip = editor.liveSelectedClip {
             HStack(spacing: 14) {
                 Label(clipInspectorName(clip), systemImage: clip.isAudio ? "waveform" : "film")
                     .font(.caption)
@@ -144,13 +136,8 @@ extension TimelineView {
                 let pos = clip.position ?? .centered(w: newSize, h: newSize)
                 let centerX = pos.x + pos.w / 2
                 let centerY = pos.y + pos.h / 2
-                let clamped = Project.MediaPosition(
-                    x: min(max(0, centerX - newSize / 2), 1 - newSize),
-                    y: min(max(0, centerY - newSize / 2), 1 - newSize),
-                    w: newSize,
-                    h: newSize
-                )
-                apply(position: clamped, to: clip, trackId: trackId)
+                let resized = Project.MediaPosition(x: centerX - newSize / 2, y: centerY - newSize / 2, w: newSize, h: newSize)
+                apply(position: resized.moved(dx: 0, dy: 0), to: clip, trackId: trackId)
             }
         )
     }

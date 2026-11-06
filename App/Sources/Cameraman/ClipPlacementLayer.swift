@@ -15,12 +15,9 @@ struct ClipPlacementLayer: View {
 
     @State private var draft: Project.MediaPosition?
 
-    private static let fullCanvas = Project.MediaPosition(x: 0, y: 0, w: 1, h: 1)
-
-    /// Live clip, only while the playhead is on it: otherwise there is nothing to place.
+    /// Only imported video renders a placement, and only while the playhead is on it.
     private var clip: Project.TimelineClip? {
-        let track = editor.project.timeline.tracks.first { $0.id == selected.trackId }
-        guard let clip = track?.clips.first(where: { $0.id == selected.clip.id }), clip.isVisual else { return nil }
+        guard let clip = editor.liveSelectedClip, case .video = clip.content else { return nil }
         let time = playerViewModel.currentTime
         return time >= clip.timelineIn && time <= clip.timelineOut ? clip : nil
     }
@@ -28,7 +25,7 @@ struct ClipPlacementLayer: View {
     var body: some View {
         GeometryReader { geometry in
             if let clip {
-                placement(of: clip, position: clip.position ?? Self.fullCanvas, in: geometry.size)
+                placement(of: clip, position: clip.position ?? Project.MediaPosition(), in: geometry.size)
             }
         }
         .clipped()
@@ -43,28 +40,27 @@ struct ClipPlacementLayer: View {
                 .fill(Color.teal.opacity(0.08))
                 .overlay(Rectangle().stroke(Color.teal, lineWidth: 1.5))
                 .contentShape(Rectangle())
-                .gesture(drag(of: clip) { t in
-                    position.moved(dx: t.width / size.width, dy: t.height / size.height)
-                })
+                .gesture(drag(of: clip, in: size) { position.moved(dx: $0.x, dy: $0.y) })
             RoundedRectangle(cornerRadius: 2)
                 .fill(Color.teal)
                 .frame(width: 12, height: 12)
                 .contentShape(Rectangle().inset(by: -6))
-                .gesture(drag(of: clip) { t in
-                    position.resized(toWidth: position.w + t.width / size.width)
-                })
+                .gesture(drag(of: clip, in: size) { position.resized(toWidth: position.w + $0.x) })
         }
         .frame(width: rect.width, height: rect.height)
         .offset(x: rect.minX, y: rect.minY)
         .help("Drag to move, drag the corner to resize")
     }
 
-    private func drag(of clip: Project.TimelineClip,
-                      to position: @escaping (CGSize) -> Project.MediaPosition) -> some Gesture {
-        DragGesture(minimumDistance: 1, coordinateSpace: .global)
-            .onChanged { draft = position($0.translation) }
+    private func drag(of clip: Project.TimelineClip, in size: CGSize,
+                      to position: @escaping (CGPoint) -> Project.MediaPosition) -> some Gesture {
+        let target = { (translation: CGSize) in
+            position(OverlayCanvasGeometry.normalizedTranslation(translation, canvasSize: size))
+        }
+        return DragGesture(minimumDistance: 1, coordinateSpace: .global)
+            .onChanged { draft = target($0.translation) }
             .onEnded { value in
-                let final = position(value.translation)
+                let final = target(value.translation)
                 Task {
                     _ = await editor.updateClip(clipId: clip.id, inTrackId: selected.trackId, position: final)
                     draft = nil

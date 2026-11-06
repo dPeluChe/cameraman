@@ -85,6 +85,12 @@ final class ProjectEditor: ObservableObject {
     @Published var selectedBlurRegionId: String?
     /// Timeline clip selected for editing; the preview shows its placement handles.
     @Published var selectedClip: SelectedVideoClip?
+    /// Fresh copy of the selected clip (the selection holds a snapshot).
+    var liveSelectedClip: Project.TimelineClip? {
+        guard let selectedClip else { return nil }
+        let track = project.timeline.tracks.first { $0.id == selectedClip.trackId }
+        return track?.clips.first { $0.id == selectedClip.clip.id }
+    }
 
     func setProject(_ project: Project) async {
         await editorModel.setProject(project)
