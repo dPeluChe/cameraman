@@ -39,6 +39,15 @@ public enum MotionAssets {
     /// A file this young may be a render whose clip is not in the project yet.
     public static let minimumAge: TimeInterval = 3600
 
+    public static func newFileName() -> String {
+        "motion-\(UUID().uuidString.prefix(8).lowercased()).mov"
+    }
+
+    /// Exact, because imported files keep their names and one could be called motion-intro.mov.
+    public static func isRendered(_ name: String) -> Bool {
+        name.range(of: "^motion-[0-9a-f]{8}\\.mov$", options: .regularExpression) != nil
+    }
+
     /// Removes rendered motions no clip uses. Run it only when no undo history can bring one
     /// back, which is why deleting a clip keeps its file. Returns how many videos went.
     @discardableResult
@@ -52,7 +61,7 @@ public enum MotionAssets {
             return (ref.path as NSString).lastPathComponent
         })
         var removed = 0
-        for name in names where name.hasPrefix("motion-") && name.hasSuffix(".mov") && !used.contains(name) {
+        for name in names where isRendered(name) && !used.contains(name) {
             let file = assets.appendingPathComponent(name)
             let modified = (try? fileManager.attributesOfItem(atPath: file.path)[.modificationDate]) as? Date
             guard let modified, now.timeIntervalSince(modified) >= minimumAge else { continue }

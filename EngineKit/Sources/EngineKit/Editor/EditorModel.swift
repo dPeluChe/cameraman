@@ -67,9 +67,23 @@ public actor EditorModel {
     /// An unlocked video track with this name and nothing in the span, so related clips share a row.
     public func freeVideoTrack(named name: String, from start: TimeInterval, to end: TimeInterval) -> UUID? {
         project.timeline.videoTracks.first { track in
-            track.name == name && !track.isLocked
-                && track.clips.allSatisfy { $0.timelineOut <= start || $0.timelineIn >= end }
+            track.name == name && !track.isLocked && track.isFree(from: start, to: end)
         }?.id
+    }
+
+    /// Re-point a clip at new media of a new length, unless that runs into its neighbor.
+    public func replaceClipContent(clipId: String, inTrackId trackId: UUID, content: Project.ClipContent,
+                                   ending end: TimeInterval) async -> EditorResult {
+        guard let track = project.timeline.tracks.first(where: { $0.id == trackId }) else {
+            return .failure(.trackNotFound(trackId.uuidString))
+        }
+        guard let start = track.clips.first(where: { $0.id == clipId })?.timelineIn else {
+            return .failure(.clipNotFound(clipId: clipId, trackId: trackId.uuidString))
+        }
+        guard track.isFree(from: start, to: end, ignoring: clipId) else {
+            return .failure(.invalidClipContent(reason: "It would run into the next clip on its track"))
+        }
+        return await updateClip(clipId: clipId, inTrackId: trackId, content: content)
     }
 
     /// Import an audio file as a clip on a new `.audio` track. Used for

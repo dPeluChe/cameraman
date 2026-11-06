@@ -288,6 +288,10 @@ extension Project.TimelineTrack {
     }
 
     /// Get the clip at a specific time, if any
+    func isFree(from start: TimeInterval, to end: TimeInterval, ignoring clipId: String? = nil) -> Bool {
+        clips.allSatisfy { $0.id == clipId || $0.timelineOut <= start || $0.timelineIn >= end }
+    }
+
     public func clip(at time: TimeInterval) -> Project.TimelineClip? {
         clips.first { clip in
             time >= clip.timelineIn && time < clip.timelineOut

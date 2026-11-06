@@ -20,7 +20,9 @@ extension MCPTools {
         guard at >= 0 else { throw MCPToolError("'at' must be 0 or later.") }
         let source = try Self.motionSource(args, editing: nil)
         let position = try Self.placement(args)
-        let (file, rendered) = try await renderMotion(source, args)
+        let project = try await loadProject(args)
+        let directory = try await ProjectLibrary.shared.getProjectDirectory(projectId: project.projectId)
+        let (file, rendered) = try await renderMotion(source, project, directory)
 
         do {
             let path = "assets/\(file.lastPathComponent)"
@@ -47,7 +49,7 @@ extension MCPTools {
     func updateMotion(_ args: [String: Any]) async throws -> String {
         try requireMotionHost("update_motion")
         let (project, track, clip) = try await resolveClip(args)
-        guard case .video(let ref) = clip.content, (ref.path as NSString).lastPathComponent.hasPrefix("motion-") else {
+        guard case .video(let ref) = clip.content, MotionAssets.isRendered((ref.path as NSString).lastPathComponent) else {
             throw MCPToolError("That clip is not a motion.")
         }
         let directory = try await ProjectLibrary.shared.getProjectDirectory(projectId: project.projectId)
@@ -56,16 +58,13 @@ extension MCPTools {
             throw MCPToolError("This motion was made before they could be edited. Pass its full 'html' or a 'template'.")
         }
         let source = try Self.motionSource(args, editing: saved)
-        let (file, rendered) = try await renderMotion(source, args)
+        let (file, rendered) = try await renderMotion(source, project, directory)
 
         do {
-            let end = clip.timelineIn + rendered.duration / clip.speed
-            let collides = track.clips.contains { $0.id != clip.id && $0.timelineIn < end && $0.timelineOut > clip.timelineIn }
-            guard !collides else { throw MCPToolError("At \(rendered.duration)s it would run into the next clip on its track.") }
-
             let content = Project.ClipContent.video(Project.VideoClipRef(path: "assets/\(file.lastPathComponent)", sourceOut: rendered.duration))
             let updated = try await mutate(args) {
-                await $0.updateClip(clipId: clip.id, inTrackId: track.id, content: content)
+                await $0.replaceClipContent(clipId: clip.id, inTrackId: track.id, content: content,
+                                            ending: clip.timelineIn + rendered.duration / clip.speed)
             }
             // The old video stays for undo; MotionAssets removes it when the project next opens.
             let extra = await visibleArea(of: file, at: clip.position, in: updated)
@@ -124,13 +123,12 @@ extension MCPTools {
     }
 
     /// Renders before the edit starts, so the open editor is not held while this runs.
-    private func renderMotion(_ source: MotionSource, _ args: [String: Any]) async throws -> (file: URL, result: MotionRenderResult) {
+    private func renderMotion(_ source: MotionSource, _ project: Project,
+                              _ directory: URL) async throws -> (file: URL, result: MotionRenderResult) {
         let page = try Self.motionPage(source)
-        let project = try await loadProject(args)
-        let directory = try await ProjectLibrary.shared.getProjectDirectory(projectId: project.projectId)
         let assets = directory.appendingPathComponent("assets", isDirectory: true)
         try FileManager.default.createDirectory(at: assets, withIntermediateDirectories: true)
-        let file = assets.appendingPathComponent("motion-\(UUID().uuidString.prefix(8).lowercased()).mov")
+        let file = assets.appendingPathComponent(MotionAssets.newFileName())
 
         let size = Self.motionSize(for: project.canvas.format)
         let rendered = try await MotionRenderer.render(

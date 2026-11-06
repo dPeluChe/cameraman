@@ -189,17 +189,17 @@ final class MCPMotionTests: XCTestCase {
             "projectId": id.uuidString, "at": 0, "template": "title", "title": "Hola", "duration": 2.0,
         ])
         let assets = directory.appendingPathComponent("assets")
-        let unused = assets.appendingPathComponent("motion-old.mov")
+        let unused = assets.appendingPathComponent("motion-0a1b2c3d.mov")
         try Data().write(to: unused)
         try Data().write(to: MotionSource.sidecar(of: unused))
-        try Data().write(to: assets.appendingPathComponent("logo.mov"))
+        try Data().write(to: assets.appendingPathComponent("motion-intro.mov"))
         let project = try await ProjectLibrary.shared.getProject(projectId: id)
 
         XCTAssertEqual(MotionAssets.removeUnused(in: project, directory: directory), 0, "it may still be rendering")
         XCTAssertEqual(MotionAssets.removeUnused(in: project, directory: directory, now: Date().addingTimeInterval(7200)), 1)
         XCTAssertFalse(FileManager.default.fileExists(atPath: unused.path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: MotionSource.sidecar(of: unused).path))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: assets.appendingPathComponent("logo.mov").path), "not a motion")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: assets.appendingPathComponent("motion-intro.mov").path), "an import, not a render")
     }
 
     func testRejectsBadInputWithoutLeavingFiles() async throws {
