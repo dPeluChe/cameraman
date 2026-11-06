@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > to `[0.7.1] - <date>` when the batch is built, signed and notarized.
 
 ### Added
+- **Edit what you drew while recording** — the Select tool (V) picks a shape: drag to move it, Delete to remove it, and the colors and line width restyle it. The log keeps what was on screen before each edit.
+- **Keys for the drawing tools** — V select, M mouse, L laser, P pen, A arrow, R rectangle, O ellipse, T text, B blur, W line width, 1–5 colors. Shift+Cmd+D switches between the mouse and the last tool, from any app, and is only taken while drawing is on.
 - **Camera side in Side-by-Side** — choose left or right in the layout section, or with `cameraSide` in the MCP tool `set_canvas_layout`.
 - **One MCP setup flow** (Settings → Developer) — allow connections first, then pick your client; Claude Code, Cursor, Codex CLI and Claude Desktop all connect to the in-app server. The standalone binary moved under Advanced, because it cannot place motion graphics.
 - **Motion graphics from the agent** — new MCP tool `add_motion` (in-app server): a name card, title, counting stat
@@ -129,6 +131,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the new landing repo.
 
 ### Fixed
+- **Camera edits show while playing** — shape, effects and accessories update the preview right away instead of waiting for the player to stop.
 - **Side-by-Side is now two columns** — the screen shrinks into the column opposite the camera in preview and export, instead of the camera sitting on top of it.
 - **Esc no longer stops a recording** — it leaves the drawing tool and returns to the mouse, keeping what you drew. Stop moved to Shift+Cmd+Esc, and Cameraman no longer takes Esc from other apps. **Changed shortcut.**
 - **New takes appear in the project** — a take recorded into a project lands at the end of its timeline instead of staying only in the Takes list, and closing the recording window no longer sends the next recording into that project.

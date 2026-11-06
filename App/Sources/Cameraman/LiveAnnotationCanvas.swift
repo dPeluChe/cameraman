@@ -20,6 +20,8 @@ final class LiveAnnotationCanvasView: NSView {
     private var laserTimer: Timer?
     private var blurViews: [UUID: NSVisualEffectView] = [:]
     private var textField: NSTextField?
+    private var dragStart: CGPoint?
+    private var dragOffset = CGVector.zero
 
     private static let laserLife: TimeInterval = 0.9
 
@@ -29,7 +31,7 @@ final class LiveAnnotationCanvasView: NSView {
 
     override func resetCursorRects() {
         guard let tool = controller?.tool, tool != .pointer else { return }
-        addCursorRect(bounds, cursor: tool == .text ? .iBeam : .crosshair)
+        addCursorRect(bounds, cursor: tool == .text ? .iBeam : tool == .select ? .arrow : .crosshair)
     }
 
     override func updateTrackingAreas() {
@@ -66,7 +68,7 @@ final class LiveAnnotationCanvasView: NSView {
     // MARK: Drawing
 
     override func draw(_ dirtyRect: NSRect) {
-        for annotation in visible where LiveAnnotationRenderer.dirtyFrame(of: annotation, in: bounds.size).intersects(dirtyRect) {
+        for annotation in visible.lazy.map(dragged) where LiveAnnotationRenderer.dirtyFrame(of: annotation, in: bounds.size).intersects(dirtyRect) {
             LiveAnnotationRenderer.draw(annotation, in: bounds.size)
         }
         if let draft {
@@ -82,7 +84,28 @@ final class LiveAnnotationCanvasView: NSView {
                 LiveAnnotationRenderer.draw(draft, in: bounds.size)
             }
         }
+        drawSelection()
         drawLaser()
+    }
+
+    /// The selected shape where the drag currently puts it.
+    private func dragged(_ annotation: LiveAnnotation) -> LiveAnnotation {
+        guard dragOffset != .zero, annotation.id == controller?.selectedID else { return annotation }
+        return annotation.moved(by: dragOffset)
+    }
+
+    private var selectedShape: LiveAnnotation? {
+        controller?.selectedID.flatMap { id in visible.first { $0.id == id } }
+    }
+
+    private func drawSelection() {
+        guard let selected = selectedShape else { return }
+        let frame = LiveAnnotationRenderer.dirtyFrame(of: dragged(selected), in: bounds.size).insetBy(dx: 28, dy: 28)
+        let outline = NSBezierPath(rect: frame)
+        outline.lineWidth = 1.5
+        outline.setLineDash([6, 4], count: 2, phase: 0)
+        NSColor.controlAccentColor.setStroke()
+        outline.stroke()
     }
 
     private func drawLaser() {
@@ -110,6 +133,10 @@ final class LiveAnnotationCanvasView: NSView {
         let p = convert(event.locationInWindow, from: nil)
         switch controller.tool {
         case .pointer: break
+        case .select:
+            let hit = controller.log.topmost(at: p, in: bounds.size)
+            controller.select(hit?.id)
+            dragStart = hit == nil ? nil : p
         case .laser: addLaserPoint(p)
         case .text: beginText(at: p)
         default:
@@ -122,6 +149,10 @@ final class LiveAnnotationCanvasView: NSView {
     override func mouseDragged(with event: NSEvent) {
         let p = convert(event.locationInWindow, from: nil)
         if controller?.tool == .laser { addLaserPoint(p); return }
+        if let dragStart {
+            drag(to: CGVector(dx: (p.x - dragStart.x) / bounds.width, dy: (p.y - dragStart.y) / bounds.height))
+            return
+        }
         guard var draft else { return }
         let point = normalized(p)
         if draft.kind == .pen {
@@ -133,7 +164,23 @@ final class LiveAnnotationCanvasView: NSView {
         self.draft = draft
     }
 
+    private func drag(to offset: CGVector) {
+        guard let selected = selectedShape else { return }
+        let before = LiveAnnotationRenderer.dirtyFrame(of: dragged(selected), in: bounds.size)
+        dragOffset = offset
+        let shape = dragged(selected)
+        blurViews[selected.id]?.frame = LiveAnnotationRenderer.frame(of: shape, in: bounds.size)
+        setNeedsDisplay(before.union(LiveAnnotationRenderer.dirtyFrame(of: shape, in: bounds.size)))
+    }
+
     override func mouseUp(with event: NSEvent) {
+        if dragStart != nil {
+            let offset = dragOffset
+            dragStart = nil
+            dragOffset = .zero
+            if offset != .zero { controller?.moveSelection(by: offset) }
+            return
+        }
         guard let draft else { return }
         self.draft = nil
         controller?.commit(draft)
@@ -146,9 +193,28 @@ final class LiveAnnotationCanvasView: NSView {
             controller?.tool = .pointer
         } else if event.modifierFlags.contains(.command), event.charactersIgnoringModifiers == "z" {
             controller?.undo()
-        } else {
+        } else if !handleShortcut(event) {
             super.keyDown(with: event)
         }
+    }
+
+    private func handleShortcut(_ event: NSEvent) -> Bool {
+        guard let controller, event.modifierFlags.intersection([.command, .control, .option]).isEmpty else { return false }
+        if event.keyCode == 51 || event.keyCode == 117 { // Delete, forward delete
+            controller.deleteSelection()
+            return true
+        }
+        guard let key = event.charactersIgnoringModifiers?.lowercased().first else { return false }
+        if let tool = LiveAnnotationController.Tool.allCases.first(where: { $0.key == key }) {
+            controller.tool = tool
+        } else if key == "w" {
+            controller.cycleWidth()
+        } else if let digit = key.wholeNumberValue, LiveAnnotationController.palette.indices.contains(digit - 1) {
+            controller.colorHex = LiveAnnotationController.palette[digit - 1]
+        } else {
+            return false
+        }
+        return true
     }
 
     // MARK: Laser
@@ -229,6 +295,10 @@ final class LiveAnnotationCanvasView: NSView {
     func toolChanged() {
         commitText()
         draft = nil
+        if dragStart != nil {
+            drag(to: .zero)
+            dragStart = nil
+        }
         stopLaser()
         window?.invalidateCursorRects(for: self)
         needsDisplay = true

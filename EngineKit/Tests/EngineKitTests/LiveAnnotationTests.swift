@@ -15,6 +15,43 @@ final class LiveAnnotationTests: XCTestCase {
         XCTAssertTrue(log.add(shape(.text, [CGPoint(x: 0.1, y: 0.1)], text: "hola")))
     }
 
+    func testHitsFollowTheLineAndPickTheTopmostShape() {
+        let size = CGSize(width: 1000, height: 1000)
+        var log = LiveAnnotationLog()
+        let arrow = shape(.arrow, [CGPoint(x: 0.1, y: 0.1), CGPoint(x: 0.5, y: 0.5)])
+        let rect = shape(.rect, [CGPoint(x: 0.2, y: 0.2), CGPoint(x: 0.4, y: 0.4)])
+        log.add(arrow)
+        XCTAssertEqual(log.topmost(at: CGPoint(x: 300, y: 305), in: size)?.id, arrow.id)
+        XCTAssertNil(log.topmost(at: CGPoint(x: 300, y: 400), in: size), "off the line, not just inside its box")
+        log.add(rect)
+        XCTAssertEqual(log.topmost(at: CGPoint(x: 300, y: 305), in: size)?.id, rect.id)
+    }
+
+    func testMovedStopsAtTheDisplayEdges() {
+        let rect = shape(.rect, [CGPoint(x: 0.8, y: 0.1), CGPoint(x: 0.9, y: 0.2)])
+        let moved = rect.moved(by: CGVector(dx: 0.5, dy: -0.05))
+        XCTAssertEqual(moved.bounds.maxX, 1, accuracy: 1e-9)
+        XCTAssertEqual(moved.bounds.minY, 0.05, accuracy: 1e-9)
+        XCTAssertEqual(moved.bounds.width, rect.bounds.width, accuracy: 1e-9)
+    }
+
+    func testEditingKeepsWhatWasOnScreenInTheLog() throws {
+        var log = LiveAnnotationLog()
+        let rect = shape(.rect, [.zero, CGPoint(x: 0.2, y: 0.2)], start: 1)
+        log.add(rect)
+
+        let movedID = try XCTUnwrap(log.replace(id: rect.id, at: 3) { $0 = $0.moved(by: CGVector(dx: 0.1, dy: 0)) })
+        XCTAssertEqual(log.items.first?.end, 3)
+        XCTAssertEqual(log.visible.map(\.id), [movedID])
+        XCTAssertEqual(log.visible.first?.start, 3)
+
+        XCTAssertTrue(log.remove(id: movedID, at: 5))
+        XCTAssertTrue(log.visible.isEmpty)
+        XCTAssertEqual(log.items.count, 2)
+        XCTAssertFalse(log.remove(id: movedID, at: 6), "already gone")
+        XCTAssertNil(log.replace(id: movedID, at: 6) { _ in })
+    }
+
     func testUndoEndsTheLastVisibleShapeInsteadOfDeletingIt() {
         var log = LiveAnnotationLog()
         log.add(shape(.rect, [.zero, CGPoint(x: 0.2, y: 0.2)], start: 1))

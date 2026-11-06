@@ -177,6 +177,7 @@ struct HotkeyRow: View {
         case .pauseResumeRecording: return "pause.circle"
         case .toggleCamera: return "video"
         case .toggleMicrophone: return "mic"
+        case .toggleDrawing: return "pencil.tip"
         }
     }
 }

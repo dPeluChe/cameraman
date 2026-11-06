@@ -15,12 +15,13 @@ import EngineKit
 @MainActor
 final class LiveAnnotationController: ObservableObject {
     enum Tool: String, CaseIterable, Identifiable {
-        case pointer, laser, pen, arrow, rect, ellipse, text, blur
+        case pointer, select, laser, pen, arrow, rect, ellipse, text, blur
         var id: String { rawValue }
 
         var icon: String {
             switch self {
             case .pointer: return "cursorarrow"
+            case .select: return "hand.point.up.left"
             case .laser: return "dot.circle.and.hand.point.up.left.fill"
             case .pen: return "pencil.tip"
             case .arrow: return "arrow.up.right"
@@ -28,6 +29,21 @@ final class LiveAnnotationController: ObservableObject {
             case .ellipse: return "circle"
             case .text: return "textformat"
             case .blur: return "drop.halffull"
+            }
+        }
+
+        /// Plain key that picks this tool while the canvas has the keyboard.
+        var key: Character {
+            switch self {
+            case .pointer: return "m"
+            case .select: return "v"
+            case .laser: return "l"
+            case .pen: return "p"
+            case .arrow: return "a"
+            case .rect: return "r"
+            case .ellipse: return "o"
+            case .text: return "t"
+            case .blur: return "b"
             }
         }
 
@@ -39,20 +55,21 @@ final class LiveAnnotationController: ObservableObject {
             case .rect: return .rect
             case .ellipse: return .ellipse
             case .blur: return .blur
-            case .pointer, .laser, .text: return nil
+            case .pointer, .select, .laser, .text: return nil
             }
         }
 
         var title: String {
             switch self {
-            case .pointer: return "Mouse: use the desktop (Esc)"
-            case .laser: return "Laser pointer"
-            case .pen: return "Pen"
-            case .arrow: return "Arrow"
-            case .rect: return "Rectangle"
-            case .ellipse: return "Ellipse"
-            case .text: return "Text"
-            case .blur: return "Blur area"
+            case .pointer: return "Mouse: use the desktop (Esc or M)"
+            case .select: return "Select: drag to move, Delete to remove (V)"
+            case .laser: return "Laser pointer (L)"
+            case .pen: return "Pen (P)"
+            case .arrow: return "Arrow (A)"
+            case .rect: return "Rectangle (R)"
+            case .ellipse: return "Ellipse (O)"
+            case .text: return "Text (T)"
+            case .blur: return "Blur area (B)"
             }
         }
     }
@@ -63,21 +80,34 @@ final class LiveAnnotationController: ObservableObject {
     @Published var tool: Tool = .pointer {
         didSet {
             guard tool != oldValue else { return }
+            if oldValue != .pointer { lastDrawingTool = oldValue }
             canvasPanel?.ignoresMouseEvents = tool == .pointer
             if tool != .pointer { canvasPanel?.makeKey() }
             canvasView?.toolChanged()
+            selectedID = nil
         }
     }
-    @Published var colorHex = palette[0]
-    @Published var lineWidth = widths[1]
+    @Published var colorHex = palette[0] {
+        didSet { if colorHex != oldValue { editSelection { $0.colorHex = colorHex } } }
+    }
+    @Published var lineWidth = widths[1] {
+        didSet { if lineWidth != oldValue { editSelection { $0.lineWidth = lineWidth } } }
+    }
+    private(set) var selectedID: UUID? {
+        didSet { canvasView?.needsDisplay = true }
+    }
     @Published private(set) var log = LiveAnnotationLog() {
-        didSet { canvasView?.refresh() }
+        didSet {
+            if let id = selectedID, !log.visible.contains(where: { $0.id == id }) { selectedID = nil }
+            canvasView?.refresh()
+        }
     }
 
     private var canvasPanel: NSPanel?
     private var canvasView: LiveAnnotationCanvasView?
     private var toolbarPanel: NSPanel?
     private var clock = RecordingClock()
+    private var lastDrawingTool: Tool = .arrow
 
     /// Seconds into the recording, not counting paused time.
     var elapsed: TimeInterval { clock.elapsed() }
@@ -140,6 +170,26 @@ final class LiveAnnotationController: ObservableObject {
     func commit(_ annotation: LiveAnnotation) { log.add(annotation) }
     func undo() { log.undo(at: elapsed) }
     func clear() { log.clear(at: elapsed) }
+
+    func toggleDrawing() { tool = tool == .pointer ? lastDrawingTool : .pointer }
+    func cycleWidth() {
+        let next = (Self.widths.firstIndex(of: lineWidth) ?? 0) + 1
+        lineWidth = Self.widths[next % Self.widths.count]
+    }
+
+    func select(_ id: UUID?) { selectedID = id }
+
+    func moveSelection(by offset: CGVector) { editSelection { $0 = $0.moved(by: offset) } }
+
+    func deleteSelection() {
+        guard let id = selectedID else { return }
+        log.remove(id: id, at: elapsed)
+    }
+
+    private func editSelection(_ change: (inout LiveAnnotation) -> Void) {
+        guard let id = selectedID else { return }
+        selectedID = log.replace(id: id, at: elapsed, with: change)
+    }
 }
 
 /// Borderless transparent panel. The canvas can take key presses (Esc, ⌘Z, typing); the toolbar

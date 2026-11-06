@@ -96,6 +96,11 @@ Screenshots, scrolling capture, OCR copy-text, 3D zoom angles, AI-generated asse
 - [ ] **`CrashReporter` uncaught exceptions** — the handler starts a `Task` and the process dies before it runs, so that report is likely never written; write it synchronously.
 - [ ] **`MicAudioRecorder` flags** — `isRecording`/`isPaused` are read on the real-time thread with no synchronization; use an atomic or lock-free state.
 
+## Next improvement round `added: 2026-11-05`
+
+- [ ] Shortcut labels are hand-typed and have drifted: Start says Shift+Cmd+R, the hotkey uses Return. Derive them from `Hotkey`.
+- [ ] Validate `add_motion` on a real recording in the app: preview, export, background render, colors, edit/undo.
+
 ## Live annotations follow-ups `added: 2026-10-21`
 - [ ] **Editable in post — evaluated 2026-10-21, not built.** The live tool bakes the drawing into the video; `LiveAnnotationLog` already records every shape with start/end times, so the data exists. Why it is not a quick conversion: project overlays scale one base box uniformly (`OverlayBaseSize` × `transform.scale`), so a drawn rectangle of any proportion, an ellipse or a pen stroke cannot be expressed; only text and fixed-ratio arrows map. Blur maps to a region `gaussianBlur` adjustment on the screen clip (exists). Path that works: a new `OverlayType.annotation` carrying `shape` + normalized `points` in `Style`, drawn by `LiveAnnotationRenderer`-style CG code in `OverlayRenderer`, `PreviewRenderer` and the export path (three renderers plus `OverlayBaseSize`, icons and names), and on a recording with the log present exclude the canvas from capture (`excludedWindowIDs`) and create one overlay per shape (blur → adjustment) in `ProjectLibrary.createProject`. Pause time is already handled by `RecordingClock`. Estimate: one PR of the size of the Elements-lane work; the editing UX (select, delete, retime, recolor) then comes from the existing Elements lane. Decide first whether baked-by-default stays and editable is a switch.
 - [ ] Verify on a real recording that the blur-behind view is captured by ScreenCaptureKit (WindowServer composites it; checked only by reasoning, not on a capture).
@@ -114,7 +119,6 @@ Screenshots, scrolling capture, OCR copy-text, 3D zoom angles, AI-generated asse
 
 ## Preview refresh follow-ups (round 1 simplify) `added: 2026-10-09`
 
-- [ ] Move the `editor.$project` subscription out of `PreviewPlayerView.body` into the view model (one subscription, `dropFirst().removeDuplicates().debounce`), then drop the `viewModel.project != project` guard. `onReceive` re-subscribes on every body pass and replays the current value.
 - [ ] Pause/seek/resume on every composition swap hitches playing previews; the principled fix is for the compositor to read mutable state (lock-protected config box) at render time so layout/shape edits need no AVFoundation invalidation.
 - [ ] Serialize refresh in one cancel-and-replace task (or in the engine); `refreshGeneration` covers the view model path only (Voiceover and OverlayInteractionLayer call `refreshPreview` too).
 - [ ] REC indicator: screen from the capture source for window/app modes (today only display sources pick the recorded screen); apply `excludedWindowIDs` in one filter helper.

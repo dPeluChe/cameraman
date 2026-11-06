@@ -37,8 +37,7 @@ enum LiveAnnotationRenderer {
     static func dirtyFrame(of annotation: LiveAnnotation, in size: CGSize) -> CGRect {
         var frame = frame(of: annotation, in: size)
         if annotation.kind == .text {
-            let point = CGFloat(annotation.textPointSize)
-            frame.size = CGSize(width: point * 0.8 * CGFloat((annotation.text ?? "").count), height: point * 1.5)
+            frame.size = annotation.textSize
         }
         return frame.insetBy(dx: -40, dy: -40)
     }
