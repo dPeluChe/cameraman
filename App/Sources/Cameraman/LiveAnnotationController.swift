@@ -81,23 +81,26 @@ final class LiveAnnotationController: ObservableObject {
         didSet {
             guard tool != oldValue else { return }
             if oldValue != .pointer { lastDrawingTool = oldValue }
-            selectedID = nil
             canvasPanel?.ignoresMouseEvents = tool == .pointer
             if tool != .pointer { canvasPanel?.makeKey() }
             canvasView?.toolChanged()
+            selectedID = nil
         }
     }
     @Published var colorHex = palette[0] {
-        didSet { restyleSelection { $0.colorHex = self.colorHex } }
+        didSet { if colorHex != oldValue { editSelection { $0.colorHex = colorHex } } }
     }
     @Published var lineWidth = widths[1] {
-        didSet { restyleSelection { $0.lineWidth = self.lineWidth } }
+        didSet { if lineWidth != oldValue { editSelection { $0.lineWidth = lineWidth } } }
     }
-    @Published private(set) var selectedID: UUID? {
+    private(set) var selectedID: UUID? {
         didSet { canvasView?.needsDisplay = true }
     }
     @Published private(set) var log = LiveAnnotationLog() {
-        didSet { canvasView?.refresh() }
+        didSet {
+            if let id = selectedID, !log.visible.contains(where: { $0.id == id }) { selectedID = nil }
+            canvasView?.refresh()
+        }
     }
 
     private var canvasPanel: NSPanel?
@@ -166,7 +169,7 @@ final class LiveAnnotationController: ObservableObject {
 
     func commit(_ annotation: LiveAnnotation) { log.add(annotation) }
     func undo() { log.undo(at: elapsed) }
-    func clear() { log.clear(at: elapsed); selectedID = nil }
+    func clear() { log.clear(at: elapsed) }
 
     func toggleDrawing() { tool = tool == .pointer ? lastDrawingTool : .pointer }
     func cycleWidth() {
@@ -176,24 +179,16 @@ final class LiveAnnotationController: ObservableObject {
 
     func select(_ id: UUID?) { selectedID = id }
 
-    func moveSelection(by offset: CGVector) {
-        guard let id = selectedID else { return }
-        selectedID = log.replace(id: id, at: elapsed) { $0.moved(by: offset) }
-    }
+    func moveSelection(by offset: CGVector) { editSelection { $0 = $0.moved(by: offset) } }
 
     func deleteSelection() {
         guard let id = selectedID else { return }
         log.remove(id: id, at: elapsed)
-        selectedID = nil
     }
 
-    private func restyleSelection(_ change: (inout LiveAnnotation) -> Void) {
+    private func editSelection(_ change: (inout LiveAnnotation) -> Void) {
         guard let id = selectedID else { return }
-        selectedID = log.replace(id: id, at: elapsed) {
-            var copy = $0
-            change(&copy)
-            return copy
-        }
+        selectedID = log.replace(id: id, at: elapsed, with: change)
     }
 }
 

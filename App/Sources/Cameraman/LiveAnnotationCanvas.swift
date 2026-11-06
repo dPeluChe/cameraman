@@ -68,7 +68,7 @@ final class LiveAnnotationCanvasView: NSView {
     // MARK: Drawing
 
     override func draw(_ dirtyRect: NSRect) {
-        for annotation in visible.map(dragged) where LiveAnnotationRenderer.dirtyFrame(of: annotation, in: bounds.size).intersects(dirtyRect) {
+        for annotation in visible.lazy.map(dragged) where LiveAnnotationRenderer.dirtyFrame(of: annotation, in: bounds.size).intersects(dirtyRect) {
             LiveAnnotationRenderer.draw(annotation, in: bounds.size)
         }
         if let draft {
@@ -90,11 +90,16 @@ final class LiveAnnotationCanvasView: NSView {
 
     /// The selected shape where the drag currently puts it.
     private func dragged(_ annotation: LiveAnnotation) -> LiveAnnotation {
-        annotation.id == controller?.selectedID ? annotation.moved(by: dragOffset) : annotation
+        guard dragOffset != .zero, annotation.id == controller?.selectedID else { return annotation }
+        return annotation.moved(by: dragOffset)
+    }
+
+    private var selectedShape: LiveAnnotation? {
+        controller?.selectedID.flatMap { id in visible.first { $0.id == id } }
     }
 
     private func drawSelection() {
-        guard let selected = visible.first(where: { $0.id == controller?.selectedID }) else { return }
+        guard let selected = selectedShape else { return }
         let frame = LiveAnnotationRenderer.dirtyFrame(of: dragged(selected), in: bounds.size).insetBy(dx: 28, dy: 28)
         let outline = NSBezierPath(rect: frame)
         outline.lineWidth = 1.5
@@ -145,9 +150,7 @@ final class LiveAnnotationCanvasView: NSView {
         let p = convert(event.locationInWindow, from: nil)
         if controller?.tool == .laser { addLaserPoint(p); return }
         if let dragStart {
-            dragOffset = CGVector(dx: (p.x - dragStart.x) / bounds.width, dy: (p.y - dragStart.y) / bounds.height)
-            moveBlurViewForDrag()
-            needsDisplay = true
+            drag(to: CGVector(dx: (p.x - dragStart.x) / bounds.width, dy: (p.y - dragStart.y) / bounds.height))
             return
         }
         guard var draft else { return }
@@ -161,9 +164,13 @@ final class LiveAnnotationCanvasView: NSView {
         self.draft = draft
     }
 
-    private func moveBlurViewForDrag() {
-        guard let selected = visible.first(where: { $0.id == controller?.selectedID }), selected.kind == .blur else { return }
-        blurViews[selected.id]?.frame = LiveAnnotationRenderer.frame(of: dragged(selected), in: bounds.size)
+    private func drag(to offset: CGVector) {
+        guard let selected = selectedShape else { return }
+        let before = LiveAnnotationRenderer.dirtyFrame(of: dragged(selected), in: bounds.size)
+        dragOffset = offset
+        let shape = dragged(selected)
+        blurViews[selected.id]?.frame = LiveAnnotationRenderer.frame(of: shape, in: bounds.size)
+        setNeedsDisplay(before.union(LiveAnnotationRenderer.dirtyFrame(of: shape, in: bounds.size)))
     }
 
     override func mouseUp(with event: NSEvent) {
@@ -288,6 +295,10 @@ final class LiveAnnotationCanvasView: NSView {
     func toolChanged() {
         commitText()
         draft = nil
+        if dragStart != nil {
+            drag(to: .zero)
+            dragStart = nil
+        }
         stopLaser()
         window?.invalidateCursorRects(for: self)
         needsDisplay = true

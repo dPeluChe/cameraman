@@ -242,7 +242,9 @@ class RecordingControlViewModel: ObservableObject {
                 controller.show(on: recordedScreen)
                 excludedWindowIDs += controller.excludedWindowIDs
                 annotations = controller
-                try? HotkeyManager.shared.registerHotkey(.defaultToggleDrawing)
+                if HotkeyManager.shared.getEnabled() {
+                    try? HotkeyManager.shared.registerHotkey(.defaultToggleDrawing)
+                }
             }
 
             // Recreate config with current system audio + quality + area settings

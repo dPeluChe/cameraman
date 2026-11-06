@@ -40,7 +40,7 @@ final class LiveAnnotationTests: XCTestCase {
         let rect = shape(.rect, [.zero, CGPoint(x: 0.2, y: 0.2)], start: 1)
         log.add(rect)
 
-        let movedID = try XCTUnwrap(log.replace(id: rect.id, at: 3) { $0.moved(by: CGVector(dx: 0.1, dy: 0)) })
+        let movedID = try XCTUnwrap(log.replace(id: rect.id, at: 3) { $0 = $0.moved(by: CGVector(dx: 0.1, dy: 0)) })
         XCTAssertEqual(log.items.first?.end, 3)
         XCTAssertEqual(log.visible.map(\.id), [movedID])
         XCTAssertEqual(log.visible.first?.start, 3)
@@ -49,7 +49,7 @@ final class LiveAnnotationTests: XCTestCase {
         XCTAssertTrue(log.visible.isEmpty)
         XCTAssertEqual(log.items.count, 2)
         XCTAssertFalse(log.remove(id: movedID, at: 6), "already gone")
-        XCTAssertNil(log.replace(id: movedID, at: 6) { $0 })
+        XCTAssertNil(log.replace(id: movedID, at: 6) { _ in })
     }
 
     func testUndoEndsTheLastVisibleShapeInsteadOfDeletingIt() {

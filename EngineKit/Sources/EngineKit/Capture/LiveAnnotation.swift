@@ -62,6 +62,12 @@ public struct LiveAnnotation: Codable, Equatable, Identifiable, Sendable {
     public var textPointSize: Double { Self.textPointSize(forLineWidth: lineWidth) }
     public static func textPointSize(forLineWidth width: Double) -> Double { 14 + width * 5 }
 
+    /// Estimated size of the text run, in points.
+    public var textSize: CGSize {
+        let point = CGFloat(textPointSize)
+        return CGSize(width: point * 0.8 * CGFloat((text ?? "").count), height: point * 1.5)
+    }
+
     /// The shape shifted by a normalized offset, stopped at the display edges.
     public func moved(by offset: CGVector) -> LiveAnnotation {
         let box = bounds
@@ -81,10 +87,7 @@ public struct LiveAnnotation: Codable, Equatable, Identifiable, Sendable {
             return zip(pts, pts.dropFirst()).contains { Self.distance(from: point, to: $0, $1) <= reach }
         case .text:
             guard let origin = pts.first else { return false }
-            let height = CGFloat(textPointSize) * 1.4
-            let width = CGFloat(textPointSize) * 0.6 * CGFloat(text?.count ?? 0)
-            return CGRect(origin: origin, size: CGSize(width: width, height: height))
-                .insetBy(dx: -tolerance, dy: -tolerance).contains(point)
+            return CGRect(origin: origin, size: textSize).insetBy(dx: -tolerance, dy: -tolerance).contains(point)
         case .rect, .ellipse, .blur:
             let box = bounds
             return CGRect(x: box.minX * size.width, y: box.minY * size.height,
@@ -148,9 +151,10 @@ public struct LiveAnnotationLog: Codable, Equatable, Sendable {
     /// Ends the shape and adds the changed copy from `time` on, so the log still shows what was
     /// on screen before the edit. Returns the copy's id.
     @discardableResult
-    public mutating func replace(id: UUID, at time: TimeInterval, with change: (LiveAnnotation) -> LiveAnnotation) -> UUID? {
+    public mutating func replace(id: UUID, at time: TimeInterval, with change: (inout LiveAnnotation) -> Void) -> UUID? {
         guard let index = items.firstIndex(where: { $0.id == id && $0.end == nil }) else { return nil }
-        var copy = change(items[index])
+        var copy = items[index]
+        change(&copy)
         items[index].end(at: time)
         copy.id = UUID()
         copy.start = max(time, copy.start)
