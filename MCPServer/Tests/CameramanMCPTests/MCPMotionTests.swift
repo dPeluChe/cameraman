@@ -34,6 +34,20 @@ final class MCPMotionTests: XCTestCase {
         return (id, directory)
     }
 
+    func testSideBySideStoresTheSpellingTheEngineReadsAndTakesASide() async throws {
+        let tools = MCPTools()
+        let (id, _) = try await makeProject(tools)
+
+        _ = try await tools.execute(name: "set_canvas_layout", arguments: [
+            "projectId": id.uuidString, "type": "side_by_side", "cameraSide": "left"
+        ])
+
+        let layout = try await ProjectLibrary.shared.getProject(projectId: id).canvas.layout
+        XCTAssertTrue(layout.isSideBySide)
+        XCTAssertTrue(layout.isCameraOnLeft)
+        XCTAssertNoThrow(try CanvasLayout.validateLayout(layout, hasCamera: true))
+    }
+
     func testAddMotionIsAdvertisedOnlyWhereItCanRun() throws {
         let names = { (tools: MCPTools) in Set(tools.listedCatalog.compactMap { $0["name"] as? String }) }
         XCTAssertFalse(names(MCPTools()).contains("add_motion"), "the CLI cannot render, so it must not offer the tool")

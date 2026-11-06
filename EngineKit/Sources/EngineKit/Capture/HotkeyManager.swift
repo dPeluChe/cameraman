@@ -109,7 +109,7 @@ public class HotkeyManager {
 
         public static let defaultStopRecording = Hotkey(
             keyCode: escapeKey,
-            modifiers: 0,
+            modifiers: cmdKey + shiftKey, // Bare Esc would be taken system-wide and could not leave a drawing tool.
             action: .stopRecording
         )
 

@@ -166,6 +166,8 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
     let cameraTrackID: CMPersistentTrackID?
     let renderSize: CGSize
     let screenTransform: CGAffineTransform
+    /// Screen placement when it does not take the whole canvas (side-by-side).
+    let screenFrame: CGRect?
     let cameraTransform: CGAffineTransform?
     let cameraRect: CGRect?
     let maskShape: PiPMaskShape
@@ -254,6 +256,7 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         cameraTrackID: CMPersistentTrackID?,
         renderSize: CGSize,
         screenTransform: CGAffineTransform,
+        screenFrame: CGRect? = nil,
         cameraTransform: CGAffineTransform?,
         cameraRect: CGRect?,
         maskShape: PiPMaskShape,
@@ -281,6 +284,7 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         self.cameraTrackID = cameraTrackID
         self.renderSize = renderSize
         self.screenTransform = screenTransform
+        self.screenFrame = screenFrame
         self.cameraTransform = cameraTransform
         self.cameraRect = cameraRect
         self.maskShape = maskShape
@@ -451,19 +455,14 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
         // merged project's track can switch resolutions mid-timeline (clips from
         // different displays). If this frame doesn't fill the canvas under the
         // static transform, refit it aspect-fit centered.
+        let frame = instruction.screenFrame ?? CGRect(origin: .zero, size: renderSize)
         let sourceImage = CIImage(cvPixelBuffer: screenBuffer)
         let staticExtent = sourceImage.extent.applying(instruction.screenTransform)
         let effectiveTransform: CGAffineTransform
-        if abs(staticExtent.width - renderSize.width) < 2 || abs(staticExtent.height - renderSize.height) < 2 {
+        if abs(staticExtent.width - frame.width) < 2 || abs(staticExtent.height - frame.height) < 2 {
             effectiveTransform = instruction.screenTransform
         } else {
-            let extent = sourceImage.extent
-            let scale = min(renderSize.width / extent.width, renderSize.height / extent.height)
-            effectiveTransform = CGAffineTransform(
-                a: scale, b: 0, c: 0, d: scale,
-                tx: (renderSize.width - extent.width * scale) / 2 - extent.minX * scale,
-                ty: (renderSize.height - extent.height * scale) / 2 - extent.minY * scale
-            )
+            effectiveTransform = Project.Canvas.Layout.fit(sourceImage.extent, into: frame)
         }
 
         let rawScreen = sourceImage
@@ -484,8 +483,8 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
         let pad = instruction.padding
         if pad > 0.001 {
             let scale = 1.0 - pad
-            let offsetX = (renderSize.width * pad) / 2
-            let offsetY = (renderSize.height * pad) / 2
+            let offsetX = frame.midX * pad
+            let offsetY = frame.midY * pad
             screenImage = screenImage
                 .transformed(by: CGAffineTransform(scaleX: scale, y: scale))
                 .transformed(by: CGAffineTransform(translationX: offsetX, y: offsetY))
@@ -493,7 +492,7 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
         }
 
         if instruction.videoCornerRadius > 0 {
-            screenImage = applyCornerRadius(to: screenImage, radius: instruction.videoCornerRadius, renderSize: renderSize, padding: pad)
+            screenImage = applyCornerRadius(to: screenImage, radius: instruction.videoCornerRadius, frame: frame, renderSize: renderSize, padding: pad)
         }
 
         // Per-layer effects: e.g. sepia the screen while the background goes B&W.
@@ -617,8 +616,9 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
         // NSEvent Cocoa coords: y=0 at visual BOTTOM (same as CIImage mathematical space).
         // No flip needed — contrast with OverlayRenderer which flips view-space y=0-at-top coords.
         let rawY = CGFloat(focusPoint.y) * srcH
-        let focusX = rawX * t.a + t.tx
-        let focusY = rawY * t.d + t.ty
+        let frame = instruction.screenFrame
+        let focusX = frame.map { $0.minX + CGFloat(focusPoint.x) * $0.width } ?? rawX * t.a + t.tx
+        let focusY = frame.map { $0.minY + CGFloat(focusPoint.y) * $0.height } ?? rawY * t.d + t.ty
         let tx = focusX - focusX * scale
         let ty = focusY - focusY * scale
 

@@ -328,6 +328,7 @@ extension MCPTools {
                  properties: [
                     "projectId": str("Project UUID"),
                     "type": strEnum("Layout type", ["fullscreen", "pip", "side_by_side"]),
+                    "cameraSide": strEnum("side_by_side only: the column for the camera; the screen takes the other", ["left", "right"]),
                     "camera": object("Camera placement (normalized 0–1): {x,y,w,h,cornerRadius,maskShape(none|circle|roundedRect|capsule),borderWidth,borderColor}"),
                     "padding": num("Canvas padding as a fraction of size (0–0.3)"),
                     "videoCornerRadius": num("Video corner radius in px (>=0)"),

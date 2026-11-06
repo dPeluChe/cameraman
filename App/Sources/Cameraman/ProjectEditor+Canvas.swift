@@ -16,11 +16,19 @@ extension ProjectEditor {
     func setLayoutPreset(_ preset: CanvasLayout.LayoutPreset) async -> Bool {
         let hasCamera = project.primarySources?.camera != nil
         if preset != .fullscreen && !hasCamera { return false }
+        if preset == .sideBySide { await clearPerClipCameraOverrides() }
         return await applyCanvasUpdate {
             $0.canvas.layout = CanvasLayout.defaultLayout(for: preset)
             if !hasCamera { $0.canvas.layout.camera = nil }
             try CanvasLayout.validateLayout($0.canvas.layout, hasCamera: hasCamera)
         }
+    }
+
+    @discardableResult
+    func setCameraSide(onLeft: Bool) async -> Bool {
+        guard let camera = project.canvas.layout.placingCamera(onLeft: onLeft).camera else { return false }
+        await clearPerClipCameraOverrides()
+        return await updateCameraPosition(camera)
     }
 
     @discardableResult

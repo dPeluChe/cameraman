@@ -45,9 +45,9 @@ struct AppNavigation: View {
                 Task { await viewModel.loadProjects() }
             }
             .onReceive(NotificationCenter.default.publisher(for: .openRecordingWindow)) { notification in
-                if let projectId = notification.userInfo?["projectId"] as? ProjectId,
-                   let recViewModel = RecordingStateManager.shared.viewModel {
-                    recViewModel.targetProjectId = projectId
+                let state = RecordingStateManager.shared
+                if state.viewModel?.isRecording != true {
+                    state.targetProjectId = notification.userInfo?["projectId"] as? ProjectId
                 }
                 openWindow(id: WindowID.recordingControls)
             }

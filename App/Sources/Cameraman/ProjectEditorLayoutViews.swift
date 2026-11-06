@@ -32,7 +32,25 @@ struct LayoutSelectorView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+
+            if selectedPreset == .sideBySide {
+                Picker("Camera side", selection: cameraSide) {
+                    Text("Left").tag(true)
+                    Text("Right").tag(false)
+                }
+                .pickerStyle(.segmented)
+            }
         }
+    }
+
+    private var cameraSide: Binding<Bool> {
+        Binding(
+            get: { editor.project.canvas.layout.isCameraOnLeft },
+            set: { onLeft in
+                guard onLeft != editor.project.canvas.layout.isCameraOnLeft else { return }
+                Task { await editor.setCameraSide(onLeft: onLeft) }
+            }
+        )
     }
 
     private var selectedPreset: CanvasLayout.LayoutPreset {

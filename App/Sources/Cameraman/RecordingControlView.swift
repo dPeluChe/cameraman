@@ -16,6 +16,7 @@ enum WindowID {
 struct RecordingControlView: View {
     @StateObject private var viewModel = RecordingControlViewModel()
     @StateObject private var sourceViewModel = SourceSelectorViewModel()
+    @ObservedObject private var recordingState = RecordingStateManager.shared
     @Environment(\.openWindow) private var openWindow
     @Environment(\.scenePhase) private var scenePhase
 
@@ -66,6 +67,10 @@ struct RecordingControlView: View {
         }
         .onDisappear {
             TeleprompterWindowController.shared.hide()
+            // Closing without recording must not send the next New Recording into that project.
+            if !viewModel.isRecording && countdownValue == nil {
+                recordingState.targetProjectId = nil
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .openProject)) { _ in
             // Window scene is single-instance: openWindow brings existing to front or recreates it
@@ -84,7 +89,7 @@ struct RecordingControlView: View {
                 Label("Recording", systemImage: "record.circle.fill")
                     .font(.headline)
                     .foregroundStyle(.red)
-            } else if viewModel.targetProjectId != nil {
+            } else if recordingState.targetProjectId != nil {
                 Label("Record New Take", systemImage: "plus.square.fill.on.square.fill")
                     .font(.headline)
                     .foregroundStyle(.orange)
@@ -337,7 +342,7 @@ struct RecordingControlView: View {
     private var hotkeyHints: some View {
         HStack(spacing: 12) {
             hotkeyBadge("Shift+Cmd+R", "Start")
-            hotkeyBadge("Esc", "Stop")
+            hotkeyBadge("Shift+Cmd+Esc", "Stop")
             hotkeyBadge("Shift+Cmd+Space", "Pause")
         }
         .frame(maxWidth: .infinity)

@@ -26,12 +26,21 @@ extension MCPTools {
                 camera = nil
             } else if let cameraArg = args["camera"] as? [String: Any] {
                 camera = Self.cameraPosition(from: cameraArg)
+            } else if typeRaw == "side_by_side" {
+                camera = CanvasLayout.defaultLayout(for: .sideBySide).camera
             } else {
                 // Keep an existing camera, or default to a bottom-right PiP.
                 camera = project.canvas.layout.camera
                     ?? Project.Canvas.Layout.CameraPosition(x: 0.68, y: 0.68, w: 0.3, h: 0.3)
             }
             project.canvas.layout = Project.Canvas.Layout(type: typeRaw, camera: camera)
+        }
+
+        if let side = args.optStr("cameraSide") {
+            guard project.canvas.layout.isSideBySide, ["left", "right"].contains(side) else {
+                throw MCPToolError("cameraSide is left or right, and only applies to side_by_side.")
+            }
+            project.canvas.layout = project.canvas.layout.placingCamera(onLeft: side == "left")
         }
 
         if let padding = args.optNum("padding") {

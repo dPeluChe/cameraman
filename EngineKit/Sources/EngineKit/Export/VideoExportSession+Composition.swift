@@ -193,7 +193,13 @@ extension ExportEngine {
         )
         logger.debug("Source size: \(primarySources.screen.size.w)x\(primarySources.screen.size.h)")
 
-        let transform = calculateDownscaleTransform(
+        // Side-by-side takes a column only while there is a camera to fill the other one.
+        let cameraShown = !cameraMuted && cameraTrack != nil
+        let screenFrame = cameraShown
+            ? project.canvas.layout.screenFrame(sourceSize: sourceSize, canvas: videoComposition.renderSize)
+            : nil
+        let screenRect = CGRect(origin: .zero, size: sourceSize)
+        let transform = screenFrame.map { Project.Canvas.Layout.fit(screenRect, into: $0) } ?? calculateDownscaleTransform(
             from: sourceSize,
             to: videoComposition.renderSize,
             contentMode: project.canvas.background.fitMode ?? "fill"
@@ -231,6 +237,7 @@ extension ExportEngine {
                     cameraTrack: cameraTrack,
                     videoComposition: videoComposition,
                     cameraSourceSize: cameraSourceSize,
+                    screenSourceSize: sourceSize,
                     screenTransform: transform,
                     defaultCamera: defaultCamera,
                     options: options,
@@ -253,6 +260,7 @@ extension ExportEngine {
                     screenTrackID: screenTrackID,
                     cameraTrackID: cameraTrack.trackID,
                     screenTransform: transform,
+                    screenFrame: screenFrame,
                     cameraTransform: cameraTransform,
                     screenMuted: screenMuted,
                     options: options,
@@ -298,6 +306,7 @@ extension ExportEngine {
         screenTrackID: CMPersistentTrackID,
         cameraTrackID: CMPersistentTrackID?,
         screenTransform: CGAffineTransform,
+        screenFrame: CGRect? = nil,
         cameraTransform: CGAffineTransform?,
         screenMuted: Bool,
         options: ExportOptions,
@@ -310,6 +319,7 @@ extension ExportEngine {
             cameraTrackID: cameraTrackID,
             renderSize: videoComposition.renderSize,
             screenTransform: screenTransform,
+            screenFrame: screenFrame,
             cameraTransform: cameraTransform,
             cameraRect: nil,
             maskShape: .none,
@@ -341,6 +351,7 @@ extension ExportEngine {
         cameraTrack: AVMutableCompositionTrack,
         videoComposition: AVMutableVideoComposition,
         cameraSourceSize: CGSize,
+        screenSourceSize: CGSize,
         screenTransform: CGAffineTransform,
         defaultCamera: Project.Canvas.Layout.CameraPosition,
         options: ExportOptions,
@@ -358,6 +369,13 @@ extension ExportEngine {
                 camSourceSize: cameraSourceSize,
                 renderSize: videoComposition.renderSize
             )
+
+            let segFrame = project.canvas.layout.screenFrame(
+                sourceSize: screenSourceSize, canvas: videoComposition.renderSize, camera: segCamera
+            )
+            let segScreenTransform = segFrame.map {
+                Project.Canvas.Layout.fit(CGRect(origin: .zero, size: screenSourceSize), into: $0)
+            } ?? screenTransform
 
             let segStart: CMTime
             if let prev = maskedInstructions.last {
@@ -378,7 +396,8 @@ extension ExportEngine {
                 screenTrackID: videoTrack.trackID,
                 cameraTrackID: cameraTrack.trackID,
                 renderSize: videoComposition.renderSize,
-                screenTransform: screenTransform,
+                screenTransform: segScreenTransform,
+                screenFrame: segFrame,
                 cameraTransform: segCameraTransform,
                 cameraRect: CGRect(x: segCamera.x, y: segCamera.y, width: segCamera.w, height: segCamera.h),
                 maskShape: segCamera.maskShape,

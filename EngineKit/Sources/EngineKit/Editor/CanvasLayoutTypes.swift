@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CoreGraphics
 
 extension CanvasLayout {
     /// Available layout presets
@@ -180,5 +181,48 @@ extension CanvasLayout {
                 return "Invalid background value: \(value)"
             }
         }
+    }
+}
+
+// Side-by-side columns derive from the camera, so its side and width need no extra state.
+extension Project.Canvas.Layout {
+    private static let columnMargin = 0.02
+    private static let minColumnWidth = 0.1
+
+    public var isSideBySide: Bool { type == CanvasLayout.LayoutPreset.sideBySide.rawValue }
+
+    public var isCameraOnLeft: Bool { camera.map(Self.isOnLeft) ?? false }
+
+    private static func isOnLeft(_ camera: CameraPosition) -> Bool { camera.x + camera.w / 2 < 0.5 }
+
+    public func placingCamera(onLeft: Bool) -> Self {
+        guard var moved = camera else { return self }
+        moved.x = onLeft ? Self.columnMargin : max(0, 1 - Self.columnMargin - moved.w)
+        return Self(type: type, camera: moved)
+    }
+
+    /// Column opposite `camera` (a per-clip override, or the project camera), in pixels.
+    func screenColumn(in canvas: CGSize, camera override: CameraPosition? = nil) -> CGRect? {
+        guard isSideBySide, let camera = override ?? camera else { return nil }
+        let (start, end) = Self.isOnLeft(camera)
+            ? (camera.x + camera.w + Self.columnMargin, 1 - Self.columnMargin)
+            : (Self.columnMargin, camera.x - Self.columnMargin)
+        let width = max(end - start, Self.minColumnWidth)
+        return CGRect(x: start * canvas.width, y: 0, width: width * canvas.width, height: canvas.height)
+    }
+
+    /// Where the screen lands inside its column, in pixels. Nil outside side-by-side.
+    func screenFrame(sourceSize: CGSize, canvas: CGSize, camera: CameraPosition? = nil) -> CGRect? {
+        let source = CGRect(origin: .zero, size: sourceSize)
+        return screenColumn(in: canvas, camera: camera).map { source.applying(Self.fit(source, into: $0)) }
+    }
+
+    static func fit(_ source: CGRect, into frame: CGRect) -> CGAffineTransform {
+        let scale = min(frame.width / source.width, frame.height / source.height)
+        return CGAffineTransform(
+            a: scale, b: 0, c: 0, d: scale,
+            tx: frame.midX - source.width * scale / 2 - source.minX * scale,
+            ty: frame.midY - source.height * scale / 2 - source.minY * scale
+        )
     }
 }

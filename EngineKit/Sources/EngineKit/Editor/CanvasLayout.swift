@@ -124,15 +124,8 @@ public actor CanvasLayout {
             return CGRect(x: 0, y: 0, width: CGFloat(canvasWidth), height: CGFloat(canvasHeight))
 
         case "side-by-side":
-            // Screen takes left half (with some padding)
-            let padding: CGFloat = 10
-            let screenWidth = CGFloat(canvasWidth) * 0.49
-            return CGRect(
-                x: padding,
-                y: padding,
-                width: screenWidth,
-                height: CGFloat(canvasHeight) - 2 * padding
-            )
+            let canvas = CGSize(width: canvasWidth, height: canvasHeight)
+            return layout.screenColumn(in: canvas) ?? CGRect(origin: .zero, size: canvas)
 
         case "fullscreen":
             // Screen fills the entire canvas (no camera overlay)

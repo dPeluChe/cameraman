@@ -212,13 +212,8 @@ extension MaskedVideoCompositor {
 
     // MARK: - Video Effects
 
-    func applyCornerRadius(to image: CIImage, radius: CGFloat, renderSize: CGSize, padding: CGFloat) -> CIImage {
-        let scale = 1.0 - padding
-        let insetW = renderSize.width * scale
-        let insetH = renderSize.height * scale
-        let offsetX = (renderSize.width - insetW) / 2
-        let offsetY = (renderSize.height - insetH) / 2
-        let videoRect = CGRect(x: offsetX, y: offsetY, width: insetW, height: insetH)
+    func applyCornerRadius(to image: CIImage, radius: CGFloat, frame: CGRect, renderSize: CGSize, padding: CGFloat) -> CIImage {
+        let videoRect = frame.insetBy(dx: frame.width * padding / 2, dy: frame.height * padding / 2)
 
         let path = CGPath(roundedRect: videoRect, cornerWidth: radius, cornerHeight: radius, transform: nil)
         return applyPathMask(to: image, path: path, renderSize: renderSize)

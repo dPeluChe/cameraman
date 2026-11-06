@@ -52,9 +52,6 @@ class RecordingControlViewModel: ObservableObject {
     /// Selected capture area in display points (top-left origin). nil = full display.
     @Published var selectedArea: CGRect?
 
-    // If set, the new recording will be added as a take to this project instead of creating a new one
-    @Published var targetProjectId: ProjectId?
-
     private var selectedConfig: CaptureEngine.CaptureConfiguration?
     /// The currently selected display source (derived from selectedConfig).
     var selectedDisplaySource: SourceSelector.DisplaySource? { selectedConfig?.display }
@@ -367,7 +364,8 @@ class RecordingControlViewModel: ObservableObject {
 
             let library = ProjectLibrary.shared
             
-            if let targetId = targetProjectId {
+            let recordingState = RecordingStateManager.shared
+            if let targetId = recordingState.targetProjectId {
                 _ = try await library.addTake(projectId: targetId, recordingResult: result)
                 statusText = "Take added to project"
                 LogInfo(.capture, "Take added to project: \(targetId)")
@@ -376,7 +374,7 @@ class RecordingControlViewModel: ObservableObject {
                 NotificationCenter.default.post(name: .projectUpdated, object: targetId)
                 
                 // Reset target after successful add
-                targetProjectId = nil
+                recordingState.targetProjectId = nil
             } else {
                 let projectId = try await library.createProject(from: result)
 
