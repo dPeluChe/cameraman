@@ -73,12 +73,36 @@ final class SideBySideLayoutTests: XCTestCase {
         }
     }
 
+    func testOverlayDrawsUnderOrOverTheCamera() throws {
+        let screen = tempDirectory.appendingPathComponent("screen.mov")
+        let camera = tempDirectory.appendingPathComponent("camera.mov")
+        let overlay = tempDirectory.appendingPathComponent("overlay.mov")
+        try writeSolidVideo(to: screen, color: CIColor(red: 1, green: 0, blue: 0))
+        try writeSolidVideo(to: camera, color: CIColor(red: 0, green: 0, blue: 1))
+        try writeSolidVideo(to: overlay, color: CIColor(red: 0, green: 1, blue: 0))
+        let layout = CanvasLayout.defaultLayout(for: .sideBySide)
+        let center = { (frame: CGImage) in
+            MotionTestSupport.pixel(frame, x: frame.width * 3 / 4, y: frame.height / 2)
+        }
+
+        let under = try render(screen: screen, camera: camera, layout: layout, overlay: (overlay, true))
+        XCTAssertGreaterThan(center(under).b, 200, "the camera stays on top")
+
+        let over = try render(screen: screen, camera: camera, layout: layout, overlay: (overlay, false))
+        XCTAssertGreaterThan(center(over).g, 200, "B-roll still covers it")
+    }
+
     // MARK: - Helpers
 
-    private func render(screen: URL, camera: URL, layout: Layout) throws -> CGImage {
+    private func render(screen: URL, camera: URL, layout: Layout, overlay: (url: URL, belowCamera: Bool)? = nil) throws -> CGImage {
         let composition = AVMutableComposition()
         let screenID = try addTrack(from: screen, to: composition)
         let cameraID = try addTrack(from: camera, to: composition)
+        let overlaySources = try overlay.map {
+            [MaskedVideoCompositionInstruction.VideoOverlaySource(
+                trackID: try addTrack(from: $0.url, to: composition), opacity: 1, belowCamera: $0.belowCamera
+            )]
+        } ?? []
         let position = try XCTUnwrap(layout.camera)
         let source = CGSize(width: 640, height: 360)
         let frame = try XCTUnwrap(layout.screenFrame(sourceSize: source, canvas: canvas))
@@ -100,7 +124,8 @@ final class SideBySideLayoutTests: XCTestCase {
             cornerRadius: 0,
             layoutType: layout.type,
             backgroundType: "solid",
-            backgroundValue: "#000000"
+            backgroundValue: "#000000",
+            videoOverlays: overlaySources
         )]
 
         let generator = AVAssetImageGenerator(asset: composition)

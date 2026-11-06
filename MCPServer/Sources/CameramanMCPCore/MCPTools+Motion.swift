@@ -69,7 +69,7 @@ extension MCPTools {
         do {
             let updated = try await mutate(args) {
                 await $0.importVideoClip(path: "assets/\(filename)", duration: rendered.duration, at: at,
-                                         trackName: "Motion", position: position)
+                                         trackName: "Motion", position: position, belowCamera: true)
             }
             return try summary("Added motion (\(rendered.frameCount) frames, \(String(format: "%.1f", rendered.duration))s) at \(at)s", updated)
         } catch {

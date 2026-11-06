@@ -250,7 +250,8 @@ extension MCPTools {
                     "trackId": str("Track UUID"),
                     "muted": bool("true to mute/hide the track"),
                     "volume": num("Track volume 0.0–1.0"),
-                    "locked": bool("true to lock (locked tracks reject edits)")
+                    "locked": bool("true to lock (locked tracks reject edits)"),
+                    "belowCamera": bool("Video tracks: true draws under the camera, false over it. Motion tracks start under it")
                  ],
                  required: ["projectId", "trackId"])
         ]
@@ -404,7 +405,7 @@ extension MCPTools {
     private static var motionTools: [[String: Any]] {
         [
             tool("add_motion",
-                 "Render a motion graphic to a transparent video and add it over the footage as a new clip on its own track at timeline time `at`. Use it to reinforce what is said: read get_captions for the words and their times, then add a name card where someone is introduced, a stat where a number is quoted, a chart where values are compared. Pick a `template` (lower_third: title+subtitle; title: title+subtitle; stat: value like 42, 42% or $1.2M counts up, title is the caption; bar_chart: title, labels[] and values[] of equal length, up to 12). Templates take color and duration (default 4s, minimum 1.5s) and animate in, hold and animate out. Or pass `html` for anything custom: it renders at the canvas size on a TRANSPARENT page (leave html/body background unset), size text in vh/vw, and it must be seekable and deterministic: define window.__hf = { duration: seconds, seek(t) { set the whole scene for time t } }, or use only finite CSS animations / WAAPI / a GSAP timeline in window.__timelines. No Date.now, unseeded Math.random or network. Takes a few seconds. Change or remove the result with edit_clip / delete_clip.",
+                 "Render a motion graphic to a transparent video and add it over the footage as a new clip on its own track at timeline time `at`. Use it to reinforce what is said: read get_captions for the words and their times, then add a name card where someone is introduced, a stat where a number is quoted, a chart where values are compared. Pick a `template` (lower_third: title+subtitle; title: title+subtitle; stat: value like 42, 42% or $1.2M counts up, title is the caption; bar_chart: title, labels[] and values[] of equal length, up to 12). Templates take color and duration (default 4s, minimum 1.5s) and animate in, hold and animate out. Or pass `html` for anything custom: it renders at the canvas size on a TRANSPARENT page (leave html/body background unset), size text in vh/vw, and it must be seekable and deterministic: define window.__hf = { duration: seconds, seek(t) { set the whole scene for time t } }, or use only finite CSS animations / WAAPI / a GSAP timeline in window.__timelines. No Date.now, unseeded Math.random or network. Takes a few seconds. It draws under the camera; set_track belowCamera=false puts it on top. Change or remove the result with edit_clip / delete_clip.",
                  properties: [
                     "projectId": str("Project UUID"),
                     "at": num("Timeline start time in seconds"),

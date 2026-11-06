@@ -225,11 +225,13 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
         public let trackID: CMPersistentTrackID
         public let opacity: Double
         public let clipWindows: [ClipWindow]
+        public let belowCamera: Bool
 
-        public init(trackID: CMPersistentTrackID, opacity: Double, clipWindows: [ClipWindow] = []) {
+        public init(trackID: CMPersistentTrackID, opacity: Double, clipWindows: [ClipWindow] = [], belowCamera: Bool = false) {
             self.trackID = trackID
             self.opacity = opacity
             self.clipWindows = clipWindows
+            self.belowCamera = belowCamera
         }
 
         private func window(at time: TimeInterval) -> ClipWindow? {
@@ -400,9 +402,10 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
         let canvasRect = CGRect(origin: .zero, size: renderSize)
 
         var finalImage = buildScreenLayer(request: request, instruction: instruction, renderSize: renderSize, canvasRect: canvasRect)
+        finalImage = compositeVideoOverlays(over: finalImage, belowCamera: true, request: request, instruction: instruction, renderSize: renderSize)
         finalImage = compositeCamera(over: finalImage, request: request, instruction: instruction, renderSize: renderSize)
         finalImage = applyZoom(to: finalImage, request: request, instruction: instruction, renderSize: renderSize)
-        finalImage = compositeVideoOverlays(over: finalImage, request: request, instruction: instruction, renderSize: renderSize)
+        finalImage = compositeVideoOverlays(over: finalImage, belowCamera: false, request: request, instruction: instruction, renderSize: renderSize)
         // Frame-wide effects apply to the fully composited image (screen + camera
         // + overlays), before annotation overlays so text/arrows stay crisp.
         finalImage = applyAdjustments(.frame, to: finalImage, request: request, instruction: instruction, extent: canvasRect)
@@ -648,6 +651,7 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
     /// no media at this time yield no source frame and are skipped.
     private func compositeVideoOverlays(
         over image: CIImage,
+        belowCamera: Bool,
         request: AVAsynchronousVideoCompositionRequest,
         instruction: MaskedVideoCompositionInstruction,
         renderSize: CGSize
@@ -658,7 +662,7 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
         let canvasRect = CGRect(origin: .zero, size: renderSize)
         let time = request.compositionTime.seconds
 
-        for source in instruction.videoOverlays {
+        for source in instruction.videoOverlays where source.belowCamera == belowCamera {
             guard let buffer = request.sourceFrame(byTrackID: source.trackID) else { continue }
 
             var overlayImage = CIImage(cvPixelBuffer: buffer)

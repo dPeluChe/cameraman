@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > to `[0.7.1] - <date>` when the batch is built, signed and notarized.
 
 ### Added
+- **Motion graphics draw under the camera** — so a card never covers the presenter. `set_track` with `belowCamera` changes it per track; imported video still draws on top.
 - **Edit what you drew while recording** — the Select tool (V) picks a shape: drag to move it, Delete to remove it, and the colors and line width restyle it. The log keeps what was on screen before each edit.
 - **Keys for the drawing tools** — V select, M mouse, L laser, P pen, A arrow, R rectangle, O ellipse, T text, B blur, W line width, 1–5 colors. Shift+Cmd+D switches between the mouse and the last tool, from any app, and is only taken while drawing is on.
 - **Camera side in Side-by-Side** — choose left or right in the layout section, or with `cameraSide` in the MCP tool `set_canvas_layout`.

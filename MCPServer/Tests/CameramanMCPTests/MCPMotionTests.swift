@@ -78,6 +78,7 @@ final class MCPMotionTests: XCTestCase {
         let project = try await ProjectLibrary.shared.getProject(projectId: id)
         let track = try XCTUnwrap(project.timeline.tracks.first { $0.name == "Motion" })
         XCTAssertEqual(track.type, .video)
+        XCTAssertEqual(track.belowCamera, true, "a card must not cover the presenter")
         let clip = try XCTUnwrap(track.clips.first)
         XCTAssertEqual(clip.timelineIn, 1.0)
         XCTAssertEqual(clip.timelineOut, 3.0, accuracy: 0.05)

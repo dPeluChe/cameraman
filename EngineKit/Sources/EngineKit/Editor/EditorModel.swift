@@ -47,7 +47,8 @@ public actor EditorModel {
         duration: TimeInterval,
         at timelineIn: TimeInterval,
         trackName: String = "",
-        position: Project.MediaPosition? = nil
+        position: Project.MediaPosition? = nil,
+        belowCamera: Bool = false
     ) async -> EditorResult {
         let clip = Project.TimelineClip(
             timelineIn: timelineIn,
@@ -58,6 +59,9 @@ public actor EditorModel {
             return .failure(error)
         }
         let trackId = project.timeline.addTrack(type: .video, name: trackName)
+        if belowCamera, let index = project.timeline.tracks.firstIndex(where: { $0.id == trackId }) {
+            project.timeline.tracks[index].belowCamera = true
+        }
         return await addClip(clip, toTrackId: trackId)
     }
 
@@ -130,6 +134,16 @@ public actor EditorModel {
             return .failure(.trackNotFound(trackId.uuidString))
         }
         project.timeline.tracks[index].isMuted = muted
+        project.updatedAt = Date()
+        return .success(project)
+    }
+
+    /// Draw a video track under or over the camera
+    public func setTrackBelowCamera(trackId: UUID, belowCamera: Bool) -> EditorResult {
+        guard let index = project.timeline.tracks.firstIndex(where: { $0.id == trackId }) else {
+            return .failure(.trackNotFound(trackId.uuidString))
+        }
+        project.timeline.tracks[index].belowCamera = belowCamera
         project.updatedAt = Date()
         return .success(project)
     }
