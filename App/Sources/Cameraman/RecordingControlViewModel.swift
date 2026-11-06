@@ -242,6 +242,7 @@ class RecordingControlViewModel: ObservableObject {
                 controller.show(on: recordedScreen)
                 excludedWindowIDs += controller.excludedWindowIDs
                 annotations = controller
+                try? HotkeyManager.shared.registerHotkey(.defaultToggleDrawing)
             }
 
             // Recreate config with current system audio + quality + area settings
@@ -321,6 +322,7 @@ class RecordingControlViewModel: ObservableObject {
     private func endAnnotations() {
         annotations?.finish()
         annotations = nil
+        try? HotkeyManager.shared.unregisterHotkey(action: .toggleDrawing)
     }
 
     /// The system stopped the stream under us: keep what was captured and say why.
@@ -338,6 +340,8 @@ class RecordingControlViewModel: ObservableObject {
             }
         }
     }
+
+    func toggleDrawing() { annotations?.toggleDrawing() }
 
     func stopRecording() async {
         guard isRecording, !isStopping, let session = recordingSession else { return }

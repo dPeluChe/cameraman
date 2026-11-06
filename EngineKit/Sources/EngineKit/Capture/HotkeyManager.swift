@@ -21,6 +21,7 @@ public class HotkeyManager {
         case pauseResumeRecording
         case toggleCamera
         case toggleMicrophone
+        case toggleDrawing
 
         public var description: String {
             switch self {
@@ -29,6 +30,7 @@ public class HotkeyManager {
             case .pauseResumeRecording: return "Pause/Resume Recording"
             case .toggleCamera: return "Toggle Camera"
             case .toggleMicrophone: return "Toggle Microphone"
+            case .toggleDrawing: return "Toggle Drawing"
             }
         }
     }
@@ -111,6 +113,13 @@ public class HotkeyManager {
             keyCode: escapeKey,
             modifiers: cmdKey + shiftKey, // Bare Esc would be taken system-wide and could not leave a drawing tool.
             action: .stopRecording
+        )
+
+        /// Registered only while drawing is available, so ⌘⇧D stays free for other apps.
+        public static let defaultToggleDrawing = Hotkey(
+            keyCode: dKey,
+            modifiers: cmdKey + shiftKey,
+            action: .toggleDrawing
         )
 
         public static let defaultPauseResume = Hotkey(

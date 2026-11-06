@@ -62,6 +62,45 @@ public struct LiveAnnotation: Codable, Equatable, Identifiable, Sendable {
     public var textPointSize: Double { Self.textPointSize(forLineWidth: lineWidth) }
     public static func textPointSize(forLineWidth width: Double) -> Double { 14 + width * 5 }
 
+    /// The shape shifted by a normalized offset, stopped at the display edges.
+    public func moved(by offset: CGVector) -> LiveAnnotation {
+        let box = bounds
+        let dx = min(max(offset.dx, -box.minX), 1 - box.maxX)
+        let dy = min(max(offset.dy, -box.minY), 1 - box.maxY)
+        var copy = self
+        copy.points = points.map { CGPoint(x: $0.x + dx, y: $0.y + dy) }
+        return copy
+    }
+
+    /// Whether a click at `point` (in a view of `size`, top-left origin) lands on the shape.
+    public func hits(_ point: CGPoint, in size: CGSize, tolerance: CGFloat = 10) -> Bool {
+        let pts = points.map { CGPoint(x: $0.x * size.width, y: $0.y * size.height) }
+        let reach = tolerance + CGFloat(lineWidth) / 2
+        switch kind {
+        case .pen, .arrow:
+            return zip(pts, pts.dropFirst()).contains { Self.distance(from: point, to: $0, $1) <= reach }
+        case .text:
+            guard let origin = pts.first else { return false }
+            let height = CGFloat(textPointSize) * 1.4
+            let width = CGFloat(textPointSize) * 0.6 * CGFloat(text?.count ?? 0)
+            return CGRect(origin: origin, size: CGSize(width: width, height: height))
+                .insetBy(dx: -tolerance, dy: -tolerance).contains(point)
+        case .rect, .ellipse, .blur:
+            let box = bounds
+            return CGRect(x: box.minX * size.width, y: box.minY * size.height,
+                          width: box.width * size.width, height: box.height * size.height)
+                .insetBy(dx: -reach, dy: -reach).contains(point)
+        }
+    }
+
+    private static func distance(from p: CGPoint, to a: CGPoint, _ b: CGPoint) -> CGFloat {
+        let (dx, dy) = (b.x - a.x, b.y - a.y)
+        let lengthSquared = dx * dx + dy * dy
+        guard lengthSquared > 0 else { return hypot(p.x - a.x, p.y - a.y) }
+        let t = min(max(((p.x - a.x) * dx + (p.y - a.y) * dy) / lengthSquared, 0), 1)
+        return hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy))
+    }
+
     /// Ends the shape at `time`, never before it started.
     public mutating func end(at time: TimeInterval) { end = max(time, start) }
 
@@ -92,6 +131,32 @@ public struct LiveAnnotationLog: Codable, Equatable, Sendable {
         guard let index = items.lastIndex(where: { $0.end == nil }) else { return false }
         items[index].end(at: time)
         return true
+    }
+
+    /// Topmost visible shape under `point`.
+    public func topmost(at point: CGPoint, in size: CGSize) -> LiveAnnotation? {
+        visible.last { $0.hits(point, in: size) }
+    }
+
+    @discardableResult
+    public mutating func remove(id: UUID, at time: TimeInterval) -> Bool {
+        guard let index = items.firstIndex(where: { $0.id == id && $0.end == nil }) else { return false }
+        items[index].end(at: time)
+        return true
+    }
+
+    /// Ends the shape and adds the changed copy from `time` on, so the log still shows what was
+    /// on screen before the edit. Returns the copy's id.
+    @discardableResult
+    public mutating func replace(id: UUID, at time: TimeInterval, with change: (LiveAnnotation) -> LiveAnnotation) -> UUID? {
+        guard let index = items.firstIndex(where: { $0.id == id && $0.end == nil }) else { return nil }
+        var copy = change(items[index])
+        items[index].end(at: time)
+        copy.id = UUID()
+        copy.start = max(time, copy.start)
+        copy.end = nil
+        items.append(copy)
+        return copy.id
     }
 
     public mutating func clear(at time: TimeInterval) {

@@ -183,6 +183,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 viewModel.includeMicrophone.toggle()
                 professionalMenuBar?.includeMicrophone = viewModel.includeMicrophone
                 LogDebug(.capture, "Microphone toggled: \(viewModel.includeMicrophone ? "enabled" : "disabled")")
+
+            case .toggleDrawing:
+                viewModel.toggleDrawing()
             }
         }
     }
