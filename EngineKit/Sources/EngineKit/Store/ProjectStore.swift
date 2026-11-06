@@ -204,8 +204,9 @@ public actor ProjectStore {
 
     /// List all projects sorted by update date
     /// - Returns: Array of ProjectSummary
-    /// Cache of project summaries keyed by project.json URL, with file modification date for invalidation
-    var summaryCache: [URL: (modDate: Date, summary: ProjectSummary)] = [:]
+    /// Cache of project summaries keyed by project.json URL, with file modification date for invalidation.
+    /// `thumbnailSource` is cleared once a thumbnail fails, so a project is retried only after it changes.
+    var summaryCache: [URL: (modDate: Date, summary: ProjectSummary, thumbnailSource: Project.ThumbnailSource?)] = [:]
 
     public func listProjects() async throws -> [ProjectSummary] {
         let directories = try fileManager.contentsOfDirectory(
@@ -229,8 +230,13 @@ public actor ProjectStore {
             let attrs = try? fileManager.attributesOfItem(atPath: projectFile.path)
             let modDate = attrs?[.modificationDate] as? Date
 
+            let thumbFile = directory.appendingPathComponent(Self.thumbnailName).path
+            let thumbnailPath = fileManager.fileExists(atPath: thumbFile) ? thumbFile : nil
+
             if let modDate, let cached = summaryCache[projectFile], cached.modDate == modDate {
-                summaries.append(cached.summary)
+                var summary = cached.summary
+                summary.thumbnailPath = thumbnailPath
+                summaries.append(summary)
                 continue
             }
 
@@ -239,9 +245,6 @@ public actor ProjectStore {
                 let decoder = JSONDecoder()
                 decoder.dateDecodingStrategy = .iso8601
                 let project = try decoder.decode(Project.self, from: data)
-
-                let thumbPath = directory.appendingPathComponent(Self.thumbnailName)
-                let thumbnailPath = fileManager.fileExists(atPath: thumbPath.path) ? thumbPath.path : nil
 
                 let summary = ProjectSummary(
                     projectId: project.projectId,
@@ -255,7 +258,7 @@ public actor ProjectStore {
 
                 summaries.append(summary)
                 if let modDate {
-                    summaryCache[projectFile] = (modDate: modDate, summary: summary)
+                    summaryCache[projectFile] = (modDate, summary, project.thumbnailSource())
                 }
             } catch {
                 continue

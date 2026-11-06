@@ -16,6 +16,28 @@ final class ProjectThumbnailTests: XCTestCase {
         XCTAssertEqual(source.time, 4.4, accuracy: 0.001)
     }
 
+    func testUnreadableFootageIsTriedOnceUntilTheProjectChanges() async throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: base) }
+        let store = ProjectStore(baseDirectory: base)
+        let clip = Project.TimelineClip(timelineIn: 0, content: .video(Project.VideoClipRef(path: "assets/gone.mov", sourceOut: 8)))
+        var broken = project([Project.TimelineTrack(name: "B-roll", type: .video, clips: [clip])])
+        try await store.saveProject(broken)
+        let file = try await store.projectDirectoryURL(for: broken.projectId).appendingPathComponent("project.json")
+
+        let written = await store.generateMissingThumbnails()
+        XCTAssertEqual(written, 0)
+        var cache = await store.summaryCache
+        XCTAssertNil(cache[file]?.thumbnailSource)
+
+        broken.name = "renamed"
+        try await Task.sleep(nanoseconds: 1_100_000_000)
+        try await store.saveProject(broken)
+        _ = try await store.listProjects()
+        cache = await store.summaryCache
+        XCTAssertEqual(cache[file]?.thumbnailSource?.path, "assets/gone.mov")
+    }
+
     func testMotionsAndAudioAreNotFootage() {
         let motion = Project.TimelineClip(timelineIn: 0, content: .video(Project.VideoClipRef(path: "assets/motion-0a1b2c3d.mov", sourceOut: 4)))
         let music = Project.TimelineClip(timelineIn: 0, content: .audio(Project.AudioClipRef(path: "assets/music-0a1b2c3d.m4a", duration: 4)))

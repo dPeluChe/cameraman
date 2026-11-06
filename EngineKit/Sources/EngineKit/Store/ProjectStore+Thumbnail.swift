@@ -11,8 +11,10 @@ import Foundation
 import ImageIO
 
 extension Project {
+    public typealias ThumbnailSource = (path: String, time: TimeInterval)
+
     /// The first footage on the timeline, a moment in: recordings often open on a black or starting frame.
-    func thumbnailSource() -> (path: String, time: TimeInterval)? {
+    func thumbnailSource() -> ThumbnailSource? {
         let lead = { (from: TimeInterval, to: TimeInterval) in from + min(1, (to - from) * 0.1) }
         for clip in timeline.primaryTrack?.clips ?? [] {
             guard let ref = clip.recordingRef,
@@ -36,13 +38,15 @@ extension ProjectStore {
         let missing = (try? await listProjects())?.filter { $0.thumbnailPath == nil } ?? []
         var written = 0
         for summary in missing {
-            guard let project = try? await loadProject(projectId: summary.projectId),
-                  let directory = try? projectDirectoryURL(for: summary.projectId),
-                  let source = project.thumbnailSource(),
-                  await Self.writeThumbnail(from: directory.appendingPathComponent(source.path), at: source.time,
-                                            to: directory.appendingPathComponent(Self.thumbnailName)) else { continue }
-            summaryCache[directory.appendingPathComponent("project.json")] = nil
-            written += 1
+            guard let directory = try? projectDirectoryURL(for: summary.projectId) else { continue }
+            let file = directory.appendingPathComponent("project.json")
+            guard let source = summaryCache[file]?.thumbnailSource else { continue }
+            if await Self.writeThumbnail(from: directory.appendingPathComponent(source.path), at: source.time,
+                                         to: directory.appendingPathComponent(Self.thumbnailName)) {
+                written += 1
+            } else {
+                summaryCache[file]?.thumbnailSource = nil
+            }
         }
         return written
     }

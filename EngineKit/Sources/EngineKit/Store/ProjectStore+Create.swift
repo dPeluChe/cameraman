@@ -5,10 +5,7 @@
 //  Project creation from recording results and take management.
 //
 
-import AVFoundation
-import CoreGraphics
 import Foundation
-import ImageIO
 
 extension ProjectStore {
 
