@@ -55,7 +55,7 @@ struct ClipPlacementLayer: View {
     private func drag(of clip: Project.TimelineClip, in size: CGSize,
                       to position: @escaping (CGPoint) -> Project.MediaPosition) -> some Gesture {
         let target = { (translation: CGSize) in
-            position(OverlayCanvasGeometry.normalizedTranslation(translation, canvasSize: size))
+            position(OverlayCanvasGeometry.normalizedTranslation(translation, in: size))
         }
         return DragGesture(minimumDistance: 1, coordinateSpace: .global)
             .onChanged { draft = target($0.translation) }
