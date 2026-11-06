@@ -61,18 +61,18 @@ extension MCPTools {
 
         do {
             let path = "assets/\(filename)"
+            var added: EditorResultInfo?
             let updated = try await mutate(args) { editor in
                 let track = await editor.freeVideoTrack(named: Self.motionTrackName, from: at, to: at + rendered.duration)
-                return await editor.importVideoClip(path: path, duration: rendered.duration, at: at, trackName: Self.motionTrackName,
-                                                    position: position, belowCamera: true, onTrack: track)
+                let result = await editor.importVideoClip(path: path, duration: rendered.duration, at: at, trackName: Self.motionTrackName,
+                                                          position: position, belowCamera: true, onTrack: track)
+                if case .successWithInfo(_, let info) = result { added = info }
+                return result
             }
             var extra: [String: Any] = [:]
-            for track in updated.timeline.tracks {
-                for clip in track.clips {
-                    guard case .video(let ref) = clip.content, ref.path == path else { continue }
-                    extra["trackId"] = track.id.uuidString
-                    extra["clipId"] = clip.id
-                }
+            if case .clipAdded(let clipId, let trackId)? = added {
+                extra["clipId"] = clipId
+                extra["trackId"] = trackId.uuidString
             }
             if let shape = await VideoContentShape.measure(url: file) {
                 let canvas = CGSize(width: updated.canvas.format.w, height: updated.canvas.format.h)

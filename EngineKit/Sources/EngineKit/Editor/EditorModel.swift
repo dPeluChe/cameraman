@@ -60,7 +60,7 @@ public actor EditorModel {
             return .failure(error)
         }
         let trackId = existingTrack ?? project.timeline.addTrack(type: .video, name: trackName)
-        if belowCamera { _ = setTrackBelowCamera(trackId: trackId, belowCamera: true) }
+        if belowCamera, existingTrack == nil { _ = setTrackBelowCamera(trackId: trackId, belowCamera: true) }
         return await addClip(clip, toTrackId: trackId)
     }
 
