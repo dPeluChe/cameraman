@@ -7,6 +7,7 @@
 //  test touches it and every test checks it landed in the scratch directory.
 //
 
+import ImageIO
 import XCTest
 @testable import CameramanMCPCore
 import EngineKit
@@ -91,6 +92,49 @@ final class MCPMotionTests: XCTestCase {
         XCTAssertEqual(clip.position, Project.MediaPosition(x: 0, y: 0.6, w: 0.5, h: 0.3))
         guard case .video(let ref) = clip.content else { return XCTFail("expected a video clip") }
         XCTAssertTrue(FileManager.default.fileExists(atPath: directory.appendingPathComponent(ref.path).path))
+    }
+
+    func testMotionsShareATrackUnlessTheyOverlap() async throws {
+        let tools = MCPTools(supportsMotion: true)
+        let (id, _) = try await makeProject(tools)
+        func add(at: Double) async throws -> [String: Any] {
+            let reply = try await tools.execute(name: "add_motion", arguments: [
+                "projectId": id.uuidString, "at": at, "template": "title", "title": "Hola", "duration": 2.0,
+            ])
+            return try XCTUnwrap(JSONSerialization.jsonObject(with: Data(reply.utf8)) as? [String: Any])
+        }
+        let first = try await add(at: 0)
+        let second = try await add(at: 3)
+        let third = try await add(at: 1)
+        XCTAssertEqual(first["trackId"] as? String, second["trackId"] as? String, "no overlap, same row")
+        XCTAssertNotEqual(first["trackId"] as? String, third["trackId"] as? String, "overlap, new row")
+        XCTAssertNotNil(third["clipId"] as? String)
+
+        let area = try XCTUnwrap(first["visibleArea"] as? [String: Double])
+        XCTAssertLessThan(try XCTUnwrap(area["w"]), 1, "a title does not fill the canvas")
+        XCTAssertGreaterThan(try XCTUnwrap(area["w"]), 0)
+    }
+
+    func testPreviewFrameReturnsAnImageOfTheComposite() async throws {
+        let tools = MCPTools(supportsMotion: true)
+        let (id, _) = try await makeProject(tools)
+        _ = try await tools.execute(name: "add_motion", arguments: [
+            "projectId": id.uuidString, "at": 0, "template": "title", "title": "Hola", "duration": 2.0,
+        ])
+        let content = try await tools.content(name: "preview_frame", arguments: [
+            "projectId": id.uuidString, "at": 1.0, "maxWidth": 640,
+        ])
+        XCTAssertEqual(content.first?["type"] as? String, "image")
+        XCTAssertEqual(content.first?["mimeType"] as? String, "image/jpeg")
+        let data = try XCTUnwrap(Data(base64Encoded: try XCTUnwrap(content.first?["data"] as? String)))
+        let source = try XCTUnwrap(CGImageSourceCreateWithData(data as CFData, nil))
+        let image = try XCTUnwrap(CGImageSourceCreateImageAtIndex(source, 0, nil))
+        XCTAssertLessThanOrEqual(image.width, 640)
+
+        do {
+            _ = try await tools.content(name: "preview_frame", arguments: ["projectId": id.uuidString, "at": 99.0])
+            XCTFail("past the end")
+        } catch is MCPToolError {}
     }
 
     func testRejectsBadInputWithoutLeavingFiles() async throws {

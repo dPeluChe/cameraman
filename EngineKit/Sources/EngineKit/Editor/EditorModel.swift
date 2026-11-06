@@ -48,7 +48,8 @@ public actor EditorModel {
         at timelineIn: TimeInterval,
         trackName: String = "",
         position: Project.MediaPosition? = nil,
-        belowCamera: Bool = false
+        belowCamera: Bool = false,
+        onTrack existingTrack: UUID? = nil
     ) async -> EditorResult {
         let clip = Project.TimelineClip(
             timelineIn: timelineIn,
@@ -58,9 +59,17 @@ public actor EditorModel {
         if let error = EditorValidation.validateClip(clip) {
             return .failure(error)
         }
-        let trackId = project.timeline.addTrack(type: .video, name: trackName)
+        let trackId = existingTrack ?? project.timeline.addTrack(type: .video, name: trackName)
         if belowCamera { _ = setTrackBelowCamera(trackId: trackId, belowCamera: true) }
         return await addClip(clip, toTrackId: trackId)
+    }
+
+    /// An unlocked video track with this name and nothing in the span, so related clips share a row.
+    public func freeVideoTrack(named name: String, from start: TimeInterval, to end: TimeInterval) -> UUID? {
+        project.timeline.videoTracks.first { track in
+            track.name == name && !track.isLocked
+                && track.clips.allSatisfy { $0.timelineOut <= start || $0.timelineIn >= end }
+        }?.id
     }
 
     /// Import an audio file as a clip on a new `.audio` track. Used for
