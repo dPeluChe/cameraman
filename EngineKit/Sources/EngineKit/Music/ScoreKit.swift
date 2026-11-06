@@ -201,12 +201,12 @@ enum ScoreKit {
 
       // Instruments: pitch is 'A3' or a MIDI number, a chord an array of them. All take { vel, bus }.
 
-      pad(chord, t, dur, { vel = 0.5, bus = this.mix, attack = 1.6, release = 2.4, cutoff = 900, wave = 'sawtooth' } = {}) {
+      pad(chord, t, dur, { vel = 0.5, bus = this.mix, attack = 1.6, release = 2.4, cutoff = 900, wave = 'sawtooth', spread = 7 } = {}) {
         this.later(t, () => {
           const end = t + dur + release;
           const amp = this.envelope(t, attack, 0, 1, dur, release, vel / Math.sqrt(chord.length) * 0.5);
           amp.connect(bus);
-          for (const [cents, pan] of [[-7, -0.6], [0, 0], [7, 0.6]]) {
+          for (const [cents, pan] of [[-spread, -0.6], [0, 0], [spread, 0.6]]) {
             const filter = this.filter('lowpass', cutoff, 0.5);
             filter.frequency.setValueAtTime(cutoff * 0.6, t);
             filter.frequency.linearRampToValueAtTime(cutoff, t + dur * 0.6);

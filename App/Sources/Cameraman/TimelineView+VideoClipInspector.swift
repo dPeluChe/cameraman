@@ -170,6 +170,7 @@ extension TimelineView {
     }
 
     private func clipInspectorName(_ clip: Project.TimelineClip) -> String {
+        if let name = editor.project.timeline.renderedClipNames[clip.id] { return name }
         switch clip.content {
         case .video(let ref):
             return (ref.path as NSString).lastPathComponent

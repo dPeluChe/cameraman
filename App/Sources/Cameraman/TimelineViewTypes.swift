@@ -87,6 +87,8 @@ struct TimelineTrack: Identifiable {
     let elementLines: [ElementLine]
     /// Clips from a new-model timeline track (imported video rows)
     let timelineClips: [Project.TimelineClip]
+    /// Readable names for rendered clips, by clip id.
+    let clipNames: [String: String]
     /// Backing Project.TimelineTrack id for new-model rows (nil for legacy kinds)
     let engineTrackId: UUID?
     /// Persisted mute state of the backing engine track (new-model rows)
@@ -109,7 +111,8 @@ struct TimelineTrack: Identifiable {
         engineTrackId: UUID? = nil,
         engineMuted: Bool = false,
         labelOverride: String? = nil,
-        colorOverride: Color? = nil
+        colorOverride: Color? = nil,
+        clipNames: [String: String] = [:]
     ) {
         self.kind = kind
         self.segments = segments
@@ -122,6 +125,7 @@ struct TimelineTrack: Identifiable {
         self.engineMuted = engineMuted
         self.labelOverride = labelOverride
         self.colorOverride = colorOverride
+        self.clipNames = clipNames
     }
 }
 
@@ -165,6 +169,7 @@ enum TimelineTrackBuilder {
             Color.teal.opacity(0.85), Color.mint.opacity(0.85), Color.indigo.opacity(0.85),
             Color.brown.opacity(0.85), Color.red.opacity(0.7), Color.blue.opacity(0.7)
         ]
+        let clipNames = project.timeline.renderedClipNames
         for (index, videoTrack) in project.timeline.videoTracks.enumerated() where !videoTrack.clips.isEmpty {
             tracks.append(TimelineTrack(
                 kind: .videoClip,
@@ -172,8 +177,9 @@ enum TimelineTrackBuilder {
                 timelineClips: videoTrack.clips,
                 engineTrackId: videoTrack.id,
                 engineMuted: videoTrack.isMuted,
-                labelOverride: videoTrack.name.isEmpty ? nil : videoTrack.name,
-                colorOverride: Self.cycledColor(from: videoRowPalette, at: index)
+                labelOverride: project.timeline.label(of: videoTrack),
+                colorOverride: Self.cycledColor(from: videoRowPalette, at: index),
+                clipNames: clipNames
             ))
         }
 
@@ -208,8 +214,9 @@ enum TimelineTrackBuilder {
                 timelineClips: audioTrack.clips,
                 engineTrackId: audioTrack.id,
                 engineMuted: audioTrack.isMuted,
-                labelOverride: audioTrack.name.isEmpty ? nil : audioTrack.name,
-                colorOverride: Self.cycledColor(from: audioPalette, at: index)
+                labelOverride: project.timeline.label(of: audioTrack),
+                colorOverride: Self.cycledColor(from: audioPalette, at: index),
+                clipNames: clipNames
             ))
         }
 

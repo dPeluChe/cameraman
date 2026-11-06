@@ -66,7 +66,7 @@ below 120 Hz. Output is levelled to the same loudness, so `volume` on the clip m
 
 The Music tool in the right panel composes a piece from a style and an intensity. A piece made there or by an agent can
 be changed from either side, because both call the same engine code and read the same sidecar: style, intensity,
-another variation (next seed), fit to the video, volume and how far it drops under the voice. Scores written in code
+another variation (next seed: tempo and melodic figure step with it, so neighbours sound apart), fit to the video, volume and how far it drops under the voice. Scores written in code
 show as "Custom score"; picking a style replaces them. A piece runs to the end of the picture, up to 10 minutes.
 
 ## Ducking

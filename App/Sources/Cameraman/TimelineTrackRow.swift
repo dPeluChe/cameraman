@@ -307,6 +307,7 @@ struct TimelineTrackRow: View {
 
     /// File name for an imported video/audio clip chip (e.g. "assets/broll.mp4" -> "broll.mp4")
     private func clipDisplayName(_ clip: Project.TimelineClip) -> String {
+        if let name = track.clipNames[clip.id] { return name }
         switch clip.content {
         case .video(let ref): return (ref.path as NSString).lastPathComponent
         case .audio(let ref): return (ref.path as NSString).lastPathComponent
