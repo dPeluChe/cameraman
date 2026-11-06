@@ -145,7 +145,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func handleHotkeyAction(_ action: HotkeyManager.Action) {
         Task { @MainActor in
             guard let viewModel = RecordingStateManager.shared.viewModel else {
-                LogWarning(.ui, "Recording view model not available for hotkey")
+                LogDebug(.ui, "Recording view model not available for hotkey")
                 return
             }
 
@@ -165,7 +165,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     professionalMenuBar?.isRecording = false
                     LogInfo(.capture, "Stopped recording via hotkey")
                 } else {
-                    LogWarning(.capture, "No recording in progress")
+                    LogDebug(.capture, "No recording in progress")
                 }
 
             case .pauseResumeRecording:
@@ -174,7 +174,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     professionalMenuBar?.isPaused = viewModel.isPaused
                     LogInfo(.capture, viewModel.isPaused ? "Paused recording via hotkey" : "Resumed recording via hotkey")
                 } else {
-                    LogWarning(.capture, "No recording in progress")
+                    LogDebug(.capture, "No recording in progress")
                 }
 
             case .toggleCamera:
