@@ -268,8 +268,8 @@ final class MCPMotionTests: XCTestCase {
         guard case .audio(let after) = updated.content else { return XCTFail("audio clip") }
         XCTAssertNotEqual(after.path, before.path)
         let source = try XCTUnwrap(MusicSource.load(for: directory.appendingPathComponent(after.path)))
-        XCTAssertEqual(source.style, "ambient")
-        XCTAssertEqual(source.seed, 9)
+        XCTAssertEqual(source.score, .style(.ambient))
+        XCTAssertEqual(source.options.seed, 9)
         XCTAssertTrue(FileManager.default.fileExists(atPath: directory.appendingPathComponent(before.path).path), "kept for undo")
     }
 
