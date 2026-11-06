@@ -59,9 +59,7 @@ public actor EditorModel {
             return .failure(error)
         }
         let trackId = project.timeline.addTrack(type: .video, name: trackName)
-        if belowCamera, let index = project.timeline.tracks.firstIndex(where: { $0.id == trackId }) {
-            project.timeline.tracks[index].belowCamera = true
-        }
+        if belowCamera { _ = setTrackBelowCamera(trackId: trackId, belowCamera: true) }
         return await addClip(clip, toTrackId: trackId)
     }
 

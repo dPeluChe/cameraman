@@ -42,7 +42,7 @@ extension MCPTools {
         let locked = args.optBool("locked")
         let belowCamera = args.optBool("belowCamera")
         guard muted != nil || volume != nil || locked != nil || belowCamera != nil else {
-            throw MCPToolError("Pass at least one of: muted, volume, locked.")
+            throw MCPToolError("Pass at least one of: muted, volume, locked, belowCamera.")
         }
         let project = try await mutate(args) { editor in
             var steps: [() async -> EditorResult] = []

@@ -90,11 +90,14 @@ final class SideBySideLayoutTests: XCTestCase {
 
         let over = try render(screen: screen, camera: camera, layout: layout, overlay: (overlay, false))
         XCTAssertGreaterThan(center(over).g, 200, "B-roll still covers it")
+
+        let cameraOnly = try render(screen: screen, camera: camera, layout: layout, layoutType: "fullscreenCamera", overlay: (overlay, true))
+        XCTAssertGreaterThan(center(cameraOnly).g, 200, "a full-canvas camera must not hide it")
     }
 
     // MARK: - Helpers
 
-    private func render(screen: URL, camera: URL, layout: Layout, overlay: (url: URL, belowCamera: Bool)? = nil) throws -> CGImage {
+    private func render(screen: URL, camera: URL, layout: Layout, layoutType: String? = nil, overlay: (url: URL, belowCamera: Bool)? = nil) throws -> CGImage {
         let composition = AVMutableComposition()
         let screenID = try addTrack(from: screen, to: composition)
         let cameraID = try addTrack(from: camera, to: composition)
@@ -122,7 +125,7 @@ final class SideBySideLayoutTests: XCTestCase {
             cameraRect: CGRect(x: position.x, y: position.y, width: position.w, height: position.h),
             maskShape: .none,
             cornerRadius: 0,
-            layoutType: layout.type,
+            layoutType: layoutType ?? layout.type,
             backgroundType: "solid",
             backgroundValue: "#000000",
             videoOverlays: overlaySources

@@ -173,6 +173,8 @@ public class MaskedVideoCompositionInstruction: NSObject, AVVideoCompositionInst
     let maskShape: PiPMaskShape
     let cornerRadius: CGFloat
     let layoutType: String
+    /// A camera that fills the canvas would hide anything drawn under it.
+    var leavesRoomUnderCamera: Bool { layoutType != "fullscreenCamera" }
     let screenMuted: Bool
     let videoCornerRadius: CGFloat
     let videoShadowIntensity: CGFloat
@@ -646,9 +648,9 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
             .cropped(to: canvasRect)
     }
 
-    /// Composite imported-video overlay frames (B-roll) above the zoomed
-    /// screen/camera, aspect-fit centered, honoring track opacity. Tracks with
-    /// no media at this time yield no source frame and are skipped.
+    /// Composite imported-video overlay frames (B-roll), aspect-fit centered, honoring
+    /// track opacity. Called once under the camera and once above the zoomed scene.
+    /// Tracks with no media at this time yield no source frame and are skipped.
     private func compositeVideoOverlays(
         over image: CIImage,
         belowCamera: Bool,
@@ -662,7 +664,8 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
         let canvasRect = CGRect(origin: .zero, size: renderSize)
         let time = request.compositionTime.seconds
 
-        for source in instruction.videoOverlays where source.belowCamera == belowCamera {
+        for source in instruction.videoOverlays
+        where (source.belowCamera && instruction.leavesRoomUnderCamera) == belowCamera {
             guard let buffer = request.sourceFrame(byTrackID: source.trackID) else { continue }
 
             var overlayImage = CIImage(cvPixelBuffer: buffer)
