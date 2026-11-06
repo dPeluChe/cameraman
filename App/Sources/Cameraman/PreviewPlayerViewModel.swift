@@ -57,6 +57,7 @@ final class PreviewPlayerViewModel: ObservableObject {
     private var refreshGeneration = 0
     private var endObserver: NSObjectProtocol?
     private var cancellables = Set<AnyCancellable>()
+    private var projectEdits: AnyCancellable?
     private var projectDirectory: URL?
 
     /// Unfiltered plan as produced by the suggestion engine. The effective plan
@@ -181,6 +182,20 @@ final class PreviewPlayerViewModel: ObservableObject {
         }
     }
 
+
+    /// Lives here, not in a view `.onReceive`: the view redraws on every 50 ms playback tick and
+    /// each pass resubscribed, restarting the debounce, so edits waited for the player to stop.
+    func followEdits(of editor: ProjectEditor) {
+        projectEdits = editor.$project
+            .removeDuplicates()
+            .debounce(for: .milliseconds(150), scheduler: DispatchQueue.main)
+            .sink { [weak self] project in
+                guard let self, self.previewEngine != nil,
+                      self.project?.projectId == project.projectId,
+                      self.project != project else { return }
+                self.refreshPreview(with: project)
+            }
+    }
 
     /// Rebuild the preview composition when project settings change
     func refreshPreview(with project: Project) {

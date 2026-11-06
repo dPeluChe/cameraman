@@ -114,24 +114,7 @@ struct PreviewPlayerView: View {
         }
         .task(id: editor.project.projectId) {
             viewModel.load(project: editor.project, projectDirectory: projectDirectory)
-        }
-        // Listen to changes in the Project specifically (with dedup) instead of
-        // editor.objectWillChange. The editor also publishes transient UI state
-        // (showAutosaveToast, canUndo, canRedo) which don't affect the preview
-        // — listening to those triggered up to 2 spurious composition rebuilds
-        // per autosave plus one per undo/redo state flip.
-        .onReceive(
-            editor.$project
-                .removeDuplicates()
-                .debounce(for: .milliseconds(150), scheduler: RunLoop.main)
-        ) { [weak viewModel] project in
-            guard let viewModel = viewModel,
-                  viewModel.previewEngine != nil,
-                  viewModel.project?.projectId == project.projectId else { return }
-            // `onReceive` re-subscribes on every body pass and @Published replays its current value on
-            // subscribe, so this closure also fires with the project the engine already has.
-            guard viewModel.project != project else { return }
-            viewModel.refreshPreview(with: project)
+            viewModel.followEdits(of: editor)
         }
         .onDisappear {
             viewModel.stopPlayback()
