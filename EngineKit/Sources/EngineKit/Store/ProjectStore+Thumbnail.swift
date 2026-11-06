@@ -38,14 +38,13 @@ extension ProjectStore {
         let missing = (try? await listProjects())?.filter { $0.thumbnailPath == nil } ?? []
         var written = 0
         for summary in missing {
-            guard let directory = try? projectDirectoryURL(for: summary.projectId) else { continue }
-            let file = directory.appendingPathComponent("project.json")
-            guard let source = summaryCache[file]?.thumbnailSource else { continue }
+            guard let source = summaryCache[summary.projectId]?.thumbnailSource,
+                  let directory = try? projectDirectoryURL(for: summary.projectId) else { continue }
             if await Self.writeThumbnail(from: directory.appendingPathComponent(source.path), at: source.time,
                                          to: directory.appendingPathComponent(Self.thumbnailName)) {
                 written += 1
             } else {
-                summaryCache[file]?.thumbnailSource = nil
+                summaryCache[summary.projectId]?.thumbnailSource = nil
             }
         }
         return written

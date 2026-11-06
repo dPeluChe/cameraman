@@ -21,21 +21,26 @@ final class ProjectThumbnailTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: base) }
         let store = ProjectStore(baseDirectory: base)
         let clip = Project.TimelineClip(timelineIn: 0, content: .video(Project.VideoClipRef(path: "assets/gone.mov", sourceOut: 8)))
-        var broken = project([Project.TimelineTrack(name: "B-roll", type: .video, clips: [clip])])
+        let id = try await store.createEmptyProject()
+        var broken = try await store.loadProject(projectId: id)
+        broken.timeline.tracks.append(Project.TimelineTrack(name: "B-roll", type: .video, clips: [clip]))
         try await store.saveProject(broken)
-        let file = try await store.projectDirectoryURL(for: broken.projectId).appendingPathComponent("project.json")
+
+        _ = try await store.listProjects()
+        var cache = await store.summaryCache
+        XCTAssertEqual(cache[id]?.thumbnailSource?.path, "assets/gone.mov")
 
         let written = await store.generateMissingThumbnails()
         XCTAssertEqual(written, 0)
-        var cache = await store.summaryCache
-        XCTAssertNil(cache[file]?.thumbnailSource)
+        cache = await store.summaryCache
+        XCTAssertNil(cache[id]?.thumbnailSource)
 
         broken.name = "renamed"
         try await Task.sleep(nanoseconds: 1_100_000_000)
         try await store.saveProject(broken)
         _ = try await store.listProjects()
         cache = await store.summaryCache
-        XCTAssertEqual(cache[file]?.thumbnailSource?.path, "assets/gone.mov")
+        XCTAssertEqual(cache[id]?.thumbnailSource?.path, "assets/gone.mov")
     }
 
     func testMotionsAndAudioAreNotFootage() {
