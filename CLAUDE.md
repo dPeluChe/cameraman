@@ -98,6 +98,7 @@ Motion/         - Code-built animations to transparent video: MotionRenderer (WK
                   @MainActor + WebKit, an exception to "UI-free". See docs/FEATURES/MOTION.md
 
 Music/          - Instrumental music from code: ScoreKit (JS library + styles), MusicRenderer (Web Audio offline → AAC),
+                  EditorModel+Music (render + place, shared by the editor and MCP),
                   MusicSource sidecar. @MainActor + WebKit, same exception as Motion. See docs/FEATURES/MUSIC.md
 
 Shared/         - HeadlessPage (off-screen page with per-step deadlines, for renderers built on a web page)

@@ -72,15 +72,15 @@ public actor EditorModel {
     }
 
     /// Re-point a clip at new media of a new length, unless that runs into its neighbor.
-    public func replaceClipContent(clipId: String, inTrackId trackId: UUID, content: Project.ClipContent,
-                                   ending end: TimeInterval) async -> EditorResult {
+    public func replaceClipContent(clipId: String, inTrackId trackId: UUID, content: Project.ClipContent) async -> EditorResult {
         guard let track = project.timeline.tracks.first(where: { $0.id == trackId }) else {
             return .failure(.trackNotFound(trackId.uuidString))
         }
-        guard let start = track.clips.first(where: { $0.id == clipId })?.timelineIn else {
+        guard var clip = track.clips.first(where: { $0.id == clipId }) else {
             return .failure(.clipNotFound(clipId: clipId, trackId: trackId.uuidString))
         }
-        guard track.isFree(from: start, to: end, ignoring: clipId) else {
+        clip.content = content
+        guard track.isFree(from: clip.timelineIn, to: clip.timelineOut, ignoring: clipId) else {
             return .failure(.invalidClipContent(reason: "It would run into the next clip on its track"))
         }
         return await updateClip(clipId: clipId, inTrackId: trackId, content: content)

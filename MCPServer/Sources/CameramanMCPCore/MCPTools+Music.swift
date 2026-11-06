@@ -25,42 +25,34 @@ extension MCPTools {
         }
         let source = try Self.musicSource(args, editing: nil, duration: length)
         let directory = try await ProjectLibrary.shared.getProjectDirectory(projectId: project.projectId)
-        let (file, seconds) = try await renderMusic(source, directory)
+        let music = try await MusicRenderer.renderAsset(source, in: directory)
 
-        return try await RenderedAssets.removing(file) {
+        return try await RenderedAssets.removing(music.file) {
             var added: EditorResultInfo?
             let updated = try await mutate(args) { editor in
-                let track = await editor.freeTrack(.audio, named: MusicSource.trackName, from: at, to: at + seconds)
-                let result = await editor.addAudioClip(path: "assets/\(file.lastPathComponent)", duration: seconds, at: at,
-                                                       trackName: MusicSource.trackName, volume: volume, onTrack: track,
-                                                       duckingOnNewTrack: ducking)
+                let result = await editor.addMusic(music, at: at, volume: volume, ducking: ducking)
                 if case .successWithInfo(_, let info) = result { added = info }
                 return result
             }
             var extra = Self.clipIds(added)
             let envelopes = AudioDucking.envelopes(for: updated, directory: directory)
             extra["speechDucking"] = (extra["clipId"] as? String).map { envelopes[$0] != nil } ?? false
-            return try summary("Added music (\(String(format: "%.1f", seconds))s) at \(at)s", updated, extra: extra)
+            return try summary("Added music (\(String(format: "%.1f", music.seconds))s) at \(at)s", updated, extra: extra)
         }
     }
 
     func updateMusic(_ args: [String: Any]) async throws -> String {
         let (project, track, clip) = try await resolveClip(args)
-        guard let path = RenderedAssets.renderedPath(of: clip, as: .music) else {
+        guard RenderedAssets.renderedPath(of: clip, as: .music) != nil else {
             throw MCPToolError("That clip is not generated music.")
         }
         let directory = try await ProjectLibrary.shared.getProjectDirectory(projectId: project.projectId)
-        let saved = MusicSource.load(for: directory.appendingPathComponent(path))
+        let saved = MusicSource.load(of: clip, in: directory)
         let source = try Self.musicSource(args, editing: saved, duration: clip.duration)
-        let (file, seconds) = try await renderMusic(source, directory)
+        let music = try await MusicRenderer.renderAsset(source, in: directory)
 
-        return try await RenderedAssets.removing(file) {
-            let content = Project.ClipContent.audio(Project.AudioClipRef(path: "assets/\(file.lastPathComponent)", duration: seconds))
-            let updated = try await mutate(args) {
-                await $0.replaceClipContent(clipId: clip.id, inTrackId: track.id, content: content,
-                                            ending: clip.timelineIn + seconds / clip.speed)
-            }
-            // The old file stays for undo; RenderedAssets removes it when the project next opens.
+        return try await RenderedAssets.removing(music.file) {
+            let updated = try await mutate(args) { await $0.replaceMusic(clipId: clip.id, inTrackId: track.id, with: music) }
             return try summary("Updated music \(clip.id)", updated)
         }
     }
@@ -90,13 +82,6 @@ extension MCPTools {
             return .code(code)
         case (nil, nil):
             return nil
-        }
-    }
-
-    /// Renders before the edit starts, so the open editor is not held while this runs.
-    private func renderMusic(_ source: MusicSource, _ directory: URL) async throws -> (file: URL, output: TimeInterval) {
-        try await RenderedAssets.render(source, in: directory) { file in
-            try await MusicRenderer.render(source, to: file)
         }
     }
 }

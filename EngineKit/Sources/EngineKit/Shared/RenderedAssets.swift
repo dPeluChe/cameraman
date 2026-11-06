@@ -52,6 +52,9 @@ public enum RenderedAssets {
         name.range(of: "^\(kind.prefix)-[0-9a-f]{8}\\.\(kind.fileExtension)$", options: .regularExpression) != nil
     }
 
+    /// How a clip refers to a render, relative to the project.
+    public static func projectPath(of file: URL) -> String { "assets/\(file.lastPathComponent)" }
+
     static func sidecar(of file: URL) -> URL {
         file.deletingPathExtension().appendingPathExtension("json")
     }
