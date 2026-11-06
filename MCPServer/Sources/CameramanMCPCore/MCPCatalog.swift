@@ -436,7 +436,25 @@ extension MCPTools {
                     "w": num("Placement: width, 0-1"),
                     "h": num("Placement: height, 0-1")
                  ],
-                 required: ["projectId", "at"])
+                 required: ["projectId", "at"]),
+
+            tool("update_motion",
+                 "Change a motion in place: re-renders it and keeps its time and placement. Pass only what changes (text, color, duration, html or template); the rest comes from how it was made. Motions from older versions have no saved source, so they need the full html or a template. Takes a few seconds.",
+                 properties: [
+                    "projectId": str("Project UUID"),
+                    "trackId": str("Track UUID"),
+                    "clipId": str("Clip id"),
+                    "template": strEnum("Switch to a built-in motion", MotionTemplate.allCases.map(\.rawValue)),
+                    "title": str("Template text: main line"),
+                    "subtitle": str("Template text: second line"),
+                    "value": str("stat: the number"),
+                    "labels": array("bar_chart: one label per bar"),
+                    "values": ["type": "array", "description": "bar_chart: one number per bar", "items": ["type": "number"]],
+                    "color": str("Accent color #RRGGBB"),
+                    "html": str("Custom page replacing the current one"),
+                    "duration": num("Seconds (0.5-120)")
+                 ],
+                 required: ["projectId", "trackId", "clipId"])
         ]
     }
 
