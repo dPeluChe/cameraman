@@ -95,7 +95,7 @@ final class ProjectEditorViewModel: ObservableObject {
             await Task.yield()
             self.editor?.cancelPendingAutosave()
             if self.editor == nil {
-                Task.detached(priority: .utility) { MotionAssets.removeUnused(in: project, directory: dir) }
+                Task.detached(priority: .utility) { RenderedAssets.removeUnused(in: project, directory: dir) }
             }
             let id = projectId
             let newEditor = ProjectEditor(project: project) {

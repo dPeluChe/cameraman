@@ -52,7 +52,7 @@ final class MCPMotionTests: XCTestCase {
     func testAddMotionIsAdvertisedOnlyWhereItCanRun() throws {
         let names = { (tools: MCPTools) in Set(tools.listedCatalog.compactMap { $0["name"] as? String }) }
         XCTAssertFalse(names(MCPTools()).contains("add_motion"), "the CLI cannot render, so it must not offer the tool")
-        XCTAssertTrue(names(MCPTools(supportsMotion: true)).contains("add_motion"))
+        XCTAssertTrue(names(MCPTools(supportsRendering: true)).contains("add_motion"))
         let tool = try XCTUnwrap(MCPTools.catalog.first { $0["name"] as? String == "add_motion" })
         XCTAssertEqual((tool["inputSchema"] as? [String: Any])?["required"] as? [String], ["projectId", "at"])
     }
@@ -74,7 +74,7 @@ final class MCPMotionTests: XCTestCase {
     }
 
     func testAddsATemplateAsAClipOnItsOwnTrack() async throws {
-        let tools = MCPTools(supportsMotion: true)
+        let tools = MCPTools(supportsRendering: true)
         let (id, directory) = try await makeProject(tools)
         let result = try await tools.execute(name: "add_motion", arguments: [
             "projectId": id.uuidString, "at": 1.0, "template": "lower_third", "title": "Ana Ruiz", "subtitle": "CTO",
@@ -95,7 +95,7 @@ final class MCPMotionTests: XCTestCase {
     }
 
     func testMotionsShareATrackUnlessTheyOverlap() async throws {
-        let tools = MCPTools(supportsMotion: true)
+        let tools = MCPTools(supportsRendering: true)
         let (id, _) = try await makeProject(tools)
         func add(at: Double) async throws -> [String: Any] {
             let reply = try await tools.execute(name: "add_motion", arguments: [
@@ -116,7 +116,7 @@ final class MCPMotionTests: XCTestCase {
     }
 
     func testPreviewFrameReturnsAnImageOfTheComposite() async throws {
-        let tools = MCPTools(supportsMotion: true)
+        let tools = MCPTools(supportsRendering: true)
         let (id, _) = try await makeProject(tools)
         _ = try await tools.execute(name: "add_motion", arguments: [
             "projectId": id.uuidString, "at": 0, "template": "title", "title": "Hola", "duration": 2.0,
@@ -138,7 +138,7 @@ final class MCPMotionTests: XCTestCase {
     }
 
     func testUpdateKeepsTimeAndPlacementAndChangesOnlyWhatWasPassed() async throws {
-        let tools = MCPTools(supportsMotion: true)
+        let tools = MCPTools(supportsRendering: true)
         let (id, directory) = try await makeProject(tools)
         let reply = try await tools.execute(name: "add_motion", arguments: [
             "projectId": id.uuidString, "at": 1.0, "template": "lower_third", "title": "Ana", "subtitle": "CTO",
@@ -162,7 +162,7 @@ final class MCPMotionTests: XCTestCase {
     }
 
     func testUpdateCannotRunIntoTheNextClip() async throws {
-        let tools = MCPTools(supportsMotion: true)
+        let tools = MCPTools(supportsRendering: true)
         let (id, _) = try await makeProject(tools)
         func add(at: Double) async throws -> [String: Any] {
             let reply = try await tools.execute(name: "add_motion", arguments: [
@@ -183,7 +183,7 @@ final class MCPMotionTests: XCTestCase {
     }
 
     func testUnusedMotionsGoOnlyWhenOldEnough() async throws {
-        let tools = MCPTools(supportsMotion: true)
+        let tools = MCPTools(supportsRendering: true)
         let (id, directory) = try await makeProject(tools)
         _ = try await tools.execute(name: "add_motion", arguments: [
             "projectId": id.uuidString, "at": 0, "template": "title", "title": "Hola", "duration": 2.0,
@@ -195,15 +195,15 @@ final class MCPMotionTests: XCTestCase {
         try Data().write(to: assets.appendingPathComponent("motion-intro.mov"))
         let project = try await ProjectLibrary.shared.getProject(projectId: id)
 
-        XCTAssertEqual(MotionAssets.removeUnused(in: project, directory: directory), 0, "it may still be rendering")
-        XCTAssertEqual(MotionAssets.removeUnused(in: project, directory: directory, now: Date().addingTimeInterval(7200)), 1)
+        XCTAssertEqual(RenderedAssets.removeUnused(in: project, directory: directory), 0, "it may still be rendering")
+        XCTAssertEqual(RenderedAssets.removeUnused(in: project, directory: directory, now: Date().addingTimeInterval(7200)), 1)
         XCTAssertFalse(FileManager.default.fileExists(atPath: unused.path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: MotionSource.sidecar(of: unused).path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: assets.appendingPathComponent("motion-intro.mov").path), "an import, not a render")
     }
 
     func testRejectsBadInputWithoutLeavingFiles() async throws {
-        let tools = MCPTools(supportsMotion: true)
+        let tools = MCPTools(supportsRendering: true)
         let (id, directory) = try await makeProject(tools)
         let bad: [[String: Any]] = [
             ["template": "confetti"],
@@ -237,5 +237,67 @@ final class MCPMotionTests: XCTestCase {
         let odd = MCPTools.motionSize(for: .init(aspect: "1:1", w: 1001, h: 1001))
         XCTAssertEqual(odd.width % 2, 0)
         XCTAssertEqual(odd.height % 2, 0)
+    }
+
+    // MARK: - Music
+
+    func testMusicTracksAcrossClipsAndUpdatesInPlace() async throws {
+        let tools = MCPTools(supportsRendering: true)
+        let (id, directory) = try await makeProject(tools)
+        let args: [String: Any] = ["projectId": id.uuidString, "style": "ambient", "duration": 3.0]
+        _ = try await tools.execute(name: "add_music", arguments: args.merging(["at": 0, "volume": 0.3]) { $1 })
+        _ = try await tools.execute(name: "add_music", arguments: args.merging(["at": 5]) { $1 })
+
+        var project = try await ProjectLibrary.shared.getProject(projectId: id)
+        let tracks = project.timeline.tracks.filter { $0.name == "Music" }
+        XCTAssertEqual(tracks.count, 1, "clips that fit share the Music track")
+        let track = try XCTUnwrap(tracks.first)
+        XCTAssertEqual(track.type, .audio)
+        XCTAssertEqual(track.clips.count, 2)
+        let first = try XCTUnwrap(track.clips.first { $0.timelineIn == 0 })
+        XCTAssertEqual(first.volume, 0.3)
+        guard case .audio(let before) = first.content else { return XCTFail("audio clip") }
+
+        _ = try await tools.execute(name: "update_music", arguments: [
+            "projectId": id.uuidString, "trackId": track.id.uuidString, "clipId": first.id, "seed": 9, "duration": 4.0,
+        ])
+        project = try await ProjectLibrary.shared.getProject(projectId: id)
+        let updated = try XCTUnwrap(project.timeline.tracks.first { $0.id == track.id }?.clips.first { $0.id == first.id })
+        XCTAssertEqual(updated.volume, 0.3, "keeps its level")
+        XCTAssertEqual(updated.duration, 4, accuracy: 0.01)
+        guard case .audio(let after) = updated.content else { return XCTFail("audio clip") }
+        XCTAssertNotEqual(after.path, before.path)
+        let source = try XCTUnwrap(MusicSource.load(for: directory.appendingPathComponent(after.path)))
+        XCTAssertEqual(source.score, .style(.ambient))
+        XCTAssertEqual(source.options.seed, 9)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: directory.appendingPathComponent(before.path).path), "kept for undo")
+    }
+
+    func testMusicDefaultsToTheRestOfTheTimelineAndNeedsAScore() async throws {
+        let tools = MCPTools(supportsRendering: true)
+        let (id, _) = try await makeProject(tools)
+        _ = try await tools.execute(name: "add_motion", arguments: [
+            "projectId": id.uuidString, "at": 0, "template": "title", "title": "x", "duration": 3.0,
+        ])
+        do {
+            _ = try await tools.execute(name: "add_music", arguments: ["projectId": id.uuidString])
+            XCTFail("no score")
+        } catch let error as MCPToolError { XCTAssertTrue(error.message.contains("style"), error.message) }
+        _ = try await tools.execute(name: "add_music", arguments: ["projectId": id.uuidString, "style": "lofi", "at": 1])
+        let project = try await ProjectLibrary.shared.getProject(projectId: id)
+        let clip = try XCTUnwrap(project.timeline.tracks.first { $0.name == "Music" }?.clips.first)
+        XCTAssertEqual(clip.duration, 2, accuracy: 0.05)
+    }
+
+    func testUnusedMusicGoesLikeUnusedMotions() async throws {
+        let tools = MCPTools(supportsRendering: true)
+        let (id, directory) = try await makeProject(tools)
+        _ = try await tools.execute(name: "add_music", arguments: ["projectId": id.uuidString, "style": "tech", "duration": 2.0])
+        let assets = directory.appendingPathComponent("assets")
+        let unused = assets.appendingPathComponent("music-0a1b2c3d.m4a")
+        try Data().write(to: unused)
+        let project = try await ProjectLibrary.shared.getProject(projectId: id)
+        XCTAssertEqual(RenderedAssets.removeUnused(in: project, directory: directory, now: Date().addingTimeInterval(7200)), 1)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: assets.path).filter { $0.hasSuffix(".m4a") }.count, 1, "the used one stays")
     }
 }

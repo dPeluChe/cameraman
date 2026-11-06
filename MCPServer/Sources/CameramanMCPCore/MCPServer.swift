@@ -35,11 +35,11 @@ public actor MCPServer {
 
     /// - Parameter onProjectChanged: called after each persisted edit with the project id.
     /// - Parameter onProjectWillChange: awaited before an edit reads the project from disk.
-    /// - Parameter supportsMotion: the host can render motion graphics (needs a window server).
-    public init(supportsMotion: Bool = false,
+    /// - Parameter supportsRendering: the host can render motions and music (needs a window server).
+    public init(supportsRendering: Bool = false,
                 onProjectChanged: (@Sendable (UUID) -> Void)? = nil,
                 onProjectWillChange: (@Sendable (UUID) async -> Void)? = nil) {
-        tools = MCPTools(supportsMotion: supportsMotion, onProjectChanged: onProjectChanged, onProjectWillChange: onProjectWillChange)
+        tools = MCPTools(supportsRendering: supportsRendering, onProjectChanged: onProjectChanged, onProjectWillChange: onProjectWillChange)
     }
 
     /// Read stdin line-by-line until EOF, dispatching each JSON-RPC message.
