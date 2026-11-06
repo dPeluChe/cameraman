@@ -55,8 +55,8 @@ final class MCPHTTPServerTests: XCTestCase {
 
     override func tearDown() async throws { http.stop() }
 
-    private func post(_ body: String, token: String? = "test-token", extra: [String: String] = [:]) async throws -> (Int, Data) {
-        var request = URLRequest(url: base)
+    private func post(_ body: String, to url: URL? = nil, token: String? = "test-token", extra: [String: String] = [:]) async throws -> (Int, Data) {
+        var request = URLRequest(url: url ?? base)
         request.httpMethod = "POST"
         request.httpBody = Data(body.utf8)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -106,12 +106,8 @@ final class MCPHTTPServerTests: XCTestCase {
         }
         let port = try await slow.start()
         defer { slow.stop() }
-        var request = URLRequest(url: try XCTUnwrap(URL(string: "http://127.0.0.1:\(port)/mcp")))
-        request.httpMethod = "POST"
-        request.httpBody = Data("{}".utf8)
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        let (data, response) = try await URLSession(configuration: .ephemeral).data(for: request)
-        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+        let (status, data) = try await post("{}", to: URL(string: "http://127.0.0.1:\(port)/mcp"))
+        XCTAssertEqual(status, 200)
         XCTAssertEqual(String(decoding: data, as: UTF8.self), #"{"ok":true}"#)
     }
 

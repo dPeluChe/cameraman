@@ -128,7 +128,7 @@ public actor LoggingSystem {
             formattedMessage = "[\(filename):\(line) \(function)] \(message)"
         }
         
-        // Log to OSLog. Mark the interpolated payload as `.private` so file
+        // Log to OSLog. In release, mark the interpolated payload as `.private` so file
         // paths or project names captured in log messages get redacted in
         // Console.app for other processes — visible only when the device is
         // attached to the developer's machine.

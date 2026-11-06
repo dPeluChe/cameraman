@@ -70,17 +70,14 @@ struct IntegrationsPreferencesView: View {
 
     /// This (sandboxed) app's Projects directory — the standalone server must be pointed
     /// here via CAMERAMAN_PROJECTS_DIR or it reads a different, empty folder.
-    private var projectsDir: String { ProjectStore().baseDirectory.path }
+    private static let projectsDir = ProjectStore().baseDirectory.path
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xl) {
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text("Cameraman MCP Server")
                     .font(.headline)
-                Text("Let AI assistants work on your projects: edit, add clips and effects, record, and place motion graphics.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                caption("Let AI assistants work on your projects: edit, add clips and effects, record, and place motion graphics.")
             }
 
             allowConnectionsSection
@@ -102,7 +99,7 @@ struct IntegrationsPreferencesView: View {
                 .onChange(of: hostEnabled) { host.setEnabled($0) }
             switch host.state {
             case .stopped:
-                Text("Off. Nothing is listening.").font(.caption).foregroundStyle(.secondary)
+                caption("Off. Nothing is listening.")
             case .failed(let message):
                 Label(message, systemImage: "exclamationmark.triangle.fill").font(.caption).foregroundStyle(.orange)
             case .running:
@@ -226,7 +223,7 @@ struct IntegrationsPreferencesView: View {
     private func standaloneSnippet(for client: MCPClient) -> String {
         switch client {
         case .claudeCode:
-            "claude mcp add --scope user cameraman -e CAMERAMAN_PROJECTS_DIR=\"\(projectsDir)\" -- \(resolvedPath)"
+            "claude mcp add --scope user cameraman -e CAMERAMAN_PROJECTS_DIR=\"\(Self.projectsDir)\" -- \(resolvedPath)"
         case .cursor, .claudeDesktop:
             """
             {
@@ -234,7 +231,7 @@ struct IntegrationsPreferencesView: View {
                 "cameraman": {
                   "command": "\(resolvedPath)",
                   "args": [],
-                  "env": { "CAMERAMAN_PROJECTS_DIR": "\(projectsDir)" }
+                  "env": { "CAMERAMAN_PROJECTS_DIR": "\(Self.projectsDir)" }
                 }
               }
             }
@@ -244,7 +241,7 @@ struct IntegrationsPreferencesView: View {
             [mcp_servers.cameraman]
             command = "\(resolvedPath)"
             args = []
-            env = { CAMERAMAN_PROJECTS_DIR = "\(projectsDir)" }
+            env = { CAMERAMAN_PROJECTS_DIR = "\(Self.projectsDir)" }
             """
         }
     }

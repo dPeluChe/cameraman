@@ -97,8 +97,11 @@ public final class MCPHTTPServer: @unchecked Sendable {
         var buffer = Data()
         var head: HTTPRequest.Head?
         var bodyStart = 0
-        var deadline: DispatchWorkItem?
-        init(_ nw: NWConnection) { self.nw = nw }
+        let deadline: DispatchWorkItem
+        init(_ nw: NWConnection) {
+            self.nw = nw
+            deadline = DispatchWorkItem { nw.cancel() }
+        }
     }
 
     private var activeConnections = 0
@@ -110,16 +113,15 @@ public final class MCPHTTPServer: @unchecked Sendable {
         let connection = Connection(nw)
         nw.stateUpdateHandler = { [weak self] state in
             switch state {
-            case .failed, .cancelled: self?.queue.async { self?.activeConnections -= 1 }
+            case .failed: nw.cancel()
+            case .cancelled: self?.queue.async { self?.activeConnections -= 1 }
             default: break
             }
         }
         nw.start(queue: queue)
         // A peer that connects and trickles (or sends nothing) must not hold a slot forever.
         // Ends once the request is in: a tool such as add_motion may then run for minutes.
-        let deadline = DispatchWorkItem { nw.cancel() }
-        connection.deadline = deadline
-        queue.asyncAfter(deadline: .now() + requestDeadline, execute: deadline)
+        queue.asyncAfter(deadline: .now() + requestDeadline, execute: connection.deadline)
         receive(connection)
     }
 
@@ -142,7 +144,7 @@ public final class MCPHTTPServer: @unchecked Sendable {
 
             if let head = connection.head, connection.buffer.count - connection.bodyStart >= head.contentLength {
                 let body = connection.buffer.subdata(in: connection.bodyStart..<(connection.bodyStart + head.contentLength))
-                connection.deadline?.cancel()
+                connection.deadline.cancel()
                 Task {
                     let reply = await self.dispatch(body)
                     self.respond(connection.nw, status: reply.status, body: reply.body)
