@@ -8,21 +8,6 @@
 
 import Foundation
 
-extension Project {
-    /// This project with everything the audio mix alone can apply taken out, to tell those edits apart.
-    var ignoringAudioLevels: Project {
-        var copy = self
-        copy.updatedAt = .distantPast
-        for track in copy.timeline.tracks.indices {
-            copy.timeline.tracks[track].duckingLevel = nil
-            for clip in copy.timeline.tracks[track].clips.indices where copy.timeline.tracks[track].clips[clip].isAudio {
-                copy.timeline.tracks[track].clips[clip].volume = nil
-            }
-        }
-        return copy
-    }
-}
-
 public enum AudioDucking {
     /// How a clip's level moves over the timeline, as multipliers of its volume.
     public struct Envelope: Equatable, Sendable {
@@ -95,8 +80,12 @@ public enum AudioDucking {
 
     /// One envelope per clip on a ducked track. Empty without a transcript.
     public static func envelopes(for project: Project, directory: URL) -> [String: Envelope] {
+        envelopes(for: project, transcript: try? TranscriptionEngine.Transcript.load(fromProject: directory))
+    }
+
+    static func envelopes(for project: Project, transcript load: @autoclosure () -> TranscriptionEngine.Transcript?) -> [String: Envelope] {
         let ducked = project.timeline.audioTracks.compactMap { track in track.duckingLevel.map { (track, $0) } }
-        guard !ducked.isEmpty, let transcript = try? TranscriptionEngine.Transcript.load(fromProject: directory) else { return [:] }
+        guard !ducked.isEmpty, let transcript = load() else { return [:] }
 
         let spoken = transcript.segments.filter { $0.start < $0.end }.map { $0.start...$0.end }
         // The transcript covers the first take only.

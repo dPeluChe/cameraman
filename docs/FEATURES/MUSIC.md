@@ -56,7 +56,7 @@ Start from a style and add to it: `Score.styles.lofi(m, options); m.impact(12);`
 | Pitch | `m.key('A minor')`, `m.degree(d, octave)`, `m.triad(degree, octave, size)`, `m.chord('Fmaj7', octave)`, `m.voiced(chord)`, `m.midi('A3')` |
 | Scales | major, minor, dorian, mixolydian, lydian, pentatonic, minorPentatonic |
 | Routing | `m.bus({ gain, pan, lowpass, highpass, reverb, delay })`, used through `{ bus }` on every instrument |
-| Sustained | `m.pad(chord, t, dur, opts)`, `m.strings(chord, t, dur, opts)`, `m.keys(pitch, t, dur, opts)`, `m.bass(pitch, t, dur, opts)`, `m.vinyl(t, dur, opts)`, `m.riser(t, dur, opts)` |
+| Sustained | `m.pad(chord, t, dur, opts)`, `m.strings(chord, t, dur, opts)`, `m.keys(pitch, t, dur, opts)`, `m.bass(pitch, t, dur, opts)`, `m.vinyl(t, dur, opts)` (hiss; `crackle: 1` adds clicks), `m.riser(t, dur, opts)` |
 | Struck | `m.pluck(pitch, t, opts)`, `m.bell(pitch, t, opts)`, `m.kick(t, opts)`, `m.snare(t, opts)`, `m.hat(t, opts)`, `m.shaker(t, opts)`, `m.impact(t, opts)` |
 
 Every instrument takes `vel` and `bus`. Keep pitches around octave 4, not 2-3: most laptop speakers lose what is

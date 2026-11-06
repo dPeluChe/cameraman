@@ -41,6 +41,7 @@ public actor PreviewEngine {
     var mutedVideoTracks: Set<VideoTrackID> = []
 
     /// Last applied audio mute state (preserved across rebuilds)
+    var cachedTranscript: (modified: Date, transcript: TranscriptionEngine.Transcript)?
     var lastAudioMuteState: AudioMixBuilder.TrackMuteState = .init()
 
     /// Current playback state
@@ -265,20 +266,22 @@ public actor PreviewEngine {
         guard self.project != project else { return }
 
         let oldProject = self.project
-        let oldFormat = self.project?.canvas.format
-        let oldClipCount = self.project?.timeline.primaryTrack?.clips.count
+        let oldFormat = oldProject?.canvas.format
+        let oldClipCount = oldProject?.timeline.primaryTrack?.clips.count
         // Overlay (.video/.audio) tracks live inside the AVComposition and the
         // cached compositionResult — any clip change there (import, move, trim,
         // PiP position) needs the full rebuild, not just a videoComposition pass.
-        let oldOverlayTracks = self.project?.timeline.tracks.filter { $0.type != .primary }
+        let oldOverlayTracks = oldProject?.timeline.tracks.filter { $0.type != .primary }
         self.project = project
 
         let needsFullRebuild = oldFormat != project.canvas.format
             || oldClipCount != project.timeline.primaryTrack?.clips.count
             || oldOverlayTracks != project.timeline.tracks.filter { $0.type != .primary }
 
-        if needsFullRebuild, oldProject?.ignoringAudioLevels == project.ignoringAudioLevels {
-            await refreshAudioLevels(from: project)
+        let levelsOnly = needsFullRebuild && oldProject?.ignoringAudioLevels == project.ignoringAudioLevels
+
+        if levelsOnly {
+            await refreshAudioLevels()
         } else if needsFullRebuild {
             // Full rebuild needed (different tracks or render size)
             // The app drives the AVPlayer directly, so only the player knows it is playing.
@@ -296,7 +299,6 @@ public actor PreviewEngine {
 
             if resumeRate != 0 {
                 player?.rate = resumeRate
-                playbackState = .playing
             }
         } else {
             // Light update: only rebuild videoComposition (layout/camera/background)
@@ -350,24 +352,8 @@ public actor PreviewEngine {
         self.videoCompositionConfig = videoComposition
         await install(videoComposition, on: currentItem, player: player)
 
-        // A new transcript or a trim moves the speech without a full rebuild.
-        if compositionResult != nil, let directory = projectDirectoryURL {
-            compositionResult?.ducking = AudioDucking.envelopes(for: project, directory: directory)
-        }
-
-        // Also rebuild audio mix to pick up per-segment volume changes
-        if let compositionResult = compositionResult {
-            let audioMix = AudioMixBuilder.buildAudioMix(
-                compositionResult: compositionResult,
-                muteState: lastAudioMuteState,
-                segments: project.timeline.segments,
-                audioAdjustments: project.audioAdjustmentSpecs
-            )
-            nonisolated(unsafe) let unsafeAudioMix = audioMix
-            await MainActor.run {
-                currentItem.audioMix = unsafeAudioMix
-            }
-        }
+        // Also picks up per-segment volumes, and speech moved by a new transcript or a trim.
+        await refreshAudioLevels()
     }
 
     /// Unload the current project

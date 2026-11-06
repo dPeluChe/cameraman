@@ -367,7 +367,7 @@ enum ScoreKit {
         });
       }
 
-      /** Vinyl surface: hiss plus sparse clicks, over a whole span. */
+      /** Vinyl surface: hiss with optional `crackle` clicks, over a whole span. */
       vinyl(t, dur, { vel = 0.5, bus = this.mix, crackle = 0 } = {}) {
         this.later(t, () => {
           const end = t + dur;
