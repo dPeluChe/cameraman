@@ -144,9 +144,10 @@ sandbox (a helper launched by another app cannot inherit it). Opt in under
 Preferences → Integrations → "Built-in server (HTTP)".
 
 - `POST http://127.0.0.1:8765/mcp`, JSON-RPC, `Authorization: Bearer <token>` required.
-- The token lives in the Keychain; Preferences shows ready-to-paste snippets for Claude Code
-  and Cursor. Claude Desktop's local config is stdio-only, so it keeps using the helper binary.
-- Loopback only; `Host`/`Origin` must be loopback; 32 connections max, 10s request deadline.
+- The token lives in the Keychain; Preferences shows ready-to-paste setup per client (Claude Code,
+  Cursor, Codex CLI, and Claude Desktop through `mcp-remote`, since its local config is stdio-only).
+- Loopback only; `Host`/`Origin` must be loopback; 32 connections max, 10s to send a request.
+  The deadline ends once the request arrives, so a long tool call is not cut off.
 
 Tools carry MCP annotations: `readOnlyHint` on reads and `destructiveHint` on removals, so clients
 can skip or require confirmation. A test keeps the catalog and the dispatcher in sync.

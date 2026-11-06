@@ -99,6 +99,38 @@ final class MCPHTTPServerTests: XCTestCase {
         XCTAssertEqual(http.reject(head), 401) // no token, no body needed to decide
     }
 
+    func testSlowToolOutlivesTheRequestDeadline() async throws {
+        let slow = MCPHTTPServer(token: token, requestDeadline: 0.2) { _ in
+            try? await Task.sleep(nanoseconds: 600_000_000)
+            return Data(#"{"ok":true}"#.utf8)
+        }
+        let port = try await slow.start()
+        defer { slow.stop() }
+        var request = URLRequest(url: try XCTUnwrap(URL(string: "http://127.0.0.1:\(port)/mcp")))
+        request.httpMethod = "POST"
+        request.httpBody = Data("{}".utf8)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (data, response) = try await URLSession(configuration: .ephemeral).data(for: request)
+        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+        XCTAssertEqual(String(decoding: data, as: UTF8.self), #"{"ok":true}"#)
+    }
+
+    func testPeerThatNeverFinishesIsDropped() async throws {
+        let strict = MCPHTTPServer(token: token, requestDeadline: 0.2) { _ in nil }
+        let port = try await strict.start()
+        defer { strict.stop() }
+        var input: InputStream?, output: OutputStream?
+        Stream.getStreamsToHost(withName: "127.0.0.1", port: Int(port), inputStream: &input, outputStream: &output)
+        let reader = try XCTUnwrap(input), writer = try XCTUnwrap(output)
+        reader.open(); writer.open()
+        defer { reader.close(); writer.close() }
+        let partial = Array("POST /mcp HTTP/1.1\r\nHost: 127.0.0.1\r\n".utf8)
+        writer.write(partial, maxLength: partial.count)
+        try await Task.sleep(nanoseconds: 500_000_000)
+        var byte: UInt8 = 0
+        XCTAssertEqual(reader.read(&byte, maxLength: 1), 0, "closed by the deadline, with no reply")
+    }
+
     func testGetIs405() async throws {
         var request = URLRequest(url: base)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
