@@ -156,10 +156,10 @@ extension MCPTools {
 
     static let motionTrackName = "Motion"
 
-    /// The canvas size capped at 1080p, even sides.
+    /// The canvas size capped at 1440p, even sides: lower looks soft on wide captures.
     static func motionSize(for format: Project.Canvas.Format) -> (width: Int, height: Int) {
         let w = max(format.w, 2), h = max(format.h, 2)
-        let scale = min(1, 1920.0 / Double(w), 1920.0 / Double(h), 1080.0 / Double(min(w, h)))
+        let scale = min(1, 2560.0 / Double(max(w, h)), 1440.0 / Double(min(w, h)))
         return (max(2, Int(Double(w) * scale) / 2 * 2), max(2, Int(Double(h) * scale) / 2 * 2))
     }
 }

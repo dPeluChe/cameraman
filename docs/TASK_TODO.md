@@ -71,15 +71,13 @@ Screenshots, scrolling capture, OCR copy-text, 3D zoom angles, AI-generated asse
 - [ ] Synthetic cursor: existing recordings keep the old offset (no stored value); new ones anchor to the video start. Verify on a fresh recording.
 
 ## Motion graphics follow-ups `added: 2026-11-05`
-- [ ] **Look at it in the app.** Tests prove render → import → export blends with alpha; the editor preview uses the same builder but was not checked by eye. Add a motion with `add_motion` on a real recording and scrub it.
+- [ ] **Watch one in an export.** The preview was checked by eye on 2026-11-05; tests prove the export blends with alpha, but no real export was watched.
 - [ ] **Intermittent stale frame.** `testExplicitHfContractWins` failed once on 2026-11-05 (alpha 255 at t=0.4, as if the seek never painted) on a busy machine, then passed 12/12 alone and 10/10 with its class. Suspect `afterScreenUpdates` under load. If a render shows a frozen motion, retry the test under CPU load; waiting on `requestAnimationFrame` could stall a backgrounded render, so it needs a fallback timer.
-- [ ] **Editable motions.** A baked clip cannot change its text. Keep the template + content on the clip (`ClipContent.motion`) and re-render on edit, or an inspector panel per template.
-- [ ] **Agent loop** — a `get_motion_catalog` / `preview_motion` (one frame as an image) so the agent can check custom HTML before committing; today a wrong layout is only seen after the render.
+- [ ] **Motion catalog** — a `get_motion_catalog` so the agent can list templates and the page contract. `preview_frame` covers checking the result.
 - [ ] **Vendored runtime** — offline GSAP/Lottie bundle served from `assetsDirectory`, so custom pages need no network and stay deterministic.
 - [ ] **Camera moves / zoom from the transcript** — the same loop for `set_canvas_layout` and zoom keyframes (they exist; no tool drives them from captions yet).
 - [ ] **More templates** — callout/arrow pointing at a screen region, quote, checklist, progress bar, line chart, emoji reactions.
 - [ ] **Standalone CLI** can't render (no window server); a headless path would need `NSApplication` + a runloop in `cameraman-mcp`.
-- [ ] **Placement after the fact** — `edit_clip` has no x/y/w/h, so a motion's position is set only when it is added. Share one `MediaPosition` parser and expose it on `edit_clip` and `add_clip` (video).
 - [ ] **Pipelining** — `FrameSink` now converts and encodes off the main actor, but each frame still waits for the previous append; overlapping snapshot and encode would cut render time further.
 - [ ] **One frame writer** — `FrameSink`, `ProxyGenerator`, `LocalAIProvider` and `CaptureSessionManager` each build their own AVAssetWriter + pixel-buffer adaptor loop; extract a codec-parameterised helper.
 - [ ] **Inject the capability and the library into MCP** — `supportsMotion` is a Bool and `MCPMotionTests` points the `ProjectLibrary.shared` singleton at a scratch folder with an env var (order-dependent). Pass a renderer closure and a `ProjectLibrary` into `MCPServer`/`MCPTools` so tests use stubs and scratch libraries, and the CLI target stops linking WebKit (or split a `MotionKit` target).
