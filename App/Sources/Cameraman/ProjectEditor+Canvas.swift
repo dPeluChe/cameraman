@@ -26,10 +26,9 @@ extension ProjectEditor {
 
     @discardableResult
     func setCameraSide(onLeft: Bool) async -> Bool {
+        guard let camera = project.canvas.layout.placingCamera(onLeft: onLeft).camera else { return false }
         await clearPerClipCameraOverrides()
-        return await applyCanvasUpdate {
-            $0.canvas.layout = $0.canvas.layout.placingCamera(onLeft: onLeft)
-        }
+        return await updateCameraPosition(camera)
     }
 
     @discardableResult

@@ -13,7 +13,8 @@ import EngineKit
 class RecordingStateManager: ObservableObject {
     static let shared = RecordingStateManager()
     @Published var viewModel: RecordingControlViewModel?
-    /// Survives until the recording window appears; its view model may not exist yet.
-    var requestedTarget: ProjectId?
+    /// Project the next recording joins as a take. Lives here because the window and its
+    /// view model may not exist yet when the editor asks for a new take.
+    @Published var targetProjectId: ProjectId?
     private init() {}
 }

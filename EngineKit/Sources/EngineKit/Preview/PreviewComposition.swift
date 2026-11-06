@@ -127,9 +127,11 @@ extension PreviewEngine {
 
         // Side-by-side takes a column only while there is a camera to fill the other one.
         let cameraShown = hasCameraTrack && !cameraMuted
-        let screenFrame = cameraShown ? project.canvas.layout.screenColumn(in: renderSize) : nil
+        let layout = project.canvas.layout
+        let screenFrame = cameraShown ? layout.screenFrame(sourceSize: screenSourceSize, canvas: renderSize) : nil
+        let screenRect = CGRect(origin: .zero, size: screenSourceSize)
         let screenTransform = Project.Canvas.Layout.fit(
-            screenSourceSize, into: screenFrame ?? CGRect(origin: .zero, size: renderSize)
+            screenRect, into: screenFrame ?? CGRect(origin: .zero, size: renderSize)
         )
         screenLayerInstruction.setTransform(screenTransform, at: .zero)
 
@@ -166,6 +168,7 @@ extension PreviewEngine {
                     let clipCameraTransform = Self.cameraTransform(
                         position: clipCamera, camSourceSize: camSourceSize, renderSize: renderSize
                     )
+                    let clipFrame = layout.screenFrame(sourceSize: screenSourceSize, canvas: renderSize, camera: clipCamera)
 
                     // Use previous instruction's end as start to guarantee contiguity
                     let segStart: CMTime
@@ -188,8 +191,8 @@ extension PreviewEngine {
                         screenTrackID: screenTrackID,
                         cameraTrackID: cameraTrack.trackID,
                         renderSize: renderSize,
-                        screenTransform: screenTransform,
-                        screenFrame: screenFrame,
+                        screenTransform: clipFrame.map { Project.Canvas.Layout.fit(screenRect, into: $0) } ?? screenTransform,
+                        screenFrame: clipFrame,
                         cameraTransform: clipCameraTransform,
                         cameraRect: CGRect(x: clipCamera.x, y: clipCamera.y, width: clipCamera.w, height: clipCamera.h),
                         maskShape: clipCamera.maskShape,

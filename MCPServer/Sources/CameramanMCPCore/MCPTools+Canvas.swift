@@ -21,21 +21,19 @@ extension MCPTools {
             guard valid.contains(typeRaw) else {
                 throw MCPToolError("Unknown layout '\(typeRaw)'. Use: \(valid.joined(separator: ", ")).")
             }
-            let sideBySide = CanvasLayout.defaultLayout(for: .sideBySide)
-            let type = typeRaw == "side_by_side" ? sideBySide.type : typeRaw
             let camera: Project.Canvas.Layout.CameraPosition?
             if typeRaw == "fullscreen" {
                 camera = nil
             } else if let cameraArg = args["camera"] as? [String: Any] {
                 camera = Self.cameraPosition(from: cameraArg)
             } else if typeRaw == "side_by_side" {
-                camera = sideBySide.camera
+                camera = CanvasLayout.defaultLayout(for: .sideBySide).camera
             } else {
                 // Keep an existing camera, or default to a bottom-right PiP.
                 camera = project.canvas.layout.camera
                     ?? Project.Canvas.Layout.CameraPosition(x: 0.68, y: 0.68, w: 0.3, h: 0.3)
             }
-            project.canvas.layout = Project.Canvas.Layout(type: type, camera: camera)
+            project.canvas.layout = Project.Canvas.Layout(type: typeRaw, camera: camera)
         }
 
         if let side = args.optStr("cameraSide") {

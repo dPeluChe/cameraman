@@ -69,7 +69,8 @@ extension Project {
                 type: String,
                 camera: CameraPosition? = nil
             ) {
-                self.type = type
+                // Older MCP builds stored this spelling, which nothing else recognized.
+                self.type = type == "side_by_side" ? CanvasLayout.LayoutPreset.sideBySide.rawValue : type
                 self.camera = camera
             }
 
@@ -77,10 +78,10 @@ extension Project {
 
             public init(from decoder: Decoder) throws {
                 let container = try decoder.container(keyedBy: CodingKeys.self)
-                let raw = try container.decode(String.self, forKey: .type)
-                // Older MCP builds stored this spelling, which nothing else recognized.
-                type = raw == "side_by_side" ? Self.sideBySideType : raw
-                camera = try container.decodeIfPresent(CameraPosition.self, forKey: .camera)
+                self.init(
+                    type: try container.decode(String.self, forKey: .type),
+                    camera: try container.decodeIfPresent(CameraPosition.self, forKey: .camera)
+                )
             }
 
             /// Camera position for PiP/side-by-side

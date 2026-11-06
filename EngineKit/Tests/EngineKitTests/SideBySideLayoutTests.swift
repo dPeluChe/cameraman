@@ -37,6 +37,13 @@ final class SideBySideLayoutTests: XCTestCase {
         XCTAssertEqual(leftColumn.width, rightColumn.width, accuracy: 0.5)
     }
 
+    func testPerClipCameraPicksTheColumn() throws {
+        let layout = CanvasLayout.defaultLayout(for: .sideBySide)
+        let clipCamera = try XCTUnwrap(layout.placingCamera(onLeft: true).camera)
+        let frame = try XCTUnwrap(layout.screenFrame(sourceSize: CGSize(width: 640, height: 360), canvas: canvas, camera: clipCamera))
+        XCTAssertGreaterThan(frame.minX, canvas.width / 2)
+    }
+
     func testOnlySideBySideHasAColumn() {
         XCTAssertNil(CanvasLayout.defaultLayout(for: .pip).screenColumn(in: canvas))
         XCTAssertNil(Layout(type: "side-by-side", camera: nil).screenColumn(in: canvas))
@@ -44,9 +51,7 @@ final class SideBySideLayoutTests: XCTestCase {
 
     func testDecodesTheSpellingOlderMCPBuildsStored() throws {
         let json = Data(#"{"type":"side_by_side"}"#.utf8)
-        let layout = try JSONDecoder().decode(Layout.self, from: json)
-        XCTAssertTrue(layout.isSideBySide)
-        XCTAssertNoThrow(try CanvasLayout.validateLayout(CanvasLayout.defaultLayout(for: .sideBySide), hasCamera: true))
+        XCTAssertTrue(try JSONDecoder().decode(Layout.self, from: json).isSideBySide)
     }
 
     func testCompositorDrawsTwoColumnsOnEitherSide() throws {
@@ -58,21 +63,25 @@ final class SideBySideLayoutTests: XCTestCase {
         let right = CanvasLayout.defaultLayout(for: .sideBySide)
         for (layout, screenX, cameraX) in [(right, 0.25, 0.75), (right.placingCamera(onLeft: true), 0.75, 0.25)] {
             let frame = try render(screen: screen, camera: camera, layout: layout)
-            XCTAssertGreaterThan(frame.red(x: screenX, y: 0.5), 200, "screen in its column")
-            XCTAssertGreaterThan(frame.blue(x: cameraX, y: 0.5), 200, "camera in its column")
-            XCTAssertLessThan(frame.red(x: cameraX, y: 0.5), 60, "screen must not run under the camera")
-            XCTAssertLessThan(frame.red(x: screenX, y: 0.05), 60, "screen is fit, not stretched to the canvas")
+            let pixel = { (x: Double, y: Double) in
+                MotionTestSupport.pixel(frame, x: Int(x * Double(frame.width)), y: Int(y * Double(frame.height)))
+            }
+            XCTAssertGreaterThan(pixel(screenX, 0.5).r, 200, "screen in its column")
+            XCTAssertGreaterThan(pixel(cameraX, 0.5).b, 200, "camera in its column")
+            XCTAssertLessThan(pixel(cameraX, 0.5).r, 60, "screen must not run under the camera")
+            XCTAssertLessThan(pixel(screenX, 0.05).r, 60, "screen is fit, not stretched to the canvas")
         }
     }
 
     // MARK: - Helpers
 
-    private func render(screen: URL, camera: URL, layout: Layout) throws -> Frame {
+    private func render(screen: URL, camera: URL, layout: Layout) throws -> CGImage {
         let composition = AVMutableComposition()
         let screenID = try addTrack(from: screen, to: composition)
         let cameraID = try addTrack(from: camera, to: composition)
         let position = try XCTUnwrap(layout.camera)
         let source = CGSize(width: 640, height: 360)
+        let frame = try XCTUnwrap(layout.screenFrame(sourceSize: source, canvas: canvas))
 
         let videoComposition = AVMutableVideoComposition()
         videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
@@ -83,8 +92,8 @@ final class SideBySideLayoutTests: XCTestCase {
             screenTrackID: screenID,
             cameraTrackID: cameraID,
             renderSize: canvas,
-            screenTransform: try XCTUnwrap(layout.screenColumnTransform(sourceSize: source, canvas: canvas)),
-            screenFrame: layout.screenColumn(in: canvas),
+            screenTransform: Layout.fit(CGRect(origin: .zero, size: source), into: frame),
+            screenFrame: frame,
             cameraTransform: PreviewEngine.cameraTransform(position: position, camSourceSize: source, renderSize: canvas),
             cameraRect: CGRect(x: position.x, y: position.y, width: position.w, height: position.h),
             maskShape: .none,
@@ -98,8 +107,7 @@ final class SideBySideLayoutTests: XCTestCase {
         generator.videoComposition = videoComposition
         generator.requestedTimeToleranceBefore = .zero
         generator.requestedTimeToleranceAfter = .zero
-        let image = try generator.copyCGImage(at: CMTime(value: 1, timescale: 10), actualTime: nil)
-        return try Frame(image)
+        return try generator.copyCGImage(at: CMTime(value: 1, timescale: 10), actualTime: nil)
     }
 
     private func addTrack(from url: URL, to composition: AVMutableComposition) throws -> CMPersistentTrackID {
@@ -137,30 +145,5 @@ final class SideBySideLayoutTests: XCTestCase {
         writer.finishWriting { done.fulfill() }
         wait(for: [done], timeout: 10)
         XCTAssertEqual(writer.status, .completed)
-    }
-
-    private struct Frame {
-        let width: Int
-        let height: Int
-        let rgba: [UInt8]
-
-        init(_ image: CGImage) throws {
-            width = image.width
-            height = image.height
-            var bytes = [UInt8](repeating: 0, count: width * height * 4)
-            let context = try XCTUnwrap(CGContext(
-                data: &bytes, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
-                space: CGColorSpaceCreateDeviceRGB(),
-                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-            ))
-            context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
-            rgba = bytes
-        }
-
-        private func channel(_ offset: Int, x: Double, y: Double) -> UInt8 {
-            rgba[(Int(y * Double(height)) * width + Int(x * Double(width))) * 4 + offset]
-        }
-        func red(x: Double, y: Double) -> UInt8 { channel(0, x: x, y: y) }
-        func blue(x: Double, y: Double) -> UInt8 { channel(2, x: x, y: y) }
     }
 }

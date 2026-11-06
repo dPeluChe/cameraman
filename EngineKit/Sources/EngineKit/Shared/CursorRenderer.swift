@@ -30,26 +30,27 @@ extension MaskedVideoCompositor {
         }
 
         guard let ctx = createBGRAContext(size: renderSize) else { return finalImage }
+        let frame = instruction.screenFrame ?? CGRect(origin: .zero, size: renderSize)
         ctx.clear(CGRect(origin: .zero, size: renderSize))
 
         if config.rippleEnabled {
             let ripples = plan.activeRipples(at: request.compositionTime.seconds)
             for (mark, age) in ripples {
-                drawRipple(at: mark, age: age, in: ctx)
+                drawRipple(at: mark, age: age, frame: frame, in: ctx)
             }
         }
 
-        drawCursorDot(at: position, scale: config.scale, color: config.color, in: ctx)
+        drawCursorDot(at: position, scale: config.scale, color: config.color, frame: frame, in: ctx)
 
         guard let cgImage = ctx.makeImage() else { return finalImage }
         let cursorLayer = CIImage(cgImage: cgImage)
         return cursorLayer.composited(over: finalImage)
     }
 
-    private func drawCursorDot(at position: (x: Double, y: Double), scale: Double, color: String, in ctx: CGContext) {
+    private func drawCursorDot(at position: (x: Double, y: Double), scale: Double, color: String, frame: CGRect, in ctx: CGContext) {
         let radius = 9.0 * max(0.25, scale)
-        let cx = CGFloat(position.x) * ctx.width.cgFloat
-        let cy = CGFloat(position.y) * ctx.height.cgFloat
+        let cx = frame.minX + CGFloat(position.x) * frame.width
+        let cy = frame.minY + CGFloat(position.y) * frame.height
         let rect = CGRect(x: cx - radius, y: cy - radius, width: radius * 2, height: radius * 2)
 
         ctx.saveGState()
@@ -63,13 +64,13 @@ extension MaskedVideoCompositor {
         ctx.restoreGState()
     }
 
-    private func drawRipple(at mark: CursorClickMark, age: Double, in ctx: CGContext) {
+    private func drawRipple(at mark: CursorClickMark, age: Double, frame: CGRect, in ctx: CGContext) {
         let minRadius = 10.0
         let maxRadius = 44.0
         let radius = minRadius + (maxRadius - minRadius) * age
         let alpha = 1.0 - age
-        let cx = CGFloat(mark.x) * ctx.width.cgFloat
-        let cy = CGFloat(mark.y) * ctx.height.cgFloat
+        let cx = frame.minX + CGFloat(mark.x) * frame.width
+        let cy = frame.minY + CGFloat(mark.y) * frame.height
         let rect = CGRect(x: cx - radius, y: cy - radius, width: radius * 2, height: radius * 2)
 
         ctx.saveGState()
@@ -78,8 +79,4 @@ extension MaskedVideoCompositor {
         ctx.strokeEllipse(in: rect)
         ctx.restoreGState()
     }
-}
-
-private extension Int {
-    var cgFloat: CGFloat { CGFloat(self) }
 }

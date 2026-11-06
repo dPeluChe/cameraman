@@ -39,7 +39,6 @@ struct LayoutSelectorView: View {
                     Text("Right").tag(false)
                 }
                 .pickerStyle(.segmented)
-                .accessibilityLabel("Camera side")
             }
         }
     }
@@ -47,7 +46,10 @@ struct LayoutSelectorView: View {
     private var cameraSide: Binding<Bool> {
         Binding(
             get: { editor.project.canvas.layout.isCameraOnLeft },
-            set: { onLeft in Task { await editor.setCameraSide(onLeft: onLeft) } }
+            set: { onLeft in
+                guard onLeft != editor.project.canvas.layout.isCameraOnLeft else { return }
+                Task { await editor.setCameraSide(onLeft: onLeft) }
+            }
         )
     }
 

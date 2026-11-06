@@ -96,14 +96,6 @@ Screenshots, scrolling capture, OCR copy-text, 3D zoom angles, AI-generated asse
 - [ ] **`CrashReporter` uncaught exceptions** — the handler starts a `Task` and the process dies before it runs, so that report is likely never written; write it synchronously.
 - [ ] **`MicAudioRecorder` flags** — `isRecording`/`isPaused` are read on the real-time thread with no synchronization; use an atomic or lock-free state.
 
-## Side-by-Side follow-ups `added: 2026-11-05`
-
-The columns derive from the project camera (`Project.Canvas.Layout.screenColumn`).
-
-- [ ] Zoom focus (`MaskedVideoCompositor.applyZoom`) assumes the screen fills the canvas, so it is off inside a column. Auto-zoom is off by default.
-- [ ] Video corner radius (`applyCornerRadius`) rounds the canvas, not the column.
-- [ ] A per-clip camera on the other side does not move the screen. Choosing the side or the preset clears overrides.
-
 ## Live annotations follow-ups `added: 2026-10-21`
 - [ ] **Editable in post — evaluated 2026-10-21, not built.** The live tool bakes the drawing into the video; `LiveAnnotationLog` already records every shape with start/end times, so the data exists. Why it is not a quick conversion: project overlays scale one base box uniformly (`OverlayBaseSize` × `transform.scale`), so a drawn rectangle of any proportion, an ellipse or a pen stroke cannot be expressed; only text and fixed-ratio arrows map. Blur maps to a region `gaussianBlur` adjustment on the screen clip (exists). Path that works: a new `OverlayType.annotation` carrying `shape` + normalized `points` in `Style`, drawn by `LiveAnnotationRenderer`-style CG code in `OverlayRenderer`, `PreviewRenderer` and the export path (three renderers plus `OverlayBaseSize`, icons and names), and on a recording with the log present exclude the canvas from capture (`excludedWindowIDs`) and create one overlay per shape (blur → adjustment) in `ProjectLibrary.createProject`. Pause time is already handled by `RecordingClock`. Estimate: one PR of the size of the Elements-lane work; the editing UX (select, delete, retime, recolor) then comes from the existing Elements lane. Decide first whether baked-by-default stays and editable is a switch.
 - [ ] Verify on a real recording that the blur-behind view is captured by ScreenCaptureKit (WindowServer composites it; checked only by reasoning, not on a capture).
