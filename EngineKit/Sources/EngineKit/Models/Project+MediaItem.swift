@@ -5,6 +5,7 @@
 //  Imported media assets (audio, images) placed on the timeline.
 //
 
+import CoreGraphics
 import Foundation
 
 extension Project {

@@ -22,7 +22,8 @@ final class MotionRendererTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: url) }
         _ = try await MotionRenderer.render(html: squareHTML, to: url, options: MotionRenderOptions(width: 200, height: 100, fps: 10))
 
-        let shape = try await XCTUnwrap(VideoContentShape.measure(url: url))
+        let measured = await VideoContentShape.measure(url: url)
+        let shape = try XCTUnwrap(measured)
         XCTAssertEqual(shape.naturalSize, CGSize(width: 200, height: 100))
         XCTAssertEqual(shape.bounds.minY, 0.4, accuracy: 0.03)
         XCTAssertEqual(shape.bounds.maxY, 0.8, accuracy: 0.03)
