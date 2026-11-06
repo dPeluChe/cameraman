@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CoreGraphics
 
 extension CanvasLayout {
     /// Available layout presets
@@ -180,5 +181,49 @@ extension CanvasLayout {
                 return "Invalid background value: \(value)"
             }
         }
+    }
+}
+
+// Side-by-side columns derive from the camera, so its side and width need no extra state.
+extension Project.Canvas.Layout {
+    static let sideBySideType = "side-by-side"
+    private static let columnMargin = 0.02
+    private static let minColumnWidth = 0.1
+
+    public var isSideBySide: Bool { type == Self.sideBySideType }
+
+    public var isCameraOnLeft: Bool {
+        guard let camera else { return false }
+        return camera.x + camera.w / 2 < 0.5
+    }
+
+    public func placingCamera(onLeft: Bool) -> Self {
+        guard var moved = camera else { return self }
+        moved.x = onLeft ? Self.columnMargin : 1 - Self.columnMargin - moved.w
+        return Self(type: type, camera: moved)
+    }
+
+    /// Column the screen takes opposite the camera, in pixels. Nil outside side-by-side.
+    public func screenColumn(in canvas: CGSize) -> CGRect? {
+        guard isSideBySide, let camera else { return nil }
+        let margin = Self.columnMargin
+        let start = isCameraOnLeft ? camera.x + camera.w + margin : margin
+        let end = isCameraOnLeft ? 1 - margin : camera.x - margin
+        let width = max(end - start, Self.minColumnWidth)
+        return CGRect(x: start * canvas.width, y: 0, width: width * canvas.width, height: canvas.height)
+    }
+
+    /// Aspect-fit of the screen into its column. Nil outside side-by-side.
+    public func screenColumnTransform(sourceSize: CGSize, canvas: CGSize) -> CGAffineTransform? {
+        screenColumn(in: canvas).map { Self.fit(sourceSize, into: $0) }
+    }
+
+    static func fit(_ size: CGSize, into frame: CGRect) -> CGAffineTransform {
+        let scale = min(frame.width / size.width, frame.height / size.height)
+        return CGAffineTransform(
+            a: scale, b: 0, c: 0, d: scale,
+            tx: frame.midX - size.width * scale / 2,
+            ty: frame.midY - size.height * scale / 2
+        )
     }
 }

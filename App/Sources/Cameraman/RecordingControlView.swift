@@ -50,6 +50,7 @@ struct RecordingControlView: View {
         .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
             RecordingStateManager.shared.viewModel = viewModel
+            viewModel.targetProjectId = RecordingStateManager.shared.requestedTarget
             Task { await viewModel.refreshPermissions() }
             Task { await sourceViewModel.loadSources(for: .display) }
         }
@@ -66,6 +67,11 @@ struct RecordingControlView: View {
         }
         .onDisappear {
             TeleprompterWindowController.shared.hide()
+            // Closing without recording must not send the next New Recording into that project.
+            if !viewModel.isRecording && countdownValue == nil {
+                RecordingStateManager.shared.requestedTarget = nil
+                viewModel.targetProjectId = nil
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .openProject)) { _ in
             // Window scene is single-instance: openWindow brings existing to front or recreates it
@@ -337,7 +343,7 @@ struct RecordingControlView: View {
     private var hotkeyHints: some View {
         HStack(spacing: 12) {
             hotkeyBadge("Shift+Cmd+R", "Start")
-            hotkeyBadge("Esc", "Stop")
+            hotkeyBadge("Shift+Cmd+Esc", "Stop")
             hotkeyBadge("Shift+Cmd+Space", "Pause")
         }
         .frame(maxWidth: .infinity)

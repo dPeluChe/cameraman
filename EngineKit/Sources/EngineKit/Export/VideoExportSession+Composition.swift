@@ -193,7 +193,12 @@ extension ExportEngine {
         )
         logger.debug("Source size: \(primarySources.screen.size.w)x\(primarySources.screen.size.h)")
 
-        let transform = calculateDownscaleTransform(
+        // Side-by-side takes a column only while there is a camera to fill the other one.
+        let cameraShown = !cameraMuted && cameraTrack != nil
+        let columnTransform = cameraShown
+            ? project.canvas.layout.screenColumnTransform(sourceSize: sourceSize, canvas: videoComposition.renderSize)
+            : nil
+        let transform = columnTransform ?? calculateDownscaleTransform(
             from: sourceSize,
             to: videoComposition.renderSize,
             contentMode: project.canvas.background.fitMode ?? "fill"
@@ -310,6 +315,7 @@ extension ExportEngine {
             cameraTrackID: cameraTrackID,
             renderSize: videoComposition.renderSize,
             screenTransform: screenTransform,
+            screenFrame: cameraTrackID == nil ? nil : project.canvas.layout.screenColumn(in: videoComposition.renderSize),
             cameraTransform: cameraTransform,
             cameraRect: nil,
             maskShape: .none,
@@ -379,6 +385,7 @@ extension ExportEngine {
                 cameraTrackID: cameraTrack.trackID,
                 renderSize: videoComposition.renderSize,
                 screenTransform: screenTransform,
+                screenFrame: project.canvas.layout.screenColumn(in: videoComposition.renderSize),
                 cameraTransform: segCameraTransform,
                 cameraRect: CGRect(x: segCamera.x, y: segCamera.y, width: segCamera.w, height: segCamera.h),
                 maskShape: segCamera.maskShape,

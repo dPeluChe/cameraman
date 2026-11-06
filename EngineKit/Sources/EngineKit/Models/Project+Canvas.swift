@@ -73,6 +73,16 @@ extension Project {
                 self.camera = camera
             }
 
+            private enum CodingKeys: String, CodingKey { case type, camera }
+
+            public init(from decoder: Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                let raw = try container.decode(String.self, forKey: .type)
+                // Older MCP builds stored this spelling, which nothing else recognized.
+                type = raw == "side_by_side" ? Self.sideBySideType : raw
+                camera = try container.decodeIfPresent(CameraPosition.self, forKey: .camera)
+            }
+
             /// Camera position for PiP/side-by-side
             public struct CameraPosition: Codable, Equatable, Sendable {
                 public var x: Double

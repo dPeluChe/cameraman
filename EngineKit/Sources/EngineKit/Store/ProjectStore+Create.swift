@@ -260,6 +260,17 @@ extension ProjectStore {
         )
 
         project.takes.append(take)
+
+        // A take nobody can see is a lost recording: land it at the end of the timeline.
+        let editor = EditorModel(project: project)
+        _ = await editor.addSegment(
+            takeId: takeId,
+            sourceIn: 0,
+            sourceOut: recordingResult.duration,
+            timelineIn: project.timeline.duration
+        )
+        project = await editor.getProject()
+
         try await saveProject(project)
         return take
     }

@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > to `[0.7.1] - <date>` when the batch is built, signed and notarized.
 
 ### Added
+- **Camera side in Side-by-Side** — choose left or right in the layout section, or with `cameraSide` in the MCP tool `set_canvas_layout`.
 - **One MCP setup flow** (Settings → Developer) — allow connections first, then pick your client; Claude Code, Cursor, Codex CLI and Claude Desktop all connect to the in-app server. The standalone binary moved under Advanced, because it cannot place motion graphics.
 - **Motion graphics from the agent** — new MCP tool `add_motion` (in-app server): a name card, title, counting stat
   or bar chart, or any custom HTML animation, rendered to a transparent video and placed over the footage as a clip
@@ -128,6 +129,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the new landing repo.
 
 ### Fixed
+- **Side-by-Side is now two columns** — the screen shrinks into the column opposite the camera in preview and export, instead of the camera sitting on top of it.
+- **Esc no longer stops a recording** — it leaves the drawing tool and returns to the mouse, keeping what you drew. Stop moved to Shift+Cmd+Esc, and Cameraman no longer takes Esc from other apps. **Changed shortcut.**
+- **New takes appear in the project** — a take recorded into a project lands at the end of its timeline instead of staying only in the Takes list, and closing the recording window no longer sends the next recording into that project.
 - **Recording kept "recording" after the system stopped it** — if the display disconnected or Screen Recording
   permission was revoked, the app wrote a truncated file and said nothing. It now saves what was captured and shows
   why it stopped; a failed finish no longer blocks the next recording until restart.

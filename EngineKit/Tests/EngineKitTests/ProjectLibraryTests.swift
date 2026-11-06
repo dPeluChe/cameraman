@@ -72,6 +72,31 @@ final class ProjectLibraryTests: XCTestCase {
         return projectIds
     }
 
+    // MARK: - Takes
+
+    func testAddTakeLandsAtTheEndOfTheTimeline() async throws {
+        let projectId = try await createMockProject(name: "Takes", tags: [], duration: 10)
+        let screenPath = tempDirectory.appendingPathComponent("take2_\(UUID().uuidString).mov")
+        FileManager.default.createFile(atPath: screenPath.path, contents: Data())
+        let result = Recorder.RecordingResult(
+            session: Recorder.RecordingSession(),
+            screenVideoPath: screenPath, systemAudioPath: nil, cameraVideoPath: nil, micAudioPath: nil,
+            telemetryPath: nil, duration: 5,
+            syncMetadata: Recorder.SyncMetadata(cameraSyncOffsetMs: 0, micAudioSyncOffsetMs: 0, systemAudioSyncOffsetMs: 0, syncReference: "screen"),
+            startTime: Date(), endTime: Date().addingTimeInterval(5)
+        )
+
+        let take = try await store.addTake(projectId: projectId, recordingResult: result)
+
+        let project = try await store.loadProject(projectId: projectId)
+        let last = try XCTUnwrap(project.timeline.segments.last)
+        XCTAssertEqual(project.timeline.segments.count, 2)
+        XCTAssertEqual(last.takeId, take.id)
+        XCTAssertEqual(last.timelineIn, 10, accuracy: 0.001)
+        XCTAssertEqual(last.sourceOut, 5, accuracy: 0.001)
+        XCTAssertEqual(project.timeline.duration, 15, accuracy: 0.001)
+    }
+
     // MARK: - Basic List Projects Tests
 
     func testListProjects_WithNoProjects_ReturnsEmpty() async throws {

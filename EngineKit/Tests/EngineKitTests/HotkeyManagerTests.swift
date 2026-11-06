@@ -50,7 +50,7 @@ final class HotkeyManagerTests: XCTestCase {
     func testDefaultStopRecordingHotkey() throws {
         let hotkey = HotkeyManager.Hotkey.defaultStopRecording
         XCTAssertEqual(hotkey.keyCode, HotkeyManager.Hotkey.escapeKey)
-        XCTAssertEqual(hotkey.modifiers, 0)
+        XCTAssertNotEqual(hotkey.modifiers, 0, "A bare Esc is taken system-wide")
         XCTAssertEqual(hotkey.action, .stopRecording)
     }
 

@@ -45,7 +45,7 @@ final class LiveAnnotationController: ObservableObject {
 
         var title: String {
             switch self {
-            case .pointer: return "Mouse (click through)"
+            case .pointer: return "Mouse: use the desktop (Esc)"
             case .laser: return "Laser pointer"
             case .pen: return "Pen"
             case .arrow: return "Arrow"

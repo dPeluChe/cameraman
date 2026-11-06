@@ -71,7 +71,7 @@ struct ProfessionalRecordingIndicatorView: View {
                         .shadow(radius: 2)
                 }
                 .buttonStyle(.plain)
-                .help("Stop Recording (Esc)")
+                .help("Stop Recording (Shift+Cmd+Esc)")
             }
 
             if menuBarManager.isRecording {
@@ -134,7 +134,7 @@ struct ProfessionalRecordingIndicatorView: View {
                     .fontWeight(.semibold)
                     .foregroundStyle(.white.opacity(0.9))
 
-                shortcutRow(icon: "stop.circle", text: "Stop", shortcut: "Esc")
+                shortcutRow(icon: "stop.circle", text: "Stop", shortcut: "Shift+Cmd Esc")
                 shortcutRow(icon: menuBarManager.isPaused ? "play.circle" : "pause.circle", text: menuBarManager.isPaused ? "Resume" : "Pause", shortcut: "Shift+Cmd Space")
                 shortcutRow(icon: "video.slash", text: "Toggle Camera", shortcut: "Shift+Cmd C")
                 shortcutRow(icon: "mic.slash", text: "Toggle Mic", shortcut: "Shift+Cmd M")

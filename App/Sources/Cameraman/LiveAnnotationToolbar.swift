@@ -45,6 +45,13 @@ struct LiveAnnotationToolbar: View {
             divider
             iconButton("arrow.uturn.backward", help: "Undo (⌘Z)") { controller.undo() }
             iconButton("trash", help: "Clear all") { controller.clear() }
+            if controller.tool != .pointer {
+                divider
+                Text("Esc: back to mouse")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize()
+            }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)

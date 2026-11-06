@@ -125,45 +125,110 @@ extension PreviewEngine {
             return videoComposition
         }
 
-        if layoutType == "sideBySide" && hasCameraTrack && !cameraMuted {
-            // Side-by-Side: screen on left 50%, camera on right 50%
-            let halfWidth = renderSize.width / 2
+        // Side-by-side takes a column only while there is a camera to fill the other one.
+        let cameraShown = hasCameraTrack && !cameraMuted
+        let screenFrame = cameraShown ? project.canvas.layout.screenColumn(in: renderSize) : nil
+        let screenTransform = Project.Canvas.Layout.fit(
+            screenSourceSize, into: screenFrame ?? CGRect(origin: .zero, size: renderSize)
+        )
+        screenLayerInstruction.setTransform(screenTransform, at: .zero)
 
-            // Screen fills left half
-            let screenScale = min(halfWidth / screenSourceSize.width, renderSize.height / screenSourceSize.height)
-            let screenScaledW = screenSourceSize.width * screenScale
-            let screenScaledH = screenSourceSize.height * screenScale
-            let screenOffX = (halfWidth - screenScaledW) / 2
-            let screenOffY = (renderSize.height - screenScaledH) / 2
-
-            var screenTransform = CGAffineTransform.identity
-            screenTransform = screenTransform.translatedBy(x: screenOffX, y: screenOffY)
-            screenTransform = screenTransform.scaledBy(x: screenScale, y: screenScale)
-            screenLayerInstruction.setTransform(screenTransform, at: .zero)
-
-            // Camera fills right half
+        // PiP camera overlay (skip if camera is muted)
+        if cameraShown, let defaultCamera = project.canvas.layout.camera {
             let cameraTrack = videoTracks[1]
-            let cameraLayerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: cameraTrack)
             let camNatural = cameraTrack.naturalSize
             let camSourceSize = CoreFoundation.CGSize(
                 width: camNatural.width > 0 ? camNatural.width : 1280,
                 height: camNatural.height > 0 ? camNatural.height : 720
             )
 
-            let camScale = min(halfWidth / camSourceSize.width, renderSize.height / camSourceSize.height)
-            let camScaledW = camSourceSize.width * camScale
-            let camScaledH = camSourceSize.height * camScale
-            let camOffX = halfWidth + (halfWidth - camScaledW) / 2
-            let camOffY = (renderSize.height - camScaledH) / 2
+            // Check if any clip in primary track has a per-clip camera override
+            let primaryClips = project.timeline.primaryTrack?.clips ?? []
+            let hasPerClipCamera = primaryClips.contains { clip in
+                if case .recording(let ref) = clip.content { return ref.cameraPosition != nil }
+                return false
+            }
 
-            var cameraTransform = CGAffineTransform.identity
-            cameraTransform = cameraTransform.translatedBy(x: camOffX, y: camOffY)
-            cameraTransform = cameraTransform.scaledBy(x: camScale, y: camScale)
+            if hasPerClipCamera || defaultCamera.maskShape != .none || project.hasCameraEffects {
+                // Use custom compositor with per-clip instructions
+                var maskedInstructions: [MaskedVideoCompositionInstruction] = []
+                let totalDuration = composition.duration
+                let overlayConfigs = activeOverlayConfigs
+
+                for (i, clip) in primaryClips.enumerated() {
+                    // For non-recording clips, use default camera
+                    let clipCamera: Project.Canvas.Layout.CameraPosition
+                    if case .recording(let ref) = clip.content {
+                        clipCamera = ref.cameraPosition ?? defaultCamera
+                    } else {
+                        clipCamera = defaultCamera
+                    }
+                    let clipCameraTransform = Self.cameraTransform(
+                        position: clipCamera, camSourceSize: camSourceSize, renderSize: renderSize
+                    )
+
+                    // Use previous instruction's end as start to guarantee contiguity
+                    let segStart: CMTime
+                    if let prev = maskedInstructions.last {
+                        segStart = CMTimeRangeGetEnd(prev.timeRange)
+                    } else {
+                        segStart = .zero
+                    }
+                    // Last clip extends to composition end to avoid gaps
+                    let segEnd: CMTime
+                    if i == primaryClips.count - 1 {
+                        segEnd = totalDuration
+                    } else {
+                        segEnd = CMTime(seconds: clip.timelineOut, preferredTimescale: 600)
+                    }
+                    let segDuration = CMTimeSubtract(segEnd, segStart)
+
+                    maskedInstructions.append(MaskedVideoCompositionInstruction(
+                        timeRange: CMTimeRangeMake(start: segStart, duration: segDuration),
+                        screenTrackID: screenTrackID,
+                        cameraTrackID: cameraTrack.trackID,
+                        renderSize: renderSize,
+                        screenTransform: screenTransform,
+                        screenFrame: screenFrame,
+                        cameraTransform: clipCameraTransform,
+                        cameraRect: CGRect(x: clipCamera.x, y: clipCamera.y, width: clipCamera.w, height: clipCamera.h),
+                        maskShape: clipCamera.maskShape,
+                        cornerRadius: CGFloat(clipCamera.cornerRadius),
+                        layoutType: layoutType,
+                        videoCornerRadius: CGFloat(project.canvas.videoCornerRadius),
+                        videoShadowIntensity: CGFloat(project.canvas.videoShadowIntensity),
+                        padding: CGFloat(project.canvas.padding),
+                        backgroundType: project.canvas.background.type,
+                        backgroundValue: project.canvas.background.value,
+                        cameraBorderWidth: CGFloat(clipCamera.borderWidth),
+                        cameraBorderColor: clipCamera.borderColor,
+                        overlays: overlayConfigs,
+                        adjustments: project.adjustmentConfigs,
+                        zoomPlan: self.zoomPlan,
+                        videoOverlays: videoOverlays,
+                        cursorPlan: self.cursorPlan,
+                        cursorConfig: project.syntheticCursor,
+                        cameraLayer: .preview(project, projectDirectory: projectDirectoryURL)
+                    ))
+                }
+
+                videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
+                videoComposition.instructions = maskedInstructions
+                // Note: no log here — buildVideoComposition runs on every PiP drag
+                // tick during live preview and floods the console (hundreds of
+                // identical entries per second). Export side has its own log.
+                return videoComposition
+            }
+
+            // Standard PiP (no mask, no per-segment camera)
+            let cameraTransform = Self.cameraTransform(
+                position: defaultCamera, camSourceSize: camSourceSize, renderSize: renderSize
+            )
+            let cameraLayerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: cameraTrack)
             cameraLayerInstruction.setTransform(cameraTransform, at: .zero)
-
             instruction.layerInstructions = [cameraLayerInstruction, screenLayerInstruction]
 
-            // If there are overlays, use the custom compositor
+            // If there are overlays, use the custom compositor so they render during playback
             if needsCompositor {
                 let overlayConfigs = activeOverlayConfigs
                 let maskedInstruction = MaskedVideoCompositionInstruction(
@@ -172,11 +237,49 @@ extension PreviewEngine {
                     cameraTrackID: cameraTrack.trackID,
                     renderSize: renderSize,
                     screenTransform: screenTransform,
+                    screenFrame: screenFrame,
                     cameraTransform: cameraTransform,
+                    cameraRect: nil,
+                    maskShape: defaultCamera.maskShape,
+                    cornerRadius: CGFloat(defaultCamera.cornerRadius),
+                    layoutType: layoutType,
+                    screenMuted: screenMuted,
+                    videoCornerRadius: CGFloat(project.canvas.videoCornerRadius),
+                    videoShadowIntensity: CGFloat(project.canvas.videoShadowIntensity),
+                    padding: CGFloat(project.canvas.padding),
+                    backgroundType: project.canvas.background.type,
+                    backgroundValue: project.canvas.background.value,
+                    cameraBorderWidth: CGFloat(defaultCamera.borderWidth),
+                    cameraBorderColor: defaultCamera.borderColor,
+                    overlays: overlayConfigs,
+                    adjustments: project.adjustmentConfigs,
+                    zoomPlan: self.zoomPlan,
+                    videoOverlays: videoOverlays,
+                    cursorPlan: self.cursorPlan,
+                    cursorConfig: project.syntheticCursor,
+                    cameraLayer: .preview(project, projectDirectory: projectDirectoryURL)
+                )
+                videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
+                videoComposition.instructions = [maskedInstruction]
+                return videoComposition
+            }
+        } else {
+            instruction.layerInstructions = [screenLayerInstruction]
+
+            // If there are overlays but no camera, use custom compositor
+            if needsCompositor {
+                let overlayConfigs = activeOverlayConfigs
+                let maskedInstruction = MaskedVideoCompositionInstruction(
+                    timeRange: instruction.timeRange,
+                    screenTrackID: screenTrackID,
+                    cameraTrackID: nil,
+                    renderSize: renderSize,
+                    screenTransform: screenTransform,
+                    cameraTransform: nil,
                     cameraRect: nil,
                     maskShape: .none,
                     cornerRadius: 0,
-                    layoutType: "sideBySide",
+                    layoutType: layoutType,
                     screenMuted: screenMuted,
                     videoCornerRadius: CGFloat(project.canvas.videoCornerRadius),
                     videoShadowIntensity: CGFloat(project.canvas.videoShadowIntensity),
@@ -197,186 +300,7 @@ extension PreviewEngine {
                 videoComposition.instructions = [maskedInstruction]
                 return videoComposition
             }
-
-        } else {
-            // Default / PiP / Fullscreen: screen fills canvas
-            let scale = min(renderSize.width / screenSourceSize.width, renderSize.height / screenSourceSize.height)
-            let offsetX = (renderSize.width - screenSourceSize.width * scale) / 2
-            let offsetY = (renderSize.height - screenSourceSize.height * scale) / 2
-
-            var screenTransform = CGAffineTransform.identity
-            screenTransform = screenTransform.translatedBy(x: offsetX, y: offsetY)
-            screenTransform = screenTransform.scaledBy(x: scale, y: scale)
-            screenLayerInstruction.setTransform(screenTransform, at: .zero)
-
-            // PiP camera overlay (skip if camera is muted)
-            if hasCameraTrack && !cameraMuted, let defaultCamera = project.canvas.layout.camera {
-                let cameraTrack = videoTracks[1]
-                let camNatural = cameraTrack.naturalSize
-                let camSourceSize = CoreFoundation.CGSize(
-                    width: camNatural.width > 0 ? camNatural.width : 1280,
-                    height: camNatural.height > 0 ? camNatural.height : 720
-                )
-
-                // Check if any clip in primary track has a per-clip camera override
-                let primaryClips = project.timeline.primaryTrack?.clips ?? []
-                let hasPerClipCamera = primaryClips.contains { clip in
-                    if case .recording(let ref) = clip.content { return ref.cameraPosition != nil }
-                    return false
-                }
-
-                if hasPerClipCamera || defaultCamera.maskShape != .none || project.hasCameraEffects {
-                    // Use custom compositor with per-clip instructions
-                    var maskedInstructions: [MaskedVideoCompositionInstruction] = []
-                    let totalDuration = composition.duration
-                    let overlayConfigs = activeOverlayConfigs
-
-                    for (i, clip) in primaryClips.enumerated() {
-                        // For non-recording clips, use default camera
-                        let clipCamera: Project.Canvas.Layout.CameraPosition
-                        if case .recording(let ref) = clip.content {
-                            clipCamera = ref.cameraPosition ?? defaultCamera
-                        } else {
-                            clipCamera = defaultCamera
-                        }
-                        let clipCameraTransform = Self.cameraTransform(
-                            position: clipCamera, camSourceSize: camSourceSize, renderSize: renderSize
-                        )
-
-                        // Use previous instruction's end as start to guarantee contiguity
-                        let segStart: CMTime
-                        if let prev = maskedInstructions.last {
-                            segStart = CMTimeRangeGetEnd(prev.timeRange)
-                        } else {
-                            segStart = .zero
-                        }
-                        // Last clip extends to composition end to avoid gaps
-                        let segEnd: CMTime
-                        if i == primaryClips.count - 1 {
-                            segEnd = totalDuration
-                        } else {
-                            segEnd = CMTime(seconds: clip.timelineOut, preferredTimescale: 600)
-                        }
-                        let segDuration = CMTimeSubtract(segEnd, segStart)
-
-                        maskedInstructions.append(MaskedVideoCompositionInstruction(
-                            timeRange: CMTimeRangeMake(start: segStart, duration: segDuration),
-                            screenTrackID: screenTrackID,
-                            cameraTrackID: cameraTrack.trackID,
-                            renderSize: renderSize,
-                            screenTransform: screenTransform,
-                            cameraTransform: clipCameraTransform,
-                            cameraRect: CGRect(x: clipCamera.x, y: clipCamera.y, width: clipCamera.w, height: clipCamera.h),
-                            maskShape: clipCamera.maskShape,
-                            cornerRadius: CGFloat(clipCamera.cornerRadius),
-                            layoutType: layoutType,
-                            videoCornerRadius: CGFloat(project.canvas.videoCornerRadius),
-                            videoShadowIntensity: CGFloat(project.canvas.videoShadowIntensity),
-                            padding: CGFloat(project.canvas.padding),
-                            backgroundType: project.canvas.background.type,
-                            backgroundValue: project.canvas.background.value,
-                            cameraBorderWidth: CGFloat(clipCamera.borderWidth),
-                            cameraBorderColor: clipCamera.borderColor,
-                            overlays: overlayConfigs,
-                            adjustments: project.adjustmentConfigs,
-                            zoomPlan: self.zoomPlan,
-                            videoOverlays: videoOverlays,
-                            cursorPlan: self.cursorPlan,
-                            cursorConfig: project.syntheticCursor,
-                            cameraLayer: .preview(project, projectDirectory: projectDirectoryURL)
-                        ))
-                    }
-
-                    videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
-                    videoComposition.instructions = maskedInstructions
-                    // Note: no log here — buildVideoComposition runs on every PiP drag
-                    // tick during live preview and floods the console (hundreds of
-                    // identical entries per second). Export side has its own log.
-                    return videoComposition
-                }
-
-                // Standard PiP (no mask, no per-segment camera)
-                let cameraTransform = Self.cameraTransform(
-                    position: defaultCamera, camSourceSize: camSourceSize, renderSize: renderSize
-                )
-                let cameraLayerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: cameraTrack)
-                cameraLayerInstruction.setTransform(cameraTransform, at: .zero)
-                instruction.layerInstructions = [cameraLayerInstruction, screenLayerInstruction]
-
-                // If there are overlays, use the custom compositor so they render during playback
-                if needsCompositor {
-                    let overlayConfigs = activeOverlayConfigs
-                    let maskedInstruction = MaskedVideoCompositionInstruction(
-                        timeRange: instruction.timeRange,
-                        screenTrackID: screenTrackID,
-                        cameraTrackID: cameraTrack.trackID,
-                        renderSize: renderSize,
-                        screenTransform: screenTransform,
-                        cameraTransform: cameraTransform,
-                        cameraRect: nil,
-                        maskShape: defaultCamera.maskShape,
-                        cornerRadius: CGFloat(defaultCamera.cornerRadius),
-                        layoutType: layoutType,
-                        screenMuted: screenMuted,
-                        videoCornerRadius: CGFloat(project.canvas.videoCornerRadius),
-                        videoShadowIntensity: CGFloat(project.canvas.videoShadowIntensity),
-                        padding: CGFloat(project.canvas.padding),
-                        backgroundType: project.canvas.background.type,
-                        backgroundValue: project.canvas.background.value,
-                        cameraBorderWidth: CGFloat(defaultCamera.borderWidth),
-                        cameraBorderColor: defaultCamera.borderColor,
-                        overlays: overlayConfigs,
-                        adjustments: project.adjustmentConfigs,
-                        zoomPlan: self.zoomPlan,
-                        videoOverlays: videoOverlays,
-                        cursorPlan: self.cursorPlan,
-                        cursorConfig: project.syntheticCursor,
-                        cameraLayer: .preview(project, projectDirectory: projectDirectoryURL)
-                    )
-                    videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
-                    videoComposition.instructions = [maskedInstruction]
-                    return videoComposition
-                }
-            } else {
-                instruction.layerInstructions = [screenLayerInstruction]
-
-                // If there are overlays but no camera, use custom compositor
-                if needsCompositor {
-                    let overlayConfigs = activeOverlayConfigs
-                    let maskedInstruction = MaskedVideoCompositionInstruction(
-                        timeRange: instruction.timeRange,
-                        screenTrackID: screenTrackID,
-                        cameraTrackID: nil,
-                        renderSize: renderSize,
-                        screenTransform: screenTransform,
-                        cameraTransform: nil,
-                        cameraRect: nil,
-                        maskShape: .none,
-                        cornerRadius: 0,
-                        layoutType: layoutType,
-                        screenMuted: screenMuted,
-                        videoCornerRadius: CGFloat(project.canvas.videoCornerRadius),
-                        videoShadowIntensity: CGFloat(project.canvas.videoShadowIntensity),
-                        padding: CGFloat(project.canvas.padding),
-                        backgroundType: project.canvas.background.type,
-                        backgroundValue: project.canvas.background.value,
-                        cameraBorderWidth: 0,
-                        cameraBorderColor: "#FFFFFF",
-                        overlays: overlayConfigs,
-                        adjustments: project.adjustmentConfigs,
-                        zoomPlan: self.zoomPlan,
-                        videoOverlays: videoOverlays,
-                        cursorPlan: self.cursorPlan,
-                        cursorConfig: project.syntheticCursor,
-                        cameraLayer: .preview(project, projectDirectory: projectDirectoryURL)
-                    )
-                    videoComposition.customVideoCompositorClass = MaskedVideoCompositor.self
-                    videoComposition.instructions = [maskedInstruction]
-                    return videoComposition
-                }
-            }
         }
-
         // If there are static clips (image/color), delegate to extension
         if !staticClips.isEmpty {
             let allInstructions = buildStaticClipInstructions(

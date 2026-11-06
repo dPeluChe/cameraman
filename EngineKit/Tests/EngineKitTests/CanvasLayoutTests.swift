@@ -210,10 +210,10 @@ final class CanvasLayoutTests: XCTestCase {
             canvasHeight: 1080
         )
 
-        XCTAssertEqual(frame.minX, 10, accuracy: 0.1) // Padding
-        XCTAssertEqual(frame.minY, 10, accuracy: 0.1) // Padding
-        XCTAssertEqual(frame.width, 940.8, accuracy: 0.1) // 49% of 1920
-        XCTAssertEqual(frame.height, 1060, accuracy: 0.1) // 1080 - 2*padding
+        XCTAssertEqual(frame.minX, 38.4, accuracy: 0.1) // 2% margin
+        XCTAssertEqual(frame.minY, 0, accuracy: 0.1)
+        XCTAssertEqual(frame.width, 902.4, accuracy: 0.1) // 47% of 1920
+        XCTAssertEqual(frame.height, 1080, accuracy: 0.1)
     }
 
     func testCalculateScreenFrameForFullscreen() {
