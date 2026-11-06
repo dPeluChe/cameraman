@@ -17,7 +17,7 @@ extension MCPTools {
         let volume = args.optNum("volume") ?? MusicSource.defaultVolume
         guard (0...1).contains(volume) else { throw MCPToolError("'volume' must be between 0 and 1.") }
         let ducking = args.optNum("ducking") ?? MusicSource.defaultDucking
-        guard (0...1).contains(ducking) else { throw MCPToolError("'ducking' must be between 0 and 1.") }
+        if let error = EditorValidation.validateUnitValue(ducking, field: "ducking") { throw MCPToolError(error.localizedDescription) }
         let project = try await loadProject(args)
         let remaining = project.timeline.duration - at
         guard let length = args.optNum("duration") ?? (remaining > 0 ? min(remaining, MusicRenderer.maxDuration) : nil) else {
@@ -32,14 +32,14 @@ extension MCPTools {
             let updated = try await mutate(args) { editor in
                 let track = await editor.freeTrack(.audio, named: MusicSource.trackName, from: at, to: at + seconds)
                 let result = await editor.addAudioClip(path: "assets/\(file.lastPathComponent)", duration: seconds, at: at,
-                                                       trackName: MusicSource.trackName, volume: volume, onTrack: track)
-                guard case .successWithInfo(_, let info) = result else { return result }
-                added = info
-                guard track == nil, case .clipAdded(_, let trackId) = info else { return result }
-                return await editor.setTrackDucking(trackId: trackId, level: ducking)
+                                                       trackName: MusicSource.trackName, volume: volume, onTrack: track,
+                                                       duckingOnNewTrack: ducking)
+                if case .successWithInfo(_, let info) = result { added = info }
+                return result
             }
             var extra = Self.clipIds(added)
-            extra["speechDucking"] = FileManager.default.fileExists(atPath: directory.appendingPathComponent("transcript/transcript.json").path)
+            let envelopes = AudioDucking.envelopes(for: updated, directory: directory)
+            extra["speechDucking"] = (extra["clipId"] as? String).map { envelopes[$0] != nil } ?? false
             return try summary("Added music (\(String(format: "%.1f", seconds))s) at \(at)s", updated, extra: extra)
         }
     }

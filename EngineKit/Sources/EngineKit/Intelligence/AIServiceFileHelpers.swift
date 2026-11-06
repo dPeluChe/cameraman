@@ -29,7 +29,7 @@ extension AIService {
 
     func getTranscriptPath(for projectId: ProjectId) -> URL {
         let projectDir = getProjectDirectory(for: projectId)
-        return projectDir.appendingPathComponent("transcript/transcript.json")
+        return projectDir.appendingPathComponent(TranscriptionEngine.Transcript.relativePath)
     }
 
     /// File holding one suggestion job's result (silence and chapters used to overwrite a shared file).

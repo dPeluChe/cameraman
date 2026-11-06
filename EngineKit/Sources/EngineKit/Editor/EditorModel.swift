@@ -151,17 +151,21 @@ public actor EditorModel {
         return .success(project)
     }
 
-    /// Draw a video track under or over the camera
-    /// `level` 1 or nil turns ducking off.
-    public func setTrackDucking(trackId: UUID, level: Double?) -> EditorResult {
+    /// `level` 1 turns ducking off. Embedded video audio can be the speech itself, so only audio tracks duck.
+    public func setTrackDucking(trackId: UUID, level: Double) -> EditorResult {
         guard let index = project.timeline.tracks.firstIndex(where: { $0.id == trackId }) else {
             return .failure(.trackNotFound(trackId.uuidString))
         }
+        guard project.timeline.tracks[index].type == .audio else {
+            return .failure(.invalidTrackType(expected: "audio", got: project.timeline.tracks[index].type.rawValue))
+        }
+        if let error = EditorValidation.validateUnitValue(level, field: "ducking") { return .failure(error) }
         project.timeline.tracks[index].duckingLevel = level == 1 ? nil : level
         project.updatedAt = Date()
         return .success(project)
     }
 
+    /// Draw a video track under or over the camera
     public func setTrackBelowCamera(trackId: UUID, belowCamera: Bool) -> EditorResult {
         guard let index = project.timeline.tracks.firstIndex(where: { $0.id == trackId }) else {
             return .failure(.trackNotFound(trackId.uuidString))

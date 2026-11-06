@@ -49,6 +49,19 @@ final class ProjectStoreBundleTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: bundle.appendingPathComponent("renders").path))
     }
 
+    func testExportBundle_keepsTheTranscriptButNotItsAudio() async throws {
+        let projectId = try await makeProjectWithMedia(name: "Spoken")
+        let transcripts = try await sut.projectDirectoryURL(for: projectId).appendingPathComponent("transcript", isDirectory: true)
+        try FileManager.default.createDirectory(at: transcripts, withIntermediateDirectories: true)
+        try Data("{}".utf8).write(to: transcripts.appendingPathComponent("transcript.json"))
+        try Data("wav".utf8).write(to: transcripts.appendingPathComponent("audio.wav"))
+
+        let bundle = try await sut.exportProjectBundle(projectId: projectId, to: tempDirectory)
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: bundle.appendingPathComponent("transcript/transcript.json").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: bundle.appendingPathComponent("transcript/audio.wav").path))
+    }
+
     func testImportBundle_createsNewProjectWithFreshId() async throws {
         let projectId = try await makeProjectWithMedia(name: "Demo")
         let exportDir = tempDirectory.appendingPathComponent("exports", isDirectory: true)

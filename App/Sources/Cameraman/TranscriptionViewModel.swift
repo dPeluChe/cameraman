@@ -59,9 +59,7 @@ final class TranscriptionViewModel: ObservableObject {
     private func loadExistingTranscript(projectId: ProjectId) async {
         do {
             let dir = try await ProjectLibrary.shared.getProjectDirectory(projectId: projectId)
-            let url = dir.appendingPathComponent("transcript/transcript.json")
-            let data = try Data(contentsOf: url)
-            transcript = try JSONDecoder().decode(TranscriptionEngine.Transcript.self, from: data)
+            transcript = try TranscriptionEngine.Transcript.load(fromProject: dir)
             transcriptionState = .completed
         } catch {
             LogDebug(.transcription, "No existing transcript to load: \(error.localizedDescription)")
@@ -95,9 +93,7 @@ final class TranscriptionViewModel: ObservableObject {
             try await pollJob(jobId: jobId, jobQueue: jobQueue)
 
             let dir = try await ProjectLibrary.shared.getProjectDirectory(projectId: project.projectId)
-            let transcriptURL = dir.appendingPathComponent("transcript/transcript.json")
-            let data = try Data(contentsOf: transcriptURL)
-            transcript = try JSONDecoder().decode(TranscriptionEngine.Transcript.self, from: data)
+            transcript = try TranscriptionEngine.Transcript.load(fromProject: dir)
 
             transcriptionProgress = 1
             transcriptionState = .completed

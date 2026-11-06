@@ -67,8 +67,10 @@ below 120 Hz. Output is levelled to the same loudness, so `volume` on the clip m
 A Music track drops under speech, to half its volume by default. `duckingLevel` on the track is the only thing stored:
 `AudioDucking` turns the transcript into a volume envelope each time a composition is built, so preview and export
 agree and it follows cuts, splits and moves. Pauses under 1.2 s stay low so the music does not pump between phrases.
-Without a transcript nothing drops; `add_music` says so in `speechDucking`. Speech is read from the recording clips on
-the primary track, so it needs `transcribe_project` on the recording, and imported video with speech does not count.
+Without a transcript nothing drops; `add_music` says so in `speechDucking`. Speech is read from unmuted recording clips
+of the first take on the primary track, so it needs `transcribe_project` on the recording, and imported video with
+speech does not count. Only audio tracks duck. Export always reads the current transcript; an open preview picks a new
+one up on its next edit. Bundles keep `transcript.json`; merged projects start without one, so transcribe them again.
 
 ## Limits
 

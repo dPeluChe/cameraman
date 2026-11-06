@@ -47,6 +47,24 @@ final class AudioDuckingTests: XCTestCase {
         XCTAssertEqual(envelope.ramps[0].to, 0.5, accuracy: 0.001)
     }
 
+    func testAClipStartingMidFadeStartsAtThatLevel() {
+        let falling = AudioDucking.envelope(speech: [10...12], over: 9.85..<30, level: 0.5)
+        XCTAssertEqual(falling.initial, 0.75, accuracy: 0.001)
+        XCTAssertEqual(falling.ramps[0].from, 0.75, accuracy: 0.001)
+        XCTAssertEqual(falling.ramps[0].to, 0.5)
+
+        let rising = AudioDucking.envelope(speech: [10...12], over: 12.35..<30, level: 0.5)
+        XCTAssertEqual(rising.initial, 0.75, accuracy: 0.001)
+        XCTAssertEqual(rising.ramps.count, 1)
+    }
+
+    func testMutedClipsAreNotSpeech() {
+        var muted = Project.RecordingClipRef(sourceIn: 0, sourceOut: 10)
+        muted.audioMuted = true
+        let clip = Project.TimelineClip(timelineIn: 0, content: .recording(muted))
+        XCTAssertEqual(AudioDucking.speechOnTimeline([2...4], clips: [clip]), [])
+    }
+
     func testRampsNeverOverlap() {
         let speech = stride(from: 0.0, to: 100, by: 2.1).map { $0...($0 + 0.5) } + [120...121, 122.3...123]
         let ramps = AudioDucking.envelope(speech: speech, over: 0..<200, level: 0.3).ramps

@@ -42,7 +42,6 @@ extension MCPTools {
         let locked = args.optBool("locked")
         let belowCamera = args.optBool("belowCamera")
         let ducking = args.optNum("ducking")
-        if let ducking, !(0...1).contains(ducking) { throw MCPToolError("'ducking' must be between 0 and 1.") }
         guard muted != nil || volume != nil || locked != nil || belowCamera != nil || ducking != nil else {
             throw MCPToolError("Pass at least one of: muted, volume, locked, belowCamera, ducking.")
         }

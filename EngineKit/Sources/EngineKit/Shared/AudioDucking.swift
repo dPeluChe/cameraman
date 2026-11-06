@@ -29,10 +29,10 @@ public enum AudioDucking {
     private static let bridgedPause: TimeInterval = 1.2
 
     /// Spoken spans in source time, mapped through the recording clips onto the timeline.
-    public static func speechOnTimeline(_ spoken: [ClosedRange<TimeInterval>], clips: [Project.TimelineClip]) -> [ClosedRange<TimeInterval>] {
+    static func speechOnTimeline(_ spoken: [ClosedRange<TimeInterval>], clips: [Project.TimelineClip]) -> [ClosedRange<TimeInterval>] {
         var mapped: [ClosedRange<TimeInterval>] = []
         for clip in clips {
-            guard case .recording(let ref) = clip.content else { continue }
+            guard let ref = clip.recordingRef, ref.audioMuted != true else { continue }
             let toTimeline = { (source: TimeInterval) in clip.timelineIn + (source - ref.sourceIn) / clip.speed }
             for span in spoken {
                 let start = max(span.lowerBound, ref.sourceIn), end = min(span.upperBound, ref.sourceOut)
@@ -42,24 +42,24 @@ public enum AudioDucking {
         return mapped
     }
 
-    public static func envelope(speech: [ClosedRange<TimeInterval>], over span: Range<TimeInterval>, level: Double) -> Envelope {
+    static func envelope(speech: [ClosedRange<TimeInterval>], over span: Range<TimeInterval>, level: Double) -> Envelope {
         let low = Float(level)
         var envelope = Envelope(initial: 1, ramps: [])
-        var current: Float = 1
 
         func ramp(from start: TimeInterval, to end: TimeInterval, reaching value: Float) {
+            let current = envelope.ramps.last?.to ?? envelope.initial
+            // A ramp cut by the clip's edges starts or ends partway.
+            let level = { (time: TimeInterval) in current + (value - current) * Float((time - start) / (end - start)) }
             let from = max(start, span.lowerBound), to = min(end, span.upperBound)
             guard from < to else {
-                if end <= span.lowerBound { envelope.initial = value; current = value }
+                if end <= span.lowerBound { envelope.initial = value }
                 return
             }
-            // A ramp cut short by the clip's edges ends partway.
-            let reached = to < end ? current + (value - current) * Float((to - start) / (end - start)) : value
-            envelope.ramps.append(.init(start: from, end: to, from: current, to: reached))
-            current = reached
+            if start < from { envelope.initial = level(from) }
+            envelope.ramps.append(.init(start: from, end: to, from: level(from), to: to < end ? level(to) : value))
         }
 
-        for phrase in merged(speech) where phrase.upperBound + release > span.lowerBound && phrase.lowerBound - attack < span.upperBound {
+        for phrase in merged(speech) {
             ramp(from: phrase.lowerBound - attack, to: phrase.lowerBound, reaching: low)
             ramp(from: phrase.upperBound, to: phrase.upperBound + release, reaching: 1)
         }
@@ -79,23 +79,20 @@ public enum AudioDucking {
     }
 
     /// One envelope per clip on a ducked track. Empty without a transcript.
-    static func envelopes(for project: Project, directory: URL) -> [String: Envelope] {
-        let ducked = project.timeline.audioTracks.filter { $0.duckingLevel != nil }
-        guard !ducked.isEmpty,
-              let data = try? Data(contentsOf: directory.appendingPathComponent("transcript/transcript.json")),
-              let transcript = try? JSONDecoder().decode(TranscriptionEngine.Transcript.self, from: data) else { return [:] }
+    public static func envelopes(for project: Project, directory: URL) -> [String: Envelope] {
+        let ducked = project.timeline.audioTracks.compactMap { track in track.duckingLevel.map { (track, $0) } }
+        guard !ducked.isEmpty, let transcript = try? TranscriptionEngine.Transcript.load(fromProject: directory) else { return [:] }
 
         let spoken = transcript.segments.filter { $0.start < $0.end }.map { $0.start...$0.end }
         // The transcript covers the first take only.
         let firstTake = (project.timeline.primaryTrack?.clips ?? []).filter { clip in
-            guard case .recording(let ref) = clip.content else { return false }
-            return ref.takeId == nil || ref.takeId == project.takes.first?.id
+            clip.recordingRef.map { $0.takeId == nil || $0.takeId == project.takes.first?.id } ?? false
         }
         let speech = speechOnTimeline(spoken, clips: firstTake)
         var envelopes: [String: Envelope] = [:]
-        for track in ducked {
+        for (track, level) in ducked {
             for clip in track.clips {
-                envelopes[clip.id] = envelope(speech: speech, over: clip.timelineIn..<clip.timelineOut, level: track.duckingLevel ?? 1)
+                envelopes[clip.id] = envelope(speech: speech, over: clip.timelineIn..<clip.timelineOut, level: level)
             }
         }
         return envelopes

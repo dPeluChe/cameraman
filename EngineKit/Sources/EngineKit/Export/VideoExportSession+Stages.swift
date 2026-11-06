@@ -160,10 +160,10 @@ extension ExportEngine {
         // Always assign videoComposition (carries compositor, render size, per-segment instructions).
         exportSession.videoComposition = videoComposition
 
-        // Clip volumes and ducking live in the mix, so an export with no mute state still needs it.
+        // Clip volumes and ducking live in the mix.
         exportSession.audioMix = AudioMixBuilder.buildAudioMix(
             compositionResult: compositionResult,
-            muteState: options.audioMuteState ?? AudioMixBuilder.TrackMuteState(),
+            muteState: options.audioMuteState,
             segments: project.timeline.segments,
             audioAdjustments: project.audioAdjustmentSpecs
         )

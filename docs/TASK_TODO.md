@@ -71,6 +71,8 @@ Screenshots, scrolling capture, OCR copy-text, 3D zoom angles, AI-generated asse
 - [ ] Synthetic cursor: existing recordings keep the old offset (no stored value); new ones anchor to the video start. Verify on a fresh recording.
 
 ## Background music follow-ups `added: 2026-11-06`
+- [ ] **Mic and system levels in exports:** the sliders stop at the preview: the app export passes mutes only and `export_project` neither, so both use the defaults (mic 2.5). Store the levels on `Project`.
+- [ ] **Ducking on later takes:** those clips play the first take's audio (`primarySources`), so ducking skips them. Revisit when audio follows the take.
 - [ ] **Listen to every style** on speakers and headphones; levels are measured, the sound is not validated.
 - [ ] **Longer than 10 minutes** without stacking clips, by looping or chaining renders.
 - [ ] **External engines** as another source for the same tool, if code-built music falls short: `docs/FEATURES/MUSIC.md`.

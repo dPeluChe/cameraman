@@ -299,7 +299,8 @@ final class MCPMotionTests: XCTestCase {
         } catch let error as MCPToolError { XCTAssertTrue(error.message.contains("volume"), error.message) }
 
         let reply = try await tools.execute(name: "add_music", arguments: ["projectId": id.uuidString, "style": "ambient", "duration": 2.0])
-        XCTAssertTrue(reply.contains("\"speechDucking\" : false") || reply.contains("\"speechDucking\":false"), "no transcript yet")
+        let added = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(reply.utf8)) as? [String: Any])
+        XCTAssertEqual(added["speechDucking"] as? Bool, false, "no transcript yet")
         var project = try await ProjectLibrary.shared.getProject(projectId: id)
         let track = try XCTUnwrap(project.timeline.tracks.first { $0.name == "Music" })
         XCTAssertEqual(track.duckingLevel, 0.5)
@@ -325,30 +326,17 @@ final class MCPMotionTests: XCTestCase {
 
         let assets = directory.appendingPathComponent("assets")
         let music = try XCTUnwrap(try FileManager.default.contentsOfDirectory(at: assets, includingPropertiesForKeys: nil).first { $0.pathExtension == "m4a" })
-        let source = try await audioPeak(of: music)
-        let exported = try await audioPeak(of: directory.appendingPathComponent("renders/mix.mp4"))
+        let source = try audioPeak(of: music)
+        let exported = try audioPeak(of: directory.appendingPathComponent("renders/mix.mp4"))
         XCTAssertGreaterThan(exported, 0)
         XCTAssertEqual(exported / source, 0.1, accuracy: 0.03, "the mix is what applies the clip volume")
     }
 
-    private func audioPeak(of url: URL) async throws -> Float {
-        let asset = AVURLAsset(url: url)
-        let tracks = try await asset.loadTracks(withMediaType: .audio)
-        let track = try XCTUnwrap(tracks.first)
-        let reader = try AVAssetReader(asset: asset)
-        let output = AVAssetReaderTrackOutput(track: track, outputSettings: [
-            AVFormatIDKey: kAudioFormatLinearPCM, AVLinearPCMBitDepthKey: 32, AVLinearPCMIsFloatKey: true, AVLinearPCMIsNonInterleaved: false,
-        ])
-        reader.add(output)
-        reader.startReading()
-        var peak: Float = 0
-        while let sample = output.copyNextSampleBuffer(), let block = CMSampleBufferGetDataBuffer(sample) {
-            var samples = [Float](repeating: 0, count: CMBlockBufferGetDataLength(block) / MemoryLayout<Float>.size)
-            let bytes = samples.count * MemoryLayout<Float>.size
-            _ = samples.withUnsafeMutableBytes { CMBlockBufferCopyDataBytes(block, atOffset: 0, dataLength: bytes, destination: $0.baseAddress!) }
-            peak = samples.reduce(peak) { max($0, abs($1)) }
-        }
-        return peak
+    private func audioPeak(of url: URL) throws -> Float {
+        let file = try AVAudioFile(forReading: url)
+        let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length)))
+        try file.read(into: buffer)
+        return UnsafeBufferPointer(start: buffer.floatChannelData?[0], count: Int(buffer.frameLength)).reduce(0) { max($0, abs($1)) }
     }
 
     func testUnusedMusicGoesLikeUnusedMotions() async throws {
