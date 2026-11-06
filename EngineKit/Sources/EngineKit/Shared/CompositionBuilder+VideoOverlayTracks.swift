@@ -26,7 +26,8 @@ extension CompositionBuilder.Result {
             return MaskedVideoCompositionInstruction.VideoOverlaySource(
                 trackID: info.track.trackID,
                 opacity: info.timelineTrack.opacity,
-                clipWindows: windows
+                clipWindows: windows,
+                belowCamera: info.timelineTrack.belowCamera == true
             )
         }
     }

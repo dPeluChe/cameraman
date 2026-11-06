@@ -45,6 +45,8 @@ extension Project {
         public var volume: Double
         /// Track opacity (for video tracks, 0.0-1.0)
         public var opacity: Double
+        /// Video tracks: draw under the camera instead of over it. Motion graphics default to this.
+        public var belowCamera: Bool?
 
         public init(
             id: UUID = UUID(),

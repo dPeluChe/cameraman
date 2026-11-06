@@ -40,14 +40,16 @@ extension MCPTools {
         let muted = args.optBool("muted")
         let volume = args.optNum("volume")
         let locked = args.optBool("locked")
-        guard muted != nil || volume != nil || locked != nil else {
-            throw MCPToolError("Pass at least one of: muted, volume, locked.")
+        let belowCamera = args.optBool("belowCamera")
+        guard muted != nil || volume != nil || locked != nil || belowCamera != nil else {
+            throw MCPToolError("Pass at least one of: muted, volume, locked, belowCamera.")
         }
         let project = try await mutate(args) { editor in
             var steps: [() async -> EditorResult] = []
             if let muted { steps.append { await editor.setTrackMuted(trackId: trackId, muted: muted) } }
             if let volume { steps.append { await editor.setTrackVolume(trackId: trackId, volume: volume) } }
             if let locked { steps.append { await editor.setTrackLocked(trackId: trackId, locked: locked) } }
+            if let belowCamera { steps.append { await editor.setTrackBelowCamera(trackId: trackId, belowCamera: belowCamera) } }
             return await self.runSteps(steps) ?? .failure(.trackNotFound(trackId.uuidString))
         }
         return try summary("Updated track \(trackId)", project)
