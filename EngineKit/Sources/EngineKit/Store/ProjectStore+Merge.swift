@@ -43,10 +43,10 @@ extension ProjectStore {
             throw error
         }
 
-        // Thumbnail from the first project (regenerated on next edit anyway)
-        let thumbSrc = firstDir.appendingPathComponent("thumbnail.jpg")
+        // The merged timeline opens with the first project.
+        let thumbSrc = firstDir.appendingPathComponent(Self.thumbnailName)
         if fileManager.fileExists(atPath: thumbSrc.path) {
-            try? fileManager.copyItem(at: thumbSrc, to: mergedDir.appendingPathComponent("thumbnail.jpg"))
+            try? fileManager.copyItem(at: thumbSrc, to: mergedDir.appendingPathComponent(Self.thumbnailName))
         }
 
         // --- Timeline: B after A ---
@@ -129,7 +129,7 @@ extension ProjectStore {
         try copyTree(
             from: sourceDir,
             to: destDir,
-            skipping: ["project.json", "thumbnail.jpg", "cache", "proxies", "renders", "transcript"]
+            skipping: ["project.json", Self.thumbnailName, "cache", "proxies", "renders", "transcript"]
         )
     }
 

@@ -204,8 +204,9 @@ public actor ProjectStore {
 
     /// List all projects sorted by update date
     /// - Returns: Array of ProjectSummary
-    /// Cache of project summaries keyed by project.json URL, with file modification date for invalidation
-    private var summaryCache: [URL: (modDate: Date, summary: ProjectSummary)] = [:]
+    /// Cache of project summaries, with project.json's modification date for invalidation.
+    /// `thumbnailSource` is cleared once a thumbnail fails, so a project is retried only after it changes.
+    var summaryCache: [ProjectId: (modDate: Date, summary: ProjectSummary, thumbnailSource: Project.ThumbnailSource?)] = [:]
 
     public func listProjects() async throws -> [ProjectSummary] {
         let directories = try fileManager.contentsOfDirectory(
@@ -215,22 +216,27 @@ public actor ProjectStore {
         )
 
         var summaries: [ProjectSummary] = []
-        var seenURLs: Set<URL> = []
+        var seen: Set<ProjectId> = []
 
         for directory in directories {
-            guard UUID(uuidString: directory.lastPathComponent) != nil else { continue }
+            guard let projectId = UUID(uuidString: directory.lastPathComponent) else { continue }
 
             let projectFile = directory.appendingPathComponent("project.json")
 
             guard fileManager.fileExists(atPath: projectFile.path) else { continue }
-            seenURLs.insert(projectFile)
+            seen.insert(projectId)
 
             // Check file modification date to skip unchanged projects
             let attrs = try? fileManager.attributesOfItem(atPath: projectFile.path)
             let modDate = attrs?[.modificationDate] as? Date
 
-            if let modDate, let cached = summaryCache[projectFile], cached.modDate == modDate {
-                summaries.append(cached.summary)
+            let thumbFile = directory.appendingPathComponent(Self.thumbnailName).path
+            let thumbnailPath = fileManager.fileExists(atPath: thumbFile) ? thumbFile : nil
+
+            if let modDate, let cached = summaryCache[projectId], cached.modDate == modDate {
+                var summary = cached.summary
+                summary.thumbnailPath = thumbnailPath
+                summaries.append(summary)
                 continue
             }
 
@@ -239,9 +245,6 @@ public actor ProjectStore {
                 let decoder = JSONDecoder()
                 decoder.dateDecodingStrategy = .iso8601
                 let project = try decoder.decode(Project.self, from: data)
-
-                let thumbPath = directory.appendingPathComponent("thumbnail.jpg")
-                let thumbnailPath = fileManager.fileExists(atPath: thumbPath.path) ? thumbPath.path : nil
 
                 let summary = ProjectSummary(
                     projectId: project.projectId,
@@ -255,7 +258,7 @@ public actor ProjectStore {
 
                 summaries.append(summary)
                 if let modDate {
-                    summaryCache[projectFile] = (modDate: modDate, summary: summary)
+                    summaryCache[projectId] = (modDate, summary, project.thumbnailSource())
                 }
             } catch {
                 continue
@@ -263,7 +266,7 @@ public actor ProjectStore {
         }
 
         // Evict cache entries for deleted projects
-        for key in summaryCache.keys where !seenURLs.contains(key) {
+        for key in summaryCache.keys where !seen.contains(key) {
             summaryCache.removeValue(forKey: key)
         }
 

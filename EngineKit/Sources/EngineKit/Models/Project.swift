@@ -179,7 +179,7 @@ public struct ProjectSummary: Codable, Equatable, Identifiable {
     public let updatedAt: Date
     public let tags: [String]
     public let duration: TimeInterval
-    public let thumbnailPath: String?
+    public var thumbnailPath: String?
 
     public var projectId: ProjectId {
         id

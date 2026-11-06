@@ -368,6 +368,11 @@ public actor ProjectLibrary {
         try await store.saveProject(project)
     }
 
+    /// Returns how many project thumbnails were written.
+    public func generateMissingThumbnails() async -> Int {
+        await store.generateMissingThumbnails()
+    }
+
     /// Get the ExportEngine for exporting projects
     /// - Returns: ExportEngine instance
     public func getExportEngine() async throws -> ExportEngine {
