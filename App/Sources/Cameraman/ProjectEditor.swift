@@ -83,6 +83,8 @@ final class ProjectEditor: ObservableObject {
     @Published var showAutosaveToast = false
     /// Blur region being edited on the preview canvas (`BlurRegion.id`); set from the Blur panel or the timeline.
     @Published var selectedBlurRegionId: String?
+    /// Timeline clip selected for editing; the preview shows its placement handles.
+    @Published var selectedClip: SelectedVideoClip?
 
     func setProject(_ project: Project) async {
         await editorModel.setProject(project)

@@ -136,5 +136,23 @@ extension Project {
 
         /// Default centered position
         public static let defaultOverlay = centered(w: defaultOverlaySize, h: defaultOverlaySize)
+
+        /// Part of a clip that stays on canvas, so it can always be grabbed again.
+        public static let minimumVisible: Double = 0.1
+        public static let minimumClipSize: Double = 0.05
+
+        /// Clips may slide partly off canvas (the compositor crops), so a full-frame
+        /// motion can still shift the card drawn inside it.
+        public func moved(dx: Double, dy: Double) -> MediaPosition {
+            let visible = Self.minimumVisible
+            return MediaPosition(x: min(max(x + dx, visible - w), 1 - visible),
+                                 y: min(max(y + dy, visible - h), 1 - visible), w: w, h: h)
+        }
+
+        /// New width from the top-left corner, keeping the aspect ratio.
+        public func resized(toWidth width: Double) -> MediaPosition {
+            let scale = min(max(width / w, Self.minimumClipSize / min(w, h)), 1 / max(w, h))
+            return MediaPosition(x: x, y: y, w: w * scale, h: h * scale)
+        }
     }
 }

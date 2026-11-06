@@ -60,11 +60,12 @@ extension MCPTools {
         let sourceIn = args.optNum("sourceIn")
         let sourceOut = args.optNum("sourceOut")
         let audioMuted = args.optBool("audioMuted")
+        let position = try Self.placement(args)
         let crossTrack = toTrackId != nil && toTrackId != trackId
         let wantsUpdate = crossTrack || timelineIn != nil || speed != nil || volume != nil
-            || opacity != nil || sourceIn != nil || sourceOut != nil
+            || opacity != nil || sourceIn != nil || sourceOut != nil || position != nil
         guard wantsUpdate || audioMuted != nil else {
-            throw MCPToolError("Pass at least one change: timelineIn, toTrackId, speed, volume, opacity, sourceIn, sourceOut, audioMuted.")
+            throw MCPToolError("Pass at least one change: timelineIn, toTrackId, speed, volume, opacity, x/y/w/h, sourceIn, sourceOut, audioMuted.")
         }
 
         // Trim recomputes the clip's content from its current source window.
@@ -82,7 +83,8 @@ extension MCPTools {
             }
             if wantsUpdate {
                 steps.append { await editor.updateClip(clipId: clipId, inTrackId: track, timelineIn: crossTrack ? nil : timelineIn,
-                                                       speed: speed, volume: volume, opacity: opacity, content: newContent) }
+                                                       speed: speed, volume: volume, opacity: opacity,
+                                                       position: position, content: newContent) }
             }
             if let muted = audioMuted {
                 steps.append { await editor.setClipAudioMuted(clipId: clipId, inTrackId: track, muted: muted) }
@@ -90,6 +92,16 @@ extension MCPTools {
             return await self.runSteps(steps) ?? .failure(.clipNotFound(clipId: clipId, trackId: trackId.uuidString))
         }
         return try summary("Edited clip \(clipId)", project)
+    }
+
+    /// Canvas placement from x, y, w, h, which only make sense together.
+    static func placement(_ args: [String: Any]) throws -> Project.MediaPosition? {
+        let values = ["x", "y", "w", "h"].map { args.optNum($0) }
+        guard values.contains(where: { $0 != nil }) else { return nil }
+        guard let x = values[0], let y = values[1], let w = values[2], let h = values[3] else {
+            throw MCPToolError("Pass x, y, w and h together (fractions of the canvas), or none of them.")
+        }
+        return Project.MediaPosition(x: x, y: y, w: w, h: h)
     }
 
     /// Apply a new source in/out to a clip's content. For video/recording these
