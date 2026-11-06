@@ -231,7 +231,8 @@ final class MCPMotionTests: XCTestCase {
     }
 
     func testMotionSizeIsCappedAndEven() {
-        XCTAssertTrue(MCPTools.motionSize(for: .init(aspect: "16:9", w: 3840, h: 2160)) == (1920, 1080))
+        XCTAssertTrue(MCPTools.motionSize(for: .init(aspect: "16:9", w: 3840, h: 2160)) == (2560, 1440))
+        XCTAssertTrue(MCPTools.motionSize(for: .init(aspect: "2586:1080", w: 2586, h: 1080)) == (2560, 1068))
         XCTAssertTrue(MCPTools.motionSize(for: .init(aspect: "9:16", w: 1080, h: 1920)) == (1080, 1920))
         let odd = MCPTools.motionSize(for: .init(aspect: "1:1", w: 1001, h: 1001))
         XCTAssertEqual(odd.width % 2, 0)

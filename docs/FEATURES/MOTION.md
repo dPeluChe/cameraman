@@ -2,8 +2,8 @@
 
 Code-built animations (a name card, a stat that counts up, a bar chart) rendered to a transparent video and laid
 over the footage as an ordinary clip. The agent reads the transcript (`get_captions`), picks the moments and calls
-`add_motion`; the result is a clip on its own `Motion` track, so every existing edit (`edit_clip`, `delete_clip`,
-opacity, adjustments, position) works on it.
+`add_motion`; the result is a clip on the `Motion` track, so every existing edit (`edit_clip`, `delete_clip`,
+opacity, adjustments, position) works on it. `update_motion` changes one in place and `preview_frame` shows the result.
 
 ## Pipeline
 
@@ -11,7 +11,8 @@ opacity, adjustments, position) works on it.
 add_motion (MCP, in-app server only)
   → MotionTemplate.html(...) or custom html
   → MotionRenderer: WKWebView off screen, seek(t) → snapshot → HEVC with alpha .mov   (project assets/)
-  → EditorModel.importVideoClip(position:)  → video overlay track (position fixed at creation)
+  → MotionSource saved as assets/motion-x.json beside the video
+  → EditorModel.importVideoClip(position:)  → video overlay track, under the camera
   → MaskedVideoCompositor composites it source-over (alpha respected) in preview and export
 ```
 
@@ -45,9 +46,22 @@ URL, so it cannot reference local files yet (see the vendored-runtime item in `T
 All take `color` (#RRGGBB) and `duration` (default 4 s, minimum 1.5 s); they animate in, hold and animate out,
 ending exactly at `duration`. Text is HTML-escaped, colors are validated, `stat` values go into the page as JSON strings.
 
+## Working on a motion
+
+- **Tracks:** motions share one `Motion` track. A second one opens only when two overlap.
+- **Placement:** `add_motion` replies with `visibleArea`, where the motion draws as canvas fractions (`VideoContentShape`
+  samples 12 frames). Change it with `edit_clip` x/y/w/h, or drag it on the preview: the outline follows what is drawn,
+  not the transparent frame, and it may slide partly off canvas.
+- **Checking:** `preview_frame` returns the composited timeline as a JPEG, without zoom and cursor effects.
+- **Editing:** `update_motion` merges the fields it gets into the saved `MotionSource` and re-renders, keeping time and
+  placement. Motions made before sidecars existed need the full `html` or a `template`.
+- **Files:** deleting or updating a clip keeps the old video so undo works. `MotionAssets.removeUnused` clears videos no
+  clip uses when a project first opens, once they are an hour old. Only names shaped `motion-<8 hex>.mov` qualify:
+  imported files keep their names.
+
 ## Cost (M-series, debug build)
 
-4 s at 30 fps: 720p ≈ 1.3 s, 1080p ≈ 1.9 s (about 16 ms per frame), ~250 KB per clip. Output is capped at 1080p.
+4 s at 30 fps: 720p ≈ 1.3 s, 1080p ≈ 1.9 s (about 16 ms per frame), ~250 KB per clip. Output is capped at 1440p; a simple scene at 2560×1068 took 12% longer than 1920×800.
 `takeSnapshot` takes its width in points: asking for the pixel width returned 2x frames on a retina Mac and cost
 3.7x the time (58 ms per frame), so the width is divided by the window's backing scale.
 

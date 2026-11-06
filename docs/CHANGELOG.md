@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Move and resize a video clip on the preview** — select a clip or motion on the timeline, drag it on the preview and pull its corner to resize. The outline hugs what the clip draws, not its transparent frame, and that part stays on canvas. Over MCP, `edit_clip` takes `x`, `y`, `w`, `h`.
+- **Sharper motions** — rendered up to 1440p instead of 1080p, so they stay crisp on wide canvases.
 - **Motions can be changed after adding them** — new MCP tool `update_motion` re-renders one with new text, color or duration and keeps its time and placement. What each motion was made from is saved beside its video. Motions no clip uses are removed the next time the project opens; files younger than an hour stay.
 - **Agents can see and place motions better** — new MCP tool `preview_frame` returns the composited timeline at a given time as an image. `add_motion` now reuses the Motion track when motions do not overlap, and its reply gives `clipId`, `trackId` and `visibleArea`.
 - **Motion graphics draw under the camera** — so a card never covers the presenter. `set_track` with `belowCamera` changes it per track; imported video still draws on top.
