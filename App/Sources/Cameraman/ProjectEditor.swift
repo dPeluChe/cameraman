@@ -157,6 +157,18 @@ final class ProjectEditor: ObservableObject {
         }
     }
 
+    func addMusic(_ music: RenderedMusic, at start: TimeInterval) async -> EditorResult {
+        await performEdit { await self.editorModel.addMusic(music, at: start) }
+    }
+
+    func replaceMusic(clipId: String, inTrackId trackId: UUID, with music: RenderedMusic) async -> EditorResult {
+        await performEdit { await self.editorModel.replaceMusic(clipId: clipId, inTrackId: trackId, with: music) }
+    }
+
+    func setTrackDucking(trackId: UUID, level: Double) async -> EditorResult {
+        await performEdit { await self.editorModel.setTrackDucking(trackId: trackId, level: level) }
+    }
+
     /// Update a clip on a timeline track — move, trim (via content), reposition.
     func updateClip(
         clipId: String,

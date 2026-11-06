@@ -116,7 +116,7 @@ struct RightPanel: View {
         if playerViewModel != nil {
             tools.append(.blurRegions)
         }
-        tools += [.subtitles, .captionsAI, .export]
+        tools += [.music, .subtitles, .captionsAI, .export]
         return tools
     }
 
@@ -133,6 +133,12 @@ struct RightPanel: View {
             return .inactive
         case .camera:
             return EditorToolStatus(count: nil, isActive: true)
+        case .music:
+            let count = project.timeline.audioTracks
+                .flatMap(\.clips)
+                .filter { RenderedAssets.renderedPath(of: $0, as: .music) != nil }
+                .count
+            return EditorToolStatus(count: count, isActive: count > 0)
         case .videoEffects:
             let count = project.timeline.tracks
                 .flatMap(\.clips)
@@ -255,6 +261,8 @@ struct RightPanel: View {
                 selectedOverlayId: selectedOverlayId,
                 onSeek: { playerViewModel?.seek(to: $0) }
             )
+        case .music:
+            MusicControlsView(editor: editor, showTranscriptionModal: $showTranscriptionModal)
         case .subtitles:
             SubtitleEditorView(
                 editor: editor,

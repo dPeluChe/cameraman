@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > to `[0.7.1] - <date>` when the batch is built, signed and notarized.
 
 ### Added
+- **Music tool in the editor** — pick a style and generate background music without leaving the app, then change the style or intensity, try another variation, fit it to the video, and set its volume and how far it drops under your voice. Music an agent added can be edited here too.
 - **Background music from code** — new MCP tools `add_music` and `update_music` compose instrumental music on the Mac and place it on a Music track. Six styles (ambient, lofi, corporate, tech, cinematic, acoustic), or a custom score written with the built-in kit. No vocals, no network, and the same seed gives the same piece. It drops under speech in preview and export, following the transcript and your cuts; `set_track` `ducking` changes how much. See `docs/FEATURES/MUSIC.md`.
 - **Move and resize a video clip on the preview** — select a clip or motion on the timeline, drag it on the preview and pull its corner to resize. The outline hugs what the clip draws, not its transparent frame, and that part stays on canvas. Over MCP, `edit_clip` takes `x`, `y`, `w`, `h`.
 - **Sharper motions** — rendered up to 1440p instead of 1080p, so they stay crisp on wide canvases.

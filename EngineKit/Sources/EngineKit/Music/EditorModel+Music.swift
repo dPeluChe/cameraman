@@ -26,6 +26,13 @@ extension MusicRenderer {
 }
 
 extension MusicSource {
+    /// How long a piece starting at `start` should run: to the end of the picture, or of everything
+    /// when there is no picture. Music already there does not count, or it could never shrink.
+    public static func fittedDuration(from start: TimeInterval, in timeline: Project.Timeline) -> TimeInterval? {
+        let end = timeline.tracks.filter { $0.type != .audio }.flatMap(\.clips).map(\.timelineOut).max() ?? timeline.duration
+        return end > start ? min(end - start, MusicRenderer.maxDuration) : nil
+    }
+
     /// What a clip was made from. Nil for imported audio, and for a render whose sidecar is gone.
     public static func load(of clip: Project.TimelineClip, in directory: URL) -> MusicSource? {
         RenderedAssets.renderedPath(of: clip, as: .music).flatMap { load(for: directory.appendingPathComponent($0)) }
