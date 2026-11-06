@@ -170,18 +170,6 @@ extension TimelineView {
     }
 
     private func clipInspectorName(_ clip: Project.TimelineClip) -> String {
-        if let name = editor.project.timeline.renderedClipNames[clip.id] { return name }
-        switch clip.content {
-        case .video(let ref):
-            return (ref.path as NSString).lastPathComponent
-        case .audio(let ref):
-            return (ref.path as NSString).lastPathComponent
-        case .image(let ref):
-            return (ref.path as NSString).lastPathComponent
-        case .color:
-            return "Color"
-        case .recording:
-            return "Recording"
-        }
+        TimelineTrackBuilder.cachedTracks(for: editor.project).lazy.compactMap { $0.clipNames[clip.id] }.first ?? ""
     }
 }

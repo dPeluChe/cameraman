@@ -55,7 +55,7 @@ jobs:
         # To add a suite, append it to the --filter regex.
         run: |
           swift test --parallel \
-            --filter '^EngineKitTests\.(AnimationEngineTests|CanvasLayoutTests|CaptionsManagerTests|DwellDetectorTests|EditorModelTests|LoggingSystemTests|MusicPlacementTests|ProjectClipNamesTests|OverlayEngineTests|TelemetryParserTests|ZoomPlanFilterTests|ZoomPlanGeneratorTests|ZoomSectionControllerTests|ZoomSuggestionEngineTests)/'
+            --filter '^EngineKitTests\.(AnimationEngineTests|CanvasLayoutTests|CaptionsManagerTests|DwellDetectorTests|EditorModelTests|LoggingSystemTests|MusicPlacementTests|ProjectClipNamesTests|ProjectThumbnailTests|OverlayEngineTests|TelemetryParserTests|ZoomPlanFilterTests|ZoomPlanGeneratorTests|ZoomSectionControllerTests|ZoomSuggestionEngineTests)/'
 
   # Note: app-build job (xcodebuild on CameramanApp.xcodeproj) is intentionally
   # NOT wired here yet because `*.xcodeproj` is currently gitignored. Enable it

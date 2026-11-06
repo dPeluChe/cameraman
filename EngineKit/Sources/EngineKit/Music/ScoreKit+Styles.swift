@@ -11,26 +11,27 @@ extension ScoreKit {
     (() => {
     const setup = (m, options, bpm, keys, progressions) => {
       // Seeds in a row must sound apart, so these step with the seed instead of being left to chance.
-      const feel = [1, 0.86, 1.14][Math.abs(options.seed) % 3];
+      const feel = [1, 0.86, 1.14][m.seed % 3];
       m.tempo(options.bpm ?? Math.round(bpm * feel)).key(options.key ?? m.pick(keys));
       return m.pick(progressions);
     };
 
-    /** A quiet figure over the chords: which voice, shape and pace depend on the seed. One seed in four has none. */
-    const motif = (m, options) => {
-      const seed = Math.abs(options.seed);
-      const voice = ['bell', 'pluck', 'keys', null][seed % 4];
-      const shape = [[0, 2, 1, 3], [3, 1, 2, 0], [0, 1, 2, 1], [2, 0, 3, 1], [0, 3, 1, 2]][seed % 5];
-      const beats = [1, 0.5, 2][seed % 3];
+    /** A quiet figure over the chords: voice, shape and pace depend on the seed. One seed in four has none. */
+    const motif = (m) => {
+      const beats = [1, 0.5, 2, 0.5, 1, 2, 1][m.seed % 7];
+      const shape = [[0, 2, 1, 3], [3, 1, 2, 0], [0, 1, 2, 1], [2, 0, 3, 1], [0, 3, 1, 2]][m.seed % 5];
+      const side = (i, width) => (i % 2 ? width : -width);
+      const play = [
+        (pitch, at, i, bus) => m.bell(pitch, at, { vel: 0.3, bus, decay: 2.5 }),
+        (pitch, at, i, bus) => m.pluck(pitch, at, { vel: 0.34, bus, pan: side(i, 0.3) }),
+        (pitch, at, i, bus) => m.keys(pitch, at, m.beat * beats * 0.8, { vel: 0.3, bus, pan: side(i, 0.2) }),
+        null,
+      ][m.seed % 4];
+      if (!play) return () => {};
       const bus = m.bus({ gain: 0.5, highpass: 250, lowpass: 3200, reverb: 0.35, delay: 0.2 });
       return (t, chord) => {
-        if (!voice || !m.active(t, 0.25)) return;
-        m.steps(t, Math.round(4 / beats), beats, (at, i) => {
-          const pitch = chord[shape[i % shape.length] % chord.length] + 12;
-          if (voice === 'bell') m.bell(pitch, at, { vel: 0.3, bus, decay: 2.5 });
-          if (voice === 'pluck') m.pluck(pitch, at, { vel: 0.34, bus, pan: i % 2 ? 0.3 : -0.3 });
-          if (voice === 'keys') m.keys(pitch, at, m.beat * beats * 0.8, { vel: 0.3, bus, pan: i % 2 ? 0.2 : -0.2 });
-        });
+        if (!m.active(t, 0.25)) return;
+        m.steps(t, 4 / beats, beats, (at, i) => play(chord[shape[i % shape.length] % chord.length] + 12, at, i, bus));
       };
     };
 
@@ -39,7 +40,7 @@ extension ScoreKit {
       const pads = m.bus({ gain: 0.9, reverb: 0.55, highpass: 140 });
       const bells = m.bus({ gain: 0.5, reverb: 0.8, delay: 0.35, highpass: 500, lowpass: 3800, pan: 0.15 });
       const low = m.bus({ gain: 0.7, lowpass: 200 });
-      const figure = motif(m, options);
+      const figure = motif(m);
       m.bars((t, bar) => {
         const degree = steps[(bar / 2) % steps.length];
         const chord = m.voiced(m.triad(degree, 4, 4));
@@ -60,7 +61,7 @@ extension ScoreKit {
       const drums = m.bus({ gain: 0.7, lowpass: 5200, reverb: 0.05 });
       const low = m.bus({ gain: 0.8, lowpass: 320 });
       const air = m.bus({ gain: 0.6 });
-      const figure = motif(m, options);
+      const figure = motif(m);
       m.vinyl(0, m.duration, { vel: 0.5, bus: air });
       const swing = 0.17;
       m.bars((t, bar) => {
@@ -88,7 +89,7 @@ extension ScoreKit {
       const pads = m.bus({ gain: 0.55, reverb: 0.4, highpass: 160 });
       const low = m.bus({ gain: 0.75, lowpass: 340 });
       const drums = m.bus({ gain: 0.55, lowpass: 7000, reverb: 0.06 });
-      const figure = motif(m, options);
+      const figure = motif(m);
       m.bars((t, bar) => {
         const degree = steps[bar % steps.length];
         const chord = m.voiced(m.triad(degree, 4, 3));
@@ -111,7 +112,7 @@ extension ScoreKit {
       const pads = m.bus({ gain: 0.5, reverb: 0.5, highpass: 200 });
       const low = m.bus({ gain: 0.8, lowpass: 300 });
       const drums = m.bus({ gain: 0.62, lowpass: 9000 });
-      const figure = motif(m, options);
+      const figure = motif(m);
       const hits = m.euclid(5, 16);
       m.bars((t, bar) => {
         const degree = steps[bar % steps.length];
@@ -137,7 +138,7 @@ extension ScoreKit {
       const low = m.bus({ gain: 0.8, lowpass: 240, reverb: 0.1 });
       const drums = m.bus({ gain: 0.65, reverb: 0.3, lowpass: 1600 });
       const bells = m.bus({ gain: 0.42, reverb: 0.8, delay: 0.25, lowpass: 3600 });
-      const figure = motif(m, options);
+      const figure = motif(m);
       m.impact(0.1, { vel: 0.6, bus: drums });
       m.bars((t, bar) => {
         const degree = steps[(bar / 2) % steps.length];
@@ -160,7 +161,7 @@ extension ScoreKit {
       const guitar = m.bus({ gain: 0.95, highpass: 120, lowpass: 5200, reverb: 0.28 });
       const low = m.bus({ gain: 0.7, lowpass: 300 });
       const hand = m.bus({ gain: 0.5, lowpass: 8000, reverb: 0.12, pan: 0.2 });
-      const figure = motif(m, options);
+      const figure = motif(m);
       m.bars((t, bar) => {
         const degree = steps[bar % steps.length];
         const chord = m.voiced(m.triad(degree, 4, 3));

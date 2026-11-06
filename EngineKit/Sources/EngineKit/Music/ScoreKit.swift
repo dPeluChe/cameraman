@@ -35,6 +35,7 @@ enum ScoreKit {
         this.ctx = ctx;
         this.duration = options.duration;
         this.intensity = options.intensity ?? 0.5;
+        this.seed = Math.abs(options.seed ?? 1);
         this.random = seeded(options.seed ?? 1);
         this.queue = [];
         this.live = [];

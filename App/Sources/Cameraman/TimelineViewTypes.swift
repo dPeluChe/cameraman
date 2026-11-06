@@ -87,7 +87,7 @@ struct TimelineTrack: Identifiable {
     let elementLines: [ElementLine]
     /// Clips from a new-model timeline track (imported video rows)
     let timelineClips: [Project.TimelineClip]
-    /// Readable names for rendered clips, by clip id.
+    /// Readable clip names, by clip id.
     let clipNames: [String: String]
     /// Backing Project.TimelineTrack id for new-model rows (nil for legacy kinds)
     let engineTrackId: UUID?
@@ -169,7 +169,7 @@ enum TimelineTrackBuilder {
             Color.teal.opacity(0.85), Color.mint.opacity(0.85), Color.indigo.opacity(0.85),
             Color.brown.opacity(0.85), Color.red.opacity(0.7), Color.blue.opacity(0.7)
         ]
-        let clipNames = project.timeline.renderedClipNames
+        let clipNames = project.timeline.clipNames
         for (index, videoTrack) in project.timeline.videoTracks.enumerated() where !videoTrack.clips.isEmpty {
             tracks.append(TimelineTrack(
                 kind: .videoClip,

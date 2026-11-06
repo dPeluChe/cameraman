@@ -45,6 +45,7 @@ final class AppNavigationViewModel: ObservableObject {
 
     private let library: ProjectLibrary
     private var lastLoadTime: Date?
+    private var thumbnailTask: Task<Void, Never>?
     private let directoryWatcher = ProjectsDirectoryWatcher()
 
     nonisolated init(library: ProjectLibrary = ProjectLibrary.shared) {
@@ -138,8 +139,18 @@ final class AppNavigationViewModel: ObservableObject {
             let loadedProjects = try await library.listProjects()
             projects = loadedProjects
             loadErrorMessage = nil
+            fillMissingThumbnails()
         } catch {
             loadErrorMessage = error.localizedDescription
+        }
+    }
+
+    private func fillMissingThumbnails() {
+        guard thumbnailTask == nil, projects.contains(where: { $0.thumbnailPath == nil }) else { return }
+        thumbnailTask = Task {
+            let written = await library.generateMissingThumbnails()
+            thumbnailTask = nil
+            if written > 0 { await loadProjects(force: true) }
         }
     }
 

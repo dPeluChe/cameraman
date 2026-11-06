@@ -16,16 +16,16 @@ final class ProjectClipNamesTests: XCTestCase {
             Project.TimelineTrack(name: "B-roll", type: .video, clips: [imported]),
             Project.TimelineTrack(name: "Music", type: .audio, clips: [music]),
         ])
-        let names = timeline.renderedClipNames
+        let names = timeline.clipNames
         XCTAssertEqual(names[early.id], "Motion 1")
         XCTAssertEqual(names[late.id], "Motion 2")
         XCTAssertEqual(names[music.id], "Music")
-        XCTAssertNil(names[imported.id])
+        XCTAssertEqual(names[imported.id], "broll.mp4")
     }
 
-    func testOnlyTracksSharingANameGetALetter() {
-        let first = Project.TimelineTrack(name: "Motion", type: .video, clips: [])
-        let second = Project.TimelineTrack(name: "Motion", type: .video, clips: [])
+    func testOnlyVisibleTracksSharingANameGetALetter() {
+        let first = Project.TimelineTrack(name: "Motion", type: .video, clips: [motion("0a1b2c3d", at: 0)])
+        let second = Project.TimelineTrack(name: "Motion", type: .video, clips: [motion("1b2c3d4e", at: 0)])
         let music = Project.TimelineTrack(name: "Music", type: .audio, clips: [])
         var unnamed = Project.TimelineTrack(name: "Old", type: .video, clips: [])
         unnamed.name = ""
@@ -34,5 +34,8 @@ final class ProjectClipNamesTests: XCTestCase {
         XCTAssertEqual(timeline.label(of: second), "Motion B")
         XCTAssertEqual(timeline.label(of: music), "Music")
         XCTAssertNil(timeline.label(of: unnamed))
+
+        let alone = Project.Timeline(duration: 10, tracks: [Project.TimelineTrack(name: "Motion", type: .video, clips: []), second])
+        XCTAssertEqual(alone.label(of: second), "Motion")
     }
 }
