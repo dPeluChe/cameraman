@@ -20,6 +20,7 @@ enum EditorTool: String, CaseIterable, Identifiable {
     case manualZoom
     case cursor
     case mediaItems
+    case music
     case overlays
     case blurRegions
     case subtitles
@@ -39,6 +40,7 @@ enum EditorTool: String, CaseIterable, Identifiable {
         case .manualZoom: return "Manual Zoom"
         case .cursor: return "Cursor"
         case .mediaItems: return "Media"
+        case .music: return "Music"
         case .overlays: return "Overlays"
         case .blurRegions: return "Blur"
         case .subtitles: return "Subtitles"
@@ -58,6 +60,7 @@ enum EditorTool: String, CaseIterable, Identifiable {
         case .manualZoom: return "plus.magnifyingglass"
         case .cursor: return "cursorarrow.motionlines"
         case .mediaItems: return "photo.on.rectangle.angled"
+        case .music: return "music.note"
         case .overlays: return "pencil.and.outline"
         case .blurRegions: return "eye.slash"
         case .subtitles: return "captions.bubble"

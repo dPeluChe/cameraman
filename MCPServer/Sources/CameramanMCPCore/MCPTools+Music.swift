@@ -19,9 +19,8 @@ extension MCPTools {
         let ducking = args.optNum("ducking") ?? MusicSource.defaultDucking
         if let error = EditorValidation.validateUnitValue(ducking, field: "ducking") { throw MCPToolError(error.localizedDescription) }
         let project = try await loadProject(args)
-        let remaining = project.timeline.duration - at
-        guard let length = args.optNum("duration") ?? (remaining > 0 ? min(remaining, MusicRenderer.maxDuration) : nil) else {
-            throw MCPToolError("The timeline ends before 'at'. Pass 'duration'.")
+        guard let length = args.optNum("duration") ?? MusicSource.fittedDuration(from: at, in: project.timeline) else {
+            throw MCPToolError("The picture ends before 'at'. Pass 'duration'.")
         }
         let source = try Self.musicSource(args, editing: nil, duration: length)
         let directory = try await ProjectLibrary.shared.getProjectDirectory(projectId: project.projectId)
@@ -43,7 +42,7 @@ extension MCPTools {
 
     func updateMusic(_ args: [String: Any]) async throws -> String {
         let (project, track, clip) = try await resolveClip(args)
-        guard RenderedAssets.renderedPath(of: clip, as: .music) != nil else {
+        guard clip.isGeneratedMusic else {
             throw MCPToolError("That clip is not generated music.")
         }
         let directory = try await ProjectLibrary.shared.getProjectDirectory(projectId: project.projectId)

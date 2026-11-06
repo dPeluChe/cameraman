@@ -15,6 +15,18 @@ public struct RenderedMusic: Sendable {
     var path: String { RenderedAssets.projectPath(of: file) }
 }
 
+extension Project.TimelineClip {
+    public var isGeneratedMusic: Bool { RenderedAssets.renderedPath(of: self, as: .music) != nil }
+}
+
+extension Project.Timeline {
+    public typealias MusicPiece = (track: Project.TimelineTrack, clip: Project.TimelineClip)
+
+    public var musicPieces: [MusicPiece] {
+        audioTracks.flatMap { track in track.clips.filter(\.isGeneratedMusic).map { (track, $0) } }
+    }
+}
+
 extension MusicRenderer {
     /// Renders into the project's assets with its source beside it.
     public static func renderAsset(_ source: MusicSource, in directory: URL) async throws -> RenderedMusic {
@@ -26,6 +38,13 @@ extension MusicRenderer {
 }
 
 extension MusicSource {
+    /// How long a piece starting at `start` should run: to the end of the picture, or of everything
+    /// when there is no picture. Music already there does not count, or it could never shrink.
+    public static func fittedDuration(from start: TimeInterval, in timeline: Project.Timeline) -> TimeInterval? {
+        let end = timeline.tracks.filter { $0.type != .audio }.flatMap(\.clips).map(\.timelineOut).max() ?? timeline.duration
+        return end > start ? min(end - start, MusicRenderer.maxDuration) : nil
+    }
+
     /// What a clip was made from. Nil for imported audio, and for a render whose sidecar is gone.
     public static func load(of clip: Project.TimelineClip, in directory: URL) -> MusicSource? {
         RenderedAssets.renderedPath(of: clip, as: .music).flatMap { load(for: directory.appendingPathComponent($0)) }

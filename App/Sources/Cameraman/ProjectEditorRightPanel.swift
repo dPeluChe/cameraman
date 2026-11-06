@@ -19,6 +19,7 @@ struct RightPanel: View {
     var selectedMediaItemId: UUID?
     var selectedOverlayId: Binding<UUID?> = .constant(nil)
     var playerViewModel: PreviewPlayerViewModel? = nil
+    var musicPanel: MusicPanelModel? = nil
 
     @Binding var showExportModal: Bool
     @Binding var showTranscriptionModal: Bool
@@ -116,6 +117,9 @@ struct RightPanel: View {
         if playerViewModel != nil {
             tools.append(.blurRegions)
         }
+        if musicPanel != nil {
+            tools.append(.music)
+        }
         tools += [.subtitles, .captionsAI, .export]
         return tools
     }
@@ -133,6 +137,9 @@ struct RightPanel: View {
             return .inactive
         case .camera:
             return EditorToolStatus(count: nil, isActive: true)
+        case .music:
+            let count = project.timeline.musicPieces.count
+            return EditorToolStatus(count: count, isActive: count > 0)
         case .videoEffects:
             let count = project.timeline.tracks
                 .flatMap(\.clips)
@@ -255,6 +262,10 @@ struct RightPanel: View {
                 selectedOverlayId: selectedOverlayId,
                 onSeek: { playerViewModel?.seek(to: $0) }
             )
+        case .music:
+            if let musicPanel {
+                MusicControlsView(editor: editor, model: musicPanel, showTranscriptionModal: $showTranscriptionModal)
+            }
         case .subtitles:
             SubtitleEditorView(
                 editor: editor,
