@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > to `[0.7.1] - <date>` when the batch is built, signed and notarized.
 
 ### Added
+- **One MCP setup flow** (Settings → Developer) — allow connections first, then pick your client; Claude Code, Cursor, Codex CLI and Claude Desktop all connect to the in-app server. The standalone binary moved under Advanced, because it cannot place motion graphics.
 - **Motion graphics from the agent** — new MCP tool `add_motion` (in-app server): a name card, title, counting stat
   or bar chart, or any custom HTML animation, rendered to a transparent video and placed over the footage as a clip
   on its own track, at the time the transcript says it belongs. Pages are seeked frame by frame, so the render is

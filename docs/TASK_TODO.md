@@ -85,6 +85,10 @@ Screenshots, scrolling capture, OCR copy-text, 3D zoom angles, AI-generated asse
 - [ ] **Inject the capability and the library into MCP** — `supportsMotion` is a Bool and `MCPMotionTests` points the `ProjectLibrary.shared` singleton at a scratch folder with an env var (order-dependent). Pass a renderer closure and a `ProjectLibrary` into `MCPServer`/`MCPTools` so tests use stubs and scratch libraries, and the CLI target stops linking WebKit (or split a `MotionKit` target).
 - [ ] **Contract outside the tool description** — the page contract makes `add_motion`'s description long (paid on every `tools/list`); serve it as an MCP resource once the server has resources.
 
+## MCP follow-ups `added: 2026-11-05`
+- [ ] **Stop work when the client leaves** — nothing watches the connection after the request arrives, so a client that times out leaves `add_motion` rendering and adding its clip; a retry duplicates it. Store the handler `Task` on `Connection` and cancel on EOF, once half-closing clients are ruled out.
+- [ ] **`get_app_logs` tool** — serve `LoggingSystem.getLogs()` over the in-app server, so a client without shell access can read logs.
+
 ## Swift 6 readiness `added: 2026-11-05`
 `swift build -Xswiftc -strict-concurrency=complete` on EngineKit: 0 errors, ~150 unique warnings, none in `Motion/`.
 - [ ] **Mark value types `Sendable`** — most warnings are one fix: `Project` and its nested types, `ProjectSummary`, `CaptionEntry`, the `AIModels` options, `Hotkey`, `TelemetrySync.Configuration`.

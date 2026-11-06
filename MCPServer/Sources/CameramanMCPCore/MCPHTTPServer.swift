@@ -23,7 +23,8 @@ public final class MCPHTTPServer: @unchecked Sendable {
     static let maxBodyBytes = 8 * 1024 * 1024
     static let path = "/mcp"
 
-    private let server: MCPServer
+    private let handle: @Sendable (Data) async -> Data?
+    private let requestDeadline: TimeInterval
     private let expectedAuthorization: String
     private let requestedPort: UInt16
     private let queue = DispatchQueue(label: "cameraman.mcp.http")
@@ -32,8 +33,14 @@ public final class MCPHTTPServer: @unchecked Sendable {
     public var port: UInt16 { listener?.port?.rawValue ?? 0 }
 
     /// - Parameter port: 0 picks a free port; read it back from `start()`.
-    public init(server: MCPServer, token: String, port: UInt16 = 0) {
-        self.server = server
+    public convenience init(server: MCPServer, token: String, port: UInt16 = 0) {
+        self.init(token: token, port: port) { await server.handle(message: $0) }
+    }
+
+    init(token: String, port: UInt16 = 0, requestDeadline: TimeInterval = 10,
+         handle: @escaping @Sendable (Data) async -> Data?) {
+        self.handle = handle
+        self.requestDeadline = requestDeadline
         self.expectedAuthorization = "Bearer \(token)"
         self.requestedPort = port
     }
@@ -90,12 +97,15 @@ public final class MCPHTTPServer: @unchecked Sendable {
         var buffer = Data()
         var head: HTTPRequest.Head?
         var bodyStart = 0
-        init(_ nw: NWConnection) { self.nw = nw }
+        let deadline: DispatchWorkItem
+        init(_ nw: NWConnection) {
+            self.nw = nw
+            deadline = DispatchWorkItem { nw.cancel() }
+        }
     }
 
     private var activeConnections = 0
     static let maxConnections = 32
-    static let requestDeadline: TimeInterval = 10
 
     private func accept(_ nw: NWConnection) {
         guard activeConnections < Self.maxConnections else { nw.cancel(); return }
@@ -103,13 +113,15 @@ public final class MCPHTTPServer: @unchecked Sendable {
         let connection = Connection(nw)
         nw.stateUpdateHandler = { [weak self] state in
             switch state {
-            case .failed, .cancelled: self?.queue.async { self?.activeConnections -= 1 }
+            case .failed: nw.cancel()
+            case .cancelled: self?.queue.async { self?.activeConnections -= 1 }
             default: break
             }
         }
         nw.start(queue: queue)
         // A peer that connects and trickles (or sends nothing) must not hold a slot forever.
-        queue.asyncAfter(deadline: .now() + Self.requestDeadline) { nw.cancel() }
+        // Ends once the request is in: a tool such as add_motion may then run for minutes.
+        queue.asyncAfter(deadline: .now() + requestDeadline, execute: connection.deadline)
         receive(connection)
     }
 
@@ -132,6 +144,7 @@ public final class MCPHTTPServer: @unchecked Sendable {
 
             if let head = connection.head, connection.buffer.count - connection.bodyStart >= head.contentLength {
                 let body = connection.buffer.subdata(in: connection.bodyStart..<(connection.bodyStart + head.contentLength))
+                connection.deadline.cancel()
                 Task {
                     let reply = await self.dispatch(body)
                     self.respond(connection.nw, status: reply.status, body: reply.body)
@@ -159,7 +172,7 @@ public final class MCPHTTPServer: @unchecked Sendable {
     }
 
     func dispatch(_ body: Data) async -> Reply {
-        guard let out = await server.handle(message: body) else {
+        guard let out = await handle(body) else {
             return Reply(status: 202, body: nil) // notification: accepted, no content
         }
         return Reply(status: 200, body: out)
