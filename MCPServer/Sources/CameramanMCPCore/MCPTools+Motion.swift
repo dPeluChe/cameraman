@@ -15,7 +15,7 @@ extension MCPTools {
     static let maxMotionHTMLBytes = 512 * 1024
 
     func addMotion(_ args: [String: Any]) async throws -> String {
-        try requireMotionHost("add_motion")
+        try requireRenderingHost("add_motion")
         let at = try args.num("at")
         guard at >= 0 else { throw MCPToolError("'at' must be 0 or later.") }
         let source = try Self.motionSource(args, editing: nil)
@@ -28,7 +28,7 @@ extension MCPTools {
             let path = "assets/\(file.lastPathComponent)"
             var added: EditorResultInfo?
             let updated = try await mutate(args) { editor in
-                let track = await editor.freeVideoTrack(named: Self.motionTrackName, from: at, to: at + rendered.duration)
+                let track = await editor.freeTrack(.video, named: Self.motionTrackName, from: at, to: at + rendered.duration)
                 let result = await editor.importVideoClip(path: path, duration: rendered.duration, at: at, trackName: Self.motionTrackName,
                                                           position: position, belowCamera: true, onTrack: track)
                 if case .successWithInfo(_, let info) = result { added = info }
@@ -41,15 +41,15 @@ extension MCPTools {
             }
             return try summary("Added motion (\(rendered.frameCount) frames, \(String(format: "%.1f", rendered.duration))s) at \(at)s", updated, extra: extra)
         } catch {
-            Self.removeMotion(file)
+            RenderedAssets.remove(file)
             throw error
         }
     }
 
     func updateMotion(_ args: [String: Any]) async throws -> String {
-        try requireMotionHost("update_motion")
+        try requireRenderingHost("update_motion")
         let (project, track, clip) = try await resolveClip(args)
-        guard case .video(let ref) = clip.content, MotionAssets.isRendered((ref.path as NSString).lastPathComponent) else {
+        guard case .video(let ref) = clip.content, RenderedAssets.isRendered((ref.path as NSString).lastPathComponent, as: .motion) else {
             throw MCPToolError("That clip is not a motion.")
         }
         let directory = try await ProjectLibrary.shared.getProjectDirectory(projectId: project.projectId)
@@ -66,17 +66,17 @@ extension MCPTools {
                 await $0.replaceClipContent(clipId: clip.id, inTrackId: track.id, content: content,
                                             ending: clip.timelineIn + rendered.duration / clip.speed)
             }
-            // The old video stays for undo; MotionAssets removes it when the project next opens.
+            // The old video stays for undo; RenderedAssets removes it when the project next opens.
             let extra = await visibleArea(of: file, at: clip.position, in: updated)
             return try summary("Updated motion \(clip.id)", updated, extra: extra)
         } catch {
-            Self.removeMotion(file)
+            RenderedAssets.remove(file)
             throw error
         }
     }
 
-    private func requireMotionHost(_ tool: String) throws {
-        guard supportsMotion else {
+    func requireRenderingHost(_ tool: String) throws {
+        guard supportsRendering else {
             throw MCPToolError("\(tool) renders inside the Cameraman app. Turn on the MCP server in the app (Preferences → Developer) and connect to it.")
         }
     }
@@ -128,7 +128,7 @@ extension MCPTools {
         let page = try Self.motionPage(source)
         let assets = directory.appendingPathComponent("assets", isDirectory: true)
         try FileManager.default.createDirectory(at: assets, withIntermediateDirectories: true)
-        let file = assets.appendingPathComponent(MotionAssets.newFileName())
+        let file = assets.appendingPathComponent(RenderedAssets.newFileName(.motion))
 
         let size = Self.motionSize(for: project.canvas.format)
         let rendered = try await MotionRenderer.render(
@@ -137,15 +137,10 @@ extension MCPTools {
         do {
             try source.save(for: file)
         } catch {
-            Self.removeMotion(file)
+            RenderedAssets.remove(file)
             throw error
         }
         return (file, rendered)
-    }
-
-    private static func removeMotion(_ file: URL) {
-        try? FileManager.default.removeItem(at: file)
-        try? FileManager.default.removeItem(at: MotionSource.sidecar(of: file))
     }
 
     private func visibleArea(of file: URL, at position: Project.MediaPosition?, in project: Project) async -> [String: Any] {

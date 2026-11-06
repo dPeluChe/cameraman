@@ -64,10 +64,10 @@ public actor EditorModel {
         return await addClip(clip, toTrackId: trackId)
     }
 
-    /// An unlocked video track with this name and nothing in the span, so related clips share a row.
-    public func freeVideoTrack(named name: String, from start: TimeInterval, to end: TimeInterval) -> UUID? {
-        project.timeline.videoTracks.first { track in
-            track.name == name && !track.isLocked && track.isFree(from: start, to: end)
+    /// An unlocked track of this type and name with nothing in the span, so related clips share a row.
+    public func freeTrack(_ type: Project.TrackType, named name: String, from start: TimeInterval, to end: TimeInterval) -> UUID? {
+        project.timeline.tracks.first { track in
+            track.type == type && track.name == name && !track.isLocked && track.isFree(from: start, to: end)
         }?.id
     }
 
@@ -92,16 +92,19 @@ public actor EditorModel {
         path: String,
         duration: TimeInterval,
         at timelineIn: TimeInterval,
-        trackName: String = "Voiceover"
+        trackName: String = "Voiceover",
+        volume: Double? = nil,
+        onTrack existingTrack: UUID? = nil
     ) async -> EditorResult {
         let clip = Project.TimelineClip(
             timelineIn: timelineIn,
-            content: .audio(Project.AudioClipRef(path: path, duration: duration))
+            content: .audio(Project.AudioClipRef(path: path, duration: duration)),
+            volume: volume
         )
         if let error = EditorValidation.validateClip(clip) {
             return .failure(error)
         }
-        let trackId = project.timeline.addTrack(type: .audio, name: trackName)
+        let trackId = existingTrack ?? project.timeline.addTrack(type: .audio, name: trackName)
         return await addClip(clip, toTrackId: trackId)
     }
 

@@ -31,17 +31,17 @@ final class MCPTools {
 
     /// What `tools/list` advertises: the rendering tools only where they can run.
     var listedCatalog: [[String: Any]] {
-        let rendering: Set<String> = ["add_motion", "update_motion"]
-        return supportsMotion ? Self.catalog : Self.catalog.filter { !rendering.contains($0["name"] as? String ?? "") }
+        let rendering: Set<String> = ["add_motion", "update_motion", "add_music", "update_music"]
+        return supportsRendering ? Self.catalog : Self.catalog.filter { !rendering.contains($0["name"] as? String ?? "") }
     }
 
-    /// True when the host has a window server to render motion graphics (the app, not the CLI).
-    let supportsMotion: Bool
+    /// True when the host has a window server to render motions and music (the app, not the CLI).
+    let supportsRendering: Bool
 
-    init(supportsMotion: Bool = false,
+    init(supportsRendering: Bool = false,
          onProjectChanged: (@Sendable (UUID) -> Void)? = nil,
          onProjectWillChange: (@Sendable (UUID) async -> Void)? = nil) {
-        self.supportsMotion = supportsMotion
+        self.supportsRendering = supportsRendering
         self.onProjectChanged = onProjectChanged
         self.onProjectWillChange = onProjectWillChange
     }
@@ -64,6 +64,8 @@ final class MCPTools {
         case "add_clip":             return try await addClip(arguments)
         case "add_motion":           return try await addMotion(arguments)
         case "update_motion":        return try await updateMotion(arguments)
+        case "add_music":            return try await addMusic(arguments)
+        case "update_music":         return try await updateMusic(arguments)
         case "split_clip":           return try await splitClip(arguments)
         case "delete_clip":          return try await deleteClip(arguments)
         case "edit_clip":            return try await editClip(arguments)

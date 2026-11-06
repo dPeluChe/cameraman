@@ -55,7 +55,7 @@ ending exactly at `duration`. Text is HTML-escaped, colors are validated, `stat`
 - **Checking:** `preview_frame` returns the composited timeline as a JPEG, without zoom and cursor effects.
 - **Editing:** `update_motion` merges the fields it gets into the saved `MotionSource` and re-renders, keeping time and
   placement. Motions made before sidecars existed need the full `html` or a `template`.
-- **Files:** deleting or updating a clip keeps the old video so undo works. `MotionAssets.removeUnused` clears videos no
+- **Files:** deleting or updating a clip keeps the old video so undo works. `RenderedAssets.removeUnused` clears videos no
   clip uses when a project first opens, once they are an hour old. Only names shaped `motion-<8 hex>.mov` qualify:
   imported files keep their names.
 

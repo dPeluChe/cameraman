@@ -55,20 +55,13 @@ public enum MotionError: LocalizedError {
 public final class MotionRenderer {
     private static let maxFrames = 60 * 60
 
-    private let webView: WKWebView
+    private let page: HeadlessPage
     private let window: NSWindow
-    private let loader = PageLoader()
-    private let stepTimeout: TimeInterval
 
     private init(width: Int, height: Int, stepTimeout: TimeInterval) {
-        self.stepTimeout = stepTimeout
-        let configuration = WKWebViewConfiguration()
-        // Pages must not see what an earlier render left in cookies or storage.
-        configuration.websiteDataStore = .nonPersistent()
-        webView = WKWebView(frame: CGRect(x: 0, y: 0, width: width, height: height), configuration: configuration)
+        page = HeadlessPage(size: CGSize(width: width, height: height), stepTimeout: stepTimeout, failure: { MotionError.pageFailed($0) })
         // Transparent page: the video keeps the alpha the page leaves.
-        webView.setValue(false, forKey: "drawsBackground")
-        webView.navigationDelegate = loader
+        page.webView.setValue(false, forKey: "drawsBackground")
         // A view outside any window may skip painting; park it far off screen.
         window = NSWindow(contentRect: CGRect(x: -20_000, y: -20_000, width: width, height: height),
                           styleMask: [.borderless], backing: .buffered, defer: false)
@@ -76,7 +69,7 @@ public final class MotionRenderer {
         window.backgroundColor = .clear
         window.hasShadow = false
         window.isReleasedWhenClosed = false
-        window.contentView = webView
+        window.contentView = page.webView
         window.orderFrontRegardless()
     }
 
@@ -97,13 +90,13 @@ public final class MotionRenderer {
     }
 
     private func close() {
-        webView.stopLoading()
+        page.close()
         window.contentView = nil
         window.orderOut(nil)
     }
 
     private func render(html: String, to url: URL, options: MotionRenderOptions) async throws -> MotionRenderResult {
-        try await load(html)
+        try await page.load(html)
         let reported = try await prepareSeekContract()
         let duration = options.duration ?? reported
         let frames = (duration * Double(options.fps)).rounded()
@@ -121,7 +114,7 @@ public final class MotionRenderer {
             for index in 0..<frameCount {
                 // Quantized to the frame grid so preview and render ask for the same instants.
                 let time = Double(index) / Double(options.fps)
-                _ = try await run("await window.__hf.seek(t);", arguments: ["t": time], step: "seek(\(time))")
+                _ = try await page.run("await window.__hf.seek(t);", arguments: ["t": time], step: "seek(\(time))")
                 let image = try await snapshot(width: options.width, height: options.height, index: index)
                 try await sink.append(image, index: index)
             }
@@ -134,41 +127,12 @@ public final class MotionRenderer {
         return MotionRenderResult(frameCount: frameCount, duration: Double(frameCount) / Double(options.fps))
     }
 
-    // MARK: Page
-
-    // Callback APIs on purpose: WebKit's async wrappers ignore cancellation and keep the view alive
-    // while they wait, so a stuck page could not time out and its web process would outlive the render.
-
-    private func within<Value: Sendable>(
-        step: String, _ start: (@escaping @MainActor (Result<Value, Error>) -> Void) -> Void
-    ) async throws -> Value {
-        try await Deadline<Value>().run(seconds: stepTimeout, step: step, start: start)
-    }
-
-    private func load(_ html: String) async throws {
-        try await within(step: "loading the page") { done in
-            loader.onFinish = { error in
-                done(error.map { .failure(MotionError.pageFailed($0.localizedDescription)) } ?? .success(()))
-            }
-            webView.loadHTMLString(html, baseURL: nil)
-        }
-    }
-
-    /// The trailing return is required: WebKit's Swift overlay traps on an empty result.
-    private func run(_ script: String, arguments: [String: Any] = [:], step: String) async throws -> Double {
-        try await within(step: step) { done in
-            webView.callAsyncJavaScript(script + "\nreturn 0;", arguments: arguments, in: nil, in: .page) { result in
-                done(result.map { ($0 as? NSNumber)?.doubleValue ?? 0 })
-            }
-        }
-    }
-
     /// Installs the fallback adapters, waits for fonts and returns the page's duration.
     private func prepareSeekContract() async throws -> TimeInterval {
-        _ = try? await run("await document.fonts.ready;", step: "loading fonts")
-        _ = try await run(MotionAdapter.script, step: "installing the seek contract")
+        _ = try? await page.run("await document.fonts.ready;", step: "loading fonts")
+        _ = try await page.run(MotionAdapter.script, step: "installing the seek contract")
         // Not a JSON number when NaN or infinite, which comes back as an empty result.
-        return try await run("const d = Number(window.__hf.duration); return isFinite(d) ? d : 0;", step: "reading the duration")
+        return try await page.run("const d = Number(window.__hf.duration); return isFinite(d) ? d : 0;", step: "reading the duration")
     }
 
     private func snapshot(width: Int, height: Int, index: Int) async throws -> CGImage {
@@ -177,53 +141,13 @@ public final class MotionRenderer {
         // Points, not pixels: on a retina screen the full width would come back at 2x and be downscaled.
         configuration.snapshotWidth = NSNumber(value: Double(width) / window.backingScaleFactor)
         configuration.afterScreenUpdates = true
-        return try await within(step: "painting frame \(index)") { done in
-            webView.takeSnapshot(with: configuration) { image, _ in
+        return try await page.within(step: "painting frame \(index)") { done in
+            page.webView.takeSnapshot(with: configuration) { image, _ in
                 let cg = image?.cgImage(forProposedRect: nil, context: nil, hints: nil)
                 done(cg.map { .success($0) } ?? .failure(MotionError.frameFailed(index)))
             }
         }
     }
-}
-
-// MARK: - Waiting on the page
-
-/// Bridges one WebKit callback to async, giving up after `seconds` or when the task is cancelled.
-@MainActor
-private final class Deadline<Value: Sendable> {
-    private var continuation: CheckedContinuation<Value, Error>?
-    private var timer: Task<Void, Error>?
-
-    func run(seconds: TimeInterval, step: String,
-             start: (@escaping @MainActor (Result<Value, Error>) -> Void) -> Void) async throws -> Value {
-        try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { continuation in
-                self.continuation = continuation
-                timer = Task { [weak self] in
-                    try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
-                    self?.settle(.failure(MotionError.pageFailed("timed out after \(seconds)s \(step)")))
-                }
-                start { [self] in settle($0) }
-            }
-        } onCancel: {
-            Task { @MainActor in self.settle(.failure(CancellationError())) }
-        }
-    }
-
-    private func settle(_ result: Result<Value, Error>) {
-        timer?.cancel()
-        continuation?.resume(with: result)
-        continuation = nil
-    }
-}
-
-@MainActor
-private final class PageLoader: NSObject, WKNavigationDelegate {
-    var onFinish: ((Error?) -> Void)?
-
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { onFinish?(nil) }
-    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { onFinish?(error) }
-    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { onFinish?(error) }
 }
 
 // MARK: - Encoding

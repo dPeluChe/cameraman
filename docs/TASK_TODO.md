@@ -70,6 +70,12 @@ Screenshots, scrolling capture, OCR copy-text, 3D zoom angles, AI-generated asse
 - [ ] Perf (see `PERF_MEMORY_AUDIT_2026-10.md`): playhead out of `TimelineView`, 1-byte masks, pause that really pauses.
 - [ ] Synthetic cursor: existing recordings keep the old offset (no stored value); new ones anchor to the video start. Verify on a fresh recording.
 
+## Background music follow-ups `added: 2026-11-06`
+- [ ] **Listen to every style** on speakers and headphones; levels are measured, the sound is not validated.
+- [ ] **Ducking**: lower music under speech in preview and export.
+- [ ] **Longer than 10 minutes** without stacking clips, by looping or chaining renders.
+- [ ] **External engines** as another source for the same tool, if code-built music falls short: `docs/FEATURES/MUSIC.md`.
+
 ## Motion graphics follow-ups `added: 2026-11-05`
 - [ ] **Watch one in an export.** The preview was checked by eye on 2026-11-05; tests prove the export blends with alpha, but no real export was watched.
 - [ ] **Intermittent stale frame.** `testExplicitHfContractWins` failed once on 2026-11-05 (alpha 255 at t=0.4, as if the seek never painted) on a busy machine, then passed 12/12 alone and 10/10 with its class. Suspect `afterScreenUpdates` under load. If a render shows a frozen motion, retry the test under CPU load; waiting on `requestAnimationFrame` could stall a backgrounded render, so it needs a fallback timer.
