@@ -33,7 +33,6 @@ enum ScoreKit {
     class Kit {
       constructor(ctx, options) {
         this.ctx = ctx;
-        this.options = options;
         this.duration = options.duration;
         this.intensity = options.intensity ?? 0.5;
         this.random = seeded(options.seed ?? 1);
@@ -73,7 +72,7 @@ enum ScoreKit {
 
       // Time and arrangement
 
-      tempo(bpm) { this.bpm = bpm; this.beat = 60 / bpm; this.bar = this.beat * 4; this.delaySend.delayTime.value = this.beat * 0.75; return this; }
+      tempo(bpm) { this.beat = 60 / bpm; this.bar = this.beat * 4; this.delaySend.delayTime.value = this.beat * 0.75; return this; }
 
       /** Calls fn(t, index) at the start of every bar that fits. */
       bars(fn, every = 1) { for (let i = 0, t = 0; t < this.duration; i += every, t = i * this.bar) fn(t, i); }
@@ -82,6 +81,9 @@ enum ScoreKit {
       steps(t, count, beats, fn, swing = 0) {
         for (let i = 0; i < count; i++) fn(t + (i + (i % 2 ? swing : 0)) * beats * this.beat, i);
       }
+
+      /** Snares on beats 2 and 4 of the bar starting at t. */
+      backbeat(t, options) { this.snare(t + this.beat, options); this.snare(t + this.beat * 3, options); }
 
       /** `hits` onsets spread evenly over `steps`, as booleans. */
       euclid(hits, steps) { return Array.from({ length: steps }, (_, i) => (i * hits) % steps < hits); }
@@ -295,9 +297,7 @@ enum ScoreKit {
         this.later(t, () => {
           const frequency = hz(this.midi(pitch));
           const end = t + decay;
-          const amp = this.ctx.createGain();
-          amp.gain.setValueAtTime(vel * 0.16, t);
-          amp.gain.exponentialRampToValueAtTime(0.0001, end);
+          const amp = this.decay(t, end, vel * 0.16, 0.0001);
           const carrier = this.oscillator('sine', frequency, t, end);
           const modulator = this.oscillator('sine', frequency * 3.01, t, end);
           const depth = this.ctx.createGain();
@@ -314,9 +314,7 @@ enum ScoreKit {
           const end = t + 0.34;
           const voice = this.oscillator('sine', 130, t, end);
           voice.frequency.exponentialRampToValueAtTime(low, t + 0.1);
-          const amp = this.ctx.createGain();
-          amp.gain.setValueAtTime(vel * 0.5, t);
-          amp.gain.exponentialRampToValueAtTime(0.001, end);
+          const amp = this.decay(t, end, vel * 0.5);
           voice.connect(amp).connect(bus);
           this.burst(t, 0.012, this.filter('bandpass', 2600, 0.7), vel * 0.18, bus);
           this.retire(end, amp);
@@ -327,9 +325,7 @@ enum ScoreKit {
         this.later(t, () => {
           this.burst(t, 0.18, this.filter('bandpass', tone, 0.8), vel * 0.8, bus);
           const end = t + 0.1;
-          const amp = this.ctx.createGain();
-          amp.gain.setValueAtTime(vel * 0.3, t);
-          amp.gain.exponentialRampToValueAtTime(0.001, end);
+          const amp = this.decay(t, end, vel * 0.3);
           this.oscillator('triangle', 190, t, end).connect(amp).connect(bus);
           this.retire(end, amp);
         });
@@ -349,9 +345,7 @@ enum ScoreKit {
           const end = t + 2.2;
           const voice = this.oscillator('sine', 72, t, end);
           voice.frequency.exponentialRampToValueAtTime(34, t + 1.1);
-          const amp = this.ctx.createGain();
-          amp.gain.setValueAtTime(vel * 0.8, t);
-          amp.gain.exponentialRampToValueAtTime(0.001, end);
+          const amp = this.decay(t, end, vel * 0.8);
           voice.connect(amp).connect(bus);
           this.burst(t, 0.5, this.filter('lowpass', 900), vel * 0.4, bus);
           this.retire(end, amp);
@@ -415,6 +409,13 @@ enum ScoreKit {
         if (decay > 0) node.gain.setTargetAtTime(peak * sustain, t + attack, decay / 3);
         node.gain.setValueAtTime(peak * sustain, Math.max(t + attack, t + hold));
         node.gain.linearRampToValueAtTime(0, t + hold + release);
+        return node;
+      }
+
+      decay(t, end, peak, floor = 0.001) {
+        const node = this.ctx.createGain();
+        node.gain.setValueAtTime(peak, t);
+        node.gain.exponentialRampToValueAtTime(floor, end);
         return node;
       }
 
@@ -491,9 +492,8 @@ enum ScoreKit {
 
     const WINDOW = 4;
 
-    async function render({ code, style, options }) {
-      const rate = 48000;
-      const ctx = new OfflineAudioContext(2, Math.round(options.duration * rate), rate);
+    async function render({ code, style, options, sampleRate }) {
+      const ctx = new OfflineAudioContext(2, Math.round(options.duration * sampleRate), sampleRate);
       const kit = new Kit(ctx, options);
       Math.random = kit.random;
       if (style) {
@@ -509,12 +509,13 @@ enum ScoreKit {
       }
       const rendered = await ctx.startRendering();
       const left = rendered.getChannelData(0), right = rendered.getChannelData(1);
-      let peak = 0;
-      for (let i = 0; i < left.length; i++) peak = Math.max(peak, Math.abs(left[i]), Math.abs(right[i]));
-      if (!(peak > 0.0005)) throw new Error('The score made no sound.');
-      if (!isFinite(peak)) throw new Error('The score produced invalid audio.');
-      let power = 0;
-      for (let i = 0; i < left.length; i++) power += left[i] * left[i] + right[i] * right[i];
+      let peak = 0, power = 0;
+      for (let i = 0; i < left.length; i++) {
+        peak = Math.max(peak, Math.abs(left[i]), Math.abs(right[i]));
+        power += left[i] * left[i] + right[i] * right[i];
+      }
+      if (!isFinite(power)) throw new Error('The score produced invalid audio.');
+      if (peak <= 0.0005) throw new Error('The score made no sound.');
       const loudness = Math.sqrt(power / (2 * left.length));
       // Same level across scores, so one clip volume suits them all.
       const scale = Math.min(0.89 / peak, 0.16 / loudness);
@@ -535,7 +536,7 @@ enum ScoreKit {
       return btoa(binary);
     }
 
-    window.Score = { Kit, render, chunk, styles: {} };
+    window.Score = { render, chunk, styles: {} };
     })();
     """#
 }

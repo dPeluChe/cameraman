@@ -11,7 +11,7 @@ import WebKit
 @MainActor
 final class HeadlessPage {
     let webView: WKWebView
-    let stepTimeout: TimeInterval
+    private let stepTimeout: TimeInterval
     private let loader = PageLoader()
     private let failure: @Sendable (String) -> Error
 
@@ -51,7 +51,7 @@ final class HeadlessPage {
              timeout: TimeInterval? = nil) async throws -> Double {
         try await within(step: step, timeout: timeout) { done in
             webView.callAsyncJavaScript(script + "\nreturn 0;", arguments: arguments, in: nil, in: .page) { result in
-                done(result.map { ($0 as? NSNumber)?.doubleValue ?? 0 })
+                done(result.map { ($0 as? NSNumber)?.doubleValue ?? 0 }.mapError(self.scriptError))
             }
         }
     }
@@ -60,9 +60,14 @@ final class HeadlessPage {
     func text(_ script: String, arguments: [String: Any] = [:], step: String) async throws -> String {
         try await within(step: step) { done in
             webView.callAsyncJavaScript(script, arguments: arguments, in: nil, in: .page) { result in
-                done(result.map { $0 as? String ?? "" })
+                done(result.map { $0 as? String ?? "" }.mapError(self.scriptError))
             }
         }
+    }
+
+    /// WebKit keeps the script's own message apart from its generic "A JavaScript exception occurred".
+    private func scriptError(_ error: Error) -> Error {
+        failure((error as NSError).userInfo["WKJavaScriptExceptionMessage"] as? String ?? error.localizedDescription)
     }
 }
 

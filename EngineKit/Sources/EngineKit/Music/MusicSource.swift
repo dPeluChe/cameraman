@@ -2,25 +2,22 @@
 //  MusicSource.swift
 //  EngineKit
 //
-//  What a piece of music was rendered from, kept next to its audio file.
+//  What a piece of music is rendered from, kept next to its audio file.
 //
 
 import Foundation
 
 public struct MusicSource: RenderSource, Equatable, Sendable {
-    public var style: String?
-    public var code: String?
-    public var duration: TimeInterval
-    public var seed = 1
-    public var bpm: Double?
-    public var key: String?
-    public var intensity = 0.5
+    public static let kind = RenderedAssets.Kind.music
+    public static let trackName = "Music"
+    /// A bed under a voice. Scores are levelled alike, so this suits all of them.
+    public static let defaultVolume = 0.25
 
-    public init(duration: TimeInterval) {
-        self.duration = duration
-    }
+    public var score: MusicScore
+    public var options: MusicRenderOptions
 
-    public var options: MusicRenderOptions {
-        MusicRenderOptions(duration: duration, seed: seed, bpm: bpm, key: key, intensity: intensity)
+    public init(score: MusicScore, options: MusicRenderOptions) {
+        self.score = score
+        self.options = options
     }
 }

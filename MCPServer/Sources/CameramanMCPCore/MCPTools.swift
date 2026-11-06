@@ -31,9 +31,10 @@ final class MCPTools {
 
     /// What `tools/list` advertises: the rendering tools only where they can run.
     var listedCatalog: [[String: Any]] {
-        let rendering: Set<String> = ["add_motion", "update_motion", "add_music", "update_music"]
-        return supportsRendering ? Self.catalog : Self.catalog.filter { !rendering.contains($0["name"] as? String ?? "") }
+        supportsRendering ? Self.catalog : Self.catalog.filter { !Self.renderingTools.contains($0["name"] as? String ?? "") }
     }
+
+    private static let renderingTools: Set<String> = ["add_motion", "update_motion", "add_music", "update_music"]
 
     /// True when the host has a window server to render motions and music (the app, not the CLI).
     let supportsRendering: Bool
@@ -53,6 +54,9 @@ final class MCPTools {
     // MARK: - Dispatch
 
     func execute(name: String, arguments: [String: Any]) async throws -> String {
+        if Self.renderingTools.contains(name), !supportsRendering {
+            throw MCPToolError("\(name) renders inside the Cameraman app. Turn on the MCP server in the app (Preferences → Developer) and connect to it.")
+        }
         switch name {
         case "list_projects":        return try await listProjects(arguments)
         case "create_empty_project": return try await createEmptyProject(arguments)
@@ -333,6 +337,12 @@ final class MCPTools {
 
     /// A short confirmation plus a compact timeline snapshot so callers can chain
     /// follow-up edits without a separate get_project round-trip.
+    /// The ids of a clip just added, for the reply.
+    static func clipIds(_ added: EditorResultInfo?) -> [String: Any] {
+        guard case .clipAdded(let clipId, let trackId)? = added else { return [:] }
+        return ["clipId": clipId, "trackId": trackId.uuidString]
+    }
+
     func summary(_ message: String, _ project: Project, extra: [String: Any] = [:]) throws -> String {
         let tracks: [[String: Any]] = project.timeline.tracks.map { track in
             var entry: [String: Any] = [

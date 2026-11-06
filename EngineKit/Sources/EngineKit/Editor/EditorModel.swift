@@ -92,20 +92,9 @@ public actor EditorModel {
         path: String,
         duration: TimeInterval,
         at timelineIn: TimeInterval,
-        trackName: String = "Voiceover",
-        volume: Double? = nil,
-        onTrack existingTrack: UUID? = nil
+        trackName: String = "Voiceover"
     ) async -> EditorResult {
-        let clip = Project.TimelineClip(
-            timelineIn: timelineIn,
-            content: .audio(Project.AudioClipRef(path: path, duration: duration)),
-            volume: volume
-        )
-        if let error = EditorValidation.validateClip(clip) {
-            return .failure(error)
-        }
-        let trackId = existingTrack ?? project.timeline.addTrack(type: .audio, name: trackName)
-        return await addClip(clip, toTrackId: trackId)
+        await addAudioClip(path: path, duration: duration, at: timelineIn, trackName: trackName)
     }
 
     /// Swap a .video track with its nearest .video neighbor (up = earlier in the

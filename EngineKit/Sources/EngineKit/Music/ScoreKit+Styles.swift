@@ -52,8 +52,7 @@ extension ScoreKit {
         if (m.active(t, 0.4)) {
           m.kick(t, { vel: 0.55, bus: drums });
           m.kick(t + m.beat * 2.5, { vel: 0.42, bus: drums });
-          m.snare(t + m.beat, { vel: 0.3, bus: drums, tone: 1300 });
-          m.snare(t + m.beat * 3, { vel: 0.3, bus: drums, tone: 1300 });
+          m.backbeat(t, { vel: 0.3, bus: drums, tone: 1300 });
           m.steps(t, 8, 0.5, (at, i) => m.hat(at, { vel: i % 2 ? 0.14 : 0.22, bus: drums }), swing);
         }
       });
@@ -75,8 +74,7 @@ extension ScoreKit {
         if (m.active(t, 0.42)) {
           m.steps(t, 4, 1, at => m.kick(at, { vel: 0.36, bus: drums }));
           m.steps(t, 4, 1, at => m.hat(at + m.beat / 2, { vel: 0.2, bus: drums, open: true }));
-          m.snare(t + m.beat, { vel: 0.24, bus: drums, tone: 2200 });
-          m.snare(t + m.beat * 3, { vel: 0.24, bus: drums, tone: 2200 });
+          m.backbeat(t, { vel: 0.24, bus: drums, tone: 2200 });
         }
       });
     };
@@ -99,8 +97,7 @@ extension ScoreKit {
         if (m.active(t, 0.42)) {
           m.steps(t, 4, 1, at => m.kick(at, { vel: 0.62, bus: drums, low: 50 }));
           m.steps(t, 8, 0.5, (at, i) => m.hat(at, { vel: i % 2 ? 0.2 : 0.1, bus: drums }));
-          m.snare(t + m.beat, { vel: 0.2, bus: drums, tone: 2600 });
-          m.snare(t + m.beat * 3, { vel: 0.2, bus: drums, tone: 2600 });
+          m.backbeat(t, { vel: 0.2, bus: drums, tone: 2600 });
         }
         if (bar % 8 === 7 && m.active(t, 0.35)) m.riser(t, m.bar, { vel: 0.2, bus: pads });
       });
@@ -139,8 +136,10 @@ extension ScoreKit {
         const root = m.degree(degree, 3);
         const line = [root, chord[0], chord[1], chord[2], chord[1] + 12, chord[2], chord[1], chord[0]];
         m.steps(t, 8, 0.5, (at, i) => m.pluck(line[i], at + m.random() * 0.008, { vel: m.vary(i % 4 ? 0.42 : 0.56, 0.12), bus: guitar, damping: 0.35, pan: [-0.25, -0.1, 0.1, 0.3, 0.2, 0, -0.2, -0.3][i] }));
-        if (m.active(t, 0.32)) m.bass(root - 12, t, m.beat * 1.8, { vel: 0.4, bus: low });
-        if (m.active(t, 0.32)) m.bass(root - 5, t + m.beat * 2, m.beat * 1.6, { vel: 0.32, bus: low });
+        if (m.active(t, 0.32)) {
+          m.bass(root - 12, t, m.beat * 1.8, { vel: 0.4, bus: low });
+          m.bass(root - 5, t + m.beat * 2, m.beat * 1.6, { vel: 0.32, bus: low });
+        }
         if (m.active(t, 0.42)) m.steps(t, 8, 0.5, (at, i) => m.shaker(at, { vel: i % 2 ? 0.34 : 0.2, bus: hand }), 0.08);
       });
     };

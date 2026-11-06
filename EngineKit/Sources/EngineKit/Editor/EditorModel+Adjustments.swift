@@ -142,16 +142,19 @@ extension EditorModel {
         duration: TimeInterval,
         at timelineIn: TimeInterval,
         sourceIn: TimeInterval = 0,
-        trackName: String = ""
+        trackName: String = "",
+        volume: Double? = nil,
+        onTrack existingTrack: UUID? = nil
     ) async -> EditorResult {
         let clip = Project.TimelineClip(
             timelineIn: timelineIn,
-            content: .audio(Project.AudioClipRef(path: path, duration: duration, sourceIn: sourceIn))
+            content: .audio(Project.AudioClipRef(path: path, duration: duration, sourceIn: sourceIn)),
+            volume: volume
         )
         if let error = EditorValidation.validateClip(clip) {
             return .failure(error)
         }
-        let trackId = projectRef.timeline.addTrack(type: .audio, name: trackName)
+        let trackId = existingTrack ?? projectRef.timeline.addTrack(type: .audio, name: trackName)
         return await addClip(clip, toTrackId: trackId)
     }
 

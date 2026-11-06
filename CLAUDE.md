@@ -93,14 +93,15 @@ Transcription/  - On-device STT via WhisperKit (CoreML/ANE, Apple Silicon only;
 Intelligence/   - AI service interface (AIService actor)
                 - Local analysis: silence detection, chapter suggestion
 
-Motion/         - Code-built animations to transparent video: HeadlessPage (shared page driver), MotionRenderer (WKWebView seek → HEVC alpha),
+Motion/         - Code-built animations to transparent video: MotionRenderer (WKWebView seek → HEVC alpha),
                   MotionAdapter (seek contract for CSS/GSAP pages), MotionTemplates (lower third, stat, bar chart, title);
                   @MainActor + WebKit, an exception to "UI-free". See docs/FEATURES/MOTION.md
 
 Music/          - Instrumental music from code: ScoreKit (JS library + styles), MusicRenderer (Web Audio offline → AAC),
                   MusicSource sidecar. @MainActor + WebKit, same exception as Motion. See docs/FEATURES/MUSIC.md
 
-Shared/         - RenderedAssets + RenderSource (renders kept in project assets, their sidecars and cleanup)
+Shared/         - HeadlessPage (off-screen page with per-step deadlines, for renderers built on a web page)
+                - RenderedAssets + RenderSource (renders kept in project assets, their sidecars and cleanup)
                 - AudioMixBuilder (per-track volume/mute for preview + export, incl. video-clip audio)
                 - CompositionBuilder+VideoOverlayTracks (imported video rows: frames + embedded audio)
                 - CompositionBuilder (AVComposition from multi-track timeline)

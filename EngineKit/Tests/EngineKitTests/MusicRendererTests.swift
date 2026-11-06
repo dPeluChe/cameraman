@@ -18,7 +18,7 @@ final class MusicRendererTests: XCTestCase {
         for style in MusicStyle.allCases {
             let url = tempURL()
             defer { try? FileManager.default.removeItem(at: url) }
-            let seconds = try await MusicRenderer.render(score: .style(style), to: url, options: MusicRenderOptions(duration: 6))
+            let seconds = try await MusicRenderer.render(MusicSource(score: .style(style), options: MusicRenderOptions(duration: 6)), to: url)
             XCTAssertEqual(seconds, 6, accuracy: 0.001, style.rawValue)
             let track = try await AVURLAsset(url: url).load(.duration).seconds
             XCTAssertEqual(track, 6, accuracy: 0.1, style.rawValue)
@@ -33,7 +33,7 @@ final class MusicRendererTests: XCTestCase {
         defer { urls.forEach { try? FileManager.default.removeItem(at: $0) } }
         let seeds = [7, 7, 8]
         for (url, seed) in zip(urls, seeds) {
-            try await MusicRenderer.render(score: .style(.acoustic), to: url, options: MusicRenderOptions(duration: 3, seed: seed))
+            try await MusicRenderer.render(MusicSource(score: .style(.acoustic), options: MusicRenderOptions(duration: 3, seed: seed)), to: url)
         }
         let (first, same, other) = (try samples(of: urls[0]), try samples(of: urls[1]), try samples(of: urls[2]))
         let difference = { (a: [Float], b: [Float]) in zip(a, b).map { abs($0 - $1) }.max() ?? 1 }
@@ -45,7 +45,7 @@ final class MusicRendererTests: XCTestCase {
         let url = tempURL()
         defer { try? FileManager.default.removeItem(at: url) }
         let score = "m.pluck('A3', 9.5, { vel: 1 });"
-        try await MusicRenderer.render(score: .code(score), to: url, options: MusicRenderOptions(duration: 12))
+        try await MusicRenderer.render(MusicSource(score: .code(score), options: MusicRenderOptions(duration: 12)), to: url)
         let audio = try samples(of: url)
         XCTAssertEqual(audio[..<(48_000 * 9)].map(abs).max() ?? 1, 0, accuracy: 0.001, "nothing before the note")
         XCTAssertGreaterThan(audio[(48_000 * 9 + 24_000)...].map(abs).max() ?? 0, 0.1, "a note in a later window must play")
@@ -55,7 +55,7 @@ final class MusicRendererTests: XCTestCase {
         let url = tempURL()
         for (score, expected) in [("m.nope();", "nope"), ("", "no sound"), ("m.key('H minor');", "Unknown key")] {
             do {
-                try await MusicRenderer.render(score: .code(score), to: url, options: MusicRenderOptions(duration: 2))
+                try await MusicRenderer.render(MusicSource(score: .code(score), options: MusicRenderOptions(duration: 2)), to: url)
                 XCTFail("'\(score)' should fail")
             } catch {
                 XCTAssertTrue(error.localizedDescription.contains(expected), error.localizedDescription)
@@ -64,11 +64,22 @@ final class MusicRendererTests: XCTestCase {
         }
     }
 
-    func testLengthIsBounded() async {
-        do {
-            try await MusicRenderer.render(score: .style(.ambient), to: tempURL(), options: MusicRenderOptions(duration: 601))
-            XCTFail("over the limit")
-        } catch { XCTAssertTrue(error is MusicError) }
+    func testOptionsAreChecked() {
+        let invalid = [
+            MusicRenderOptions(duration: 601), MusicRenderOptions(duration: 10, bpm: 500),
+            MusicRenderOptions(duration: 10, intensity: 2),
+        ]
+        for options in invalid {
+            XCTAssertThrowsError(try MusicRenderer.validate(MusicSource(score: .style(.ambient), options: options)))
+        }
+    }
+
+    func testASourceSurvivesItsSidecar() throws {
+        let url = tempURL()
+        let source = MusicSource(score: .code("m.bell('A4', 0);"), options: MusicRenderOptions(duration: 5, seed: 4, key: "D dorian"))
+        defer { RenderedAssets.remove(url) }
+        try source.save(for: url)
+        XCTAssertEqual(MusicSource.load(for: url), source)
     }
 
     func testRenderedNamesAreExact() {
