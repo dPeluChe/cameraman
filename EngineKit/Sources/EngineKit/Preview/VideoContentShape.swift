@@ -26,6 +26,9 @@ public struct VideoContentShape: Equatable, Sendable {
 
         let generator = AVAssetImageGenerator(asset: asset)
         generator.maximumSize = CGSize(width: measuredWidth, height: measuredWidth)
+        // With the default tolerance every sample lands on the same keyframe.
+        generator.requestedTimeToleranceBefore = .zero
+        generator.requestedTimeToleranceAfter = .zero
         var bounds: CGRect?
         for sample in 0..<samples {
             let seconds = duration.seconds * (Double(sample) + 0.5) / Double(samples)
