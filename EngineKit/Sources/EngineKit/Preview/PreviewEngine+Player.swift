@@ -135,6 +135,22 @@ extension PreviewEngine {
         await install(videoComposition, on: currentItem, player: player)
     }
 
+    /// Volume and ducking live in the mix, so changing them needs no new player.
+    func refreshAudioLevels(from project: Project) async {
+        guard var result = compositionResult else { return }
+        let clips = project.timeline.audioTracks.flatMap(\.clips)
+        result.audioClipTracks = result.audioClipTracks.map { entry in
+            var entry = entry
+            entry.clip = clips.first { $0.id == entry.clip.id } ?? entry.clip
+            return entry
+        }
+        if let directory = projectDirectoryURL {
+            result.ducking = AudioDucking.envelopes(for: project, directory: directory)
+        }
+        compositionResult = result
+        await applyAudioMix(lastAudioMuteState)
+    }
+
     /// Apply audio mix to the current player item for per-track mute/volume
     public func applyAudioMix(_ muteState: AudioMixBuilder.TrackMuteState) async {
         guard let compositionResult = compositionResult,

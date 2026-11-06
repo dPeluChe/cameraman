@@ -10,7 +10,7 @@ extension ScoreKit {
     static let styles = #"""
     (() => {
     const setup = (m, options, bpm, keys, progressions) => {
-      m.tempo(options.bpm ?? bpm).key(options.key ?? m.pick(keys));
+      m.tempo(options.bpm ?? Math.round(bpm * (0.9 + 0.2 * m.random()))).key(options.key ?? m.pick(keys));
       return m.pick(progressions);
     };
 

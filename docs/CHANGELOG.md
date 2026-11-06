@@ -138,6 +138,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the new landing repo.
 
 ### Fixed
+- **Preview stopped after an edit** — adding or changing a clip during playback left the video stuck until you pressed pause and play. It now carries on from the same moment and speed.
 - **Exports from agents kept no mix** — `export_project` ignored clip volumes and left the microphone at its raw level, in separate audio tracks. It now writes one mixed track.
 - **Camera edits show while playing** — shape, effects and accessories update the preview right away instead of waiting for the player to stop.
 - **Side-by-Side is now two columns** — the screen shrinks into the column opposite the camera in preview and export, instead of the camera sitting on top of it.

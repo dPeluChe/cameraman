@@ -8,6 +8,21 @@
 
 import Foundation
 
+extension Project {
+    /// This project with everything the audio mix alone can apply taken out, to tell those edits apart.
+    var ignoringAudioLevels: Project {
+        var copy = self
+        copy.updatedAt = .distantPast
+        for track in copy.timeline.tracks.indices {
+            copy.timeline.tracks[track].duckingLevel = nil
+            for clip in copy.timeline.tracks[track].clips.indices where copy.timeline.tracks[track].clips[clip].isAudio {
+                copy.timeline.tracks[track].clips[clip].volume = nil
+            }
+        }
+        return copy
+    }
+}
+
 public enum AudioDucking {
     /// How a clip's level moves over the timeline, as multipliers of its volume.
     public struct Envelope: Equatable, Sendable {

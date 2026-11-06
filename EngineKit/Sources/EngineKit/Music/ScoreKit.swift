@@ -297,7 +297,7 @@ enum ScoreKit {
         this.later(t, () => {
           const frequency = hz(this.midi(pitch));
           const end = t + decay;
-          const amp = this.decay(t, end, vel * 0.16, 0.0001);
+          const amp = this.decay(t, end, vel * 0.16, 0.0001, 0.004);
           const carrier = this.oscillator('sine', frequency, t, end);
           const modulator = this.oscillator('sine', frequency * 3.01, t, end);
           const depth = this.ctx.createGain();
@@ -368,13 +368,13 @@ enum ScoreKit {
       }
 
       /** Vinyl surface: hiss plus sparse clicks, over a whole span. */
-      vinyl(t, dur, { vel = 0.5, bus = this.mix } = {}) {
+      vinyl(t, dur, { vel = 0.5, bus = this.mix, crackle = 0 } = {}) {
         this.later(t, () => {
           const end = t + dur;
           const source = this.ctx.createBufferSource();
           source.buffer = this.buffer(6, 2, data => {
             for (let i = 0; i < data.length; i++) {
-              const click = this.random() < 0.00012 ? (this.random() - 0.5) * 3 : 0;
+              const click = this.random() < 0.00012 * crackle ? (this.random() - 0.5) * 3 : 0;
               data[i] = (this.random() - 0.5) * 0.012 + click;
             }
           });
@@ -412,9 +412,10 @@ enum ScoreKit {
         return node;
       }
 
-      decay(t, end, peak, floor = 0.001) {
+      decay(t, end, peak, floor = 0.001, attack = 0) {
         const node = this.ctx.createGain();
-        node.gain.setValueAtTime(peak, t);
+        node.gain.setValueAtTime(attack ? 0 : peak, t);
+        if (attack) node.gain.linearRampToValueAtTime(peak, t + attack);
         node.gain.exponentialRampToValueAtTime(floor, end);
         return node;
       }

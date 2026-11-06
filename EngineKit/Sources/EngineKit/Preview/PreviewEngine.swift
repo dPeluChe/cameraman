@@ -264,6 +264,7 @@ public actor PreviewEngine {
         // Short-circuit when nothing actually changed to avoid cascading AVMutableVideoComposition rebuilds.
         guard self.project != project else { return }
 
+        let oldProject = self.project
         let oldFormat = self.project?.canvas.format
         let oldClipCount = self.project?.timeline.primaryTrack?.clips.count
         // Overlay (.video/.audio) tracks live inside the AVComposition and the
@@ -276,22 +277,25 @@ public actor PreviewEngine {
             || oldClipCount != project.timeline.primaryTrack?.clips.count
             || oldOverlayTracks != project.timeline.tracks.filter { $0.type != .primary }
 
-        if needsFullRebuild {
+        if needsFullRebuild, oldProject?.ignoringAudioLevels == project.ignoringAudioLevels {
+            await refreshAudioLevels(from: project)
+        } else if needsFullRebuild {
             // Full rebuild needed (different tracks or render size)
-            let wasPlaying = playbackState == .playing
-            let savedTime = currentTime
+            // The app drives the AVPlayer directly, so only the player knows it is playing.
+            let resumeRate = player?.rate ?? 0
+            let savedTime = player?.currentTime().seconds ?? currentTime
 
             player?.pause()
             try await createPlayerWithEdits()
 
-            if savedTime > 0 {
+            if savedTime.isFinite, savedTime > 0 {
                 let cmTime = CMTime(seconds: savedTime, preferredTimescale: 600)
                 await player?.seek(to: cmTime, toleranceBefore: .zero, toleranceAfter: .zero)
                 currentTime = savedTime
             }
 
-            if wasPlaying {
-                player?.play()
+            if resumeRate != 0 {
+                player?.rate = resumeRate
                 playbackState = .playing
             }
         } else {
