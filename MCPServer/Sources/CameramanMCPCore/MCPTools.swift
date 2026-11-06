@@ -329,22 +329,26 @@ final class MCPTools {
 
     /// A short confirmation plus a compact timeline snapshot so callers can chain
     /// follow-up edits without a separate get_project round-trip.
-    func summary(_ message: String, _ project: Project) throws -> String {
+    func summary(_ message: String, _ project: Project, extra: [String: Any] = [:]) throws -> String {
         let tracks: [[String: Any]] = project.timeline.tracks.map { track in
-            [
+            var entry: [String: Any] = [
                 "id": track.id.uuidString,
                 "type": track.type.rawValue,
                 "name": track.name,
                 "isMuted": track.isMuted,
                 "clips": track.clips.map { clip -> [String: Any] in
-                    [
+                    var entry: [String: Any] = [
                         "id": clip.id,
                         "timelineIn": clip.timelineIn,
                         "timelineOut": clip.timelineOut,
                         "adjustments": (clip.adjustments ?? []).count
                     ]
+                    if let position = clip.position { entry["position"] = Self.area(position) }
+                    return entry
                 }
             ]
+            if track.belowCamera == true { entry["belowCamera"] = true }
+            return entry
         }
         let payload: [String: Any] = [
             "message": message,
@@ -352,7 +356,20 @@ final class MCPTools {
             "duration": project.timeline.duration,
             "tracks": tracks
         ]
-        return try json(payload)
+        return try json(payload.merging(extra) { $1 })
+    }
+
+    static func area(_ position: Project.MediaPosition) -> [String: Double] {
+        let rounded = { (value: Double) in (value * 1000).rounded() / 1000 }
+        return ["x": rounded(position.x), "y": rounded(position.y), "w": rounded(position.w), "h": rounded(position.h)]
+    }
+
+    /// Text tools, plus those that answer with more than a string.
+    func content(name: String, arguments: [String: Any]) async throws -> [[String: Any]] {
+        switch name {
+        case "preview_frame": return try await previewFrame(arguments)
+        default: return [["type": "text", "text": try await execute(name: name, arguments: arguments)]]
+        }
     }
 
     /// Run edit steps in order. The first failure wins, so a later success cannot mask it

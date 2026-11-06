@@ -125,8 +125,7 @@ public actor MCPServer {
     /// so the model sees the error text rather than a transport-level fault.
     private func callTool(name: String, arguments: [String: Any], id: Any) async -> [String: Any] {
         do {
-            let text = try await tools.execute(name: name, arguments: arguments)
-            return Self.result(["content": [["type": "text", "text": text]], "isError": false], id: id)
+            return Self.result(["content": try await tools.content(name: name, arguments: arguments), "isError": false], id: id)
         } catch {
             // Prefer a human message: MCPToolError, then any LocalizedError
             // (e.g. EngineKit's ExportError), falling back to the raw value.

@@ -40,6 +40,7 @@ final class MCPCatalogTests: XCTestCase {
     }
 
     /// Catalog and dispatcher drifting apart is how dead or unreachable tools appear.
+    /// Scans from `execute` to the end of the file, so `content`'s switch counts too.
     /// Reads the dispatch switch from source: executing tools here would hit the real
     /// project library (create_empty_project, start_recording).
     func testCatalogMatchesDispatchSwitch() throws {

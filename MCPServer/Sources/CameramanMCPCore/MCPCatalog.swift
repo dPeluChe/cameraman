@@ -408,8 +408,17 @@ extension MCPTools {
 
     private static var motionTools: [[String: Any]] {
         [
+            tool("preview_frame",
+                 "Look at the finished picture: the timeline composited at time `at` (screen, camera, motions, overlays) as a JPEG. Zoom and cursor effects are left out. Use it after add_motion or a placement change. Read-only.",
+                 properties: [
+                    "projectId": str("Project UUID"),
+                    "at": num("Timeline time in seconds"),
+                    "maxWidth": num("Longest side of the image in pixels (default 1280, 320-1920)")
+                 ],
+                 required: ["projectId", "at"]),
+
             tool("add_motion",
-                 "Render a motion graphic to a transparent video and add it over the footage as a new clip on its own track at timeline time `at`. Use it to reinforce what is said: read get_captions for the words and their times, then add a name card where someone is introduced, a stat where a number is quoted, a chart where values are compared. Pick a `template` (lower_third: title+subtitle; title: title+subtitle; stat: value like 42, 42% or $1.2M counts up, title is the caption; bar_chart: title, labels[] and values[] of equal length, up to 12). Templates take color and duration (default 4s, minimum 1.5s) and animate in, hold and animate out. Or pass `html` for anything custom: it renders at the canvas size on a TRANSPARENT page (leave html/body background unset), size text in vh/vw, and it must be seekable and deterministic: define window.__hf = { duration: seconds, seek(t) { set the whole scene for time t } }, or use only finite CSS animations / WAAPI / a GSAP timeline in window.__timelines. No Date.now, unseeded Math.random or network. Takes a few seconds. It draws under the camera; set_track belowCamera=false puts it on top. Change or remove the result with edit_clip / delete_clip.",
+                 "Render a motion graphic to a transparent video and add it over the footage as a clip at timeline time `at`, on the Motion track (a second one only when motions overlap). The reply has clipId, trackId and visibleArea (where it draws, as canvas fractions); check it with preview_frame. Use it to reinforce what is said: read get_captions for the words and their times, then add a name card where someone is introduced, a stat where a number is quoted, a chart where values are compared. Pick a `template` (lower_third: title+subtitle; title: title+subtitle; stat: value like 42, 42% or $1.2M counts up, title is the caption; bar_chart: title, labels[] and values[] of equal length, up to 12). Templates take color and duration (default 4s, minimum 1.5s) and animate in, hold and animate out. Or pass `html` for anything custom: it renders at the canvas size on a TRANSPARENT page (leave html/body background unset), size text in vh/vw, and it must be seekable and deterministic: define window.__hf = { duration: seconds, seek(t) { set the whole scene for time t } }, or use only finite CSS animations / WAAPI / a GSAP timeline in window.__timelines. No Date.now, unseeded Math.random or network. Takes a few seconds. It draws under the camera; set_track belowCamera=false puts it on top. Change or remove the result with edit_clip / delete_clip.",
                  properties: [
                     "projectId": str("Project UUID"),
                     "at": num("Timeline start time in seconds"),
@@ -437,6 +446,7 @@ extension MCPTools {
     /// session: readOnlyHint for reads, destructiveHint true for removals, and destructiveHint
     /// false for other writes (the spec default is true, so it must be stated).
     private static let readOnlyTools: Set<String> = [
+        "preview_frame",
         "list_projects", "get_project", "get_job_status", "get_captions",
     ]
     private static let destructiveTools: Set<String> = [

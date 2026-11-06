@@ -42,6 +42,23 @@ public struct VideoContentShape: Equatable, Sendable {
         return VideoContentShape(naturalSize: naturalSize, bounds: bounds ?? CGRect(x: 0, y: 0, width: 1, height: 1))
     }
 
+    /// The drawn area as fractions of a placement rect, which the video aspect-fits into.
+    public func contentFraction(of frame: CGRect) -> CGRect {
+        guard frame.width > 0, frame.height > 0 else { return CGRect(x: 0, y: 0, width: 1, height: 1) }
+        let fit = AVMakeRect(aspectRatio: naturalSize, insideRect: frame)
+        return CGRect(x: (fit.minX - frame.minX + bounds.minX * fit.width) / frame.width,
+                      y: (fit.minY - frame.minY + bounds.minY * fit.height) / frame.height,
+                      width: bounds.width * fit.width / frame.width,
+                      height: bounds.height * fit.height / frame.height)
+    }
+
+    /// Where the drawn area lands on the canvas, as fractions of it.
+    public func visibleArea(at position: Project.MediaPosition, canvas: CGSize) -> Project.MediaPosition {
+        let content = contentFraction(of: CGRect(x: 0, y: 0, width: position.w * canvas.width, height: position.h * canvas.height))
+        return Project.MediaPosition(x: position.x + content.minX * position.w, y: position.y + content.minY * position.h,
+                                     w: content.width * position.w, h: content.height * position.h)
+    }
+
     static func opaqueBounds(of image: CGImage) -> CGRect? {
         let width = image.width, height = image.height
         guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width,

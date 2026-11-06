@@ -60,16 +60,32 @@ extension MCPTools {
             options: MotionRenderOptions(width: size.width, height: size.height, fps: 30, duration: overrideDuration))
 
         do {
-            let updated = try await mutate(args) {
-                await $0.importVideoClip(path: "assets/\(filename)", duration: rendered.duration, at: at,
-                                         trackName: "Motion", position: position, belowCamera: true)
+            let path = "assets/\(filename)"
+            var added: EditorResultInfo?
+            let updated = try await mutate(args) { editor in
+                let track = await editor.freeVideoTrack(named: Self.motionTrackName, from: at, to: at + rendered.duration)
+                let result = await editor.importVideoClip(path: path, duration: rendered.duration, at: at, trackName: Self.motionTrackName,
+                                                          position: position, belowCamera: true, onTrack: track)
+                if case .successWithInfo(_, let info) = result { added = info }
+                return result
             }
-            return try summary("Added motion (\(rendered.frameCount) frames, \(String(format: "%.1f", rendered.duration))s) at \(at)s", updated)
+            var extra: [String: Any] = [:]
+            if case .clipAdded(let clipId, let trackId)? = added {
+                extra["clipId"] = clipId
+                extra["trackId"] = trackId.uuidString
+            }
+            if let shape = await VideoContentShape.measure(url: file) {
+                let canvas = CGSize(width: updated.canvas.format.w, height: updated.canvas.format.h)
+                extra["visibleArea"] = Self.area(shape.visibleArea(at: position ?? Project.MediaPosition(), canvas: canvas))
+            }
+            return try summary("Added motion (\(rendered.frameCount) frames, \(String(format: "%.1f", rendered.duration))s) at \(at)s", updated, extra: extra)
         } catch {
             try? FileManager.default.removeItem(at: file)
             throw error
         }
     }
+
+    static let motionTrackName = "Motion"
 
     /// The canvas size capped at 1080p, even sides.
     static func motionSize(for format: Project.Canvas.Format) -> (width: Int, height: Int) {

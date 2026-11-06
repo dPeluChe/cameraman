@@ -7,7 +7,6 @@
 //
 
 import SwiftUI
-import AVFoundation
 import EngineKit
 
 struct ClipPlacementLayer: View {
@@ -50,7 +49,7 @@ struct ClipPlacementLayer: View {
         let shown = draft ?? position
         let frame = CGRect(x: shown.x * size.width, y: shown.y * size.height,
                            width: shown.w * size.width, height: shown.h * size.height)
-        let content = contentFraction(of: frame)
+        let content = shape?.contentFraction(of: frame) ?? CGRect(x: 0, y: 0, width: 1, height: 1)
         let rect = CGRect(x: frame.minX + content.minX * frame.width, y: frame.minY + content.minY * frame.height,
                           width: content.width * frame.width, height: content.height * frame.height)
         return ZStack(alignment: .bottomTrailing) {
@@ -71,16 +70,6 @@ struct ClipPlacementLayer: View {
         .frame(width: rect.width, height: rect.height)
         .offset(x: rect.minX, y: rect.minY)
         .help("Drag to move, drag the corner to resize")
-    }
-
-    /// The clip's drawn area as fractions of its placement rect, which it aspect-fits into.
-    private func contentFraction(of frame: CGRect) -> CGRect {
-        guard let shape, frame.width > 0, frame.height > 0 else { return CGRect(x: 0, y: 0, width: 1, height: 1) }
-        let fit = AVMakeRect(aspectRatio: shape.naturalSize, insideRect: frame)
-        return CGRect(x: (fit.minX - frame.minX + shape.bounds.minX * fit.width) / frame.width,
-                      y: (fit.minY - frame.minY + shape.bounds.minY * fit.height) / frame.height,
-                      width: shape.bounds.width * fit.width / frame.width,
-                      height: shape.bounds.height * fit.height / frame.height)
     }
 
     private func drag(of clip: Project.TimelineClip, in size: CGSize,
