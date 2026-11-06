@@ -26,9 +26,9 @@ struct ClipPlacementLayer: View {
         return time >= clip.timelineIn && time <= clip.timelineOut ? clip : nil
     }
 
-    private var videoPath: String? {
+    private var videoRef: Project.VideoClipRef? {
         guard case .video(let ref)? = editor.liveSelectedClip?.content else { return nil }
-        return ref.path
+        return ref
     }
 
     var body: some View {
@@ -38,10 +38,11 @@ struct ClipPlacementLayer: View {
             }
         }
         .clipped()
-        .task(id: videoPath) {
+        .task(id: videoRef) {
             shape = nil
-            guard let videoPath else { return }
-            shape = await VideoContentShape.measure(url: URL(fileURLWithPath: videoPath, relativeTo: projectDirectory))
+            guard let videoRef, let projectDirectory else { return }
+            shape = await VideoContentShape.measure(url: projectDirectory.appendingPathComponent(videoRef.path),
+                                                    range: videoRef.sourceIn...videoRef.sourceOut)
         }
     }
 

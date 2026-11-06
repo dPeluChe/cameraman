@@ -18,7 +18,8 @@ public struct VideoContentShape: Equatable, Sendable {
     /// Skips soft shadows, which would pad the box without being content.
     private static let alphaThreshold: UInt8 = 24
 
-    public static func measure(url: URL, samples: Int = 12) async -> VideoContentShape? {
+    /// - Parameter range: source seconds to look at; nil means the whole video.
+    public static func measure(url: URL, range: ClosedRange<Double>? = nil, samples: Int = 12) async -> VideoContentShape? {
         let asset = AVURLAsset(url: url)
         guard let track = try? await asset.loadTracks(withMediaType: .video).first,
               let naturalSize = try? await track.load(.naturalSize),
@@ -31,7 +32,8 @@ public struct VideoContentShape: Equatable, Sendable {
         generator.requestedTimeToleranceAfter = .zero
         var bounds: CGRect?
         for sample in 0..<samples {
-            let seconds = duration.seconds * (Double(sample) + 0.5) / Double(samples)
+            let span = range ?? 0...duration.seconds
+            let seconds = span.lowerBound + (span.upperBound - span.lowerBound) * (Double(sample) + 0.5) / Double(samples)
             let time = CMTime(seconds: seconds, preferredTimescale: 600)
             guard let image = try? await generator.image(at: time).image,
                   let opaque = opaqueBounds(of: image) else { continue }
@@ -43,8 +45,7 @@ public struct VideoContentShape: Equatable, Sendable {
     static func opaqueBounds(of image: CGImage) -> CGRect? {
         let width = image.width, height = image.height
         guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width,
-                                      space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.alphaOnly.rawValue),
-              width > 0, height > 0 else { return nil }
+                                      space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.alphaOnly.rawValue) else { return nil }
         context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
         guard let data = context.data?.assumingMemoryBound(to: UInt8.self) else { return nil }
 
