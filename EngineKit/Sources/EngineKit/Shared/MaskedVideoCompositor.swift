@@ -382,6 +382,14 @@ public class MaskedVideoCompositor: NSObject, AVVideoCompositing {
             return
         }
 
+        #if DEBUG
+        let frameStart = CFAbsoluteTimeGetCurrent()
+        defer {
+            let ms = (CFAbsoluteTimeGetCurrent() - frameStart) * 1000
+            if ms > 80 { LogInfo(.preview, "[COMPOSITOR] slow frame \(Int(ms)) ms at \(request.compositionTime.seconds)") }
+        }
+        #endif
+
         guard let outputBuffer = renderContext?.newPixelBuffer() else {
             request.finish(with: NSError(domain: "MaskedVideoCompositor", code: -2,
                                         userInfo: [NSLocalizedDescriptionKey: "Failed to create output buffer"]))

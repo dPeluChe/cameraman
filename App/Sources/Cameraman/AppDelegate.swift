@@ -16,6 +16,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var hotkeyManager: HotkeyManager?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        #if DEBUG
+        MainThreadWatchdog.start()
+        #endif
         // Apply the user's appearance preference (System/Light/Dark)
         AppAppearance.applyStored()
 
