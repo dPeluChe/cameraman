@@ -37,7 +37,7 @@ public struct CompositionBuilder {
         /// Additional audio tracks from imported media items
         public let additionalAudioTracks: [(track: AVMutableCompositionTrack, mediaItem: Project.MediaItem)]
         /// Additional audio tracks from audio clips in tracks
-        public let audioClipTracks: [(track: AVMutableCompositionTrack, clip: Project.TimelineClip)]
+        public var audioClipTracks: [(track: AVMutableCompositionTrack, clip: Project.TimelineClip)]
         /// Non-recording clips in the primary track (image, color, video) with their timeline positions.
         /// The compositor uses this to render static content where the video track has gaps.
         public let staticClips: [StaticClipInfo]

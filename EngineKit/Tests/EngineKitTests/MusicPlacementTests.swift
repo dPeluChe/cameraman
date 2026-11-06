@@ -55,6 +55,24 @@ final class MusicPlacementTests: XCTestCase {
         XCTAssertEqual(timeline.musicPieces.map(\.clip.id), [generated.id])
     }
 
+    func testVolumeAndDuckingAreAudioLevelsAndNewMusicIsNot() async throws {
+        let editor = EditorModel(project: project)
+        _ = await editor.addMusic(music, at: 0)
+        let before = await editor.projectRef
+        let clip = try XCTUnwrap(before.timeline.musicPieces.first)
+
+        _ = await editor.updateClip(clipId: clip.clip.id, inTrackId: clip.track.id, volume: 0.6)
+        _ = await editor.setTrackDucking(trackId: clip.track.id, level: 0.8)
+        let levels = await editor.projectRef
+        XCTAssertNotEqual(before, levels)
+        XCTAssertEqual(before.ignoringAudioLevels, levels.ignoringAudioLevels)
+
+        let other = RenderedMusic(file: URL(fileURLWithPath: "/project/assets/music-1b2c3d4e.m4a"), seconds: 10)
+        _ = await editor.replaceMusic(clipId: clip.clip.id, inTrackId: clip.track.id, with: other)
+        let replaced = await editor.projectRef
+        XCTAssertNotEqual(before.ignoringAudioLevels, replaced.ignoringAudioLevels)
+    }
+
     func testABadDuckingIsRefused() async {
         let editor = EditorModel(project: project)
         let result = await editor.addMusic(music, at: 0, ducking: 1.5)

@@ -80,8 +80,12 @@ public enum AudioDucking {
 
     /// One envelope per clip on a ducked track. Empty without a transcript.
     public static func envelopes(for project: Project, directory: URL) -> [String: Envelope] {
+        envelopes(for: project, transcript: try? TranscriptionEngine.Transcript.load(fromProject: directory))
+    }
+
+    static func envelopes(for project: Project, transcript load: @autoclosure () -> TranscriptionEngine.Transcript?) -> [String: Envelope] {
         let ducked = project.timeline.audioTracks.compactMap { track in track.duckingLevel.map { (track, $0) } }
-        guard !ducked.isEmpty, let transcript = try? TranscriptionEngine.Transcript.load(fromProject: directory) else { return [:] }
+        guard !ducked.isEmpty, let transcript = load() else { return [:] }
 
         let spoken = transcript.segments.filter { $0.start < $0.end }.map { $0.start...$0.end }
         // The transcript covers the first take only.

@@ -91,18 +91,7 @@ extension PreviewEngine {
         self.composition = composition
         self.videoCompositionConfig = videoComposition
 
-        if let currentItem = player?.currentItem {
-            let defaultMix = AudioMixBuilder.buildAudioMix(
-                compositionResult: result,
-                muteState: AudioMixBuilder.TrackMuteState(),
-                segments: project.timeline.segments,
-                audioAdjustments: project.audioAdjustmentSpecs
-            )
-            nonisolated(unsafe) let unsafeDefaultMix = defaultMix
-            await MainActor.run {
-                currentItem.audioMix = unsafeDefaultMix
-            }
-        }
+        await applyAudioMix(lastAudioMuteState)
 
         logger.debug("Player created successfully with composition")
     }
@@ -135,6 +124,35 @@ extension PreviewEngine {
         await install(videoComposition, on: currentItem, player: player)
     }
 
+    /// Volume and ducking live in the mix, so changing them needs no new player.
+    func refreshAudioLevels() async {
+        guard var result = compositionResult, let project else { return }
+        let clips = project.timeline.audioTracks.flatMap(\.clips)
+        result.audioClipTracks = result.audioClipTracks.map { entry in
+            var entry = entry
+            entry.clip = clips.first { $0.id == entry.clip.id } ?? entry.clip
+            return entry
+        }
+        if let directory = projectDirectoryURL {
+            result.ducking = AudioDucking.envelopes(for: project, transcript: transcript(in: directory))
+        }
+        compositionResult = result
+        await applyAudioMix(lastAudioMuteState)
+    }
+
+    /// Drags land on refreshAudioLevels unthrottled, so this decodes only when the file changes.
+    private func transcript(in directory: URL) -> TranscriptionEngine.Transcript? {
+        let path = directory.appendingPathComponent(TranscriptionEngine.Transcript.relativePath).path
+        let modified = (try? FileManager.default.attributesOfItem(atPath: path))?[.modificationDate] as? Date
+        guard let modified else {
+            cachedTranscript = nil
+            return nil
+        }
+        if let cachedTranscript, cachedTranscript.modified == modified { return cachedTranscript.transcript }
+        cachedTranscript = (try? TranscriptionEngine.Transcript.load(fromProject: directory)).map { (modified, $0) }
+        return cachedTranscript?.transcript
+    }
+
     /// Apply audio mix to the current player item for per-track mute/volume
     public func applyAudioMix(_ muteState: AudioMixBuilder.TrackMuteState) async {
         guard let compositionResult = compositionResult,
@@ -153,5 +171,22 @@ extension PreviewEngine {
         await MainActor.run {
             currentItem.audioMix = unsafeAudioMix
         }
+    }
+}
+
+extension Project {
+    /// Sets aside what `refreshAudioLevels` can apply, plus the edit's own timestamp.
+    var ignoringAudioLevels: Project {
+        var copy = self
+        copy.updatedAt = .distantPast
+        for track in copy.timeline.tracks.indices {
+            copy.timeline.tracks[track].duckingLevel = nil
+            for clip in copy.timeline.tracks[track].clips.indices {
+                if case .audio = copy.timeline.tracks[track].clips[clip].content {
+                    copy.timeline.tracks[track].clips[clip].volume = nil
+                }
+            }
+        }
+        return copy
     }
 }

@@ -53,8 +53,8 @@ public enum MusicError: LocalizedError {
 
 @MainActor
 public enum MusicRenderer {
-    public static let maxDuration: TimeInterval = 600
-    private static let maxCodeBytes = 256 * 1024
+    nonisolated public static let maxDuration: TimeInterval = 600
+    nonisolated private static let maxCodeBytes = 256 * 1024
     private static let sampleRate = 48_000
     private static let framesPerChunk = sampleRate * 5
     private static let renderTimeout: TimeInterval = 240
