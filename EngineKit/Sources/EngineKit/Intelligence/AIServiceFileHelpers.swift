@@ -14,9 +14,7 @@ extension AIService {
         if let baseDirectory = projectDirectoryOverride {
             return baseDirectory.appendingPathComponent(projectId.uuidString)
         }
-        let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let projectsDir = appSupport.appendingPathComponent("ProjectStudio/Projects")
-        return projectsDir.appendingPathComponent(projectId.uuidString)
+        return AppDirectories.projects.appendingPathComponent(projectId.uuidString)
     }
 
     func getAudioPath(for project: Project) -> String? {

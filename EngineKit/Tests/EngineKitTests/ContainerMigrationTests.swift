@@ -31,15 +31,15 @@ final class ContainerMigrationTests: XCTestCase {
         try write("new b", "support/Projects/B/project.json")
 
         let migration = ContainerMigration(container: root.appendingPathComponent("container"),
-                                           support: root.appendingPathComponent("support"))
-        XCTAssertGreaterThan(migration.run(), 0)
+                                           support: root.appendingPathComponent("support"), bundleIdentifier: "dev.test")
+        XCTAssertGreaterThan(migration.run(importingPreferencesInto: nil), 0)
 
         XCTAssertEqual(read("support/Projects/A/project.json"), "a")
         XCTAssertEqual(read("support/Projects/B/project.json"), "new b", "What is already outside wins")
         XCTAssertEqual(read("support/Models/models/whisper/weights.bin"), "model")
         XCTAssertEqual(read("support/Recordings/recording_1/screen.mov"), "take")
         XCTAssertNil(read("\(old)/Projects/A/project.json"))
-        XCTAssertEqual(migration.run(), 0, "A second run finds nothing new to move")
+        XCTAssertEqual(migration.run(importingPreferencesInto: nil), 0, "A second run finds nothing new to move")
     }
 
     func testPreferencesFillOnlyKeysNotSetYet() throws {
@@ -50,8 +50,8 @@ final class ContainerMigrationTests: XCTestCase {
 
         let defaults = try XCTUnwrap(UserDefaults(suiteName: "migration-\(UUID().uuidString)"))
         defaults.set("light", forKey: "theme")
-        ContainerMigration(container: root.appendingPathComponent("container"), support: root.appendingPathComponent("support"))
-            .importPreferences(into: defaults, bundleIdentifier: id)
+        ContainerMigration(container: root.appendingPathComponent("container"), support: root.appendingPathComponent("support"),
+                           bundleIdentifier: id).run(importingPreferencesInto: defaults)
 
         XCTAssertTrue(defaults.bool(forKey: "mcp.host.enabled"))
         XCTAssertEqual(defaults.string(forKey: "theme"), "light")

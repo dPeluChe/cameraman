@@ -56,7 +56,7 @@ public actor ProjectStore {
             // Headless MCP servers and tests point here at another Projects dir.
             self.baseDirectory = URL(fileURLWithPath: override, isDirectory: true)
         } else {
-            self.baseDirectory = AppDirectories.support.appendingPathComponent("Projects", isDirectory: true)
+            self.baseDirectory = AppDirectories.projects
         }
 
         // Create base directory if it doesn't exist

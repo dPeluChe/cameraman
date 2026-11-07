@@ -222,9 +222,7 @@ extension LocalAIProvider {
 
     /// Get project directory URL for a given project ID
     func projectURL(for projectId: ProjectId) -> URL {
-        let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let baseDirectory = appSupport.appendingPathComponent("ProjectStudio/Projects", isDirectory: true)
-        return baseDirectory.appendingPathComponent(projectId.uuidString, isDirectory: true)
+        AppDirectories.projects.appendingPathComponent(projectId.uuidString, isDirectory: true)
     }
 }
 

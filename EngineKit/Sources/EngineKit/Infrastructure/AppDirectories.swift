@@ -10,17 +10,22 @@ import Foundation
 
 public enum AppDirectories {
     /// Application Support/ProjectStudio: projects, models and recordings. Debug app builds keep their own,
-    /// as their sandbox containers did.
-    public static var support: URL {
+    /// as their sandbox containers did. Processes without a bundle (the standalone MCP server, tests) use
+    /// ProjectStudio; point them elsewhere with CAMERAMAN_PROJECTS_DIR.
+    public static let support: URL = {
         let name = Bundle.main.bundleIdentifier?.hasSuffix(".debug") == true ? "ProjectStudio-Debug" : "ProjectStudio"
         return FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent(name, isDirectory: true)
-    }
+    }()
+
+    public static let projects = support.appendingPathComponent("Projects", isDirectory: true)
 
     /// WhisperKit's download base, kept out of the user's Documents.
-    public static var models: URL { support.appendingPathComponent("Models", isDirectory: true) }
+    public static let models = support.appendingPathComponent("Models", isDirectory: true)
 
-    public static var recordings: URL { support.appendingPathComponent("Recordings", isDirectory: true) }
+    public static let recordings = support.appendingPathComponent("Recordings", isDirectory: true)
+
+    public static let crashReports = support.appendingPathComponent("CrashReports", isDirectory: true)
 }
 
 /// Moves what the sandboxed app kept in its container to the same places outside it.
@@ -28,22 +33,30 @@ public enum AppDirectories {
 public struct ContainerMigration {
     public let container: URL
     public let support: URL
+    public let bundleIdentifier: String
 
     /// `container` is ~/Library/Containers/<bundle id>/Data; `support` is the new Application Support/ProjectStudio.
-    public init(container: URL, support: URL) {
+    public init(container: URL, support: URL, bundleIdentifier: String) {
         self.container = container
         self.support = support
+        self.bundleIdentifier = bundleIdentifier
     }
 
     public init(bundleIdentifier: String) {
         let home = FileManager.default.homeDirectoryForCurrentUser
         self.init(container: home.appendingPathComponent("Library/Containers/\(bundleIdentifier)/Data", isDirectory: true),
-                  support: AppDirectories.support)
+                  support: AppDirectories.support, bundleIdentifier: bundleIdentifier)
     }
 
-    /// Returns how many items moved.
+    /// Moves files, and on the first run settings too. Safe to run on every launch: what already moved is
+    /// gone from the container, so a file a previous run could not move gets another try. Returns how many items moved.
     @discardableResult
-    public func run() -> Int {
+    public func run(importingPreferencesInto defaults: UserDefaults?) -> Int {
+        if let defaults { importPreferences(into: defaults) }
+        return moveFiles()
+    }
+
+    func moveFiles() -> Int {
         let old = container.appendingPathComponent("Library/Application Support/ProjectStudio", isDirectory: true)
         let documents = container.appendingPathComponent("Documents", isDirectory: true)
         var moved = 0
@@ -56,7 +69,7 @@ public struct ContainerMigration {
     }
 
     /// Settings the sandboxed app saved, for the keys this app has not set yet.
-    public func importPreferences(into defaults: UserDefaults, bundleIdentifier: String) {
+    func importPreferences(into defaults: UserDefaults) {
         let plist = container.appendingPathComponent("Library/Preferences/\(bundleIdentifier).plist")
         guard let values = NSDictionary(contentsOf: plist) as? [String: Any] else { return }
         for (key, value) in values where defaults.object(forKey: key) == nil {

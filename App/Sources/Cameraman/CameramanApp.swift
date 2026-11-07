@@ -18,15 +18,15 @@ struct CameramanApp: App {
         Self.leaveSandboxContainer()
     }
 
-    /// Once, before anything opens a project: 0.8 dropped the sandbox, so data moves out of the container.
+    /// Before anything opens a project: 0.8 dropped the sandbox, so data moves out of the container.
+    /// Settings are imported once; files are retried each launch until they have moved.
     private static func leaveSandboxContainer() {
-        let key = "migration.leftSandboxContainer"
-        guard let id = Bundle.main.bundleIdentifier, !UserDefaults.standard.bool(forKey: key) else { return }
-        let migration = ContainerMigration(bundleIdentifier: id)
-        migration.importPreferences(into: .standard, bundleIdentifier: id)
-        let moved = migration.run()
+        guard let id = Bundle.main.bundleIdentifier else { return }
+        let key = "migration.importedContainerPreferences"
+        let firstRun = !UserDefaults.standard.bool(forKey: key)
+        let moved = ContainerMigration(bundleIdentifier: id).run(importingPreferencesInto: firstRun ? .standard : nil)
         UserDefaults.standard.set(true, forKey: key)
-        LogInfo(.ui, "[Migration] moved \(moved) item(s) out of the sandbox container")
+        if moved > 0 { LogInfo(.ui, "[Migration] moved \(moved) item(s) out of the sandbox container") }
     }
 
     var body: some Scene {
