@@ -16,6 +16,8 @@ public struct MusicSource: RenderSource, Equatable, Sendable {
 
     public var score: MusicScore
     public var options: MusicRenderOptions
+    /// The piece this one replaced, relative to the project, kept to compare the two.
+    public var previous: String?
 
     public init(score: MusicScore, options: MusicRenderOptions) {
         self.score = score

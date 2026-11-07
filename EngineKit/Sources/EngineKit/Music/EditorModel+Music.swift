@@ -49,6 +49,14 @@ extension MusicSource {
     public static func load(of clip: Project.TimelineClip, in directory: URL) -> MusicSource? {
         RenderedAssets.renderedPath(of: clip, as: .music).flatMap { load(for: directory.appendingPathComponent($0)) }
     }
+
+    /// The piece a clip replaced, while its files are still there.
+    public static func previous(of clip: Project.TimelineClip, in directory: URL) -> (path: String, source: MusicSource)? {
+        guard let path = load(of: clip, in: directory)?.previous,
+              FileManager.default.fileExists(atPath: directory.appendingPathComponent(path).path),
+              let source = load(for: directory.appendingPathComponent(path)) else { return nil }
+        return (path, source)
+    }
 }
 
 extension EditorModel {
@@ -61,9 +69,29 @@ extension EditorModel {
                                   volume: volume, onTrack: track, duckingOnNewTrack: ducking)
     }
 
-    /// Swaps a clip's music in place. The old file stays for undo; RenderedAssets removes it when the project next opens.
+    /// Swaps a clip's music in place and remembers the piece it replaced. RenderedAssets keeps that one
+    /// file; anything older goes when the project next opens, once no undo can reach it.
     public func replaceMusic(clipId: String, inTrackId trackId: UUID, with music: RenderedMusic) async -> EditorResult {
-        await replaceClipContent(clipId: clipId, inTrackId: trackId,
-                                 content: .audio(Project.AudioClipRef(path: music.path, duration: music.seconds)))
+        let replaced = musicClip(clipId, inTrackId: trackId).flatMap { RenderedAssets.renderedPath(of: $0, as: .music) }
+        let result = await replaceClipContent(clipId: clipId, inTrackId: trackId,
+                                              content: .audio(Project.AudioClipRef(path: music.path, duration: music.seconds)))
+        if result.getProject() != nil, var source = MusicSource.load(for: music.file) {
+            source.previous = replaced
+            try? source.save(for: music.file)
+        }
+        return result
+    }
+
+    /// Goes back to the piece a clip replaced without rendering. Doing it again returns, so the two can be compared.
+    public func swapMusicWithPrevious(clipId: String, inTrackId trackId: UUID, in directory: URL) async -> EditorResult {
+        guard let clip = musicClip(clipId, inTrackId: trackId), let (path, source) = MusicSource.previous(of: clip, in: directory) else {
+            return .failure(.invalidClipContent(reason: "This piece has no previous version"))
+        }
+        return await replaceMusic(clipId: clipId, inTrackId: trackId,
+                                  with: RenderedMusic(file: directory.appendingPathComponent(path), seconds: source.options.duration))
+    }
+
+    private func musicClip(_ clipId: String, inTrackId trackId: UUID) -> Project.TimelineClip? {
+        projectRef.timeline.tracks.first { $0.id == trackId }?.clips.first { $0.id == clipId }
     }
 }

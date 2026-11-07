@@ -481,7 +481,7 @@ extension MCPTools {
                  required: ["projectId"]),
 
             tool("update_music",
-                 "Change a piece of music in place: renders it again and keeps its time and volume. Pass only what changes; a new seed gives a new take of the same style. Takes a few seconds.",
+                 "Change a piece of music in place: renders it again and keeps its time and volume. Pass only what changes; a new seed gives a new take of the same style. Takes a few seconds. usePrevious swaps back to the piece it replaced at once.",
                  properties: [
                     "projectId": str("Project UUID"),
                     "trackId": str("Track UUID"),
@@ -492,7 +492,8 @@ extension MCPTools {
                     "key": str("Key such as 'A minor'"),
                     "bpm": num("Tempo, 40-200"),
                     "intensity": num("How much plays at once, 0-1"),
-                    "seed": num("Variation number")
+                    "seed": num("Variation number"),
+                    "usePrevious": bool("Swap with the piece this one replaced, without rendering; ignores the other options. Again to return")
                  ],
                  required: ["projectId", "trackId", "clipId"])
         ]
