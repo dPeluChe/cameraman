@@ -20,6 +20,7 @@ struct RightPanel: View {
     var selectedOverlayId: Binding<UUID?> = .constant(nil)
     var playerViewModel: PreviewPlayerViewModel? = nil
     var musicPanel: MusicPanelModel? = nil
+    var assistant: AssistantChatModel? = nil
 
     @Binding var showExportModal: Bool
     @Binding var showTranscriptionModal: Bool
@@ -271,13 +272,17 @@ struct RightPanel: View {
                 onOpenTranscript: { showTranscriptionModal = true }
             )
         case .assistant:
-            Button {
-                showAISuggestionsModal = true
-            } label: {
-                PanelActionLabel("Connect Assistant (MCP)...", icon: "sparkles")
+            if let assistant {
+                AssistantChatView(model: assistant) { showAISuggestionsModal = true }
+            } else {
+                Button {
+                    showAISuggestionsModal = true
+                } label: {
+                    PanelActionLabel("Connect Assistant (MCP)...", icon: "sparkles")
+                }
+                .buttonStyle(.bordered)
+                .help("Connect an AI assistant via MCP to edit this project")
             }
-            .buttonStyle(.bordered)
-            .help("Connect an AI assistant via MCP to edit this project")
         case .export:
             Button {
                 showExportModal = true

@@ -29,6 +29,10 @@ final class ProjectEditorViewModel: ObservableObject {
         editor: { [weak self] in self?.editor },
         directory: { [weak self] in self?.projectDirectory }
     )
+    private(set) lazy var assistant = AssistantChatModel(
+        projectId: projectId,
+        projectName: { [weak self] in self?.editor?.project.name ?? "" }
+    )
 
     private let projectId: ProjectId
     private let library: ProjectLibrary
@@ -165,6 +169,7 @@ struct ProjectEditorView: View {
                         selectedOverlayId: $viewModel.selectedOverlayId,
                         playerViewModel: viewModel.playerViewModel,
                         musicPanel: viewModel.musicPanel,
+                        assistant: viewModel.assistant,
                         showExportModal: $showExportModal,
                         showTranscriptionModal: $showTranscriptionModal,
                         showAISuggestionsModal: $showAISuggestionsModal

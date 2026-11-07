@@ -27,6 +27,8 @@ final class MCPHostService: ObservableObject {
     @Published private(set) var token = ""
 
     private var http: MCPHTTPServer?
+    /// The bind in flight, so overlapping starts (launch, Preferences, the assistant) share one listener.
+    private var starting: Task<Void, Never>?
 
     var isEnabled: Bool { UserDefaults.standard.bool(forKey: Self.enabledKey) }
 
@@ -46,8 +48,23 @@ final class MCPHostService: ObservableObject {
         if enabled { Task { await start() } } else { stop() }
     }
 
+    /// Turns the server on for the in-app assistant. Nil when the port is taken.
+    func ensureRunning() async -> (endpoint: URL, token: String)? {
+        UserDefaults.standard.set(true, forKey: Self.enabledKey)
+        await start()
+        return endpoint.flatMap(URL.init(string:)).map { ($0, token) }
+    }
+
     func start() async {
+        if let starting { return await starting.value }
         guard http == nil else { return }
+        let task = Task { await bind() }
+        starting = task
+        await task.value
+        starting = nil
+    }
+
+    private func bind() async {
         if token.isEmpty { token = Self.loadOrCreateToken() }
         let port = Self.defaultPort
         let server = MCPHTTPServer(server: Self.makeServer(), token: token, port: port)

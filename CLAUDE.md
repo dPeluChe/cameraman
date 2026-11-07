@@ -104,6 +104,10 @@ Music/          - Instrumental music from code: ScoreKit (JS library + styles), 
                   EditorModel+Music (render + place, shared by the editor and MCP),
                   MusicSource sidecar. @MainActor + WebKit, same exception as Motion. See docs/FEATURES/MUSIC.md
 
+Agent/          - In-app assistant: AgentBackend (one interface per agent CLI), ClaudeCodeBackend (runs the user's
+                  `claude -p` with stream-json and the in-app MCP server as its only tools).
+                  See docs/RESEARCH/IN_APP_AGENT_2026-11.md
+
 Shared/         - HeadlessPage (off-screen page with per-step deadlines, for renderers built on a web page)
                 - RenderedAssets + RenderSource (renders kept in project assets, their sidecars and cleanup)
                 - AudioMixBuilder (per-track volume/mute for preview + export, incl. video-clip audio)
