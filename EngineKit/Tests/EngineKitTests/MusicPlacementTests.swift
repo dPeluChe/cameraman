@@ -89,12 +89,12 @@ final class MusicPlacementTests: XCTestCase {
         let clip = try XCTUnwrap(added.first)
         let current = await editor.projectRef
         let track = try XCTUnwrap(current.timeline.tracks.first { $0.name == MusicSource.trackName })
-        var refused = await editor.swapMusicWithPrevious(clipId: clip.id, inTrackId: track.id, in: directory)
-        XCTAssertNil(refused.getProject())
+        var swap = await editor.swapMusicWithPrevious(clipId: clip.id, inTrackId: track.id, in: directory)
+        XCTAssertNil(swap.getProject())
 
         _ = await editor.replaceMusic(clipId: clip.id, inTrackId: track.id, with: second)
-        refused = await editor.swapMusicWithPrevious(clipId: clip.id, inTrackId: track.id, in: directory)
-        XCTAssertNotNil(refused.getProject())
+        swap = await editor.swapMusicWithPrevious(clipId: clip.id, inTrackId: track.id, in: directory)
+        XCTAssertNotNil(swap.getProject())
         var moved = await clips(editor)
         var now = try XCTUnwrap(moved.first)
         XCTAssertEqual(RenderedAssets.renderedPath(of: now, as: .music), first.path)

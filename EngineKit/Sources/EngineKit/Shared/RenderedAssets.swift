@@ -105,8 +105,8 @@ public enum RenderedAssets {
         }
     }
 
-    /// Removes renders no clip uses, keeping the piece each music clip can go back to. Run it only when no undo history can bring one back, which is
-    /// why deleting a clip keeps its file. Returns how many files went.
+    /// Removes renders no clip uses, keeping the piece each music clip can go back to. Run it only when
+    /// no undo history can bring one back, which is why deleting a clip keeps its file. Returns how many went.
     @discardableResult
     public static func removeUnused(in project: Project, directory: URL, now: Date = Date()) -> Int {
         let assets = directory.appendingPathComponent("assets", isDirectory: true)
@@ -114,8 +114,8 @@ public enum RenderedAssets {
         guard let names = try? fileManager.contentsOfDirectory(atPath: assets.path) else { return 0 }
 
         let clips = project.timeline.tracks.flatMap(\.clips)
-        var used = Set(clips.compactMap(mediaPath).map { ($0 as NSString).lastPathComponent })
-        used.formUnion(clips.compactMap { MusicSource.load(of: $0, in: directory)?.previous }.map { ($0 as NSString).lastPathComponent })
+        let paths = clips.compactMap(mediaPath) + clips.compactMap { MusicSource.load(of: $0, in: directory)?.previous }
+        let used = Set(paths.map { ($0 as NSString).lastPathComponent })
         var removed = 0
         for name in names where !used.contains(name) && Kind.allCases.contains(where: { isRendered(name, as: $0) }) {
             let file = assets.appendingPathComponent(name)

@@ -272,6 +272,15 @@ final class MCPMotionTests: XCTestCase {
         XCTAssertEqual(source.score, .style(.ambient))
         XCTAssertEqual(source.options.seed, 9)
         XCTAssertTrue(FileManager.default.fileExists(atPath: directory.appendingPathComponent(before.path).path), "kept for undo")
+
+        _ = try await tools.execute(name: "update_music", arguments: [
+            "projectId": id.uuidString, "trackId": track.id.uuidString, "clipId": first.id, "usePrevious": true,
+        ])
+        project = try await ProjectLibrary.shared.getProject(projectId: id)
+        let swapped = try XCTUnwrap(project.timeline.tracks.first { $0.id == track.id }?.clips.first { $0.id == first.id })
+        XCTAssertEqual(swapped.duration, 3, accuracy: 0.01)
+        guard case .audio(let back) = swapped.content else { return XCTFail("audio clip") }
+        XCTAssertEqual(back.path, before.path)
     }
 
     func testMusicDefaultsToTheRestOfTheTimelineAndNeedsAScore() async throws {

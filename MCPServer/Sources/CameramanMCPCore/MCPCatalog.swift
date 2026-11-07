@@ -481,7 +481,7 @@ extension MCPTools {
                  required: ["projectId"]),
 
             tool("update_music",
-                 "Change a piece of music in place: renders it again and keeps its time and volume. Pass only what changes; a new seed gives a new take of the same style. Takes a few seconds.",
+                 "Change a piece of music in place: renders it again and keeps its time and volume. Pass only what changes; a new seed gives a new take of the same style. Takes a few seconds. usePrevious swaps back to the piece it replaced at once.",
                  properties: [
                     "projectId": str("Project UUID"),
                     "trackId": str("Track UUID"),
