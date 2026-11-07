@@ -42,7 +42,53 @@ final class MusicPlacementTests: XCTestCase {
         ])
         XCTAssertEqual(MusicSource.fittedDuration(from: 5, in: timeline), 15)
         XCTAssertNil(MusicSource.fittedDuration(from: 25, in: timeline))
-        XCTAssertEqual(MusicSource.fittedDuration(from: 0, in: Project.Timeline(duration: 2000, tracks: [])), MusicRenderer.maxDuration)
+        XCTAssertEqual(MusicSource.fittedDuration(from: 0, in: Project.Timeline(duration: 2000, tracks: [])), 2000)
+    }
+
+    func testALongVideoIsSplitIntoEqualPiecesWithinTheLimit() {
+        XCTAssertEqual(MusicSource.sections(of: 90), [90])
+        XCTAssertEqual(MusicSource.sections(of: MusicRenderer.maxDuration), [MusicRenderer.maxDuration])
+        let long = MusicSource.sections(of: 1500)
+        XCTAssertEqual(long.count, 3)
+        XCTAssertEqual(long.reduce(0, +), 1500, accuracy: 0.001)
+        XCTAssertTrue(long.allSatisfy { $0 == 500 })
+    }
+
+    func testPiecesGoBackToBackOnOneTrackOrNotAtAll() async throws {
+        let editor = EditorModel(project: project)
+        let first = RenderedMusic(file: URL(fileURLWithPath: "/project/assets/music-00000001.m4a"), seconds: 10)
+        let second = RenderedMusic(file: URL(fileURLWithPath: "/project/assets/music-00000002.m4a"), seconds: 10)
+        let result = await editor.addMusic([first, second], at: 5)
+        XCTAssertNotNil(result.getProject())
+        let placed = await clips(editor)
+        XCTAssertEqual(placed.map(\.timelineIn), [5, 15])
+
+        let refused = EditorModel(project: project)
+        let broken = RenderedMusic(file: URL(fileURLWithPath: "/project/assets/music-00000003.m4a"), seconds: 0)
+        let failure = await refused.addMusic([first, broken], at: 0)
+        XCTAssertNil(failure.getProject())
+        let musicTracks = await refused.projectRef.timeline.tracks.filter { $0.name == MusicSource.trackName }
+        XCTAssertTrue(musicTracks.isEmpty, "A refused piece undoes the ones before it, track included")
+    }
+
+    func testFittingAPieceStopsAtTheNextOneAndTheLimit() {
+        let piece = { (start: TimeInterval, name: String) in
+            Project.TimelineClip(timelineIn: start, content: .audio(Project.AudioClipRef(path: "assets/music-\(name).m4a", duration: 5)))
+        }
+        let timeline = { (picture: TimeInterval) in
+            Project.Timeline(duration: picture, tracks: [
+                Project.TimelineTrack(name: "Card", type: .video, clips: [
+                    Project.TimelineClip(timelineIn: 0, content: .color(Project.ColorClipRef(hexColor: "#000000", duration: picture))),
+                ]),
+                Project.TimelineTrack(name: MusicSource.trackName, type: .audio, clips: [piece(0, "0000000a"), piece(20, "0000000b")]),
+            ])
+        }
+        let short = timeline(30)
+        let pieces = short.musicPieces
+        XCTAssertEqual(MusicSource.fittedDuration(of: pieces[0], in: short), 20, "Up to the next piece")
+        XCTAssertEqual(MusicSource.fittedDuration(of: pieces[1], in: short), 10, "Up to the end of the picture")
+        let long = timeline(2000)
+        XCTAssertEqual(MusicSource.fittedDuration(of: long.musicPieces[1], in: long), MusicRenderer.maxDuration)
     }
 
     func testPiecesAreOnlyGeneratedMusic() {

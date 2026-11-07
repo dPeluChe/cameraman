@@ -469,7 +469,7 @@ extension MCPTools {
                  properties: [
                     "projectId": str("Project UUID"),
                     "at": num("Timeline start in seconds (default 0)"),
-                    "duration": num("Seconds, 1-600 (default: to the end of the picture)"),
+                    "duration": num("Seconds, 1 or more (default: to the end of the picture). Over 600 it is split into equal pieces of up to 600 s, placed back to back"),
                     "style": strEnum("Built-in score", MusicStyle.allCases.map(\.rawValue)),
                     "code": str("Custom score instead of a style"),
                     "file": str("Absolute path to an audio file to use instead of composing"),

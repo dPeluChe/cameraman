@@ -62,7 +62,7 @@ public enum MusicRenderer {
     nonisolated public static func validate(_ source: MusicSource) throws {
         let options = source.options
         guard (1...maxDuration).contains(options.duration) else {
-            throw MusicError.invalidOptions("duration must be 1-\(Int(maxDuration)) seconds; use a second clip for longer videos")
+            throw MusicError.invalidOptions("duration must be 1-\(Int(maxDuration)) seconds per piece; add_music splits longer music into pieces")
         }
         guard (0...1).contains(options.intensity) else { throw MusicError.invalidOptions("intensity must be 0-1") }
         if let bpm = options.bpm, !(40...200).contains(bpm) { throw MusicError.invalidOptions("bpm must be 40-200") }

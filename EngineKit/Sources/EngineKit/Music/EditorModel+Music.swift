@@ -48,14 +48,49 @@ extension MusicRenderer {
         }
         return RenderedMusic(file: file, seconds: seconds)
     }
+
+    /// Renders back-to-back pieces covering `source.options.duration`, each within the render limit.
+    /// The seed steps per piece so neighbours differ. Nothing is left behind if one fails.
+    public static func renderChain(_ source: MusicSource, in directory: URL) async throws -> [RenderedMusic] {
+        var pieces: [RenderedMusic] = []
+        do {
+            for (index, length) in MusicSource.sections(of: source.options.duration).enumerated() {
+                var piece = source
+                piece.options.duration = length
+                piece.options.seed += index
+                pieces.append(try await renderAsset(piece, in: directory))
+            }
+        } catch {
+            pieces.forEach { RenderedAssets.remove($0.file) }
+            throw error
+        }
+        return pieces
+    }
 }
 
 extension MusicSource {
-    /// How long a piece starting at `start` should run: to the end of the picture, or of everything
+    /// How long music starting at `start` should run: to the end of the picture, or of everything
     /// when there is no picture. Music already there does not count, or it could never shrink.
+    /// Longer than one render allows on long videos: see `sections(of:)`.
     public static func fittedDuration(from start: TimeInterval, in timeline: Project.Timeline) -> TimeInterval? {
         let end = timeline.tracks.filter { $0.type != .audio }.flatMap(\.clips).map(\.timelineOut).max() ?? timeline.duration
-        return end > start ? min(end - start, MusicRenderer.maxDuration) : nil
+        return end > start ? end - start : nil
+    }
+
+    /// How long a placed piece can grow: to the end of the picture, not past the next clip on its track
+    /// nor one render's limit. Nil when it already has that length.
+    public static func fittedDuration(of piece: Project.Timeline.MusicPiece, in timeline: Project.Timeline) -> TimeInterval? {
+        let start = piece.clip.timelineIn
+        guard let picture = fittedDuration(from: start, in: timeline) else { return nil }
+        let next = piece.track.clips.map(\.timelineIn).filter { $0 > start }.min().map { $0 - start } ?? .infinity
+        let length = min(picture, next, MusicRenderer.maxDuration)
+        return abs(length - piece.clip.duration) > 0.1 ? length : nil
+    }
+
+    /// Equal lengths within the render limit that add up to `length`, so no piece is a short tail.
+    public static func sections(of length: TimeInterval) -> [TimeInterval] {
+        let count = max(1, Int((length / MusicRenderer.maxDuration).rounded(.up)))
+        return Array(repeating: length / Double(count), count: count)
     }
 
     /// What a clip was made from. Nil for imported audio, and for a render whose sidecar is gone.
@@ -102,6 +137,24 @@ extension EditorModel {
         }
         return await replaceMusic(clipId: clipId, inTrackId: trackId,
                                   with: RenderedMusic(file: directory.appendingPathComponent(path), seconds: source.options.duration))
+    }
+
+    /// Places pieces back to back from `start` as one edit: all of them or none.
+    public func addMusic(_ pieces: [RenderedMusic], at start: TimeInterval, volume: Double = MusicSource.defaultVolume,
+                         ducking: Double = MusicSource.defaultDucking) async -> EditorResult {
+        guard !pieces.isEmpty else { return .failure(.invalidClipContent(reason: "No music to add")) }
+        let before = projectRef
+        var result: EditorResult = .success(before)
+        var time = start
+        for piece in pieces {
+            result = await addMusic(piece, at: time, volume: volume, ducking: ducking)
+            guard result.getProject() != nil else {
+                projectRef = before
+                return result
+            }
+            time += piece.seconds
+        }
+        return result
     }
 
     private func musicClip(_ clipId: String, inTrackId trackId: UUID) -> Project.TimelineClip? {
