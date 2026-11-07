@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > released on its own). Rename this header to `[0.8.0] - <date>` when the batch is built, signed and notarized.
 
 ### Added
+- **Music for long videos** — past 10 minutes, *Generate Music* and `add_music` compose several pieces of equal length and place them back to back, so the whole video has music. Each piece can be changed on its own.
 - **Hear a style before using it** — each style tile in the Music tool has a play button with a 12-second sample. Samples are composed once and kept in the app's caches until the styles change.
 - **Use your own song** — *Import Audio File…* in the Music tool puts a file on a Music track, cut to the length of the video, and it drops under your voice like generated music. Over MCP, `add_music` takes `file`.
 - **Edit Music from the timeline** — selecting a generated piece shows *Edit Music* in the clip bar, which opens the Music tool on that piece.

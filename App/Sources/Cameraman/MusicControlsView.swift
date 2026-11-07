@@ -30,6 +30,8 @@ private extension MusicStyle {
 @MainActor
 final class MusicPanelModel: ObservableObject {
     @Published private(set) var isRendering = false
+    /// How many pieces the current render makes: a long video gets several.
+    @Published private(set) var composingPieces = 0
     @Published private(set) var errorMessage: String?
     /// The style whose sample is loading or playing.
     @Published private(set) var sampleStyle: MusicStyle?
@@ -49,16 +51,18 @@ final class MusicPanelModel: ObservableObject {
     var projectDirectory: URL? { directory() }
 
     /// Renders outside the edit, then drops the file if the edit is refused or the project closed.
-    func compose(_ source: MusicSource, place: @escaping (ProjectEditor, RenderedMusic) async -> EditorResult) async {
+    func compose(_ source: MusicSource, place: @escaping (ProjectEditor, [RenderedMusic]) async -> EditorResult) async {
         guard !isRendering, let directory = directory() else { return }
         isRendering = true
+        composingPieces = MusicSource.sections(of: source.options.duration).count
         errorMessage = nil
         defer { isRendering = false }
         do {
-            let music = try await MusicRenderer.renderAsset(source, in: directory)
-            guard let editor = editor() else { return RenderedAssets.remove(music.file) }
-            let result = await place(editor, music)
-            if case .failure = result { RenderedAssets.remove(music.file) }
+            let pieces = try await MusicRenderer.renderChain(source, in: directory)
+            let discard = { pieces.forEach { RenderedAssets.remove($0.file) } }
+            guard let editor = editor() else { return discard() }
+            let result = await place(editor, pieces)
+            if case .failure = result { discard() }
             report(result)
         } catch {
             errorMessage = error.localizedDescription
@@ -115,7 +119,7 @@ final class MusicPanelModel: ObservableObject {
         do {
             let length = MusicSource.fittedDuration(from: 0, in: editor.project.timeline)
             let music = try await RenderedMusic.importSong(from: url, into: directory, upTo: length)
-            let result = await editor.addMusic(music, at: 0)
+            let result = await editor.addMusic([music], at: 0)
             if case .failure = result { RenderedAssets.remove(music.file) }
             report(result)
         } catch {
@@ -168,7 +172,8 @@ struct MusicControlsView: View {
             if model.isRendering {
                 HStack(spacing: Spacing.xs) {
                     ProgressView().controlSize(.small)
-                    Text("Composing…").font(.caption).foregroundStyle(.secondary)
+                    Text(model.composingPieces > 1 ? "Composing \(model.composingPieces) pieces for a long video…" : "Composing…")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
             }
             if let message = model.errorMessage {
@@ -276,10 +281,13 @@ struct MusicControlsView: View {
         }
     }
 
+    /// To the end of the picture, but not past the next piece on its track nor one render's limit.
     private func fitLength(_ piece: Project.Timeline.MusicPiece) -> TimeInterval? {
-        guard let length = MusicSource.fittedDuration(from: piece.clip.timelineIn, in: editor.project.timeline),
-              abs(length - piece.clip.duration) > 0.1 else { return nil }
-        return length
+        let start = piece.clip.timelineIn
+        guard let picture = MusicSource.fittedDuration(from: start, in: editor.project.timeline) else { return nil }
+        let next = piece.track.clips.map(\.timelineIn).filter { $0 > start }.min().map { $0 - start } ?? .infinity
+        let length = min(picture, next, MusicRenderer.maxDuration)
+        return abs(length - piece.clip.duration) > 0.1 ? length : nil
     }
 
     private func reload() {
@@ -296,7 +304,7 @@ struct MusicControlsView: View {
         }
         let options = MusicRenderOptions(duration: duration, seed: Int.random(in: 1...9999), intensity: intensity)
         let source = MusicSource(score: .style(style), options: options)
-        Task { await model.compose(source) { editor, music in await editor.addMusic(music, at: 0) } }
+        Task { await model.compose(source) { editor, pieces in await editor.addMusic(pieces, at: 0) } }
     }
 
     private func pick(_ tile: MusicStyle) {
@@ -322,8 +330,8 @@ struct MusicControlsView: View {
     private func replace(_ piece: Project.Timeline.MusicPiece, with source: MusicSource) {
         let clipId = piece.clip.id, trackId = piece.track.id
         Task {
-            await model.compose(source) { editor, music in
-                await editor.replaceMusic(clipId: clipId, inTrackId: trackId, with: music)
+            await model.compose(source) { editor, pieces in
+                await editor.replaceMusic(clipId: clipId, inTrackId: trackId, with: pieces[0])
             }
         }
     }

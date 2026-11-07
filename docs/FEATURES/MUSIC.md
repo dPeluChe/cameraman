@@ -15,7 +15,7 @@ add_music (MCP, in-app server only)
   → EditorModel.importAudioClip(volume:) → Music track
 ```
 
-10 minutes of `lofi` render in about 30 s. The limit is 600 s per clip; use a second clip for longer videos. The same
+10 minutes of `lofi` render in about 30 s. The limit is 600 s per render. Longer music is split into equal pieces within it (`MusicSource.sections(of:)`), rendered with consecutive seeds (`MusicRenderer.renderChain`) and placed back to back on one Music track as a single edit, so a 25-minute video gets three 8:20 pieces. The same
 score and seed give the same music.
 
 ## Reusable pieces
@@ -67,7 +67,7 @@ below 120 Hz. Output is levelled to the same loudness, so `volume` on the clip m
 The Music tool in the right panel composes a piece from a style and an intensity. A piece made there or by an agent can
 be changed from either side, because both call the same engine code and read the same sidecar: style, intensity,
 another variation (next seed: tempo and melodic figure step with it, so neighbours sound apart), fit to the video, volume and how far it drops under the voice. Scores written in code
-show as "Custom score"; picking a style replaces them. A piece runs to the end of the picture, up to 10 minutes.
+show as "Custom score"; picking a style replaces them. Music runs to the end of the picture; past 10 minutes it is several pieces, each edited on its own. Fit to Video stops at the next piece on its track.
 
 Replacing a piece keeps the one before it: **Use Previous** in the panel, or `usePrevious` on `update_music`, swaps the
 two without rendering, and doing it again returns. The link is `previous` in the sidecar, so the project format does not

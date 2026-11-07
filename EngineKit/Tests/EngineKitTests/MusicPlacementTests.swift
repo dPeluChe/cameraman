@@ -42,7 +42,33 @@ final class MusicPlacementTests: XCTestCase {
         ])
         XCTAssertEqual(MusicSource.fittedDuration(from: 5, in: timeline), 15)
         XCTAssertNil(MusicSource.fittedDuration(from: 25, in: timeline))
-        XCTAssertEqual(MusicSource.fittedDuration(from: 0, in: Project.Timeline(duration: 2000, tracks: [])), MusicRenderer.maxDuration)
+        XCTAssertEqual(MusicSource.fittedDuration(from: 0, in: Project.Timeline(duration: 2000, tracks: [])), 2000)
+    }
+
+    func testALongVideoIsSplitIntoEqualPiecesWithinTheLimit() {
+        XCTAssertEqual(MusicSource.sections(of: 90), [90])
+        XCTAssertEqual(MusicSource.sections(of: MusicRenderer.maxDuration), [MusicRenderer.maxDuration])
+        let long = MusicSource.sections(of: 1500)
+        XCTAssertEqual(long.count, 3)
+        XCTAssertEqual(long.reduce(0, +), 1500, accuracy: 0.001)
+        XCTAssertTrue(long.allSatisfy { $0 == 500 })
+    }
+
+    func testPiecesGoBackToBackOnOneTrackOrNotAtAll() async throws {
+        let editor = EditorModel(project: project)
+        let first = RenderedMusic(file: URL(fileURLWithPath: "/project/assets/music-00000001.m4a"), seconds: 10)
+        let second = RenderedMusic(file: URL(fileURLWithPath: "/project/assets/music-00000002.m4a"), seconds: 10)
+        let result = await editor.addMusic([first, second], at: 5)
+        XCTAssertNotNil(result.getProject())
+        let placed = await clips(editor)
+        XCTAssertEqual(placed.map(\.timelineIn), [5, 15])
+
+        let refused = EditorModel(project: project)
+        let broken = RenderedMusic(file: URL(fileURLWithPath: "/project/assets/music-00000003.m4a"), seconds: 0)
+        let failure = await refused.addMusic([first, broken], at: 0)
+        XCTAssertNil(failure.getProject())
+        let musicTracks = await refused.projectRef.timeline.tracks.filter { $0.name == MusicSource.trackName }
+        XCTAssertTrue(musicTracks.isEmpty, "A refused piece undoes the ones before it, track included")
     }
 
     func testPiecesAreOnlyGeneratedMusic() {

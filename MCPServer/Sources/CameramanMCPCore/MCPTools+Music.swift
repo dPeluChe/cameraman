@@ -23,24 +23,29 @@ extension MCPTools {
             throw MCPToolError("The picture ends before 'at'. Pass 'duration'.")
         }
         let directory = try await ProjectLibrary.shared.getProjectDirectory(projectId: project.projectId)
-        let music: RenderedMusic
+        let pieces: [RenderedMusic]
         if let file = args.optStr("file") {
-            music = try await RenderedMusic.importSong(from: URL(fileURLWithPath: file), into: directory, upTo: length)
+            pieces = [try await RenderedMusic.importSong(from: URL(fileURLWithPath: file), into: directory, upTo: length)]
         } else {
-            music = try await MusicRenderer.renderAsset(try Self.musicSource(args, editing: nil, duration: length), in: directory)
+            pieces = try await MusicRenderer.renderChain(try Self.musicSource(args, editing: nil, duration: length), in: directory)
         }
 
-        return try await RenderedAssets.removing(music.file) {
+        return try await RenderedAssets.removing(pieces.map(\.file)) {
             var added: EditorResultInfo?
             let updated = try await mutate(args) { editor in
-                let result = await editor.addMusic(music, at: at, volume: volume, ducking: ducking)
+                let result = await editor.addMusic(pieces, at: at, volume: volume, ducking: ducking)
                 if case .successWithInfo(_, let info) = result { added = info }
                 return result
             }
             var extra = Self.clipIds(added)
             let envelopes = AudioDucking.envelopes(for: updated, directory: directory)
             extra["speechDucking"] = (extra["clipId"] as? String).map { envelopes[$0] != nil } ?? false
-            return try summary("Added music (\(String(format: "%.1f", music.seconds))s) at \(at)s", updated, extra: extra)
+            let seconds = pieces.map(\.seconds).reduce(0, +)
+            var message = "Added music (\(String(format: "%.1f", seconds))s) at \(at)s"
+            if pieces.count > 1 {
+                message += " as \(pieces.count) pieces back to back, each changed on its own with update_music; clipId is the last"
+            }
+            return try summary(message, updated, extra: extra)
         }
     }
 

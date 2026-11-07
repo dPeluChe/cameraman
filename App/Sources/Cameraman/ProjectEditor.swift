@@ -157,8 +157,8 @@ final class ProjectEditor: ObservableObject {
         }
     }
 
-    func addMusic(_ music: RenderedMusic, at start: TimeInterval) async -> EditorResult {
-        await performEdit { await self.editorModel.addMusic(music, at: start) }
+    func addMusic(_ pieces: [RenderedMusic], at start: TimeInterval) async -> EditorResult {
+        await performEdit { await self.editorModel.addMusic(pieces, at: start) }
     }
 
     func replaceMusic(clipId: String, inTrackId trackId: UUID, with music: RenderedMusic) async -> EditorResult {

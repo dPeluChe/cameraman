@@ -83,10 +83,14 @@ public enum RenderedAssets {
 
     /// Runs `body`, removing the render if it fails, for a clip edit that may be refused.
     public static func removing<Output>(_ file: URL, ifFailing body: () async throws -> Output) async throws -> Output {
+        try await removing([file], ifFailing: body)
+    }
+
+    public static func removing<Output>(_ files: [URL], ifFailing body: () async throws -> Output) async throws -> Output {
         do {
             return try await body()
         } catch {
-            remove(file)
+            files.forEach(remove)
             throw error
         }
     }
