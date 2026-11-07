@@ -233,10 +233,6 @@ struct TranscriptionView: View {
                 .help("Regenerate transcript (replaces the current one)")
 
                 Spacer()
-
-                Toggle("Burn-in Captions", isOn: $viewModel.burnInCaptions)
-                    .toggleStyle(.switch)
-                    .help("Embed captions in the exported video")
             }
             .padding(.bottom, 12)
 
