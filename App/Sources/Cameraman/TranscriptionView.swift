@@ -328,15 +328,16 @@ struct TranscriptionView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
 
-    /// Build editable subtitle cues on the timeline from the current transcript,
-    /// honoring any inline edits the user made to segment text.
     private func transcribe() async {
         await viewModel.startTranscription(project: editor.project, language: viewModel.selectedLanguage)
         if addSubtitles, viewModel.transcriptionState == .completed, editor.project.subtitles.isEmpty {
             generateSubtitles()
+            NotificationCenter.default.post(name: .selectEditorTool, object: EditorTool.subtitles)
         }
     }
 
+    /// Build editable subtitle cues on the timeline from the current transcript,
+    /// honoring any inline edits the user made to segment text.
     private func generateSubtitles() {
         guard let transcript = viewModel.transcript else { return }
         let cues = transcript.segments.map { segment in

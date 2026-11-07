@@ -133,7 +133,7 @@ struct RightPanel: View {
     private func status(for tool: EditorTool) -> EditorToolStatus {
         let project = editor.project
         switch tool {
-        case .layout, .format, .export:
+        case .layout, .format, .assistant, .export:
             return .inactive
         case .camera:
             return EditorToolStatus(count: nil, isActive: true)
@@ -177,8 +177,6 @@ struct RightPanel: View {
         case .subtitles:
             let count = project.subtitles.count
             return EditorToolStatus(count: count, isActive: count > 0)
-        case .assistant:
-            return .inactive
         }
     }
 
@@ -270,7 +268,7 @@ struct RightPanel: View {
             SubtitleEditorView(
                 editor: editor,
                 onSeek: { time in playerViewModel?.seek(to: time) },
-                onGenerate: { showTranscriptionModal = true }
+                onOpenTranscript: { showTranscriptionModal = true }
             )
         case .assistant:
             Button {

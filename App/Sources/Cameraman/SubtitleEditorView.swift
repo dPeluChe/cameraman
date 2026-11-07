@@ -15,7 +15,7 @@ struct SubtitleEditorView: View {
     /// Seek callback so tapping a cue moves the playhead.
     var onSeek: ((TimeInterval) -> Void)? = nil
     /// Opens the transcript, which makes the cues.
-    var onGenerate: () -> Void = {}
+    let onOpenTranscript: () -> Void
 
     // Local, editable copy of the global style. Applied explicitly so dragging a
     // slider doesn't spam undo snapshots (each apply rebuilds every cue).
@@ -109,7 +109,6 @@ struct SubtitleEditorView: View {
                     .frame(maxWidth: .infinity)
             }
             .controlSize(.small)
-            .disabled(editor.project.subtitles.isEmpty)
         }
     }
 
@@ -123,7 +122,10 @@ struct SubtitleEditorView: View {
                     .fontWeight(.semibold)
                     .foregroundStyle(.secondary)
                 Spacer()
-                Button(action: onGenerate) {
+                addCueButton
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
+                Button(action: onOpenTranscript) {
                     Label("Transcript", systemImage: "text.quote")
                         .labelStyle(.iconOnly)
                 }
@@ -195,23 +197,26 @@ struct SubtitleEditorView: View {
 
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
-            Button(action: onGenerate) {
+            Button(action: onOpenTranscript) {
                 PanelActionLabel("Generate Subtitles...", icon: "captions.bubble")
             }
             .buttonStyle(.borderedProminent)
             Text("Made on this Mac from what is said in the video.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
-            Button {
-                Task {
-                    let t = editor.project.timeline.duration
-                    _ = await editor.addSubtitle(text: "New subtitle", start: 0, end: min(2, max(0.5, t)))
-                }
-            } label: {
-                Label("Add subtitle", systemImage: "plus")
-            }
-            .controlSize(.small)
+            addCueButton
+                .controlSize(.small)
         }
+    }
+
+    private var addCueButton: some View {
+        Button {
+            let start = subtitles.last?.end ?? 0
+            Task { _ = await editor.addSubtitle(text: "New subtitle", start: start, end: start + 2) }
+        } label: {
+            Label("Add subtitle", systemImage: "plus")
+        }
+        .help("Add a subtitle after the last one")
     }
 
     // MARK: - Helpers

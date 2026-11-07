@@ -37,7 +37,7 @@ struct CameramanApp: App {
                 }
                 .keyboardShortcut("e", modifiers: .command)
 
-                Button("Generate Captions...") {
+                Button("Generate Subtitles...") {
                     NotificationCenter.default.post(name: .openTranscriptionModal, object: nil)
                 }
                 .keyboardShortcut("t", modifiers: [.command, .shift])
