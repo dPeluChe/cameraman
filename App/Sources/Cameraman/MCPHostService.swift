@@ -2,9 +2,8 @@
 //  MCPHostService.swift
 //  App
 //
-//  Hosts the MCP server inside the app (loopback HTTP) so the same build works in the
-//  Mac App Store sandbox, where a helper launched by another app cannot run. Opt-in:
-//  nothing listens until the user turns it on.
+//  Hosts the MCP server inside the app (loopback HTTP), so clients and the in-app assistant
+//  reach the open editor. Opt-in: nothing listens until the user turns it on.
 //
 
 import Combine

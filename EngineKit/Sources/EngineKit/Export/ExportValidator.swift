@@ -91,8 +91,6 @@ extension ExportEngine {
 
     /// Get project directory for a given project ID
     func getProjectDirectory(for projectId: ProjectId) -> URL {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let baseDirectory = appSupport.appendingPathComponent("ProjectStudio/Projects", isDirectory: true)
-        return baseDirectory.appendingPathComponent(projectId.uuidString, isDirectory: true)
+        AppDirectories.projects.appendingPathComponent(projectId.uuidString, isDirectory: true)
     }
 }

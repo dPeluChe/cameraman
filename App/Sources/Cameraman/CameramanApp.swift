@@ -14,6 +14,21 @@ import EngineKit
 struct CameramanApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
+    init() {
+        Self.leaveSandboxContainer()
+    }
+
+    /// Before anything opens a project: 0.8 dropped the sandbox, so data moves out of the container.
+    /// Settings are imported once; files are retried each launch until they have moved.
+    private static func leaveSandboxContainer() {
+        guard let id = Bundle.main.bundleIdentifier else { return }
+        let key = "migration.importedContainerPreferences"
+        let firstRun = !UserDefaults.standard.bool(forKey: key)
+        let moved = ContainerMigration(bundleIdentifier: id).run(importingPreferencesInto: firstRun ? .standard : nil)
+        UserDefaults.standard.set(true, forKey: key)
+        if moved > 0 { LogInfo(.ui, "[Migration] moved \(moved) item(s) out of the sandbox container") }
+    }
+
     var body: some Scene {
         // Main window with project library and editor (single-instance)
         Window("Projects", id: WindowID.mainEditor) {

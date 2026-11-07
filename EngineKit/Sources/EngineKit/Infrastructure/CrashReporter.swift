@@ -82,16 +82,7 @@ public actor CrashReporter {
     
     private init() {
         // Set up crash reports directory
-        let appSupport = FileManager.default.urls(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask
-        ).first!
-        
-        let directory = appSupport
-            .appendingPathComponent("ProjectStudio")
-            .appendingPathComponent("CrashReports")
-        
-        self.init(crashReportsDirectory: directory)
+        self.init(crashReportsDirectory: AppDirectories.crashReports)
     }
     
     /// Internal initializer for testing with custom directory

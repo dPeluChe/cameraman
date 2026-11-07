@@ -85,15 +85,12 @@ swift build -c release
 
 The server speaks MCP over **stdio**. Point your client at the built binary.
 
-> **Point it at the app's projects.** The app is sandboxed and stores projects
-> inside its container, but this server is a plain CLI binary that defaults to
-> `~/Library/Application Support/ProjectStudio/Projects/`. Set
-> **`CAMERAMAN_PROJECTS_DIR`** to the app's container Projects folder so both see
-> the same projects. The app's Settings → Developer panel shows the exact path
-> and generates these snippets with it filled in. The container path is:
-> `~/Library/Containers/dev.dpeluche.CameramanApp/Data/Library/Application Support/ProjectStudio/Projects`
-> (append `.debug` to the bundle id for debug builds). Omit the env var to use the
-> non-container default.
+> **Projects folder.** The server defaults to
+> `~/Library/Application Support/ProjectStudio/Projects/`, the same folder the app uses
+> (since 0.8 the app is not sandboxed). Set **`CAMERAMAN_PROJECTS_DIR`** to point it
+> elsewhere. Builds before 0.8 kept projects in
+> `~/Library/Containers/dev.dpeluche.CameramanApp/Data/Library/Application Support/ProjectStudio/Projects`;
+> the app moves them out on first launch.
 
 Claude Desktop (`claude_desktop_config.json`):
 
@@ -137,10 +134,10 @@ env = { CAMERAMAN_PROJECTS_DIR = "/Users/you/Library/Containers/dev.dpeluche.Cam
 - `stdout` is reserved for protocol messages; logs go to `stderr`.
 - Implements `initialize`, `tools/list`, `tools/call`, and `ping`.
 
-## In-app HTTP server (Mac App Store friendly)
+## In-app HTTP server
 
-The app can host the same server in-process over loopback HTTP, so one build works in the
-sandbox (a helper launched by another app cannot inherit it). Opt in under
+The app can host the same server in-process over loopback HTTP, so clients reach the open
+editor without a separate binary. The in-app assistant uses it too. Opt in under
 Preferences → Integrations → "Built-in server (HTTP)".
 
 - `POST http://127.0.0.1:8765/mcp`, JSON-RPC, `Authorization: Bearer <token>` required.

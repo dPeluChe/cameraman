@@ -231,18 +231,18 @@ Para entender el proyecto rápido, leer en este orden:
 
 ---
 
-## Sandbox y permisos
+## Permisos (sin sandbox)
 
-La app corre con App Sandbox. Entitlements en `CameramanApp/CameramanApp.entitlements`:
+Desde 0.8 la app no usa App Sandbox: lanza los CLIs de agentes del usuario (`claude`), que no pueden leer su login
+desde un sandbox heredado. Se distribuye como DMG notarizado con hardened runtime; no va a la Mac App Store.
+Ver `docs/RESEARCH/IN_APP_AGENT_2026-11.md`. Entitlements en `CameramanApp/CameramanApp.entitlements`:
 - `com.apple.security.device.camera`
 - `com.apple.security.device.audio-input`
-- `com.apple.security.files.user-selected.read-write`
-- `com.apple.security.files.downloads.read-write`
 
 Info.plist: `NSCameraUsageDescription`, `NSMicrophoneUsageDescription`, `NSScreenCaptureUsageDescription`.
 
-Proyectos guardados en:
-`~/Library/Containers/dev.dpeluche.CameramanApp/Data/Library/Application Support/ProjectStudio/Projects/`
+Datos en `~/Library/Application Support/ProjectStudio/` (`AppDirectories`): `Projects/`, `Models/` (WhisperKit),
+`Recordings/`. El primer arranque mueve lo que había en el contenedor viejo (`ContainerMigration`).
 
 ---
 

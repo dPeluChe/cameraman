@@ -114,6 +114,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (**42 → 43 tools**).
 
 ### Changed
+- **No more App Sandbox** — so the coming in-app assistant can run the AI tools you already have installed, such as Claude Code, with your own login. Cameraman ships as a notarized download; it is not on the Mac App Store. On first launch your projects, transcription models and settings move from the old app container to `~/Library/Application Support/ProjectStudio`, and nothing already there is overwritten.
 - **MCP tools consolidated, 43 → 37 (breaking names)** — `list_overlays` and `list_adjustments` are in `get_project`;
   `search_projects` is `list_projects(query)`; `rename_project` + `set_tags` are `update_project`; `list_jobs` is
   `get_job_status(projectId)`; `set_clip_audio_muted` is `edit_clip(audioMuted)`. Tools carry `readOnlyHint` /
