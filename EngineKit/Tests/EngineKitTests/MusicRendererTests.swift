@@ -52,6 +52,16 @@ final class MusicRendererTests: XCTestCase {
         XCTAssertGreaterThan(audio[(48_000 * 9 + 24_000)...].map(abs).max() ?? 0, 0.1, "a note in a later window must play")
     }
 
+    func testASampleIsRenderedOnceAndKept() async throws {
+        let file = try await MusicRenderer.sample(of: .tech)
+        let track = try await AVURLAsset(url: file).load(.duration).seconds
+        XCTAssertEqual(track, MusicRenderer.sampleDuration, accuracy: 0.1)
+        let modified = try FileManager.default.attributesOfItem(atPath: file.path)[.modificationDate] as? Date
+        let again = try await MusicRenderer.sample(of: .tech)
+        XCTAssertEqual(again, file)
+        XCTAssertEqual(try FileManager.default.attributesOfItem(atPath: file.path)[.modificationDate] as? Date, modified)
+    }
+
     func testScoreErrorsReachTheCaller() async {
         let url = tempURL()
         for (score, expected) in [("m.nope();", "nope"), ("", "no sound"), ("m.key('H minor');", "Unknown key")] {

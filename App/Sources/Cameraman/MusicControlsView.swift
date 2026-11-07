@@ -6,6 +6,7 @@
 //  update_music, so what an agent makes can be edited here and the other way round.
 //
 
+import AVFoundation
 import Combine
 import SwiftUI
 import EngineKit
@@ -30,6 +31,11 @@ private extension MusicStyle {
 final class MusicPanelModel: ObservableObject {
     @Published private(set) var isRendering = false
     @Published private(set) var errorMessage: String?
+    /// The style whose sample is loading or playing.
+    @Published private(set) var sampleStyle: MusicStyle?
+    @Published private(set) var isLoadingSample = false
+
+    private var samplePlayer: AVAudioPlayer?
 
     private let editor: () -> ProjectEditor?
     private let directory: () -> URL?
@@ -67,6 +73,52 @@ final class MusicPanelModel: ObservableObject {
     }
 
     func report(_ message: String) { errorMessage = message }
+
+    /// Plays a style's sample, or stops it when it is the one playing.
+    func toggleSample(_ style: MusicStyle) async {
+        let wasPlaying = sampleStyle == style
+        stopSample()
+        guard !wasPlaying else { return }
+        sampleStyle = style
+        isLoadingSample = true
+        defer { isLoadingSample = false }
+        do {
+            let file = try await MusicRenderer.sample(of: style)
+            guard sampleStyle == style else { return }
+            let player = try AVAudioPlayer(contentsOf: file)
+            samplePlayer = player
+            player.play()
+            try await Task.sleep(nanoseconds: UInt64(player.duration * 1_000_000_000))
+            if samplePlayer === player { stopSample() }
+        } catch is CancellationError {
+        } catch {
+            if sampleStyle == style { stopSample() }
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func stopSample() {
+        samplePlayer?.stop()
+        samplePlayer = nil
+        sampleStyle = nil
+    }
+
+    /// Copies a song into the project and lays it on a Music track, cut to the picture.
+    func importSong(from url: URL) async {
+        guard let directory = directory(), let editor = editor() else { return }
+        let didAccess = url.startAccessingSecurityScopedResource()
+        defer { if didAccess { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let path = try ProjectLibrary.stageAsset(from: url, intoProjectDirectory: directory)
+            let file = directory.appendingPathComponent(path)
+            let length = try await AVURLAsset(url: file).load(.duration).seconds
+            guard length.isFinite, length > 0 else { return report("That file has no audio.") }
+            let fitted = MusicSource.fittedDuration(from: 0, in: editor.project.timeline) ?? length
+            report(await editor.addMusic(RenderedMusic(file: file, seconds: min(length, fitted)), at: 0))
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
 }
 
 struct MusicControlsView: View {
@@ -80,6 +132,7 @@ struct MusicControlsView: View {
     /// Settings for the next piece; an existing piece answers from its source.
     @State private var style = MusicStyle.lofi
     @State private var intensity = 0.5
+    @State private var showImporter = false
 
     private let tileColumns = Array(repeating: GridItem(.flexible(), spacing: Spacing.xs), count: 3)
     private let sliderLabelWidth: CGFloat = 96
@@ -107,6 +160,8 @@ struct MusicControlsView: View {
                 Button { generate() } label: { PanelActionLabel("Generate Music", icon: "music.note") }
                     .buttonStyle(.borderedProminent)
             }
+            Button { showImporter = true } label: { PanelActionLabel("Import Audio File…", icon: "square.and.arrow.down") }
+                .help("Use your own song; it goes on a Music track and lowers under the voice")
             if model.isRendering {
                 HStack(spacing: Spacing.xs) {
                     ProgressView().controlSize(.small)
@@ -119,6 +174,10 @@ struct MusicControlsView: View {
         }
         .disabled(model.isRendering)
         .task(id: reloadKey) { reload() }
+        .onDisappear { model.stopSample() }
+        .fileImporter(isPresented: $showImporter, allowedContentTypes: [.audio]) { result in
+            if case .success(let url) = result { Task { await model.importSong(from: url) } }
+        }
         .onChangeCompat(of: showTranscriptionModal) { isOpen in
             if !isOpen { reload() }
         }
@@ -128,8 +187,27 @@ struct MusicControlsView: View {
         LazyVGrid(columns: tileColumns, spacing: Spacing.xs) {
             ForEach(MusicStyle.allCases, id: \.self) { tile in
                 FormatButton(title: tile.title, icon: tile.icon, isSelected: isCurrent(tile)) { pick(tile) }
+                    .overlay(alignment: .topTrailing) { sampleButton(tile) }
             }
         }
+    }
+
+    private func sampleButton(_ tile: MusicStyle) -> some View {
+        let isActive = model.sampleStyle == tile
+        return Button { Task { await model.toggleSample(tile) } } label: {
+            Group {
+                if isActive, model.isLoadingSample {
+                    ProgressView().controlSize(.mini)
+                } else {
+                    Image(systemName: isActive ? "stop.circle.fill" : "play.circle")
+                }
+            }
+            .frame(width: 18, height: 18)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(isActive ? Color.accentColor : .secondary)
+        .padding(3)
+        .help(isActive ? "Stop" : "Listen to a sample of \(tile.title)")
     }
 
     private func isCurrent(_ tile: MusicStyle) -> Bool {

@@ -12,6 +12,12 @@ public struct RenderedMusic: Sendable {
     public let file: URL
     public let seconds: TimeInterval
 
+    /// `file` must be in the project's assets: a render, or an imported song.
+    public init(file: URL, seconds: TimeInterval) {
+        self.file = file
+        self.seconds = seconds
+    }
+
     var path: String { RenderedAssets.projectPath(of: file) }
 }
 

@@ -11,11 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-> Working toward **0.7.1** (the series is 0.7.x until things are stable and complete; 0.8 comes later). The section
-> below was drafted as 0.8.0 on 2026-09-16 and never published, so it is part of this release. Rename this header
-> to `[0.7.1] - <date>` when the batch is built, signed and notarized.
+> Working toward **0.8.0**, which ships once the in-app assistant is done (decided 2026-11-07; 0.7.1 is not
+> released on its own). Rename this header to `[0.8.0] - <date>` when the batch is built, signed and notarized.
 
 ### Added
+- **Hear a style before using it** — each style tile in the Music tool has a play button with a 12-second sample. Samples are composed once and kept in the app's caches until the styles change.
+- **Use your own song** — *Import Audio File…* in the Music tool puts a file on a Music track, cut to the length of the video, and it drops under your voice like generated music.
+- **Edit Music from the timeline** — selecting a generated piece shows *Edit Music* in the clip bar, which opens the Music tool on that piece.
 - **One Subtitles tool** — *Generate Subtitles* now lives in the Subtitles tool, and the style controls appear once there are cues. Finishing a transcript adds subtitles by default; a toggle in the transcript window turns that off, and a project that has subtitles keeps them. The assistant connection moved to its own **AI Assistant** tile.
 - **Music tool in the editor** — pick a style and generate background music without leaving the app, then change the style or intensity, try another variation, fit it to the video, and set its volume and how far it drops under your voice. Music an agent added can be edited here too.
 - **Compare with the previous piece** — replacing music keeps the piece before it. **Use Previous** in the Music tool swaps the two at once, without composing again, so you can compare and keep either. Over MCP, `update_music` takes `usePrevious`.
