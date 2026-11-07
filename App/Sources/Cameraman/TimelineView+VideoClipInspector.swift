@@ -47,6 +47,16 @@ extension TimelineView {
                         .help("Clip volume")
                 }
 
+                if clip.isGeneratedMusic {
+                    Button {
+                        NotificationCenter.default.post(name: .selectEditorTool, object: EditorTool.music.rawValue)
+                    } label: {
+                        Label("Edit Music", systemImage: "music.note")
+                    }
+                    .controlSize(.small)
+                    .help("Style, variations and ducking in the Music tool")
+                }
+
                 // Effects live in a popover so the row stays one line tall — adding
                 // effects never pushes the timeline down.
                 Button {

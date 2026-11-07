@@ -52,6 +52,40 @@ final class MusicRendererTests: XCTestCase {
         XCTAssertGreaterThan(audio[(48_000 * 9 + 24_000)...].map(abs).max() ?? 0, 0.1, "a note in a later window must play")
     }
 
+    func testASampleIsRenderedOnceAndKept() async throws {
+        let file = try await MusicRenderer.sample(of: .tech)
+        let track = try await AVURLAsset(url: file).load(.duration).seconds
+        XCTAssertEqual(track, MusicRenderer.sampleDuration, accuracy: 0.1)
+        let modified = try FileManager.default.attributesOfItem(atPath: file.path)[.modificationDate] as? Date
+        let again = try await MusicRenderer.sample(of: .tech)
+        XCTAssertEqual(again, file)
+        XCTAssertEqual(try FileManager.default.attributesOfItem(atPath: file.path)[.modificationDate] as? Date, modified)
+    }
+
+    func testAnImportedSongIsCopiedAndCutAndAFileWithoutAudioLeavesNothing() async throws {
+        let song = tempURL(), directory = MotionTestSupport.tempURL("project")
+        defer { [song, directory].forEach { try? FileManager.default.removeItem(at: $0) } }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try await MusicRenderer.render(MusicSource(score: .style(.lofi), options: MusicRenderOptions(duration: 4)), to: song)
+
+        let cut = try await RenderedMusic.importSong(from: song, into: directory, upTo: 2.5)
+        XCTAssertEqual(cut.seconds, 2.5)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: cut.file.path))
+        XCTAssertEqual(cut.path, "assets/\(cut.file.lastPathComponent)")
+        let whole = try await RenderedMusic.importSong(from: song, into: directory, upTo: nil)
+        XCTAssertEqual(whole.seconds, 4, accuracy: 0.1)
+
+        let text = directory.appendingPathComponent("notes.txt")
+        try Data("not audio".utf8).write(to: text)
+        let before = try FileManager.default.contentsOfDirectory(atPath: directory.appendingPathComponent("assets").path)
+        do {
+            _ = try await RenderedMusic.importSong(from: text, into: directory, upTo: nil)
+            XCTFail("A file without audio must be refused")
+        } catch {}
+        let after = try FileManager.default.contentsOfDirectory(atPath: directory.appendingPathComponent("assets").path)
+        XCTAssertEqual(Set(after), Set(before))
+    }
+
     func testScoreErrorsReachTheCaller() async {
         let url = tempURL()
         for (score, expected) in [("m.nope();", "nope"), ("", "no sound"), ("m.key('H minor');", "Unknown key")] {
