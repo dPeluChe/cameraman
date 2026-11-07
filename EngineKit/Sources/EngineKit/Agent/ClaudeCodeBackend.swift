@@ -19,71 +19,53 @@ public struct ClaudeCodeBackend: AgentBackend {
         self.model = model
     }
 
-    /// The installed `claude`: the usual install folders first, then the login shell's PATH, since an app
-    /// opened from Finder does not get the terminal's.
+    /// The installed `claude`: the usual install folders, then the login shell's PATH, since an app opened
+    /// from Finder does not get the terminal's. The shell gets 3 s, so a slow or interactive rc cannot hang it.
     public static func locate() async -> URL? {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         let usual = ["\(home)/.local/bin", "\(home)/.claude/local", "/opt/homebrew/bin", "/usr/local/bin"]
+        if let found = executable(in: usual) { return found }
         let marker = "__CAMERAMAN_PATH__"
         let shell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
-        let output = await run(URL(fileURLWithPath: shell), ["-ilc", "printf '\\n\(marker)%s' \"$PATH\""])
-        let loginPath = output?.components(separatedBy: marker).last?.split(separator: ":").map(String.init) ?? []
-        return (usual + loginPath).lazy
-            .map { URL(fileURLWithPath: $0).appendingPathComponent("claude") }
+        let result = try? await ProcessRun.run(URL(fileURLWithPath: shell), ["-ilc", "printf '\\n\(marker)%s' \"$PATH\""], timeout: 3)
+        let loginPath = result?.output.components(separatedBy: marker).last?.split(separator: ":").map(String.init) ?? []
+        return executable(in: loginPath)
+    }
+
+    private static func executable(in folders: [String]) -> URL? {
+        folders.lazy.map { URL(fileURLWithPath: $0).appendingPathComponent("claude") }
             .first { FileManager.default.isExecutableFile(atPath: $0.path) }
     }
 
     public func send(_ prompt: String, session: String?, context: AgentContext) -> AsyncStream<AgentEvent> {
-        AsyncStream { continuation in
+        let arguments = { (config: URL) in Self.arguments(session: session, config: config, instructions: context.instructions, model: model) }
+        let executable = executable
+        return AsyncStream { continuation in
             let process = Process()
-            let config = FileManager.default.temporaryDirectory.appendingPathComponent("cameraman-mcp-\(UUID().uuidString).json")
-            let finish = { (event: AgentEvent) in
-                continuation.yield(event)
-                continuation.finish()
-            }
-            do {
-                try Self.writeMCPConfig(context, to: config)
-            } catch {
-                return finish(.failed("Could not prepare the connection to Cameraman: \(error.localizedDescription)"))
-            }
-
-            let input = Pipe(), output = Pipe(), errors = Pipe()
-            process.executableURL = executable
-            process.arguments = Self.arguments(session: session, config: config, instructions: context.instructions, model: model)
-            process.currentDirectoryURL = AppDirectories.support
-            process.standardInput = input
-            process.standardOutput = output
-            process.standardError = errors
-
-            let reader = Task {
-                var parser = ClaudeStreamParser()
+            let turn = Task.detached {
+                let config = FileManager.default.temporaryDirectory.appendingPathComponent("cameraman-mcp-\(UUID().uuidString).json")
+                defer { try? FileManager.default.removeItem(at: config) }
                 do {
-                    for try await line in output.fileHandleForReading.bytes.lines {
+                    try Self.writeMCPConfig(context, to: config)
+                    process.executableURL = executable
+                    process.arguments = arguments(config)
+                    process.currentDirectoryURL = AppDirectories.support
+                    var parser = ClaudeStreamParser()
+                    let result = try await ProcessRun.stream(process, input: Data(prompt.utf8)) { line in
                         parser.events(from: Data(line.utf8)).forEach { continuation.yield($0) }
                     }
-                } catch {}
-                process.waitUntilExit()
-                try? FileManager.default.removeItem(at: config)
-                if !parser.isDone {
-                    let stderr = String(decoding: errors.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-                    let reason = stderr.split(separator: "\n").last.map(String.init) ?? "exit code \(process.terminationStatus)"
-                    continuation.yield(.failed(Task.isCancelled ? "Stopped." : "Claude Code stopped: \(reason)"))
+                    if !parser.isDone && !Task.isCancelled {
+                        let reason = result.errorTail.split(separator: "\n").last.map(String.init) ?? "exit code \(result.status)"
+                        continuation.yield(.failed("Claude Code stopped: \(reason)"))
+                    }
+                } catch {
+                    if !Task.isCancelled { continuation.yield(.failed("Could not start Claude Code: \(error.localizedDescription)")) }
                 }
                 continuation.finish()
             }
             continuation.onTermination = { _ in
-                reader.cancel()
+                turn.cancel()
                 if process.isRunning { process.terminate() }
-            }
-
-            do {
-                try process.run()
-                input.fileHandleForWriting.write(Data(prompt.utf8))
-                try? input.fileHandleForWriting.close()
-            } catch {
-                reader.cancel()
-                try? FileManager.default.removeItem(at: config)
-                finish(.failed("Could not start Claude Code: \(error.localizedDescription)"))
             }
         }
     }
@@ -104,22 +86,9 @@ public struct ClaudeCodeBackend: AgentBackend {
         let server: [String: Any] = ["type": "http", "url": context.mcpEndpoint.absoluteString,
                                      "headers": ["Authorization": "Bearer \(context.mcpToken)"]]
         let data = try JSONSerialization.data(withJSONObject: ["mcpServers": ["cameraman": server]])
-        FileManager.default.createFile(atPath: url.path, contents: data, attributes: [.posixPermissions: 0o600])
-        guard FileManager.default.fileExists(atPath: url.path) else { throw CocoaError(.fileWriteUnknown) }
-    }
-
-    private static func run(_ executable: URL, _ arguments: [String]) async -> String? {
-        await Task.detached {
-            let process = Process(), output = Pipe()
-            process.executableURL = executable
-            process.arguments = arguments
-            process.standardOutput = output
-            process.standardError = FileHandle.nullDevice
-            guard (try? process.run()) != nil else { return nil }
-            let data = output.fileHandleForReading.readDataToEndOfFile()
-            process.waitUntilExit()
-            return String(decoding: data, as: UTF8.self)
-        }.value
+        guard FileManager.default.createFile(atPath: url.path, contents: data, attributes: [.posixPermissions: 0o600]) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
     }
 }
 
@@ -151,7 +120,7 @@ struct ClaudeStreamParser {
             isDone = true
             if object["is_error"] as? Bool == true || object["subtype"] as? String != "success" {
                 let reason = (object["result"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? object["subtype"] as? String ?? "unknown error"
-                return [.failed(reason)]
+                return [.failed(Self.isSignedOut(reason) ? Self.signInHint : reason)]
             }
             return [.finished(costUSD: object["total_cost_usd"] as? Double)]
         default:
@@ -173,6 +142,13 @@ struct ClaudeStreamParser {
         default:
             return []
         }
+    }
+
+    static let signInHint = "Claude Code is not signed in. Run `claude auth login` in Terminal, then try again."
+
+    static func isSignedOut(_ reason: String) -> Bool {
+        let lowered = reason.lowercased()
+        return lowered.contains("/login") || lowered.contains("not logged in") || lowered.contains("invalid api key")
     }
 
     private func content(of object: [String: Any]) -> [[String: Any]] {

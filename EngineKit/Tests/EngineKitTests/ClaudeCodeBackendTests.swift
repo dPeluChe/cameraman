@@ -34,7 +34,7 @@ final class ClaudeCodeBackendTests: XCTestCase {
 
     func testAnErrorResultFails() {
         let lines = [#"{"type":"result","subtype":"success","is_error":true,"result":"Not logged in · Please run /login"}"#]
-        XCTAssertEqual(events(lines), [.failed("Not logged in · Please run /login")])
+        XCTAssertEqual(events(lines), [.failed(ClaudeStreamParser.signInHint)])
         XCTAssertEqual(events([#"{"type":"result","subtype":"error_max_turns","is_error":false}"#]), [.failed("error_max_turns")])
     }
 

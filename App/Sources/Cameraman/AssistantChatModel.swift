@@ -38,9 +38,14 @@ final class AssistantChatModel: ObservableObject {
 
     private let projectId: ProjectId
     private let projectName: () -> String
-    private var backend: ClaudeCodeBackend?
+    private var backend: (any AgentBackend)?
     private var session: String?
     private var turn: Task<Void, Never>?
+    /// Deltas land here and reach `messages` at most every 80 ms, so a fast stream does not re-render per token.
+    private var pendingText = ""
+    private var flush: Task<Void, Never>?
+    /// One lookup per launch: it may start a login shell.
+    private static var located: Task<URL?, Never>?
 
     init(projectId: ProjectId, projectName: @escaping () -> String) {
         self.projectId = projectId
@@ -50,7 +55,9 @@ final class AssistantChatModel: ObservableObject {
     func locate() async {
         guard backend == nil else { return }
         availability = .checking
-        backend = await ClaudeCodeBackend.locate().map { ClaudeCodeBackend(executable: $0) }
+        let lookup = Self.located ?? Task { await ClaudeCodeBackend.locate() }
+        Self.located = lookup
+        backend = await lookup.value.map { ClaudeCodeBackend(executable: $0) }
         availability = backend == nil ? .missing : .ready
     }
 
@@ -58,7 +65,6 @@ final class AssistantChatModel: ObservableObject {
         let prompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty, !isRunning, let backend else { return }
         messages.append(Message(role: .user, text: prompt))
-        messages.append(Message(role: .assistant, text: ""))
         isRunning = true
         lastCost = nil
         turn = Task { [weak self] in
@@ -80,7 +86,7 @@ final class AssistantChatModel: ObservableObject {
         lastCost = nil
     }
 
-    private func run(_ prompt: String, on backend: ClaudeCodeBackend) async {
+    private func run(_ prompt: String, on backend: any AgentBackend) async {
         guard let server = await MCPHostService.shared.ensureRunning() else {
             return fail("Cameraman's built-in server could not start: port \(MCPHostService.defaultPort) is in use.")
         }
@@ -88,9 +94,7 @@ final class AssistantChatModel: ObservableObject {
         for await event in backend.send(prompt, session: session, context: context) {
             apply(event)
         }
-        if messages.last?.role == .assistant, messages.last?.text.isEmpty == true, messages.last?.tools.isEmpty == true {
-            messages.removeLast()
-        }
+        flushText()
     }
 
     private func apply(_ event: AgentEvent) {
@@ -98,8 +102,15 @@ final class AssistantChatModel: ObservableObject {
         case .started(let id):
             session = id
         case .text(let piece):
-            updateReply { $0.text += piece }
+            pendingText += piece
+            if flush == nil {
+                flush = Task { [weak self] in
+                    try? await Task.sleep(nanoseconds: 80_000_000)
+                    self?.flushText()
+                }
+            }
         case .toolStarted(let id, let name):
+            flushText()
             updateReply { $0.tools.append(Tool(id: id, name: Self.title(of: name))) }
         case .toolFinished(let id, let failed):
             updateReply { reply in
@@ -108,13 +119,24 @@ final class AssistantChatModel: ObservableObject {
         case .finished(let cost):
             lastCost = cost
         case .failed(let reason):
-            fail(Self.explain(reason))
+            flushText()
+            fail(reason)
         }
     }
 
+    private func flushText() {
+        flush?.cancel()
+        flush = nil
+        guard !pendingText.isEmpty else { return }
+        let text = pendingText
+        pendingText = ""
+        updateReply { $0.text += text }
+    }
+
+    /// The reply of the current turn, created on its first text or tool.
     private func updateReply(_ change: (inout Message) -> Void) {
-        guard let index = messages.lastIndex(where: { $0.role == .assistant }) else { return }
-        change(&messages[index])
+        if messages.last?.role != .assistant { messages.append(Message(role: .assistant, text: "")) }
+        change(&messages[messages.count - 1])
     }
 
     private func fail(_ text: String) {
@@ -133,13 +155,5 @@ final class AssistantChatModel: ObservableObject {
     /// "mcp__cameraman__add_music" reads "add music".
     static func title(of tool: String) -> String {
         (tool.components(separatedBy: "__").last ?? tool).replacingOccurrences(of: "_", with: " ")
-    }
-
-    private static func explain(_ reason: String) -> String {
-        let lowered = reason.lowercased()
-        if lowered.contains("login") || lowered.contains("log in") || lowered.contains("authenticat") {
-            return "Claude Code is not signed in. Run `claude auth login` in Terminal, then try again."
-        }
-        return reason
     }
 }

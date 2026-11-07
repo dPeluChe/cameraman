@@ -12,6 +12,7 @@ struct AssistantChatView: View {
     var onConnectOtherApp: () -> Void
 
     @State private var draft = ""
+    private static let bottom = "bottom"
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
@@ -53,16 +54,20 @@ struct AssistantChatView: View {
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     ForEach(model.messages) { message in
-                        MessageRow(message: message, isLast: message.id == model.messages.last?.id, isRunning: model.isRunning)
+                        MessageRow(message: message, isStreaming: model.isRunning && message.id == model.messages.last?.id)
                             .id(message.id)
+                    }
+                    if model.isRunning {
+                        ProgressView().controlSize(.small).id(Self.bottom)
                     }
                 }
                 .padding(Spacing.xs)
             }
             .frame(height: 320)
-            .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.04)))
-            .onChangeCompat(of: model.messages.last?.text) { _ in
-                if let last = model.messages.last { proxy.scrollTo(last.id, anchor: .bottom) }
+            .background(RoundedRectangle(cornerRadius: Radius.medium).fill(AppColor.inset))
+            .onChangeCompat(of: model.messages.last?.text.count) { _ in
+                if model.isRunning { proxy.scrollTo(Self.bottom, anchor: .bottom) }
+                else if let last = model.messages.last { proxy.scrollTo(last.id, anchor: .bottom) }
             }
         }
     }
@@ -107,8 +112,8 @@ struct AssistantChatView: View {
 
 private struct MessageRow: View {
     let message: AssistantChatModel.Message
-    let isLast: Bool
-    let isRunning: Bool
+    /// Plain text while it streams; Markdown is parsed once the reply is complete.
+    let isStreaming: Bool
 
     var body: some View {
         switch message.role {
@@ -116,19 +121,19 @@ private struct MessageRow: View {
             Text(message.text)
                 .font(.callout)
                 .padding(.horizontal, Spacing.sm).padding(.vertical, Spacing.xs)
-                .background(RoundedRectangle(cornerRadius: 8).fill(Color.accentColor.opacity(0.15)))
+                .background(RoundedRectangle(cornerRadius: Radius.medium).fill(Color.accentColor.opacity(0.15)))
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .textSelection(.enabled)
         case .assistant:
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 ForEach(message.tools) { tool in
                     Label(tool.name, systemImage: icon(tool.state))
                         .font(.caption).foregroundStyle(tool.state == .failed ? Color.red : .secondary)
                 }
-                if !message.text.isEmpty {
+                if isStreaming {
+                    Text(verbatim: message.text).font(.callout)
+                } else if !message.text.isEmpty {
                     Text(LocalizedStringKey(message.text)).font(.callout).textSelection(.enabled)
-                } else if isLast && isRunning && message.tools.isEmpty {
-                    ProgressView().controlSize(.small)
                 }
             }
         case .notice:
