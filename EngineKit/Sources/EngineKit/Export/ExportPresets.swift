@@ -320,3 +320,13 @@ public struct GIFExportOptions: Equatable, Sendable {
         dither: false
     )
 }
+
+extension Project {
+    /// The project as an export draws it. Every drawing path reads `subtitles`, so clearing them here covers all of them.
+    func prepared(for options: ExportOptions) -> Project {
+        guard !options.includeSubtitles else { return self }
+        var project = self
+        project.subtitles = []
+        return project
+    }
+}

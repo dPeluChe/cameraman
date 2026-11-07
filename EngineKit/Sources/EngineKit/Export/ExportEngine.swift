@@ -118,7 +118,7 @@ public actor ExportEngine {
     ) async throws -> JobId {
         logger.info("Starting export for project: \(projectId.uuidString), preset: \(preset.id)")
 
-        let project = try await projectStore.loadProject(projectId: projectId)
+        let project = try await projectStore.loadProject(projectId: projectId).prepared(for: options)
         logger.debug("Loaded project '\(project.name)' with \(project.timeline.primaryTrack?.clips.count ?? 0) primary clips")
 
         // Imported-only projects are exportable: any track with clips counts.
