@@ -272,7 +272,8 @@ extension MCPTools {
                     "projectId": str("Project UUID"),
                     "preset": strEnum("Output preset (default web_1080_h264)",
                                       presetIds),
-                    "burnCaptions": bool("Burn captions into the video (default false; ignored for GIF)"),
+                    "burnCaptions": bool("Burn the legacy project captions into the video (default false; ignored for GIF). Timeline subtitles are separate: see includeSubtitles"),
+                    "includeSubtitles": bool("Burn the timeline's subtitles into the video (default true; ignored for GIF)"),
                     "filename": str("Optional output filename")
                  ],
                  required: ["projectId"]),
@@ -309,7 +310,7 @@ extension MCPTools {
                  required: ["projectId"]),
 
             tool("add_subtitles",
-                 "Generate editable subtitle cues on the timeline from the project's transcript (run transcribe_project first). Replaces existing subtitles; they render over the video and burn into exports when burnCaptions is set.",
+                 "Generate editable subtitle cues on the timeline from the project's transcript (run transcribe_project first). Replaces existing subtitles; they render over the video and burn into exports unless export_project gets includeSubtitles false.",
                  properties: ["projectId": str("Project UUID")],
                  required: ["projectId"]),
 

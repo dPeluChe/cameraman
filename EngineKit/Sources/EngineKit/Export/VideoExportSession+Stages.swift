@@ -135,7 +135,7 @@ extension ExportEngine {
         // Burn-in overlays: captions, images, shapes
         let hasCaptions = options.burnCaptions || preset.options.burnCaptions
         let hasImageOverlays = !project.mediaItems.filter { $0.type == .image }.isEmpty
-        let hasShapeOverlays = !project.overlays.isEmpty || !project.subtitles.isEmpty
+        let hasShapeOverlays = !project.overlays.isEmpty || (options.includeSubtitles && !project.subtitles.isEmpty)
 
         if hasCaptions || hasImageOverlays || hasShapeOverlays || options.includeCameramanWatermark {
             logger.debug("Creating combined overlay layer (captions: \(hasCaptions), images: \(hasImageOverlays), shapes: \(hasShapeOverlays), watermark: \(options.includeCameramanWatermark))")
@@ -146,6 +146,7 @@ extension ExportEngine {
                     renderSize: videoComposition.renderSize,
                     compositionDuration: composition.duration,
                     burnCaptions: hasCaptions,
+                    includeSubtitles: options.includeSubtitles,
                     includeCameramanWatermark: options.includeCameramanWatermark
                 )
                 if let tool = combinedTool {

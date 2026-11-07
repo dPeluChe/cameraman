@@ -138,12 +138,13 @@ extension ExportEngine {
         renderSize: CoreFoundation.CGSize,
         compositionDuration: CMTime,
         burnCaptions: Bool,
+        includeSubtitles: Bool = true,
         includeCameramanWatermark: Bool = false
     ) async throws -> AVVideoCompositionCoreAnimationTool? {
         let hasCaptions = burnCaptions && project.captions != nil
         let hasImageOverlays = !project.mediaItems.filter { $0.type == .image }.isEmpty
         // Subtitles are text overlays burned in alongside annotation overlays.
-        let shapeOverlays = project.overlays + project.subtitles
+        let shapeOverlays = project.overlays + (includeSubtitles ? project.subtitles : [])
         let hasShapeOverlays = !shapeOverlays.isEmpty
 
         guard hasCaptions || hasImageOverlays || hasShapeOverlays || includeCameramanWatermark else {
