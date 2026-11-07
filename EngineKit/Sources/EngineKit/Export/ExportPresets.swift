@@ -202,6 +202,8 @@ public struct ExportOptions: Equatable, Sendable {
     public let qualityMultiplier: Double
     /// Whether to add Cameraman's promotional badge to the final render.
     public let includeCameramanWatermark: Bool
+    /// Whether the timeline's subtitle cues are burned in.
+    public let includeSubtitles: Bool
 
     public init(
         burnCaptions: Bool = false,
@@ -214,7 +216,8 @@ public struct ExportOptions: Equatable, Sendable {
         audioMuteState: AudioMixBuilder.TrackMuteState = .init(),
         videoMuteState: VideoMuteState? = nil,
         qualityMultiplier: Double = 1.0,
-        includeCameramanWatermark: Bool = false
+        includeCameramanWatermark: Bool = false,
+        includeSubtitles: Bool = true
     ) {
         self.burnCaptions = burnCaptions
         self.includeCursorHighlight = includeCursorHighlight
@@ -227,6 +230,7 @@ public struct ExportOptions: Equatable, Sendable {
         self.videoMuteState = videoMuteState
         self.qualityMultiplier = qualityMultiplier
         self.includeCameramanWatermark = includeCameramanWatermark
+        self.includeSubtitles = includeSubtitles
     }
 
     public static let `default` = ExportOptions()
@@ -315,4 +319,14 @@ public struct GIFExportOptions: Equatable, Sendable {
         frameRate: 10,
         dither: false
     )
+}
+
+extension Project {
+    /// The project as an export draws it. Every drawing path reads `subtitles`, so clearing them here covers all of them.
+    func prepared(for options: ExportOptions) -> Project {
+        guard !options.includeSubtitles else { return self }
+        var project = self
+        project.subtitles = []
+        return project
+    }
 }

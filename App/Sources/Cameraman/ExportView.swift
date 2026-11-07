@@ -168,6 +168,13 @@ struct ExportView: View {
 
             Divider()
 
+            if viewModel.offersSubtitles {
+                Toggle("Include subtitles", isOn: $viewModel.includeSubtitles)
+                    .toggleStyle(.checkbox)
+                    .help("Burn the timeline's subtitles into the video")
+                Divider()
+            }
+
             VStack(alignment: .leading, spacing: 8) {
                 Toggle("Ayudar a promocionar Cameraman", isOn: $viewModel.includeCameramanWatermark)
                     .toggleStyle(.checkbox)

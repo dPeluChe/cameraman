@@ -31,6 +31,8 @@ final class ExportViewModel: ObservableObject {
     @Published var showSuccessAlert: Bool = false
     @Published var temporaryExportURL: URL? = nil
     @Published var includeCameramanWatermark: Bool = true
+    /// Starts as the timeline shows them: hidden subtitles stay out.
+    @Published var includeSubtitles: Bool
 
     // GIF-specific options
     @Published var gifFrameRate: Int = 15
@@ -38,6 +40,8 @@ final class ExportViewModel: ObservableObject {
     @Published var gifLoop: Bool = true
 
     var isGIFPreset: Bool { selectedPreset.id.contains("gif") }
+    /// GIFs never burn overlays, so the choice only exists for video.
+    var offersSubtitles: Bool { !isGIFPreset && !project.subtitles.isEmpty }
 
     private let project: Project
     private let projectDirectory: URL
@@ -179,6 +183,7 @@ final class ExportViewModel: ObservableObject {
         self.project = project
         self.projectDirectory = projectDirectory
         self.mutedTracks = mutedTracks
+        self.includeSubtitles = !mutedTracks.contains(.subtitle)
         self.stagedZoomPlan = zoomPlan
         self.stagedCursorPlan = cursorPlan
         let defaultFilename = project.name.isEmpty ? "Untitled" : project.name
@@ -264,7 +269,8 @@ final class ExportViewModel: ObservableObject {
                         cameraMuted: mutedTracks.contains(.camera)
                     ),
                     qualityMultiplier: qualityMultiplier,
-                    includeCameramanWatermark: includeCameramanWatermark
+                    includeCameramanWatermark: includeCameramanWatermark,
+                    includeSubtitles: includeSubtitles
                 )
             )
 

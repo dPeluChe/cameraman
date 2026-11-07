@@ -34,6 +34,7 @@ extension MCPTools {
             throw MCPToolError("Unknown preset '\(presetId)'. Valid presets: \(Self.presetIds.joined(separator: ", "))")
         }
         let burnCaptions = args.optBool("burnCaptions") ?? false
+        let includeSubtitles = args.optBool("includeSubtitles") ?? true
         let filename = args.optStr("filename")
 
         let engine = try await ProjectLibrary.shared.getExportEngine()
@@ -46,7 +47,7 @@ extension MCPTools {
         } else {
             jobId = try await engine.export(
                 projectId: projectId, preset: preset,
-                options: ExportOptions(burnCaptions: burnCaptions, outputFilename: filename)
+                options: ExportOptions(burnCaptions: burnCaptions, outputFilename: filename, includeSubtitles: includeSubtitles)
             )
         }
         return try startedJob(jobId,
@@ -172,7 +173,7 @@ extension MCPTools {
 
     /// Generate editable subtitle cues on the timeline from the project's
     /// transcript (the app's "Add to Timeline"). They render over the video and
-    /// burn into exports when `burnCaptions` is set.
+    /// burn into exports unless `includeSubtitles` is false.
     func addSubtitles(_ args: [String: Any]) async throws -> String {
         let projectId = try args.uuid("projectId")
         let dir = try await ProjectLibrary.shared.getProjectDirectory(projectId: projectId)
