@@ -34,9 +34,12 @@ swift test --parallel            # Run tests in parallel
 
 ## Recording Output
 
-When running the sandboxed app, recordings are saved under the app container:
+Recordings are saved under Application Support (`AppDirectories.recordings`):
 
-`~/Library/Containers/dev.dpeluche.CameramanApp/Data/Documents/Recordings/recording_<ISO8601>/`
+`~/Library/Application Support/ProjectStudio/Recordings/recording_<ISO8601>/` (Debug builds: `ProjectStudio-Debug`)
+
+The app is not sandboxed since 0.8 (it runs the user's agent CLIs). On first launch it moves data from the old
+container `~/Library/Containers/<bundle id>/Data` (`ContainerMigration`).
 
 The recording produces separate track files:
 
@@ -47,7 +50,7 @@ The recording produces separate track files:
 
 ## Permissions / Entitlements
 
-Because App Sandbox is enabled, camera and microphone access require entitlements:
+Hardened runtime (no App Sandbox), distributed as a notarized DMG. Camera and microphone need entitlements:
 
 - `CameramanApp/CameramanApp.entitlements`
   - `com.apple.security.device.camera`

@@ -77,7 +77,7 @@ enum WhisperKitTranscriber {
         #if canImport(WhisperKit)
         // First run downloads the CoreML model (needs network.client entitlement);
         // subsequent runs load from the on-disk cache.
-        let pipe = try await WhisperKit(WhisperKitConfig(model: modelName))
+        let pipe = try await WhisperKit(WhisperKitConfig(model: modelName, downloadBase: AppDirectories.models))
         await onModelReady?()
         // detectLanguage when no language is given — otherwise WhisperKit defaults
         // to English (why Spanish came back as English). skipSpecialTokens (+ the

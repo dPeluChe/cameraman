@@ -3,8 +3,7 @@
 //  cameraman-mcp
 //
 //  Loopback HTTP transport for MCPServer (MCP "Streamable HTTP", JSON responses only).
-//  Lets the app host the server in-process, which is the only shape that works under
-//  the Mac App Store sandbox (a helper launched by another app cannot inherit it).
+//  Lets the app host the server in-process, so clients reach the open editor.
 //
 //  Hardening, because any local process or web page can reach 127.0.0.1:
 //  - bound to loopback only

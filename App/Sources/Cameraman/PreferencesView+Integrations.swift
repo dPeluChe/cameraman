@@ -3,8 +3,7 @@
 //  App
 //
 //  MCP integration, in order: allow connections (the in-app server), then pick a client and
-//  copy its setup. The app is sandboxed and cannot write other apps' configs, so these are
-//  copy-paste snippets. The standalone binary stays as a folded, advanced option.
+//  copy its setup. Copy-paste snippets keep other apps' configs in the user's hands. The standalone binary stays as a folded, advanced option.
 //
 
 import SwiftUI
@@ -68,8 +67,7 @@ struct IntegrationsPreferencesView: View {
         !binaryPath.isEmpty && FileManager.default.isExecutableFile(atPath: binaryPath)
     }
 
-    /// This (sandboxed) app's Projects directory — the standalone server must be pointed
-    /// here via CAMERAMAN_PROJECTS_DIR or it reads a different, empty folder.
+    /// The app's Projects directory, passed to the standalone server via CAMERAMAN_PROJECTS_DIR.
     private static let projectsDir = ProjectStore().baseDirectory.path
 
     var body: some View {

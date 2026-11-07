@@ -49,7 +49,7 @@ May 2026 (pre-publication push): ultrawide writer fix, mic overload, telemetry s
 
 ### Not now
 
-Screenshots, scrolling capture, OCR copy-text, 3D zoom angles, AI-generated assets, LUTs, motion blur, frame stylization. The Mac App Store variant is a separate track: it needs the embedded helper excluded, no GitHub self-updater and PayPal links, and a sandbox test of the Accessibility-dependent cursor telemetry.
+Screenshots, scrolling capture, OCR copy-text, 3D zoom angles, AI-generated assets, LUTs, motion blur, frame stylization. The Mac App Store variant is a separate track: since 0.8 the app is not sandboxed (the assistant runs the user's agent CLIs), so a store build would need the sandbox back without CLI agents (API key only), the embedded helper excluded, no GitHub self-updater and PayPal links, and a sandbox test of the Accessibility-dependent cursor telemetry.
 
 ### Decision needed
 

@@ -206,8 +206,7 @@ class RecordingControlViewModel: ObservableObject {
             log("Permissions OK. Preparing output URL...")
 
             // Create output URL (directory for all recording files)
-            let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            let recordingsPath = documentsPath.appendingPathComponent("Recordings")
+            let recordingsPath = AppDirectories.recordings
             try FileManager.default.createDirectory(at: recordingsPath, withIntermediateDirectories: true)
             let timestamp = ISO8601DateFormatter().string(from: Date())
             // NOTE: outputURL is a DIRECTORY, not a file. Recorder will create screen.mov, camera.mov, etc. inside it
@@ -525,8 +524,7 @@ class RecordingControlViewModel: ObservableObject {
     }
 
     func openRecordingsFolder() {
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let recordingsPath = documentsPath.appendingPathComponent("Recordings")
-        NSWorkspace.shared.open(recordingsPath)
+        try? FileManager.default.createDirectory(at: AppDirectories.recordings, withIntermediateDirectories: true)
+        NSWorkspace.shared.open(AppDirectories.recordings)
     }
 }
