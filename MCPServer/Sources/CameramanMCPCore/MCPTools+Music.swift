@@ -22,9 +22,13 @@ extension MCPTools {
         guard let length = args.optNum("duration") ?? MusicSource.fittedDuration(from: at, in: project.timeline) else {
             throw MCPToolError("The picture ends before 'at'. Pass 'duration'.")
         }
-        let source = try Self.musicSource(args, editing: nil, duration: length)
         let directory = try await ProjectLibrary.shared.getProjectDirectory(projectId: project.projectId)
-        let music = try await MusicRenderer.renderAsset(source, in: directory)
+        let music: RenderedMusic
+        if let file = args.optStr("file") {
+            music = try await RenderedMusic.importSong(from: URL(fileURLWithPath: file), into: directory, upTo: length)
+        } else {
+            music = try await MusicRenderer.renderAsset(try Self.musicSource(args, editing: nil, duration: length), in: directory)
+        }
 
         return try await RenderedAssets.removing(music.file) {
             var added: EditorResultInfo?

@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Hear a style before using it** — each style tile in the Music tool has a play button with a 12-second sample. Samples are composed once and kept in the app's caches until the styles change.
-- **Use your own song** — *Import Audio File…* in the Music tool puts a file on a Music track, cut to the length of the video, and it drops under your voice like generated music.
+- **Use your own song** — *Import Audio File…* in the Music tool puts a file on a Music track, cut to the length of the video, and it drops under your voice like generated music. Over MCP, `add_music` takes `file`.
 - **Edit Music from the timeline** — selecting a generated piece shows *Edit Music* in the clip bar, which opens the Music tool on that piece.
 - **One Subtitles tool** — *Generate Subtitles* now lives in the Subtitles tool, and the style controls appear once there are cues. Finishing a transcript adds subtitles by default; a toggle in the transcript window turns that off, and a project that has subtitles keeps them. The assistant connection moved to its own **AI Assistant** tile.
 - **Music tool in the editor** — pick a style and generate background music without leaving the app, then change the style or intensity, try another variation, fit it to the video, and set its volume and how far it drops under your voice. Music an agent added can be edited here too.

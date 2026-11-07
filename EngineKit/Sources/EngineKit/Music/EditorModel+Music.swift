@@ -6,19 +6,26 @@
 //  Render first and edit after, so the open editor is not held while a score plays out.
 //
 
+import AVFoundation
 import Foundation
 
 public struct RenderedMusic: Sendable {
     public let file: URL
     public let seconds: TimeInterval
 
-    /// `file` must be in the project's assets: a render, or an imported song.
-    public init(file: URL, seconds: TimeInterval) {
-        self.file = file
-        self.seconds = seconds
-    }
-
     var path: String { RenderedAssets.projectPath(of: file) }
+
+    /// Copies a song into the project's assets to place like a render, cut to `length` when it is longer.
+    /// Remove the file if placing it fails.
+    public static func importSong(from url: URL, into directory: URL, upTo length: TimeInterval?) async throws -> RenderedMusic {
+        let file = directory.appendingPathComponent(try ProjectLibrary.stageAsset(from: url, intoProjectDirectory: directory))
+        let seconds = (try? await AVURLAsset(url: file).load(.duration).seconds) ?? 0
+        guard seconds.isFinite, seconds > 0 else {
+            RenderedAssets.remove(file)
+            throw MusicError.invalidOptions("\(url.lastPathComponent) has no audio")
+        }
+        return RenderedMusic(file: file, seconds: min(seconds, length ?? seconds))
+    }
 }
 
 extension Project.TimelineClip {

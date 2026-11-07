@@ -33,9 +33,10 @@ final class MusicPanelModel: ObservableObject {
     @Published private(set) var errorMessage: String?
     /// The style whose sample is loading or playing.
     @Published private(set) var sampleStyle: MusicStyle?
-    @Published private(set) var isLoadingSample = false
+    @Published private var samplePlayer: AVAudioPlayer?
+    private var sampleTask: Task<Void, Never>?
 
-    private var samplePlayer: AVAudioPlayer?
+    var isLoadingSample: Bool { sampleStyle != nil && samplePlayer == nil }
 
     private let editor: () -> ProjectEditor?
     private let directory: () -> URL?
@@ -75,29 +76,30 @@ final class MusicPanelModel: ObservableObject {
     func report(_ message: String) { errorMessage = message }
 
     /// Plays a style's sample, or stops it when it is the one playing.
-    func toggleSample(_ style: MusicStyle) async {
+    func toggleSample(_ style: MusicStyle) {
         let wasPlaying = sampleStyle == style
         stopSample()
         guard !wasPlaying else { return }
         sampleStyle = style
-        isLoadingSample = true
-        defer { isLoadingSample = false }
-        do {
-            let file = try await MusicRenderer.sample(of: style)
-            guard sampleStyle == style else { return }
-            let player = try AVAudioPlayer(contentsOf: file)
-            samplePlayer = player
-            player.play()
-            try await Task.sleep(nanoseconds: UInt64(player.duration * 1_000_000_000))
-            if samplePlayer === player { stopSample() }
-        } catch is CancellationError {
-        } catch {
-            if sampleStyle == style { stopSample() }
-            errorMessage = error.localizedDescription
+        sampleTask = Task {
+            do {
+                let player = try AVAudioPlayer(contentsOf: try await MusicRenderer.sample(of: style))
+                try Task.checkCancellation()
+                samplePlayer = player
+                player.play()
+                try await Task.sleep(nanoseconds: UInt64(player.duration * 1_000_000_000))
+                stopSample()
+            } catch is CancellationError {
+            } catch {
+                stopSample()
+                report(error.localizedDescription)
+            }
         }
     }
 
     func stopSample() {
+        sampleTask?.cancel()
+        sampleTask = nil
         samplePlayer?.stop()
         samplePlayer = nil
         sampleStyle = nil
@@ -105,18 +107,19 @@ final class MusicPanelModel: ObservableObject {
 
     /// Copies a song into the project and lays it on a Music track, cut to the picture.
     func importSong(from url: URL) async {
-        guard let directory = directory(), let editor = editor() else { return }
+        guard !isRendering, let directory = directory(), let editor = editor() else { return }
+        isRendering = true
+        defer { isRendering = false }
         let didAccess = url.startAccessingSecurityScopedResource()
         defer { if didAccess { url.stopAccessingSecurityScopedResource() } }
         do {
-            let path = try ProjectLibrary.stageAsset(from: url, intoProjectDirectory: directory)
-            let file = directory.appendingPathComponent(path)
-            let length = try await AVURLAsset(url: file).load(.duration).seconds
-            guard length.isFinite, length > 0 else { return report("That file has no audio.") }
-            let fitted = MusicSource.fittedDuration(from: 0, in: editor.project.timeline) ?? length
-            report(await editor.addMusic(RenderedMusic(file: file, seconds: min(length, fitted)), at: 0))
+            let length = MusicSource.fittedDuration(from: 0, in: editor.project.timeline)
+            let music = try await RenderedMusic.importSong(from: url, into: directory, upTo: length)
+            let result = await editor.addMusic(music, at: 0)
+            if case .failure = result { RenderedAssets.remove(music.file) }
+            report(result)
         } catch {
-            errorMessage = error.localizedDescription
+            report(error.localizedDescription)
         }
     }
 }
@@ -194,7 +197,7 @@ struct MusicControlsView: View {
 
     private func sampleButton(_ tile: MusicStyle) -> some View {
         let isActive = model.sampleStyle == tile
-        return Button { Task { await model.toggleSample(tile) } } label: {
+        return Button { model.toggleSample(tile) } label: {
             Group {
                 if isActive, model.isLoadingSample {
                     ProgressView().controlSize(.mini)

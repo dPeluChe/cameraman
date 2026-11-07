@@ -76,7 +76,7 @@ change. Cleanup keeps that one file for each clip; anything older goes when the 
 Each style tile has a play button for a 12-second sample (`MusicRenderer.sample(of:)`), rendered once into
 `Caches/MusicSamples` and named with a hash of ScoreKit, so editing the styles renders fresh samples and drops the old ones.
 **Import Audio File…** copies a song into the project's assets and places it like generated music (Music track, default
-volume and ducking), cut to the picture. It has no sidecar, so the panel treats it as plain audio. Selecting a generated
+volume and ducking), cut to the picture (`RenderedMusic.importSong`, also `add_music` with `file`). It has no sidecar, so the panel treats it as plain audio. Selecting a generated
 piece on the timeline shows **Edit Music** in the clip bar, which opens the tool on it.
 
 ## Ducking
