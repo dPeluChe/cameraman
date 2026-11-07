@@ -61,6 +61,10 @@ claude -p <message> --output-format stream-json --verbose --include-partial-mess
 - The binary is found through the user's login shell (`$SHELL -lc 'command -v claude'`), since apps launched from
   Finder do not get the terminal's PATH. Login stays `claude auth login` in a terminal.
 
+Code: `EngineKit/Sources/EngineKit/Agent/`, app side `AssistantChatModel` / `AssistantChatView`. Opt-in end-to-end
+tests that spend a few cents of the local plan: `CAMERAMAN_AGENT_E2E=1 swift test --filter ClaudeCodeBackendTests`
+(EngineKit) and `--filter MCPAgentE2ETests` (MCPServer).
+
 ## Interface for more agents
 
 ```

@@ -27,6 +27,11 @@ final class MCPHostService: ObservableObject {
     @Published private(set) var token = ""
 
     private var http: MCPHTTPServer?
+    /// The bind in flight, so overlapping starts (launch, Preferences, the assistant) share one listener.
+    private var starting: Task<Void, Never>?
+
+    /// Set for this launch by the in-app assistant, leaving the user's Preferences switch alone.
+    private var assistantNeedsIt = false
 
     var isEnabled: Bool { UserDefaults.standard.bool(forKey: Self.enabledKey) }
 
@@ -46,15 +51,30 @@ final class MCPHostService: ObservableObject {
         if enabled { Task { await start() } } else { stop() }
     }
 
+    /// Turns the server on for the in-app assistant. Nil when the port is taken.
+    func ensureRunning() async -> (endpoint: URL, token: String)? {
+        assistantNeedsIt = true
+        await start()
+        return endpoint.flatMap(URL.init(string:)).map { ($0, token) }
+    }
+
     func start() async {
+        if let starting { return await starting.value }
         guard http == nil else { return }
+        let task = Task { await bind() }
+        starting = task
+        await task.value
+        starting = nil
+    }
+
+    private func bind() async {
         if token.isEmpty { token = Self.loadOrCreateToken() }
         let port = Self.defaultPort
         let server = MCPHTTPServer(server: Self.makeServer(), token: token, port: port)
         do {
             let bound = try await server.start()
             // Turned off while the listener was coming up.
-            guard isEnabled else { server.stop(); return }
+            guard isEnabled || assistantNeedsIt else { server.stop(); return }
             http = server
             state = .running(port: bound)
             LogInfo(.ui, "[MCP] in-app server listening on 127.0.0.1:\(bound)")
