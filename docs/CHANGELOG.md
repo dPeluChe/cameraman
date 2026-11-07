@@ -141,6 +141,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the new landing repo.
 
 ### Fixed
+- **Removed the Burn-in Captions switch** — it was never connected to anything. Subtitles on the timeline always go into the export.
 - **Less work in the preview** — macOS Live Text no longer scans preview frames, which also silences its empty-bounds warning in the log.
 - **Another variation sounds different** — each one moves the tempo and swaps a quiet melodic figure (bell, pluck, keys or none, with its own pattern and pace) instead of only reshuffling chords.
 - **Softer ambient style** — the pad sits an octave higher on rounder tones, removing most of the low droning and beating. Pieces already placed keep their sound until regenerated.

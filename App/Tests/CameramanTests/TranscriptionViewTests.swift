@@ -72,7 +72,6 @@ final class TranscriptionViewTests: XCTestCase {
         XCTAssertTrue(viewModel.editedTexts.isEmpty)
         XCTAssertNil(viewModel.selectedSegmentId)
         XCTAssertNil(viewModel.editingSegmentId)
-        XCTAssertFalse(viewModel.burnInCaptions)
     }
 
     func testTranscriptionViewModelStateTransitions() {
@@ -188,18 +187,6 @@ final class TranscriptionViewTests: XCTestCase {
 
         viewModel.selectedLanguage = nil
         XCTAssertNil(viewModel.selectedLanguage)
-    }
-
-    func testTranscriptionViewModelBurnInToggle() {
-        let viewModel = TranscriptionViewModel()
-
-        XCTAssertFalse(viewModel.burnInCaptions)
-
-        viewModel.burnInCaptions = true
-        XCTAssertTrue(viewModel.burnInCaptions)
-
-        viewModel.burnInCaptions = false
-        XCTAssertFalse(viewModel.burnInCaptions)
     }
 
     // MARK: - SRT Parsing Tests

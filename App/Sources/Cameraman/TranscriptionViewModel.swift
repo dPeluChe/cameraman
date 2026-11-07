@@ -24,7 +24,6 @@ final class TranscriptionViewModel: ObservableObject {
     @Published var selectedSegmentId: Int?
     @Published var editingSegmentId: Int?
     @Published var editedTexts: [Int: String] = [:]
-    @Published var burnInCaptions: Bool = false
     @Published var showingExportOptions: Bool = false
 
     @Published var selectedLanguage: String?
