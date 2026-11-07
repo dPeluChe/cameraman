@@ -120,7 +120,7 @@ struct RightPanel: View {
         if musicPanel != nil {
             tools.append(.music)
         }
-        tools += [.subtitles, .captionsAI, .export]
+        tools += [.subtitles, .assistant, .export]
         return tools
     }
 
@@ -177,8 +177,8 @@ struct RightPanel: View {
         case .subtitles:
             let count = project.subtitles.count
             return EditorToolStatus(count: count, isActive: count > 0)
-        case .captionsAI:
-            return EditorToolStatus(count: nil, isActive: project.captions != nil)
+        case .assistant:
+            return .inactive
         }
     }
 
@@ -269,25 +269,17 @@ struct RightPanel: View {
         case .subtitles:
             SubtitleEditorView(
                 editor: editor,
-                onSeek: { time in playerViewModel?.seek(to: time) }
+                onSeek: { time in playerViewModel?.seek(to: time) },
+                onGenerate: { showTranscriptionModal = true }
             )
-        case .captionsAI:
-            VStack(spacing: Spacing.sm) {
-                Button {
-                    showTranscriptionModal = true
-                } label: {
-                    PanelActionLabel("Generate Captions...", icon: "captions.bubble")
-                }
-                .buttonStyle(.bordered)
-
-                Button {
-                    showAISuggestionsModal = true
-                } label: {
-                    PanelActionLabel("AI Assistant (MCP)...", icon: "sparkles")
-                }
-                .buttonStyle(.bordered)
-                .help("Connect an AI assistant via MCP to edit this project")
+        case .assistant:
+            Button {
+                showAISuggestionsModal = true
+            } label: {
+                PanelActionLabel("Connect Assistant (MCP)...", icon: "sparkles")
             }
+            .buttonStyle(.bordered)
+            .help("Connect an AI assistant via MCP to edit this project")
         case .export:
             Button {
                 showExportModal = true

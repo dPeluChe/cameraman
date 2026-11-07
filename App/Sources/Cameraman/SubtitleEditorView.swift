@@ -4,7 +4,7 @@
 //
 //  Right-panel editor for subtitles: global style (typography color, position,
 //  size, background) plus a per-cue list for editing text, color, and timing.
-//  Cues are usually auto-generated from the Transcription panel.
+//  Cues come from the transcript; the style only appears once there are some.
 //
 
 import SwiftUI
@@ -14,6 +14,8 @@ struct SubtitleEditorView: View {
     @ObservedObject var editor: ProjectEditor
     /// Seek callback so tapping a cue moves the playhead.
     var onSeek: ((TimeInterval) -> Void)? = nil
+    /// Opens the transcript, which makes the cues.
+    var onGenerate: () -> Void = {}
 
     // Local, editable copy of the global style. Applied explicitly so dragging a
     // slider doesn't spam undo snapshots (each apply rebuilds every cue).
@@ -28,13 +30,11 @@ struct SubtitleEditorView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            styleSection
-
-            Divider()
-
             if subtitles.isEmpty {
                 emptyState
             } else {
+                styleSection
+                Divider()
                 cueListSection
             }
         }
@@ -123,6 +123,12 @@ struct SubtitleEditorView: View {
                     .fontWeight(.semibold)
                     .foregroundStyle(.secondary)
                 Spacer()
+                Button(action: onGenerate) {
+                    Label("Transcript", systemImage: "text.quote")
+                        .labelStyle(.iconOnly)
+                }
+                .buttonStyle(.borderless)
+                .help("Open the transcript to edit it or create the subtitles again")
                 Button(role: .destructive) {
                     Task { await editor.clearSubtitles() }
                 } label: {
@@ -188,11 +194,12 @@ struct SubtitleEditorView: View {
     }
 
     private var emptyState: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("No subtitles yet")
-                .font(.caption)
-                .fontWeight(.medium)
-            Text("Generate them automatically from the Transcription panel, or add one manually.")
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            Button(action: onGenerate) {
+                PanelActionLabel("Generate Subtitles...", icon: "captions.bubble")
+            }
+            .buttonStyle(.borderedProminent)
+            Text("Made on this Mac from what is said in the video.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             Button {
