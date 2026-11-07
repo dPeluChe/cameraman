@@ -57,7 +57,7 @@ Cameraman captures your screen, camera, and audio as **separate tracks**, gives 
 
 ### Captions & transcription
 - On-device speech-to-text (WhisperKit, Apple Silicon) with a model picker — keeps the spoken language or translates to English
-- Generate from *Generate Captions…* (⇧⌘T) or the inspector's **Captions & AI** section; review/edit segments, copy, regenerate, export SRT/VTT
+- Generate from *Generate Subtitles…* (⇧⌘T) or the inspector's **Subtitles** tool; review/edit segments, copy, regenerate, export SRT/VTT
 - Add as **editable subtitles on the timeline** that render over the video (and burn into exports), with a Subtitles visibility toggle
 - **AI Assistant (MCP)** (⇧⌘J): a hub that connects your AI assistant (Claude/Codex) via the bundled MCP server so it can edit the project for you — cut silences, add chapters, caption, apply effects, export
 

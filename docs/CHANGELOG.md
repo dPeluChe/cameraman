@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > to `[0.7.1] - <date>` when the batch is built, signed and notarized.
 
 ### Added
+- **One Subtitles tool** — *Generate Subtitles* now lives in the Subtitles tool, and the style controls appear once there are cues. Finishing a transcript adds subtitles by default; a toggle in the transcript window turns that off, and a project that has subtitles keeps them. The assistant connection moved to its own **AI Assistant** tile.
 - **Music tool in the editor** — pick a style and generate background music without leaving the app, then change the style or intensity, try another variation, fit it to the video, and set its volume and how far it drops under your voice. Music an agent added can be edited here too.
 - **Compare with the previous piece** — replacing music keeps the piece before it. **Use Previous** in the Music tool swaps the two at once, without composing again, so you can compare and keep either. Over MCP, `update_music` takes `usePrevious`.
 - **Motions and music are named on the timeline** — several motions read Motion 1, Motion 2 in timeline order instead of a file name, and music does the same. Rows sharing a name get a letter: Motion A, Motion B.
@@ -140,6 +141,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the new landing repo.
 
 ### Fixed
+- **Less work in the preview** — macOS Live Text no longer scans preview frames, which also silences its empty-bounds warning in the log.
 - **Another variation sounds different** — each one moves the tempo and swaps a quiet melodic figure (bell, pluck, keys or none, with its own pattern and pace) instead of only reshuffling chords.
 - **Softer ambient style** — the pad sits an octave higher on rounder tones, removing most of the low droning and beating. Pieces already placed keep their sound until regenerated.
 - **Project pictures in the library** — recordings never got one, so the list only showed the placeholder. Every project with footage now gets a frame from its first clip, including the ones you already have.

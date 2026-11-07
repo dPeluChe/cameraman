@@ -15,6 +15,7 @@ struct TranscriptionView: View {
     @Binding var playheadTime: TimeInterval
 
     @StateObject private var viewModel: TranscriptionViewModel
+    @AppStorage("transcription.addSubtitles") private var addSubtitles = true
     @Environment(\.dismiss) private var dismiss
 
     init(editor: ProjectEditor, playheadTime: Binding<TimeInterval>) {
@@ -116,15 +117,15 @@ struct TranscriptionView: View {
 
                 Toggle("Translate to English", isOn: $viewModel.translateToEnglish)
                     .help("Off: keep the spoken language. On: translate the transcript to English.")
+
+                Toggle("Add subtitles to the timeline", isOn: $addSubtitles)
+                    .help("Creates editable subtitles when the transcript is ready, unless the project already has some.")
             }
 
             HStack(spacing: 12) {
                 Button {
                     Task {
-                        await viewModel.startTranscription(
-                            project: editor.project,
-                            language: viewModel.selectedLanguage
-                        )
+                        await transcribe()
                     }
                 } label: {
                     Label("Generate Transcript", systemImage: "waveform")
@@ -223,10 +224,7 @@ struct TranscriptionView: View {
 
                 Button {
                     Task {
-                        await viewModel.startTranscription(
-                            project: editor.project,
-                            language: viewModel.selectedLanguage
-                        )
+                        await transcribe()
                     }
                 } label: {
                     Image(systemName: "arrow.clockwise")
@@ -316,10 +314,7 @@ struct TranscriptionView: View {
             HStack(spacing: 12) {
                 Button("Retry") {
                     Task {
-                        await viewModel.startTranscription(
-                            project: editor.project,
-                            language: viewModel.selectedLanguage
-                        )
+                        await transcribe()
                     }
                 }
                 .buttonStyle(.borderedProminent)
@@ -331,6 +326,14 @@ struct TranscriptionView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+    }
+
+    private func transcribe() async {
+        await viewModel.startTranscription(project: editor.project, language: viewModel.selectedLanguage)
+        if addSubtitles, viewModel.transcriptionState == .completed, editor.project.subtitles.isEmpty {
+            generateSubtitles()
+            NotificationCenter.default.post(name: .selectEditorTool, object: EditorTool.subtitles.rawValue)
+        }
     }
 
     /// Build editable subtitle cues on the timeline from the current transcript,

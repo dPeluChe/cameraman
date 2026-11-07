@@ -20,6 +20,8 @@ struct AVPlayerLayerView: NSViewRepresentable {
         view.controlsStyle = .none
         view.showsFullScreenToggleButton = false
         view.allowsPictureInPicturePlayback = false
+        // Live Text scans paused frames: wasted work here, and the source of AVKit's empty-bounds warnings.
+        view.allowsVideoFrameAnalysis = false
         return view
     }
 
