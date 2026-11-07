@@ -38,13 +38,18 @@ extension MCPTools {
                 return result
             }
             var extra = Self.clipIds(added)
+            let paths = Set(pieces.map { RenderedAssets.projectPath(of: $0.file) })
+            let ids = updated.timeline.tracks.flatMap(\.clips).filter {
+                if case .audio(let ref) = $0.content { return paths.contains(ref.path) }
+                return false
+            }.sorted { $0.timelineIn < $1.timelineIn }.map(\.id)
+            extra["clipId"] = ids.first
+            extra["clipIds"] = ids
             let envelopes = AudioDucking.envelopes(for: updated, directory: directory)
-            extra["speechDucking"] = (extra["clipId"] as? String).map { envelopes[$0] != nil } ?? false
+            extra["speechDucking"] = ids.contains { envelopes[$0] != nil }
             let seconds = pieces.map(\.seconds).reduce(0, +)
             var message = "Added music (\(String(format: "%.1f", seconds))s) at \(at)s"
-            if pieces.count > 1 {
-                message += " as \(pieces.count) pieces back to back, each changed on its own with update_music; clipId is the last"
-            }
+            if pieces.count > 1 { message += " as \(pieces.count) pieces back to back; change each with update_music" }
             return try summary(message, updated, extra: extra)
         }
     }

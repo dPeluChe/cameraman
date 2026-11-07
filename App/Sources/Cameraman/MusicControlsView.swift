@@ -56,7 +56,7 @@ final class MusicPanelModel: ObservableObject {
         isRendering = true
         composingPieces = MusicSource.sections(of: source.options.duration).count
         errorMessage = nil
-        defer { isRendering = false }
+        defer { isRendering = false; composingPieces = 0 }
         do {
             let pieces = try await MusicRenderer.renderChain(source, in: directory)
             let discard = { pieces.forEach { RenderedAssets.remove($0.file) } }
@@ -281,13 +281,8 @@ struct MusicControlsView: View {
         }
     }
 
-    /// To the end of the picture, but not past the next piece on its track nor one render's limit.
     private func fitLength(_ piece: Project.Timeline.MusicPiece) -> TimeInterval? {
-        let start = piece.clip.timelineIn
-        guard let picture = MusicSource.fittedDuration(from: start, in: editor.project.timeline) else { return nil }
-        let next = piece.track.clips.map(\.timelineIn).filter { $0 > start }.min().map { $0 - start } ?? .infinity
-        let length = min(picture, next, MusicRenderer.maxDuration)
-        return abs(length - piece.clip.duration) > 0.1 ? length : nil
+        MusicSource.fittedDuration(of: piece, in: editor.project.timeline)
     }
 
     private func reload() {
@@ -331,7 +326,8 @@ struct MusicControlsView: View {
         let clipId = piece.clip.id, trackId = piece.track.id
         Task {
             await model.compose(source) { editor, pieces in
-                await editor.replaceMusic(clipId: clipId, inTrackId: trackId, with: pieces[0])
+                guard pieces.count == 1 else { return .failure(.invalidClipContent(reason: "A piece is at most 10 minutes")) }
+                return await editor.replaceMusic(clipId: clipId, inTrackId: trackId, with: pieces[0])
             }
         }
     }

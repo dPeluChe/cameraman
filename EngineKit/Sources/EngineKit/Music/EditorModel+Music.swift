@@ -77,6 +77,16 @@ extension MusicSource {
         return end > start ? end - start : nil
     }
 
+    /// How long a placed piece can grow: to the end of the picture, not past the next clip on its track
+    /// nor one render's limit. Nil when it already has that length.
+    public static func fittedDuration(of piece: Project.Timeline.MusicPiece, in timeline: Project.Timeline) -> TimeInterval? {
+        let start = piece.clip.timelineIn
+        guard let picture = fittedDuration(from: start, in: timeline) else { return nil }
+        let next = piece.track.clips.map(\.timelineIn).filter { $0 > start }.min().map { $0 - start } ?? .infinity
+        let length = min(picture, next, MusicRenderer.maxDuration)
+        return abs(length - piece.clip.duration) > 0.1 ? length : nil
+    }
+
     /// Equal lengths within the render limit that add up to `length`, so no piece is a short tail.
     public static func sections(of length: TimeInterval) -> [TimeInterval] {
         let count = max(1, Int((length / MusicRenderer.maxDuration).rounded(.up)))
@@ -132,8 +142,9 @@ extension EditorModel {
     /// Places pieces back to back from `start` as one edit: all of them or none.
     public func addMusic(_ pieces: [RenderedMusic], at start: TimeInterval, volume: Double = MusicSource.defaultVolume,
                          ducking: Double = MusicSource.defaultDucking) async -> EditorResult {
+        guard !pieces.isEmpty else { return .failure(.invalidClipContent(reason: "No music to add")) }
         let before = projectRef
-        var result = EditorResult.failure(.invalidClipContent(reason: "No music to add"))
+        var result: EditorResult = .success(before)
         var time = start
         for piece in pieces {
             result = await addMusic(piece, at: time, volume: volume, ducking: ducking)

@@ -71,6 +71,26 @@ final class MusicPlacementTests: XCTestCase {
         XCTAssertTrue(musicTracks.isEmpty, "A refused piece undoes the ones before it, track included")
     }
 
+    func testFittingAPieceStopsAtTheNextOneAndTheLimit() {
+        let piece = { (start: TimeInterval, name: String) in
+            Project.TimelineClip(timelineIn: start, content: .audio(Project.AudioClipRef(path: "assets/music-\(name).m4a", duration: 5)))
+        }
+        let timeline = { (picture: TimeInterval) in
+            Project.Timeline(duration: picture, tracks: [
+                Project.TimelineTrack(name: "Card", type: .video, clips: [
+                    Project.TimelineClip(timelineIn: 0, content: .color(Project.ColorClipRef(hexColor: "#000000", duration: picture))),
+                ]),
+                Project.TimelineTrack(name: MusicSource.trackName, type: .audio, clips: [piece(0, "0000000a"), piece(20, "0000000b")]),
+            ])
+        }
+        let short = timeline(30)
+        let pieces = short.musicPieces
+        XCTAssertEqual(MusicSource.fittedDuration(of: pieces[0], in: short), 20, "Up to the next piece")
+        XCTAssertEqual(MusicSource.fittedDuration(of: pieces[1], in: short), 10, "Up to the end of the picture")
+        let long = timeline(2000)
+        XCTAssertEqual(MusicSource.fittedDuration(of: long.musicPieces[1], in: long), MusicRenderer.maxDuration)
+    }
+
     func testPiecesAreOnlyGeneratedMusic() {
         let generated = Project.TimelineClip(timelineIn: 0, content: .audio(Project.AudioClipRef(path: music.path, duration: 10)))
         let imported = Project.TimelineClip(timelineIn: 0, content: .audio(Project.AudioClipRef(path: "assets/music-intro.m4a", duration: 10)))
