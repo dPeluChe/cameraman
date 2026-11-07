@@ -332,7 +332,7 @@ struct TranscriptionView: View {
         await viewModel.startTranscription(project: editor.project, language: viewModel.selectedLanguage)
         if addSubtitles, viewModel.transcriptionState == .completed, editor.project.subtitles.isEmpty {
             generateSubtitles()
-            NotificationCenter.default.post(name: .selectEditorTool, object: EditorTool.subtitles)
+            NotificationCenter.default.post(name: .selectEditorTool, object: EditorTool.subtitles.rawValue)
         }
     }
 
