@@ -165,6 +165,10 @@ final class ProjectEditor: ObservableObject {
         await performEdit { await self.editorModel.replaceMusic(clipId: clipId, inTrackId: trackId, with: music) }
     }
 
+    func swapMusicWithPrevious(clipId: String, inTrackId trackId: UUID, in directory: URL) async -> EditorResult {
+        await performEdit { await self.editorModel.swapMusicWithPrevious(clipId: clipId, inTrackId: trackId, in: directory) }
+    }
+
     func setTrackDucking(trackId: UUID, level: Double) async -> EditorResult {
         await performEdit { await self.editorModel.setTrackDucking(trackId: trackId, level: level) }
     }

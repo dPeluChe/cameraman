@@ -75,6 +75,7 @@ struct MusicControlsView: View {
     @Binding var showTranscriptionModal: Bool
 
     @State private var source: MusicSource?
+    @State private var previous: MusicSource?
     @State private var hasTranscript = false
     /// Settings for the next piece; an existing piece answers from its source.
     @State private var style = MusicStyle.lofi
@@ -139,7 +140,7 @@ struct MusicControlsView: View {
     private func pieceControls(_ piece: Project.Timeline.MusicPiece) -> some View {
         Divider()
         VStack(alignment: .leading, spacing: 2) {
-            Text(pieceTitle).font(.subheadline)
+            Text(title(of: source)).font(.subheadline)
             Text("\(PreviewPlayerViewModel.formatTime(piece.clip.timelineIn)) – \(PreviewPlayerViewModel.formatTime(piece.clip.timelineOut))")
                 .font(.caption).foregroundStyle(.secondary)
             if editor.project.timeline.musicPieces.count > 1 {
@@ -149,6 +150,11 @@ struct MusicControlsView: View {
         }
         Button { change { $0.options.seed += 1 } } label: { PanelActionLabel("Another Variation", icon: "shuffle") }
             .disabled(source == nil)
+        if let previous {
+            Button { swapWithPrevious(piece) } label: {
+                PanelActionLabel("Use Previous: \(title(of: previous))", icon: "arrow.left.arrow.right")
+            }
+        }
 
         slider("Volume", value: piece.clip.volume ?? 1) { volume in
             Task { await model.report(editor.updateClip(clipId: piece.clip.id, inTrackId: piece.track.id, volume: volume)) }
@@ -181,7 +187,7 @@ struct MusicControlsView: View {
                     display: { "\(Int($0 * 100))%" }, commit: commit)
     }
 
-    private var pieceTitle: String {
+    private func title(of source: MusicSource?) -> String {
         switch source?.score {
         case .style(let style)?: return style.title
         case .code?: return "Custom score"
@@ -200,6 +206,7 @@ struct MusicControlsView: View {
         let transcript = directory.appendingPathComponent(TranscriptionEngine.Transcript.relativePath)
         hasTranscript = FileManager.default.fileExists(atPath: transcript.path)
         source = current.flatMap { MusicSource.load(of: $0.clip, in: directory) }
+        previous = current.flatMap { MusicSource.previous(of: $0.clip, in: directory)?.source }
     }
 
     private func generate() {
@@ -224,6 +231,11 @@ struct MusicControlsView: View {
         guard var next = source, let piece = current else { return }
         edit(&next)
         replace(piece, with: next)
+    }
+
+    private func swapWithPrevious(_ piece: Project.Timeline.MusicPiece) {
+        guard let directory = model.projectDirectory else { return }
+        Task { await model.report(editor.swapMusicWithPrevious(clipId: piece.clip.id, inTrackId: piece.track.id, in: directory)) }
     }
 
     private func replace(_ piece: Project.Timeline.MusicPiece, with source: MusicSource) {

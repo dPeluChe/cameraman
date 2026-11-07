@@ -69,6 +69,10 @@ be changed from either side, because both call the same engine code and read the
 another variation (next seed: tempo and melodic figure step with it, so neighbours sound apart), fit to the video, volume and how far it drops under the voice. Scores written in code
 show as "Custom score"; picking a style replaces them. A piece runs to the end of the picture, up to 10 minutes.
 
+Replacing a piece keeps the one before it: **Use Previous** in the panel, or `usePrevious` on `update_music`, swaps the
+two without rendering, and doing it again returns. The link is `previous` in the sidecar, so the project format does not
+change. Cleanup keeps that one file for each clip; anything older goes when the project next opens.
+
 ## Ducking
 
 A Music track drops under speech, to half its volume by default. `duckingLevel` on the track is the only thing stored:

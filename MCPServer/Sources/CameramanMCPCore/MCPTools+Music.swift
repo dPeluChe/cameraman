@@ -46,6 +46,10 @@ extension MCPTools {
             throw MCPToolError("That clip is not generated music.")
         }
         let directory = try await ProjectLibrary.shared.getProjectDirectory(projectId: project.projectId)
+        if args.optBool("usePrevious") == true {
+            let updated = try await mutate(args) { await $0.swapMusicWithPrevious(clipId: clip.id, inTrackId: track.id, in: directory) }
+            return try summary("Switched music \(clip.id) to its previous piece", updated)
+        }
         let saved = MusicSource.load(of: clip, in: directory)
         let source = try Self.musicSource(args, editing: saved, duration: clip.duration)
         let music = try await MusicRenderer.renderAsset(source, in: directory)

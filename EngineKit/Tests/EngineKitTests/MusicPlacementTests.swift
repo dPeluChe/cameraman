@@ -79,6 +79,66 @@ final class MusicPlacementTests: XCTestCase {
         XCTAssertNil(result.getProject())
     }
 
+    func testAPieceCanGoBackToTheOneItReplacedAndReturn() async throws {
+        let directory = try temporaryProject()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let first = try piece("0a1b2c3d", seconds: 10, in: directory), second = try piece("1b2c3d4e", seconds: 12, in: directory)
+        let editor = EditorModel(project: project)
+        _ = await editor.addMusic(first, at: 0)
+        let added = await clips(editor)
+        let clip = try XCTUnwrap(added.first)
+        let current = await editor.projectRef
+        let track = try XCTUnwrap(current.timeline.tracks.first { $0.name == MusicSource.trackName })
+        var refused = await editor.swapMusicWithPrevious(clipId: clip.id, inTrackId: track.id, in: directory)
+        XCTAssertNil(refused.getProject())
+
+        _ = await editor.replaceMusic(clipId: clip.id, inTrackId: track.id, with: second)
+        refused = await editor.swapMusicWithPrevious(clipId: clip.id, inTrackId: track.id, in: directory)
+        XCTAssertNotNil(refused.getProject())
+        var moved = await clips(editor)
+        var now = try XCTUnwrap(moved.first)
+        XCTAssertEqual(RenderedAssets.renderedPath(of: now, as: .music), first.path)
+        XCTAssertEqual(now.duration, 10)
+        XCTAssertEqual(now.volume, MusicSource.defaultVolume)
+
+        _ = await editor.swapMusicWithPrevious(clipId: clip.id, inTrackId: track.id, in: directory)
+        moved = await clips(editor)
+        now = try XCTUnwrap(moved.first)
+        XCTAssertEqual(RenderedAssets.renderedPath(of: now, as: .music), second.path)
+        XCTAssertEqual(now.duration, 12)
+    }
+
+    func testOnlyThePreviousPieceSurvivesCleanup() async throws {
+        let directory = try temporaryProject()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let pieces = try ["0a1b2c3d", "1b2c3d4e", "2c3d4e5f"].map { try piece($0, seconds: 10, in: directory) }
+        let editor = EditorModel(project: project)
+        _ = await editor.addMusic(pieces[0], at: 0)
+        let added = await clips(editor)
+        let clip = try XCTUnwrap(added.first)
+        let current = await editor.projectRef
+        let track = try XCTUnwrap(current.timeline.tracks.first { $0.name == MusicSource.trackName })
+        for next in pieces.dropFirst() { _ = await editor.replaceMusic(clipId: clip.id, inTrackId: track.id, with: next) }
+
+        let final = await editor.projectRef
+        RenderedAssets.removeUnused(in: final, directory: directory, now: Date().addingTimeInterval(7200))
+        let left = pieces.map { FileManager.default.fileExists(atPath: $0.file.path) }
+        XCTAssertEqual(left, [false, true, true])
+    }
+
+    private func temporaryProject() throws -> URL {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory.appendingPathComponent("assets"), withIntermediateDirectories: true)
+        return directory
+    }
+
+    private func piece(_ name: String, seconds: TimeInterval, in directory: URL) throws -> RenderedMusic {
+        let file = directory.appendingPathComponent("assets/music-\(name).m4a")
+        try Data().write(to: file)
+        try MusicSource(score: .style(.lofi), options: MusicRenderOptions(duration: seconds)).save(for: file)
+        return RenderedMusic(file: file, seconds: seconds)
+    }
+
     func testReplacingKeepsTheClipAndItsVolume() async throws {
         let editor = EditorModel(project: project)
         _ = await editor.addMusic(music, at: 3, volume: 0.4)
