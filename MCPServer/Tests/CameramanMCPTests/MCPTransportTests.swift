@@ -12,6 +12,7 @@ final class MCPProtocolTests: XCTestCase {
         let reply = try XCTUnwrap(replyRaw)
         let result = try XCTUnwrap(reply["result"] as? [String: Any])
         XCTAssertEqual(result["protocolVersion"] as? String, "2025-03-26")
+        XCTAssertTrue((result["instructions"] as? String)?.contains("Cameraman") == true)
     }
 
     func testUnknownProtocolVersionFallsBackToNewestSupported() {

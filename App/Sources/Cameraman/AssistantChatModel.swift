@@ -145,10 +145,9 @@ final class AssistantChatModel: ObservableObject {
 
     private var instructions: String {
         """
-        You are the assistant inside Cameraman, a macOS screen recording and video editor. The user has the project \
-        "\(projectName())" open, projectId \(projectId.uuidString). Work on it with the cameraman tools and always pass \
-        that projectId. Read the project (and its captions when the request is about what is said) before editing. \
-        The editor shows your edits when you finish. Reply in the user's language, briefly, and say what you changed.
+        You are the assistant inside Cameraman. The user has the project "\(projectName())" open, projectId \
+        \(projectId.uuidString): work on it with the cameraman tools (their server instructions say how) and always \
+        pass that projectId.
         """
     }
 

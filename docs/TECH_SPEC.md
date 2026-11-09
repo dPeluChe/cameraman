@@ -64,7 +64,7 @@ La UI **NO** manipula buffers; solo:
 ---
 
 ## 3) Estructura de proyecto (carpetas)
-Ruta base sugerida: `~/Library/Application Support/ProjectStudio/Projects/`
+Ruta base sugerida: `~/Library/Application Support/Cameraman/Projects/`
 
 Por proyecto (UUID):
 ```

@@ -241,7 +241,7 @@ Ver `docs/RESEARCH/IN_APP_AGENT_2026-11.md`. Entitlements en `CameramanApp/Camer
 
 Info.plist: `NSCameraUsageDescription`, `NSMicrophoneUsageDescription`, `NSScreenCaptureUsageDescription`.
 
-Datos en `~/Library/Application Support/ProjectStudio/` (`AppDirectories`): `Projects/`, `Models/` (WhisperKit),
+Datos en `~/Library/Application Support/Cameraman/` (`AppDirectories`): `Projects/`, `Models/` (WhisperKit),
 `Recordings/`. El primer arranque mueve lo que había en el contenedor viejo (`ContainerMigration`).
 
 ---

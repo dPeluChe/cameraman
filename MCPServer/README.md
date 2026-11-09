@@ -86,7 +86,7 @@ swift build -c release
 The server speaks MCP over **stdio**. Point your client at the built binary.
 
 > **Projects folder.** The server defaults to
-> `~/Library/Application Support/ProjectStudio/Projects/`, the same folder the app uses
+> `~/Library/Application Support/Cameraman/Projects/`, the same folder the app uses
 > (since 0.8 the app is not sandboxed). Set **`CAMERAMAN_PROJECTS_DIR`** to point it
 > elsewhere. Builds before 0.8 kept projects in
 > `~/Library/Containers/dev.dpeluche.CameramanApp/Data/Library/Application Support/ProjectStudio/Projects`;
@@ -100,7 +100,7 @@ Claude Desktop (`claude_desktop_config.json`):
     "cameraman": {
       "command": "/absolute/path/to/cameraman/MCPServer/.build/release/cameraman-mcp",
       "args": [],
-      "env": { "CAMERAMAN_PROJECTS_DIR": "/Users/you/Library/Containers/dev.dpeluche.CameramanApp/Data/Library/Application Support/ProjectStudio/Projects" }
+      "env": { "CAMERAMAN_PROJECTS_DIR": "/Users/you/Library/Application Support/Cameraman/Projects" }
     }
   }
 }
@@ -109,7 +109,7 @@ Claude Desktop (`claude_desktop_config.json`):
 Claude Code:
 
 ```bash
-claude mcp add cameraman -e CAMERAMAN_PROJECTS_DIR="$HOME/Library/Containers/dev.dpeluche.CameramanApp/Data/Library/Application Support/ProjectStudio/Projects" -- /absolute/path/to/cameraman/MCPServer/.build/release/cameraman-mcp
+claude mcp add cameraman -e CAMERAMAN_PROJECTS_DIR="$HOME/Library/Application Support/Cameraman/Projects" -- /absolute/path/to/cameraman/MCPServer/.build/release/cameraman-mcp
 ```
 
 Codex CLI (`~/.codex/config.toml`):
@@ -118,7 +118,7 @@ Codex CLI (`~/.codex/config.toml`):
 [mcp_servers.cameraman]
 command = "/absolute/path/to/cameraman/MCPServer/.build/release/cameraman-mcp"
 args = []
-env = { CAMERAMAN_PROJECTS_DIR = "/Users/you/Library/Containers/dev.dpeluche.CameramanApp/Data/Library/Application Support/ProjectStudio/Projects" }
+env = { CAMERAMAN_PROJECTS_DIR = "/Users/you/Library/Application Support/Cameraman/Projects" }
 ```
 
 > **One editor at a time.** The server and the app write `project.json` without

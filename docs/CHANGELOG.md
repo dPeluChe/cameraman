@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > released on its own). Rename this header to `[0.8.0] - <date>` when the batch is built, signed and notarized.
 
 ### Added
-- **AI Assistant chat** — the AI Assistant tool is now a chat with Claude Code, using your own Claude plan: ask for an edit ("add calm music", "cut the silences") and it works on the open project with Cameraman's tools, showing each step. It runs the Claude Code you have installed (sign in once with `claude auth login`); Cameraman never sees your login. Replies come out of your plan's monthly Agent SDK credit, and the panel shows what the last one cost. It turns on the built-in MCP server when needed. Other apps can still connect over MCP.
+- **AI Assistant chat** — the AI Assistant tool is now a chat with Claude Code, using your own Claude plan: ask for an edit ("add calm music", "cut the silences") and it works on the open project with Cameraman's tools, showing each step. It runs the Claude Code you have installed (sign in once with `claude auth login`); Cameraman never sees your login. Replies come out of your plan's monthly Agent SDK credit, and the panel shows what the last one cost. It turns on the built-in MCP server when needed. Other apps can still connect over MCP, and the server now tells any agent how to work with Cameraman when it connects.
 - **Music for long videos** — past 10 minutes, *Generate Music* and `add_music` compose several pieces of equal length and place them back to back, so the whole video has music. Each piece can be changed on its own.
 - **Hear a style before using it** — each style tile in the Music tool has a play button with a 12-second sample. Samples are composed once and kept in the app's caches until the styles change.
 - **Use your own song** — *Import Audio File…* in the Music tool puts a file on a Music track, cut to the length of the video, and it drops under your voice like generated music. Over MCP, `add_music` takes `file`.
@@ -115,7 +115,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (**42 → 43 tools**).
 
 ### Changed
-- **No more App Sandbox** — so the coming in-app assistant can run the AI tools you already have installed, such as Claude Code, with your own login. Cameraman ships as a notarized download; it is not on the Mac App Store. On first launch your projects, transcription models and settings move from the old app container to `~/Library/Application Support/ProjectStudio`, and nothing already there is overwritten.
+- **No more App Sandbox** — so the coming in-app assistant can run the AI tools you already have installed, such as Claude Code, with your own login. Cameraman ships as a notarized download; it is not on the Mac App Store. On first launch your projects, transcription models and settings move from the old app container to `~/Library/Application Support/Cameraman`, and nothing already there is overwritten.
 - **MCP tools consolidated, 43 → 37 (breaking names)** — `list_overlays` and `list_adjustments` are in `get_project`;
   `search_projects` is `list_projects(query)`; `rename_project` + `set_tags` are `update_project`; `list_jobs` is
   `get_job_status(projectId)`; `set_clip_audio_muted` is `edit_clip(audioMuted)`. Tools carry `readOnlyHint` /

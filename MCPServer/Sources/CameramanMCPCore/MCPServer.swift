@@ -17,6 +17,15 @@ enum MCPInfo {
     /// Revisions whose tools/list + tools/call shape we implement, newest first.
     static let supportedProtocolVersions = ["2025-06-18", "2025-03-26", "2024-11-05"]
 
+    /// Sent on initialize, so every client (the in-app assistant, Claude Code, Codex…) knows how to work here.
+    static let instructions = """
+        Cameraman is a macOS screen recorder and non-destructive video editor; these tools edit its projects. \
+        Find the project with list_projects (or use the id you were given), then read it with get_project, and \
+        get_captions when the request is about what is said, before editing. Edits are saved to project.json and \
+        the open editor reloads them when you finish. Long work (render, export, transcription) returns a job: \
+        poll get_job_status. Reply in the user's language, briefly, and say what you changed.
+        """
+
     /// The client's version when we speak it, otherwise our newest (the client decides to go on).
     static func negotiate(_ requested: String?) -> String {
         guard let requested, supportedProtocolVersions.contains(requested) else {
@@ -97,7 +106,8 @@ public actor MCPServer {
             return Self.result([
                 "protocolVersion": MCPInfo.negotiate(params["protocolVersion"] as? String),
                 "capabilities": ["tools": ["listChanged": false]],
-                "serverInfo": ["name": MCPInfo.name, "version": MCPInfo.version]
+                "serverInfo": ["name": MCPInfo.name, "version": MCPInfo.version],
+                "instructions": MCPInfo.instructions
             ], id: replyId)
 
         case "notifications/initialized", "initialized":

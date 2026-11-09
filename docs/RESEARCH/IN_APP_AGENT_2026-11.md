@@ -83,6 +83,6 @@ AgentEvent: started(session) · text(delta) · toolStarted(name) · toolFinished
 
 A process launched by a sandboxed app inherits the sandbox, so the user's `claude` could not read `~/.claude` or
 its keychain item. 0.8 drops the sandbox (hardened runtime and notarization stay). Data moves on first launch
-from `~/Library/Containers/<bundle id>/Data` to `~/Library/Application Support/ProjectStudio/` (`ContainerMigration`):
+from `~/Library/Containers/<bundle id>/Data` to `~/Library/Application Support/Cameraman/` (`ContainerMigration`):
 projects, WhisperKit models (`Models/`, was `Documents/huggingface`), recordings and preferences. Debug builds
-use `ProjectStudio-Debug`, keeping them apart from the release app as their containers did.
+use `Cameraman-Debug`, keeping them apart from the release app as their containers did.
