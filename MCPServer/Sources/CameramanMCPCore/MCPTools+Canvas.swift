@@ -25,7 +25,7 @@ extension MCPTools {
             if typeRaw == "fullscreen" {
                 camera = nil
             } else if let cameraArg = args["camera"] as? [String: Any] {
-                camera = Self.cameraPosition(from: cameraArg)
+                camera = Self.cameraPosition(from: cameraArg, keeping: project.canvas.layout.camera)
             } else if typeRaw == "side_by_side" {
                 camera = CanvasLayout.defaultLayout(for: .sideBySide).camera
             } else {
@@ -80,22 +80,21 @@ extension MCPTools {
         return try summary("Updated background (\(type))", project)
     }
 
-    private static func cameraPosition(from dict: [String: Any]) -> Project.Canvas.Layout.CameraPosition {
+    /// Fields left out keep `base`, so moving or resizing the camera does not drop its mask or border.
+    static func cameraPosition(from dict: [String: Any], keeping base: Project.Canvas.Layout.CameraPosition?) -> Project.Canvas.Layout.CameraPosition {
+        let base = base ?? Project.Canvas.Layout.CameraPosition(x: 0.68, y: 0.68, w: 0.3, h: 0.3)
         func num(_ key: String, _ fallback: Double) -> Double {
-            if let d = dict[key] as? Double { return d }
-            if let i = dict[key] as? Int { return Double(i) }
-            return fallback
+            (dict[key] as? Double) ?? (dict[key] as? Int).map(Double.init) ?? fallback
         }
-        let maskShape = (dict["maskShape"] as? String).flatMap(PiPMaskShape.init(rawValue:)) ?? .roundedRect
         return Project.Canvas.Layout.CameraPosition(
-            x: num("x", 0.68),
-            y: num("y", 0.68),
-            w: num("w", 0.3),
-            h: num("h", 0.3),
-            cornerRadius: num("cornerRadius", 0),
-            maskShape: maskShape,
-            borderWidth: num("borderWidth", 0),
-            borderColor: (dict["borderColor"] as? String) ?? "#FFFFFF"
+            x: num("x", base.x),
+            y: num("y", base.y),
+            w: num("w", base.w),
+            h: num("h", base.h),
+            cornerRadius: num("cornerRadius", base.cornerRadius),
+            maskShape: (dict["maskShape"] as? String).flatMap(PiPMaskShape.init(rawValue:)) ?? base.maskShape,
+            borderWidth: num("borderWidth", base.borderWidth),
+            borderColor: (dict["borderColor"] as? String) ?? base.borderColor
         )
     }
 }
