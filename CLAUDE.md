@@ -36,7 +36,7 @@ swift test --parallel            # Run tests in parallel
 
 Recordings are saved under Application Support (`AppDirectories.recordings`):
 
-`~/Library/Application Support/ProjectStudio/Recordings/recording_<ISO8601>/` (Debug builds: `ProjectStudio-Debug`)
+`~/Library/Application Support/Cameraman/Recordings/recording_<ISO8601>/` (Debug builds: `Cameraman-Debug`)
 
 The app is not sandboxed since 0.8 (it runs the user's agent CLIs). On first launch it moves data from the old
 container `~/Library/Containers/<bundle id>/Data` (`ContainerMigration`).

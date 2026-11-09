@@ -35,9 +35,7 @@ final class LocalAIProviderTests: XCTestCase {
 
         // Create test project directory
         let fileManager = FileManager.default
-        let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let baseDirectory = appSupport.appendingPathComponent("ProjectStudio/Projects", isDirectory: true)
-        testProjectURL = baseDirectory.appendingPathComponent(testProjectId.uuidString, isDirectory: true)
+        testProjectURL = AppDirectories.projects.appendingPathComponent(testProjectId.uuidString, isDirectory: true)
 
         try fileManager.createDirectory(at: testProjectURL, withIntermediateDirectories: true)
 

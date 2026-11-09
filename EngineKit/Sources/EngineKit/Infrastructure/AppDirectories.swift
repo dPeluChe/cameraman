@@ -9,11 +9,14 @@
 import Foundation
 
 public enum AppDirectories {
-    /// Application Support/ProjectStudio: projects, models and recordings. Debug app builds keep their own,
-    /// as their sandbox containers did. Processes without a bundle (the standalone MCP server, tests) use
-    /// ProjectStudio; point them elsewhere with CAMERAMAN_PROJECTS_DIR.
+    /// Application Support/Cameraman: projects, models and recordings. Debug app builds keep their own,
+    /// as their sandbox containers did. Tests get a throwaway folder so they never touch real data.
+    /// The standalone MCP server uses Cameraman; point it elsewhere with CAMERAMAN_PROJECTS_DIR.
     public static let support: URL = {
-        let name = Bundle.main.bundleIdentifier?.hasSuffix(".debug") == true ? "ProjectStudio-Debug" : "ProjectStudio"
+        if NSClassFromString("XCTestCase") != nil {
+            return FileManager.default.temporaryDirectory.appendingPathComponent("Cameraman-Tests-\(UUID().uuidString)", isDirectory: true)
+        }
+        let name = Bundle.main.bundleIdentifier?.hasSuffix(".debug") == true ? "Cameraman-Debug" : "Cameraman"
         return FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent(name, isDirectory: true)
     }()
@@ -35,7 +38,7 @@ public struct ContainerMigration {
     public let support: URL
     public let bundleIdentifier: String
 
-    /// `container` is ~/Library/Containers/<bundle id>/Data; `support` is the new Application Support/ProjectStudio.
+    /// `container` is ~/Library/Containers/<bundle id>/Data; `support` is the new Application Support/Cameraman.
     public init(container: URL, support: URL, bundleIdentifier: String) {
         self.container = container
         self.support = support
