@@ -57,7 +57,12 @@ struct CameramanApp: App {
                 }
                 .keyboardShortcut("t", modifiers: [.command, .shift])
 
-                Button("AI Assistant (MCP)...") {
+                Button("Show or Hide Assistant") {
+                    AssistantChatModel.shared.isPresented.toggle()
+                }
+                .keyboardShortcut("j", modifiers: .command)
+
+                Button("Connect Another AI App (MCP)...") {
                     NotificationCenter.default.post(name: .openAISuggestions, object: nil)
                 }
                 .keyboardShortcut("j", modifiers: [.command, .shift])

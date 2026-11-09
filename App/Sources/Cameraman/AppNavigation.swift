@@ -20,6 +20,7 @@ struct AppNavigation: View {
     @State private var tagsCandidate: ProjectSummary?
     @State private var tagsText = ""
     @State private var mergeCandidate: ProjectSummary?
+    @ObservedObject private var assistant = AssistantChatModel.shared
 
     init(viewModel: AppNavigationViewModel = AppNavigationViewModel()) {
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -79,7 +80,23 @@ struct AppNavigation: View {
             sidebar
                 .navigationSplitViewColumnWidth(min: 240, ideal: 280)
         } detail: {
-            detail
+            HStack(spacing: 0) {
+                detail
+                if assistant.isPresented && assistant.placement == .docked {
+                    Divider()
+                    AssistantPanel(model: assistant).frame(width: 340)
+                }
+            }
+            .overlay(alignment: .bottomTrailing) {
+                if assistant.isPresented && assistant.placement == .floating {
+                    AssistantPanel(model: assistant)
+                        .frame(width: 380, height: 560)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Radius.large))
+                        .overlay(RoundedRectangle(cornerRadius: Radius.large).strokeBorder(.separator))
+                        .shadow(radius: 16, y: 6)
+                        .padding(Spacing.lg)
+                }
+            }
         }
     }
 
@@ -152,6 +169,15 @@ struct AppNavigation: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .automatic) {
+            Button {
+                assistant.isPresented.toggle()
+            } label: {
+                Label("Assistant", systemImage: "sparkles")
+            }
+            .help("Assistant (⌘J)")
+        }
+
         ToolbarItem(placement: .automatic) {
             Button {
                 Task {

@@ -24,7 +24,6 @@ enum EditorTool: String, CaseIterable, Identifiable {
     case overlays
     case blurRegions
     case subtitles
-    case assistant
     case export
 
     var id: String { rawValue }
@@ -44,7 +43,6 @@ enum EditorTool: String, CaseIterable, Identifiable {
         case .overlays: return "Overlays"
         case .blurRegions: return "Blur"
         case .subtitles: return "Subtitles"
-        case .assistant: return "AI Assistant"
         case .export: return "Export"
         }
     }
@@ -64,7 +62,6 @@ enum EditorTool: String, CaseIterable, Identifiable {
         case .overlays: return "pencil.and.outline"
         case .blurRegions: return "eye.slash"
         case .subtitles: return "captions.bubble"
-        case .assistant: return "sparkles"
         case .export: return "square.and.arrow.up"
         }
     }

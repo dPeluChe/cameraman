@@ -20,11 +20,9 @@ struct RightPanel: View {
     var selectedOverlayId: Binding<UUID?> = .constant(nil)
     var playerViewModel: PreviewPlayerViewModel? = nil
     var musicPanel: MusicPanelModel? = nil
-    var assistant: AssistantChatModel? = nil
 
     @Binding var showExportModal: Bool
     @Binding var showTranscriptionModal: Bool
-    @Binding var showAISuggestionsModal: Bool
 
     @State private var selectedTool: EditorTool? = nil
 
@@ -121,7 +119,7 @@ struct RightPanel: View {
         if musicPanel != nil {
             tools.append(.music)
         }
-        tools += [.subtitles, .assistant, .export]
+        tools += [.subtitles, .export]
         return tools
     }
 
@@ -134,7 +132,7 @@ struct RightPanel: View {
     private func status(for tool: EditorTool) -> EditorToolStatus {
         let project = editor.project
         switch tool {
-        case .layout, .format, .assistant, .export:
+        case .layout, .format, .export:
             return .inactive
         case .camera:
             return EditorToolStatus(count: nil, isActive: true)
@@ -271,18 +269,6 @@ struct RightPanel: View {
                 onSeek: { time in playerViewModel?.seek(to: time) },
                 onOpenTranscript: { showTranscriptionModal = true }
             )
-        case .assistant:
-            if let assistant {
-                AssistantChatView(model: assistant) { showAISuggestionsModal = true }
-            } else {
-                Button {
-                    showAISuggestionsModal = true
-                } label: {
-                    PanelActionLabel("Connect Assistant (MCP)...", icon: "sparkles")
-                }
-                .buttonStyle(.bordered)
-                .help("Connect an AI assistant via MCP to edit this project")
-            }
         case .export:
             Button {
                 showExportModal = true
