@@ -2,14 +2,52 @@
 //  AssistantChatView.swift
 //  Cameraman
 //
-//  The chat in the AI Assistant tool. See AssistantChatModel.
+//  The app-wide assistant: a panel docked beside the editor or floating over it. See AssistantChatModel.
 //
 
 import SwiftUI
 
+struct AssistantPanel: View {
+    @ObservedObject var model: AssistantChatModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            HStack(spacing: Spacing.xs) {
+                Label("Assistant", systemImage: "sparkles").font(.headline)
+                Spacer()
+                Menu {
+                    Button("New Chat", action: model.newChat).disabled(model.isRunning || model.messages.isEmpty)
+                    Picker("Placement", selection: $model.placement) {
+                        Text("Docked on the Right").tag(AssistantChatModel.Placement.docked)
+                        Text("Floating").tag(AssistantChatModel.Placement.floating)
+                    }
+                    .pickerStyle(.inline)
+                    Divider()
+                    Button("Use Another App Instead (MCP)…", action: Self.openSettings)
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                Button { model.isPresented = false } label: { Image(systemName: "xmark") }
+                    .buttonStyle(.plain)
+                    .help("Hide (⌘J)")
+            }
+            AssistantChatView(model: model)
+        }
+        .padding(Spacing.md)
+    }
+
+    /// Settings → Developer explains connecting other agents (selector name differs across macOS versions).
+    private static func openSettings() {
+        if !NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) {
+            NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
+        }
+    }
+}
+
 struct AssistantChatView: View {
     @ObservedObject var model: AssistantChatModel
-    var onConnectOtherApp: () -> Void
 
     @State private var draft = ""
     private static let bottom = "bottom"
@@ -28,10 +66,8 @@ struct AssistantChatView: View {
                 conversation
                 composer
             }
-            Button("Use another app instead (MCP)…", action: onConnectOtherApp)
-                .buttonStyle(.link)
-                .font(.caption)
         }
+        .frame(maxHeight: .infinity, alignment: .top)
         .task { await model.locate() }
     }
 
@@ -39,7 +75,7 @@ struct AssistantChatView: View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
             Text("The assistant runs Claude Code with your own Claude plan.")
                 .font(.caption)
-            Text("Install it from claude.com/code, run `claude auth login` in Terminal, then reopen this tool.")
+            Text("Install it from claude.com/code, run `claude auth login` in Terminal, then reopen this panel.")
                 .font(.caption).foregroundStyle(.secondary)
                 .textSelection(.enabled)
         }
@@ -63,7 +99,7 @@ struct AssistantChatView: View {
                 }
                 .padding(Spacing.xs)
             }
-            .frame(height: 320)
+            .frame(maxHeight: .infinity)
             .background(RoundedRectangle(cornerRadius: Radius.medium).fill(AppColor.inset))
             .onChangeCompat(of: model.messages.last?.text.count) { _ in
                 if model.isRunning { proxy.scrollTo(Self.bottom, anchor: .bottom) }
@@ -96,9 +132,6 @@ struct AssistantChatView: View {
                         .help("Claude Code bills apps like this one to your plan's monthly Agent SDK credit, at API rates.")
                 }
                 Spacer()
-                if !model.messages.isEmpty {
-                    Button("New Chat", action: model.newChat).buttonStyle(.link).disabled(model.isRunning)
-                }
             }
             .font(.caption2).foregroundStyle(.secondary)
         }

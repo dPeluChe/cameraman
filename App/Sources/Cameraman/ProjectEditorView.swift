@@ -168,10 +168,8 @@ struct ProjectEditorView: View {
                         selectedOverlayId: $viewModel.selectedOverlayId,
                         playerViewModel: viewModel.playerViewModel,
                         musicPanel: viewModel.musicPanel,
-                        assistant: AssistantChatModel.shared,
                         showExportModal: $showExportModal,
-                        showTranscriptionModal: $showTranscriptionModal,
-                        showAISuggestionsModal: $showAISuggestionsModal
+                        showTranscriptionModal: $showTranscriptionModal
                     )
                     .frame(width: 300)
                     .clipped()

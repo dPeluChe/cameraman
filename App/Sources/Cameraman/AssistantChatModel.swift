@@ -12,17 +12,17 @@ import Foundation
 
 @MainActor
 final class AssistantChatModel: ObservableObject {
-    enum Role { case user, assistant, notice }
+    enum Role: String, Codable { case user, assistant, notice }
 
-    struct Message: Identifiable {
-        let id = UUID()
+    struct Message: Identifiable, Codable {
+        var id = UUID()
         let role: Role
         var text: String
         var tools: [Tool] = []
     }
 
-    struct Tool: Identifiable {
-        enum State { case running, done, failed }
+    struct Tool: Identifiable, Codable {
+        enum State: String, Codable { case running, done, failed }
         let id: String
         let name: String
         var state = State.running
@@ -30,11 +30,20 @@ final class AssistantChatModel: ObservableObject {
 
     enum Availability: Equatable { case checking, ready, missing }
 
+    /// Beside the editor, or a window-like panel over it.
+    enum Placement: String { case docked, floating }
+
     @Published private(set) var messages: [Message] = []
     @Published private(set) var isRunning = false
     @Published private(set) var availability = Availability.checking
     /// What the last turn cost at API rates; on a subscription it comes out of the plan's Agent SDK credit.
     @Published private(set) var lastCost: Double?
+    @Published var isPresented = UserDefaults.standard.bool(forKey: "assistant.presented") {
+        didSet { UserDefaults.standard.set(isPresented, forKey: "assistant.presented") }
+    }
+    @Published var placement = Placement(rawValue: UserDefaults.standard.string(forKey: "assistant.placement") ?? "") ?? .docked {
+        didSet { UserDefaults.standard.set(placement.rawValue, forKey: "assistant.placement") }
+    }
 
     static let shared = AssistantChatModel()
 
@@ -46,7 +55,31 @@ final class AssistantChatModel: ObservableObject {
     /// Deltas land here and reach `messages` at most every 80 ms, so a fast stream does not re-render per token.
     private var pendingText = ""
     private var flush: Task<Void, Never>?
-    private init() {}
+    private let file: URL
+
+    /// The one chat survives relaunches: its messages and the Claude session it resumes.
+    private struct Saved: Codable {
+        var session: String?
+        var messages: [Message]
+    }
+
+    init(file: URL = AppDirectories.support.appendingPathComponent("assistant-chat.json")) {
+        self.file = file
+        guard let data = try? Data(contentsOf: file), let saved = try? JSONDecoder().decode(Saved.self, from: data) else { return }
+        session = saved.session
+        messages = saved.messages.map { message in
+            var message = message
+            for index in message.tools.indices where message.tools[index].state == .running { message.tools[index].state = .failed }
+            return message
+        }
+    }
+
+    private func save() {
+        let saved = Saved(session: session, messages: Array(messages.suffix(300)))
+        guard let data = try? JSONEncoder().encode(saved) else { return }
+        try? FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? data.write(to: file, options: .atomic)
+    }
 
     func follow(_ project: @escaping () -> (id: ProjectId, name: String)?) {
         openProject = project
@@ -68,6 +101,7 @@ final class AssistantChatModel: ObservableObject {
         turn = Task { [weak self] in
             await self?.run(prompt, on: backend)
             self?.isRunning = false
+            self?.save()
         }
     }
 
@@ -82,6 +116,7 @@ final class AssistantChatModel: ObservableObject {
         messages = []
         session = nil
         lastCost = nil
+        save()
     }
 
     private func run(_ prompt: String, on backend: any AgentBackend) async {
