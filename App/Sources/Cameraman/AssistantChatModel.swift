@@ -145,6 +145,10 @@ final class AssistantChatModel: ObservableObject {
         var text = """
             You are the assistant inside Cameraman. This is one chat for the whole app, so the user may talk about \
             any of their projects. Work with the cameraman tools (their server instructions say how).
+            Only take on work in Cameraman: editing and organizing projects, cuts, layout, motions (their HTML \
+            included), music, subtitles, recording and export. For anything else, such as writing code for \
+            another app or general questions, do not do it: say in one line that this chat is for editing in \
+            Cameraman and suggest what you can do with their video instead.
             """
         if let project = openProject() {
             text += " The editor has \"\(project.name)\" open, projectId \(project.id.uuidString): \"this video\" means it."
