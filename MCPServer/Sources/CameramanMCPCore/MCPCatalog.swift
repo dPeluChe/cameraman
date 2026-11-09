@@ -138,7 +138,7 @@ extension MCPTools {
                  required: ["projectId", "trackId", "clipId"]),
 
             tool("edit_clip",
-                 "Edit a clip in one call: reposition (timelineIn), move to another track (toTrackId), retime (speed/volume/opacity), mute (audioMuted) and/or trim its source window (sourceIn/sourceOut). Pass only what changes. For video/recording, sourceIn/sourceOut are source-relative seconds; for audio sourceOut sets duration; for image/color sourceOut sets on-screen duration.",
+                 "Edit a clip in one call: reposition (timelineIn), move to another track (toTrackId), retime (speed/volume/opacity), mute (audioMuted), trim its source window (sourceIn/sourceOut) and/or, on a recording clip, place the camera for that clip only (camera; resetCamera goes back to the layout's). Pass only what changes. To give a stretch of the video its own camera position or size, split_clip the recording at the boundaries and set camera on each part: it keeps the camera's mask, border and background removal; never add camera.mov as a separate video clip for this. For video/recording, sourceIn/sourceOut are source-relative seconds; for audio sourceOut sets duration; for image/color sourceOut sets on-screen duration.",
                  properties: [
                     "projectId": str("Project UUID"),
                     "trackId": str("Current track UUID"),
@@ -154,7 +154,9 @@ extension MCPTools {
                     "h": num("Canvas placement, height up to 1"),
                     "sourceIn": num("New source in-point (seconds)"),
                     "sourceOut": num("New source out-point (seconds), must be greater than sourceIn"),
-                    "audioMuted": bool("Mute or unmute the clip's own audio (recording clips)")
+                    "audioMuted": bool("Mute or unmute the clip's own audio (recording clips)"),
+                    "camera": object("Recording clips: the camera for this clip, normalized 0–1 {x,y,w,h,cornerRadius,maskShape(none|circle|roundedRect|capsule),borderWidth,borderColor}. Left-out fields keep the current ones, so {x,y,w,h} moves and resizes it with the same look. Needs a pip or side_by_side layout"),
+                    "resetCamera": bool("Recording clips: drop the clip's own camera and use the layout's again")
                  ],
                  required: ["projectId", "trackId", "clipId"]),
 
@@ -331,7 +333,7 @@ extension MCPTools {
     private static var canvasTools: [[String: Any]] {
         [
             tool("set_canvas_layout",
-                 "Set how screen and camera are composed. type=fullscreen (screen only), pip (camera as a floating inset), or side_by_side. For pip/side_by_side pass an optional camera placement. Also tunes padding, corner radius and shadow.",
+                 "Set how screen and camera are composed. type=fullscreen (screen only), pip (camera as a floating inset), or side_by_side. For pip/side_by_side pass an optional camera placement; left-out camera fields keep the current ones. It applies to the whole video; for one stretch use edit_clip camera. Also tunes padding, corner radius and shadow.",
                  properties: [
                     "projectId": str("Project UUID"),
                     "type": strEnum("Layout type", ["fullscreen", "pip", "side_by_side"]),

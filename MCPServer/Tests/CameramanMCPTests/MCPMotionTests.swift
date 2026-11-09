@@ -53,6 +53,54 @@ final class MCPMotionTests: XCTestCase {
         XCTAssertNotNil(json["rightClipId"] as? String)
     }
 
+    /// A stretch gets its own camera place and size but keeps the look (an oval with no border stays one).
+    func testClipCameraMovesTheCameraAndKeepsItsLook() async throws {
+        let tools = MCPTools()
+        let (id, _) = try await makeProject(tools)
+        var project = try await ProjectLibrary.shared.getProject(projectId: id)
+        let trackIndex = try XCTUnwrap(project.timeline.tracks.firstIndex { $0.type == .primary })
+        let clip = Project.TimelineClip(timelineIn: 0, content: .recording(Project.RecordingClipRef(sourceIn: 0, sourceOut: 4)))
+        project.timeline.tracks[trackIndex].clips = [clip]
+        try await ProjectLibrary.shared.updateProject(project)
+        let base: [String: Any] = ["projectId": id.uuidString, "trackId": project.timeline.tracks[trackIndex].id.uuidString, "clipId": clip.id]
+
+        _ = try await tools.execute(name: "set_canvas_layout", arguments: base.merging(["type": "pip", "camera": ["maskShape": "circle", "borderWidth": 0]]) { $1 })
+        let reply = try await tools.execute(name: "edit_clip", arguments: base.merging(["camera": ["x": 0.1, "y": 0.2, "w": 0.5, "h": 0.5]]) { $1 })
+        XCTAssertTrue(reply.contains("\"camera\""), reply)
+
+        var camera = try await recordingCamera(id, clip.id)
+        XCTAssertEqual(camera?.x, 0.1)
+        XCTAssertEqual(camera?.w, 0.5)
+        XCTAssertEqual(camera?.maskShape, .circle)
+        XCTAssertEqual(camera?.borderWidth, 0)
+
+        _ = try await tools.execute(name: "edit_clip", arguments: base.merging(["resetCamera": true]) { $1 })
+        camera = try await recordingCamera(id, clip.id)
+        XCTAssertNil(camera)
+    }
+
+    private func recordingCamera(_ id: UUID, _ clipId: String) async throws -> Project.Canvas.Layout.CameraPosition? {
+        let project = try await ProjectLibrary.shared.getProject(projectId: id)
+        let clip = project.timeline.tracks.flatMap(\.clips).first { $0.id == clipId }
+        guard case .recording(let ref) = clip?.content else { XCTFail("not a recording clip"); return nil }
+        return ref.cameraPosition
+    }
+
+    func testClipCameraIsOnlyForRecordingsInALayoutWithACamera() async throws {
+        let tools = MCPTools()
+        let (id, _) = try await makeProject(tools)
+        _ = try await tools.execute(name: "add_clip", arguments: ["projectId": id.uuidString, "type": "color", "at": 0, "duration": 2])
+        let track = try await ProjectLibrary.shared.getProject(projectId: id).timeline.tracks.first { $0.clips.count == 1 }
+        let args: [String: Any] = ["projectId": id.uuidString, "trackId": try XCTUnwrap(track).id.uuidString,
+                                   "clipId": try XCTUnwrap(track?.clips.first).id, "camera": ["x": 0.1]]
+        do {
+            _ = try await tools.execute(name: "edit_clip", arguments: args)
+            XCTFail("a color clip has no camera")
+        } catch let error as MCPToolError {
+            XCTAssertTrue(error.message.contains("recording clips"), error.message)
+        }
+    }
+
     func testSideBySideStoresTheSpellingTheEngineReadsAndTakesASide() async throws {
         let tools = MCPTools()
         let (id, _) = try await makeProject(tools)

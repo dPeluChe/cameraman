@@ -362,6 +362,9 @@ final class MCPTools {
                         "adjustments": (clip.adjustments ?? []).count
                     ]
                     if let position = clip.position { entry["position"] = Self.area(position) }
+                    if case .recording(let ref) = clip.content, let camera = ref.cameraPosition {
+                        entry["camera"] = Self.area(Project.MediaPosition(x: camera.x, y: camera.y, w: camera.w, h: camera.h))
+                    }
                     return entry
                 }
             ]

@@ -61,11 +61,14 @@ extension MCPTools {
         let sourceOut = args.optNum("sourceOut")
         let audioMuted = args.optBool("audioMuted")
         let position = try Self.placement(args)
+        let cameraArg = args["camera"] as? [String: Any]
+        let resetCamera = args.optBool("resetCamera") == true
         let crossTrack = toTrackId != nil && toTrackId != trackId
         let wantsUpdate = crossTrack || timelineIn != nil || speed != nil || volume != nil
             || opacity != nil || sourceIn != nil || sourceOut != nil || position != nil
+            || cameraArg != nil || resetCamera
         guard wantsUpdate || audioMuted != nil else {
-            throw MCPToolError("Pass at least one change: timelineIn, toTrackId, speed, volume, opacity, x/y/w/h, sourceIn, sourceOut, audioMuted.")
+            throw MCPToolError("Pass at least one change: timelineIn, toTrackId, speed, volume, opacity, x/y/w/h, camera, resetCamera, sourceIn, sourceOut, audioMuted.")
         }
 
         if position != nil {
@@ -79,6 +82,17 @@ extension MCPTools {
         if sourceIn != nil || sourceOut != nil {
             let clip = try await resolveClip(args).clip
             newContent = Self.trimmedContent(clip.content, sourceIn: sourceIn, sourceOut: sourceOut)
+        }
+        if cameraArg != nil || resetCamera {
+            let (project, _, clip) = try await resolveClip(args)
+            guard case .recording(var ref) = newContent ?? clip.content else {
+                throw MCPToolError("camera applies to recording clips (screen + camera). Place other video with x/y/w/h.")
+            }
+            guard let layoutCamera = project.canvas.layout.camera else {
+                throw MCPToolError("The layout is fullscreen, so the camera is hidden. Call set_canvas_layout with type pip first.")
+            }
+            ref.cameraPosition = cameraArg.map { Self.cameraPosition(from: $0, keeping: ref.cameraPosition ?? layoutCamera) }
+            newContent = .recording(ref)
         }
 
         let project = try await mutate(args) { editor in
