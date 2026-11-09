@@ -50,7 +50,7 @@ One process per turn, resumed by session id:
 claude -p <message> --output-format stream-json --verbose --include-partial-messages
   --mcp-config <0600 temp file: {"mcpServers":{"cameraman":{"type":"http","url":…,"headers":{"Authorization":"Bearer …"}}}}>
   --strict-mcp-config --tools "" --allowedTools mcp__cameraman --permission-mode dontAsk
-  --append-system-prompt <project context> [--resume <session id>]
+  --setting-sources "" --system-prompt <project context> [--resume <session id>]
 ```
 
 - `--tools ""` turns off Claude Code's built-in tools; `--strict-mcp-config` ignores the user's other MCP servers;

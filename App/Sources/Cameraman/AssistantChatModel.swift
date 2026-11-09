@@ -2,8 +2,8 @@
 //  AssistantChatModel.swift
 //  Cameraman
 //
-//  The AI Assistant tool: a chat with the user's own agent (Claude Code), which edits the open project
-//  through the in-app MCP server. Lives with the editor view model, so collapsing the tool keeps the chat.
+//  The AI Assistant tool: one chat for the whole app with the user's own agent (Claude Code), which edits
+//  projects through the in-app MCP server. It outlives the editor, so switching projects keeps the chat.
 //
 
 import Combine
@@ -36,28 +36,26 @@ final class AssistantChatModel: ObservableObject {
     /// What the last turn cost at API rates; on a subscription it comes out of the plan's Agent SDK credit.
     @Published private(set) var lastCost: Double?
 
-    private let projectId: ProjectId
-    private let projectName: () -> String
+    static let shared = AssistantChatModel()
+
+    /// The project in the editor, told to the agent on every turn.
+    private var openProject: () -> (id: ProjectId, name: String)? = { nil }
     private var backend: (any AgentBackend)?
     private var session: String?
     private var turn: Task<Void, Never>?
     /// Deltas land here and reach `messages` at most every 80 ms, so a fast stream does not re-render per token.
     private var pendingText = ""
     private var flush: Task<Void, Never>?
-    /// One lookup per launch: it may start a login shell.
-    private static var located: Task<URL?, Never>?
+    private init() {}
 
-    init(projectId: ProjectId, projectName: @escaping () -> String) {
-        self.projectId = projectId
-        self.projectName = projectName
+    func follow(_ project: @escaping () -> (id: ProjectId, name: String)?) {
+        openProject = project
     }
 
     func locate() async {
         guard backend == nil else { return }
         availability = .checking
-        let lookup = Self.located ?? Task { await ClaudeCodeBackend.locate() }
-        Self.located = lookup
-        backend = await lookup.value.map { ClaudeCodeBackend(executable: $0) }
+        backend = await ClaudeCodeBackend.locate().map { ClaudeCodeBackend(executable: $0) }
         availability = backend == nil ? .missing : .ready
     }
 
@@ -144,11 +142,16 @@ final class AssistantChatModel: ObservableObject {
     }
 
     private var instructions: String {
-        """
-        You are the assistant inside Cameraman. The user has the project "\(projectName())" open, projectId \
-        \(projectId.uuidString): work on it with the cameraman tools (their server instructions say how) and always \
-        pass that projectId.
-        """
+        var text = """
+            You are the assistant inside Cameraman. This is one chat for the whole app, so the user may talk about \
+            any of their projects. Work with the cameraman tools (their server instructions say how).
+            """
+        if let project = openProject() {
+            text += " The editor has \"\(project.name)\" open, projectId \(project.id.uuidString): \"this video\" means it."
+        } else {
+            text += " No project is open in the editor; find projects with list_projects."
+        }
+        return text
     }
 
     /// "mcp__cameraman__add_music" reads "add music".

@@ -47,6 +47,7 @@ public struct ClaudeCodeBackend: AgentBackend {
                 defer { try? FileManager.default.removeItem(at: config) }
                 do {
                     try Self.writeMCPConfig(context, to: config)
+                    try FileManager.default.createDirectory(at: AppDirectories.support, withIntermediateDirectories: true)
                     process.executableURL = executable
                     process.arguments = arguments(config)
                     process.currentDirectoryURL = AppDirectories.support
@@ -71,11 +72,13 @@ public struct ClaudeCodeBackend: AgentBackend {
     }
 
     /// Only Cameraman's tools, and nothing that would wait on a permission prompt nobody can answer.
+    /// No user or project settings (their CLAUDE.md, hooks, plugins) and our own system prompt instead of the
+    /// coding one: a video editor needs neither, and each turn starts with ~0.6k tokens instead of ~18k.
     static func arguments(session: String?, config: URL, instructions: String, model: String?) -> [String] {
         var arguments = ["-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
                          "--mcp-config", config.path, "--strict-mcp-config",
                          "--tools", "", "--allowedTools", "mcp__cameraman", "--permission-mode", "dontAsk",
-                         "--append-system-prompt", instructions]
+                         "--setting-sources", "", "--system-prompt", instructions]
         if let session { arguments += ["--resume", session] }
         if let model { arguments += ["--model", model] }
         return arguments

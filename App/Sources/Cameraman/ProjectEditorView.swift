@@ -29,10 +29,6 @@ final class ProjectEditorViewModel: ObservableObject {
         editor: { [weak self] in self?.editor },
         directory: { [weak self] in self?.projectDirectory }
     )
-    private(set) lazy var assistant = AssistantChatModel(
-        projectId: projectId,
-        projectName: { [weak self] in self?.editor?.project.name ?? "" }
-    )
 
     private let projectId: ProjectId
     private let library: ProjectLibrary
@@ -41,6 +37,9 @@ final class ProjectEditorViewModel: ObservableObject {
     init(projectId: ProjectId, library: ProjectLibrary = ProjectLibrary.shared) {
         self.projectId = projectId
         self.library = library
+        AssistantChatModel.shared.follow { [weak self] in
+            self?.editor.map { ($0.project.projectId, $0.project.name) }
+        }
         // Defer observer setup to avoid "Publishing changes from within view updates"
         Task { @MainActor [weak self] in
             self?.setupObservers()
@@ -169,7 +168,7 @@ struct ProjectEditorView: View {
                         selectedOverlayId: $viewModel.selectedOverlayId,
                         playerViewModel: viewModel.playerViewModel,
                         musicPanel: viewModel.musicPanel,
-                        assistant: viewModel.assistant,
+                        assistant: AssistantChatModel.shared,
                         showExportModal: $showExportModal,
                         showTranscriptionModal: $showTranscriptionModal,
                         showAISuggestionsModal: $showAISuggestionsModal
