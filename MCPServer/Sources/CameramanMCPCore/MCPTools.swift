@@ -207,7 +207,11 @@ final class MCPTools {
         let project = try await mutate(args) { editor in
             await editor.splitClip(clipId: clipId, inTrackId: trackId, at: at)
         }
-        return try summary("Split clip \(clipId) at \(at)s", project)
+        // Both halves get new ids; naming them saves the agent a get_project per cut.
+        let clips = project.timeline.tracks.first { $0.id == trackId }?.clips ?? []
+        let halves = [clips.first { abs($0.timelineOut - at) < 0.001 }, clips.first { abs($0.timelineIn - at) < 0.001 }]
+        return try summary("Split clip \(clipId) at \(at)s", project,
+                           extra: ["leftClipId": halves[0]?.id ?? NSNull(), "rightClipId": halves[1]?.id ?? NSNull()])
     }
 
     private func deleteClip(_ args: [String: Any]) async throws -> String {

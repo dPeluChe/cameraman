@@ -36,6 +36,23 @@ final class MCPMotionTests: XCTestCase {
         return (id, directory)
     }
 
+    /// Both halves get new ids; the reply names them so an agent can keep cutting without re-reading.
+    func testSplitClipNamesBothHalves() async throws {
+        let tools = MCPTools()
+        let (id, _) = try await makeProject(tools)
+        _ = try await tools.execute(name: "add_clip", arguments: ["projectId": id.uuidString, "type": "color", "at": 0, "duration": 6])
+        let track = try await ProjectLibrary.shared.getProject(projectId: id).timeline.tracks.first { $0.clips.count == 1 }
+        let clip = try XCTUnwrap(track?.clips.first)
+        let reply = try await tools.execute(name: "split_clip", arguments: [
+            "projectId": id.uuidString, "trackId": try XCTUnwrap(track).id.uuidString, "clipId": clip.id, "atTime": 2
+        ])
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(reply.utf8)) as? [String: Any])
+        let clips = try await ProjectLibrary.shared.getProject(projectId: id).timeline.tracks.first { $0.id == track?.id }?.clips ?? []
+        XCTAssertEqual(json["leftClipId"] as? String, clips.first { $0.timelineOut == 2 }?.id)
+        XCTAssertEqual(json["rightClipId"] as? String, clips.first { $0.timelineIn == 2 }?.id)
+        XCTAssertNotNil(json["rightClipId"] as? String)
+    }
+
     func testSideBySideStoresTheSpellingTheEngineReadsAndTakesASide() async throws {
         let tools = MCPTools()
         let (id, _) = try await makeProject(tools)

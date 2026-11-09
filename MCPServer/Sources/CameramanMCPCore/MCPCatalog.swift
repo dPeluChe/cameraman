@@ -119,7 +119,7 @@ extension MCPTools {
                  required: ["projectId", "type", "at"]),
 
             tool("split_clip",
-                 "Cut a clip into two at a timeline time (seconds). Works on any clip type.",
+                 "Cut a clip into two at a timeline time (seconds). Works on any clip type. Both halves get new ids, returned as leftClipId and rightClipId; split one clip at a time.",
                  properties: [
                     "projectId": str("Project UUID"),
                     "trackId": str("Track UUID (from get_project)"),
