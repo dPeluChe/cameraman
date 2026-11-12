@@ -19,6 +19,7 @@ DerivedData/
 # Distribution artifacts
 /dist/
 /CameramanApp/build/
+/build/
 
 # Pencil design files (binary/encrypted, edited via Pencil MCP only)
 *.pen

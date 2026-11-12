@@ -32,6 +32,16 @@ swift test --filter <TestClass>  # Run specific test class
 swift test --parallel            # Run tests in parallel
 ```
 
+App (agents and scripts): build inside the repo so each worktree keeps its own copy and it goes with the worktree,
+not into the global `~/Library/Developer/Xcode/DerivedData`:
+
+```bash
+xcodebuild -project CameramanApp/CameramanApp.xcodeproj -scheme CameramanApp -configuration Debug \
+  -destination 'platform=macOS' -derivedDataPath build/dd build
+```
+
+Remove a worktree with `git worktree remove`, so its `build/` and `.build/` go with it.
+
 ## Recording Output
 
 Recordings are saved under Application Support (`AppDirectories.recordings`):
