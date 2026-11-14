@@ -15,8 +15,8 @@ extension OverlayEditorView {
     }
 
     @ViewBuilder
-    func styleInspector(for overlay: Project.Overlay) -> some View {
-        SettingsSection("Style Inspector", spacing: Spacing.md) {
+    func styleInspector(for overlay: Project.Overlay, isExpanded: Binding<Bool>) -> some View {
+        SettingsSection("Style Inspector", spacing: Spacing.md, isExpanded: isExpanded) {
             LazyVGrid(columns: inspectorColumns, alignment: .leading, spacing: 12) {
                 // Color picker
                 VStack(alignment: .leading, spacing: 4) {

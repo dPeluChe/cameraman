@@ -148,6 +148,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the new landing repo.
 
 ### Fixed
+- **Overlay rotation follows the handle** — the selection frame on the preview turned the opposite way from the overlay it drew, and dragging the rotate handle clockwise turned the overlay counterclockwise. Both now turn with the cursor; saved rotations look the same in preview and export as before.
+- **Camera tool stays available** — a project whose layout hides the camera (fullscreen, or an agent that split the camera into clips) lost the Camera tool. It now shows whenever the recording has a camera, with *Show Camera* to bring it back.
+- **Collapsible Style Inspector** — the overlay Style Inspector folds from its own header, not only from the overlay row.
 - **Removed the Burn-in Captions switch** — it was never connected to anything. Subtitles on the timeline always go into the export.
 - **Less work in the preview** — macOS Live Text no longer scans preview frames, which also silences its empty-bounds warning in the log.
 - **Another variation sounds different** — each one moves the tempo and swaps a quiet melodic figure (bell, pluck, keys or none, with its own pattern and pace) instead of only reshuffling chords.

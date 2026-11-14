@@ -73,11 +73,10 @@ struct OverlayEditorView: View {
             }
 
             // Style inspector (when overlay is selected)
-            if inspectorExpanded,
-               let overlayId = selectedOverlayId,
+            if let overlayId = selectedOverlayId,
                let overlay = editor.project.overlays.first(where: { $0.id == overlayId }) {
                 Divider()
-                styleInspector(for: overlay)
+                styleInspector(for: overlay, isExpanded: $inspectorExpanded)
             }
         }
     }

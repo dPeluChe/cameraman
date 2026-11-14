@@ -74,7 +74,7 @@ extension PreviewPlayerView {
         EditorTool.allCases.filter { tool in
             switch tool {
             case .camera:
-                return editor.project.canvas.layout.camera != nil
+                return editor.project.primarySources?.camera != nil
             case .mediaItems:
                 return !editor.project.mediaItems.isEmpty
             default:

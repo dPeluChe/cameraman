@@ -382,6 +382,17 @@ struct PiPConfigurationView: View {
                     }
                 }
             }
+        } else {
+            // The take has a camera but the layout hides it (fullscreen, or an agent split it into clips).
+            VStack(alignment: .leading, spacing: 8) {
+                Text("The current layout hides the camera.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Button("Show Camera") {
+                    Task { await editor.setLayoutPreset(.pip) }
+                }
+                .controlSize(.small)
+            }
         }
     }
 
