@@ -59,6 +59,11 @@ public struct Project: Codable, Equatable {
         sources ?? takes.first?.sources
     }
 
+    /// The recording has a camera track, whether or not the layout shows it.
+    public var hasCamera: Bool {
+        primarySources?.camera != nil
+    }
+
     /// Serialized overlay configs ready for the compositor. Includes subtitles
     /// (which are text overlays) so the preview compositor renders them too.
     public var overlayConfigs: [OverlayConfig] {

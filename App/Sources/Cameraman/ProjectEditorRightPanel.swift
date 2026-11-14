@@ -101,7 +101,7 @@ struct RightPanel: View {
 
     private var availableTools: [EditorTool] {
         var tools: [EditorTool] = [.layout, .format]
-        if editor.project.primarySources?.camera != nil {
+        if editor.project.hasCamera {
             tools.append(.camera)
         }
         tools += [.videoEffects, .background, .autoZoom]

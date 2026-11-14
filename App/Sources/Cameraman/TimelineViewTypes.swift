@@ -185,7 +185,7 @@ enum TimelineTrackBuilder {
 
         tracks.append(TimelineTrack(kind: .screen, segments: project.timeline.segments))
 
-        if project.primarySources?.camera != nil {
+        if project.hasCamera {
             tracks.append(TimelineTrack(kind: .camera, segments: project.timeline.segments))
         }
 

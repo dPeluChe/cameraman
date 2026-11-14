@@ -42,11 +42,10 @@ struct SettingsSection<Content: View>: View {
                 }
                 .buttonStyle(.plain)
                 .help(isExpanded.wrappedValue ? "Collapse" : "Expand")
-                if isExpanded.wrappedValue { content() }
             } else {
                 header
-                content()
             }
+            if isExpanded?.wrappedValue ?? true { content() }
         }
         .sectionCard()
     }

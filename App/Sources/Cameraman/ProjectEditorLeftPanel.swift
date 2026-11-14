@@ -69,7 +69,7 @@ struct ProjectAssetsBar: View {
                     HStack(spacing: 10) {
                         AssetGroup(title: "Sources") {
                             AssetChip(icon: "display", title: "Screen", subtitle: "Main")
-                            if editor.project.primarySources?.camera != nil {
+                            if editor.project.hasCamera {
                                 AssetChip(icon: "video.fill", title: "Camera", subtitle: "1080p")
                             }
                             if editor.project.primarySources?.audio != nil {

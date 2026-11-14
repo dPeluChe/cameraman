@@ -58,7 +58,7 @@ struct LayoutSelectorView: View {
     }
 
     private func isPresetEnabled(_ preset: CanvasLayout.LayoutPreset) -> Bool {
-        preset == .fullscreen || editor.project.primarySources?.camera != nil
+        preset == .fullscreen || editor.project.hasCamera
     }
 }
 
