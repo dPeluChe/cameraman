@@ -101,7 +101,7 @@ struct RightPanel: View {
 
     private var availableTools: [EditorTool] {
         var tools: [EditorTool] = [.layout, .format]
-        if editor.project.canvas.layout.camera != nil {
+        if editor.project.hasCamera {
             tools.append(.camera)
         }
         tools += [.videoEffects, .background, .autoZoom]
@@ -135,7 +135,7 @@ struct RightPanel: View {
         case .layout, .format, .export:
             return .inactive
         case .camera:
-            return EditorToolStatus(count: nil, isActive: true)
+            return EditorToolStatus(count: nil, isActive: project.canvas.layout.camera != nil)
         case .music:
             let count = project.timeline.musicPieces.count
             return EditorToolStatus(count: count, isActive: count > 0)

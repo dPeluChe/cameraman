@@ -50,12 +50,6 @@ struct OverlayEditorView: View {
                             Text("\(String(format: "%.2f", overlay.start))s - \(String(format: "%.2f", overlay.end))s")
                                 .font(.system(size: 9, design: .monospaced))
                                 .foregroundStyle(.tertiary)
-                            if selectedOverlayId == overlay.id {
-                                Image(systemName: inspectorExpanded ? "chevron.up" : "chevron.down")
-                                    .font(.system(size: 9, weight: .semibold))
-                                    .foregroundStyle(.secondary)
-                                    .help(inspectorExpanded ? "Collapse the style inspector" : "Expand the style inspector")
-                            }
                         }
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
@@ -65,7 +59,7 @@ struct OverlayEditorView: View {
                         )
                         .contentShape(Rectangle())
                         .onTapGesture {
-                            inspectorExpanded = selectedOverlayId == overlay.id ? !inspectorExpanded : true
+                            if selectedOverlayId != overlay.id { inspectorExpanded = true }
                             selectedOverlayId = overlay.id
                         }
                     }
@@ -73,11 +67,10 @@ struct OverlayEditorView: View {
             }
 
             // Style inspector (when overlay is selected)
-            if inspectorExpanded,
-               let overlayId = selectedOverlayId,
+            if let overlayId = selectedOverlayId,
                let overlay = editor.project.overlays.first(where: { $0.id == overlayId }) {
                 Divider()
-                styleInspector(for: overlay)
+                styleInspector(for: overlay, isExpanded: $inspectorExpanded)
             }
         }
     }

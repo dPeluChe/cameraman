@@ -23,7 +23,7 @@ struct AssistantPanel: View {
                     }
                     .pickerStyle(.inline)
                     Divider()
-                    Button("Use Another App Instead (MCP)…", action: Self.openSettings)
+                    Button("Use Another App Instead (MCP)…") { Self.openSettings() }
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }

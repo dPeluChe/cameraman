@@ -14,7 +14,7 @@ import EngineKit
 extension ProjectEditor {
     @discardableResult
     func setLayoutPreset(_ preset: CanvasLayout.LayoutPreset) async -> Bool {
-        let hasCamera = project.primarySources?.camera != nil
+        let hasCamera = project.hasCamera
         if preset != .fullscreen && !hasCamera { return false }
         if preset == .sideBySide { await clearPerClipCameraOverrides() }
         return await applyCanvasUpdate {
@@ -36,7 +36,7 @@ extension ProjectEditor {
         _ camera: Project.Canvas.Layout.CameraPosition,
         recordUndoFrom snapshot: Project? = nil
     ) async -> Bool {
-        let hasCamera = project.primarySources?.camera != nil
+        let hasCamera = project.hasCamera
         return await applyCanvasUpdate(saveAfter: true) {
             $0.canvas.layout.camera = camera
             try CanvasLayout.validateLayout($0.canvas.layout, hasCamera: hasCamera)

@@ -8,29 +8,55 @@ struct SettingsSection<Content: View>: View {
     let title: String
     var subtitle: String?
     var spacing: CGFloat
+    /// When set, the header toggles the content.
+    var isExpanded: Binding<Bool>?
     @ViewBuilder var content: () -> Content
 
     init(_ title: String,
          subtitle: String? = nil,
          spacing: CGFloat = Spacing.md,
+         isExpanded: Binding<Bool>? = nil,
          @ViewBuilder content: @escaping () -> Content) {
         self.title = title
         self.subtitle = subtitle
         self.spacing = spacing
+        self.isExpanded = isExpanded
         self.content = content
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.headline)
-                if let subtitle {
-                    Text(subtitle).font(.caption).foregroundStyle(.secondary)
+            if let isExpanded {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) { isExpanded.wrappedValue.toggle() }
+                } label: {
+                    HStack {
+                        header
+                        Spacer()
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .rotationEffect(.degrees(isExpanded.wrappedValue ? 0 : -90))
+                    }
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .help(isExpanded.wrappedValue ? "Collapse" : "Expand")
+            } else {
+                header
             }
-            content()
+            if isExpanded?.wrappedValue ?? true { content() }
         }
         .sectionCard()
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title).font(.headline)
+            if let subtitle {
+                Text(subtitle).font(.caption).foregroundStyle(.secondary)
+            }
+        }
     }
 }
 

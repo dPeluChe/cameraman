@@ -117,7 +117,8 @@ struct OverlayInteractionLayer: View {
             }
         }
         .frame(width: rect.width, height: rect.height)
-        .rotationEffect(.degrees(transform.rotation))
+        // Stored degrees turn counterclockwise, as the y-up renderers draw them; SwiftUI turns clockwise.
+        .rotationEffect(.degrees(-transform.rotation))
         .position(x: rect.midX, y: rect.midY)
         .onHover { inside in
             if inside {
@@ -224,7 +225,7 @@ struct OverlayInteractionLayer: View {
                         x: base.x,
                         y: base.y,
                         scale: base.scale,
-                        rotation: normalizedDegrees(base.rotation + degrees)
+                        rotation: normalizedDegrees(base.rotation - degrees)
                     ),
                     overlayId: overlay.id
                 )
